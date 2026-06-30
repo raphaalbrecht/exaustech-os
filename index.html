@@ -278,6 +278,19 @@
   .aloc-cancelbox{font-size:12px;color:var(--weak);padding:8px 2px 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .aloc-lane.late{border-color:#f0c34b}
   .late-tag{font-size:9px;font-weight:800;color:#8a6d2b;background:#fff3cd;border-radius:8px;padding:1px 6px;vertical-align:middle;margin-left:5px}
+  .aloc-lane.team-under{border:2px solid #e5484d;box-shadow:0 0 0 3px rgba(229,72,77,.10),0 1px 2px rgba(0,0,0,.04)}
+  .aloc-lane.team-ok{border:2px solid #30a46c;box-shadow:0 0 0 3px rgba(48,164,108,.13),0 1px 2px rgba(0,0,0,.04)}
+  .aloc-lane.team-over{border:2px solid #f5a623;box-shadow:0 0 0 3px rgba(245,166,35,.14),0 1px 2px rgba(0,0,0,.04)}
+  .tcount{font-size:11px;font-weight:800;color:#fff;border-radius:11px;padding:2px 9px;white-space:nowrap;letter-spacing:.02em}
+  .tcount-under{background:#e5484d}
+  .tcount-ok{background:#30a46c}
+  .tcount-over{background:#f5a623}
+  .team-legend{font-size:11px;color:var(--weak);margin:-4px 0 13px;display:flex;gap:13px;flex-wrap:wrap}
+  .team-legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+  .team-legend i::before{content:'';width:11px;height:11px;border-radius:3px;display:inline-block}
+  .team-legend .lg-ok::before{background:#30a46c}
+  .team-legend .lg-under::before{background:#e5484d}
+  .team-legend .lg-over::before{background:#f5a623}
   .aloc-free{display:flex;flex-wrap:wrap;gap:7px;background:var(--card);border:1px dashed var(--border2);border-radius:12px;padding:11px 12px;margin-bottom:14px}
   .aloc-confirm{margin-bottom:18px}
   .aloc-confirm .btn{width:100%}
@@ -598,7 +611,7 @@ function aptLozCls(s){ return s==='Resolvido'?'lz-succ':(s==='Em verificação'?
 function aptStatus(id){ const a=apontamentos.find(x=>x.id===id); return a?a.status:'Registrado'; }
 const FABR={'Coifas':'Tramontina','Caixa de filtros':'Trox','Exaustores':'Otam','Duto (Site)':'—'};
 const ordens=[
-  { id:'OS-3001', cli:'Outback · Botafogo', contrato:'CT-OUTBACK-BOTAFOGO', local:'Cozinha — Coifa central', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
+  { id:'OS-3001', equipePadrao:3,cli:'Outback · Botafogo', contrato:'CT-OUTBACK-BOTAFOGO', local:'Cozinha — Coifa central', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
     alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-01'},{tag:'CF-02'}]},
@@ -613,7 +626,7 @@ const ordens=[
       {nome:'Kit limpeza de duto',un:'un',solicitado:1,embarcado:1,base:'tarefa de site'},
     ]},
   },
-  { id:'OS-3002', cli:'Outback · Barra Shopping', contrato:'CT-OUTBACK-BARRA', local:'Cozinha — Praça de alimentação', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
+  { id:'OS-3002', equipePadrao:2,cli:'Outback · Barra Shopping', contrato:'CT-OUTBACK-BARRA', local:'Cozinha — Praça de alimentação', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
     alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-10'}]},
@@ -624,7 +637,7 @@ const ordens=[
       {nome:'Correia',un:'un',solicitado:2,embarcado:2,base:'2 exaustores × 1'},
     ]},
   },
-  { id:'OS-2987', cli:'Madero · Leblon', contrato:'CT-MADERO-LEBLON', local:'Cozinha principal', modelo:'MPP Exaustão Leve', plano:'Exaustão · Trimestral',
+  { id:'OS-2987', equipePadrao:2,cli:'Madero · Leblon', contrato:'CT-MADERO-LEBLON', local:'Cozinha principal', modelo:'MPP Exaustão Leve', plano:'Exaustão · Trimestral',
     alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-30'},{tag:'CF-31'}]},
@@ -1596,6 +1609,9 @@ function renderAloc(){
   const hint=document.createElement('div'); hint.className='aloc-hint';
   hint.innerHTML='Cada OS mostra só os funcionários <b>autorizados naquela loja</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
   wrap.appendChild(hint);
+  const leg=document.createElement('div'); leg.className='team-legend';
+  leg.innerHTML='<i class="lg-ok">equipe completa</i><i class="lg-under">faltam pessoas</i><i class="lg-over">acima do previsto</i>';
+  wrap.appendChild(leg);
   ordens.forEach(o=>{
     const ap=apptForOS(o);
     if(o.cancelada){
@@ -1606,10 +1622,12 @@ function renderAloc(){
     }
     const allocMats=o.alocacoes.map(a=>a.matricula);
     const avail=FUNCIONARIOS.filter(f=>f.lojas.includes(o.cli) && !allocMats.includes(f.matricula));
-    const lane=document.createElement('div'); lane.className='aloc-lane'+(isLateOS(o)?' late':'');
+    const need=o.equipePadrao||0, have=o.alocacoes.length;
+    const tstate = !need ? 'ok' : (have<need ? 'under' : (have>need ? 'over' : 'ok'));
+    const lane=document.createElement('div'); lane.className='aloc-lane team-'+tstate+(isLateOS(o)?' late':'');
     lane.innerHTML=`
       <div class="aloc-lhd"><div><div class="aloc-os">${o.id}${isLateOS(o)?' <span class="late-tag">já iniciada</span>':''}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div>
-        <div class="aloc-rhd"><span class="aloc-count">${o.alocacoes.length} alocado(s)</span><button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
+        <div class="aloc-rhd"><span class="tcount tcount-${tstate}" title="Alocados / equipe padrão">${have}/${need} equipe</span><button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
       <div class="aloc-zlabel">Alocados</div>
       <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
         ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
