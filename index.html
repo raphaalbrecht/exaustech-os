@@ -248,6 +248,9 @@
   .fch .frm{margin-left:1px;border:none;background:none;color:var(--weaker);font-size:16px;line-height:1;cursor:pointer;padding:0 3px}
   .fch .frm:hover{color:var(--err)}
   .fch.drag-src{opacity:.38}
+  .fch.busy{opacity:.6;cursor:not-allowed;background:#fbfbfb;border-style:dashed}
+  .fch.busy .av{filter:grayscale(.4)}
+  .fch.busy .fnm small{color:var(--err-tx)}
   .fch-ghost{position:fixed;z-index:9999;pointer-events:none;left:0;top:0;transform:translate(-50%,-50%) scale(1.05);opacity:.97;box-shadow:0 8px 20px rgba(0,0,0,.24)}
   /* ---- botões / footer / botnav ---- */
   .btn{display:block;width:100%;border:none;border-radius:6px;padding:13px;font-size:14.5px;font-weight:700;cursor:pointer}
@@ -591,7 +594,7 @@ const ordens=[
     ]},
   },
   { id:'OS-2987', cli:'Madero · Leblon', contrato:'CT-MADERO-LEBLON', local:'Cozinha principal', modelo:'MPP Exaustão Leve', plano:'Exaustão · Trimestral',
-    alocacoes:[{nome:'João Silva',papel:'Técnico',matricula:'F-1042'},{nome:'Ana Souza',papel:'Auxiliar',matricula:'F-1205'}],
+    alocacoes:[{nome:'Ana Souza',papel:'Auxiliar',matricula:'F-1205'}],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-30'},{tag:'CF-31'}]},
       {nome:'Duto (Site)',tarefa:'Limpeza de dutos',chk:'duto',site:true,equipamentos:[{tag:'Duto principal',site:true}]},
@@ -634,7 +637,7 @@ const DAYLABEL={'29/06':'Hoje · segunda, 29 de junho','30/06':'Terça, 30 de ju
 const appts=[
   {id:'SA-7001', os:ordens[0], dia:'29/06', janela:'09:00 – 11:00', tipo:'Principal', stage:1},
   {id:'SA-7002', os:ordens[1], dia:'29/06', janela:'14:00 – 15:30', tipo:'Principal', stage:5},
-  {id:'SA-7003', os:ordens[2], dia:'29/06', janela:'17:00 – 18:00', tipo:'Principal', stage:0},
+  {id:'SA-7003', os:ordens[2], dia:'29/06', janela:'10:00 – 11:30', tipo:'Principal', stage:0},
   {id:'SA-7004', os:ordens[0], dia:'06/07', janela:'09:00 – 11:00', tipo:'Revisita', stage:0},
 ];
 appts.forEach(a=>{ a.outcome=null; a.tempos={}; });
@@ -1532,7 +1535,23 @@ function funcByNome(n){ return FUNCIONARIOS.find(f=>f.nome===n); }
 function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function firstName(n){ return n.split(' ')[0]; }
 function avatarHTML(nome,cor){ return `<span class="av" style="background:${cor||'#747474'}">${iniName(nome)}</span>`; }
-function chipAvail(o,f){ return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`; }
+function janelaMin(j){ const p=j.split('–').map(s=>s.trim()); const m=t=>{const x=t.split(':').map(Number); return x[0]*60+(x[1]||0);}; return [m(p[0]), m(p[1])]; }
+function apptsOfOS(o){ return appts.filter(a=>a.os===o); }
+function apptsOverlap(a,b){ if(a.dia!==b.dia) return false; const [s1,e1]=janelaMin(a.janela),[s2,e2]=janelaMin(b.janela); return s1<e2 && s2<e1; }
+/* conflito de agenda: o funcionário já está alocado em OUTRA OS cujo compromisso choca em dia+hora */
+function allocConflict(mat,targetOS){
+  const tgt=apptsOfOS(targetOS);
+  for(const o of ordens){ if(o===targetOS) continue; if(!o.alocacoes.some(a=>a.matricula===mat)) continue;
+    for(const ta of tgt) for(const oa of apptsOfOS(o)){ if(apptsOverlap(ta,oa)) return {os:o, oa, ta}; }
+  }
+  return null;
+}
+function chipAvail(o,f){
+  const cf=allocConflict(f.matricula,o);
+  if(cf){ const hh=cf.oa.janela.split('–')[0].trim();
+    return `<div class="fch busy" title="Já alocado em ${cf.os.id} (${cf.os.cli}) ${cf.oa.dia} ${cf.oa.janela}">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>ocupado · ${cf.os.id} ${hh}</small></span></div>`; }
+  return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`;
+}
 function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474';
   return `<div class="fch in" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc">${avatarHTML(a.nome,cor)}<span class="fnm">${firstName(a.nome)}<small>${a.papel||(f?f.cargo:'')}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
 function renderAloc(){
@@ -1562,7 +1581,8 @@ function dropZoneAt(x,y){ const el=document.elementFromPoint(x,y); return el?el.
 function clearDropHL(){ document.querySelectorAll('#alocList .aloc-drop.over').forEach(z=>z.classList.remove('over')); }
 function onAlocDown(e){
   if(e.target.classList.contains('frm')) return;
-  const ch=e.currentTarget; const start={x:e.clientX,y:e.clientY};
+  const ch=e.currentTarget; if(ch.classList.contains('busy')) return;
+  const start={x:e.clientX,y:e.clientY};
   const data={mat:ch.dataset.mat,osid:ch.dataset.osid,src:ch.dataset.src};
   let moved=false, ghost=null;
   const move=(ev)=>{
@@ -1586,6 +1606,8 @@ function allocate(osid,mat){
   const o=ordens.find(x=>x.id===osid), f=funcByMat(mat); if(!o||!f) return;
   if(o.alocacoes.some(a=>a.matricula===mat)) return;
   if(!f.lojas.includes(o.cli)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
+  const cf=allocConflict(mat,o);
+  if(cf){ toast('⛔ '+firstName(f.nome)+' já alocado em '+cf.os.id+' ('+cf.os.cli+') · '+cf.oa.dia+' '+cf.oa.janela); return; }
   o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null});
   renderAloc(); toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
 }
