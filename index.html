@@ -262,6 +262,24 @@
   .aloc-sum .sum-sub{font-size:11.5px;color:var(--brand-d);font-weight:600;margin-top:1px}
   .aloc-sum .sum-time{font-size:11px;color:var(--weak);font-weight:600;white-space:nowrap;text-align:right}
   .aloc-sum-empty{font-size:12px;color:var(--weaker);padding:11px 0}
+  .aloc-sum .sum-time{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .sum-pill{font-size:9px;font-weight:800;border-radius:8px;padding:1px 7px}
+  .sum-pill.ok{background:var(--succ-bg);color:var(--succ)}
+  .sum-pill.pd{background:#fff3cd;color:#8a6d2b}
+  .fch.pend{border-color:#f0c34b;background:#fff8e8}
+  .fch.info{cursor:default;background:#fbfbfb}
+  .aloc-rhd{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .lane-act{background:none;border:1px solid var(--err-bd);color:var(--err-tx);font-size:10.5px;font-weight:700;cursor:pointer;padding:3px 9px;border-radius:13px}
+  .lane-act.reopen{border-color:#cfe2f7;color:var(--brand-d)}
+  .aloc-lane.cancel{opacity:.9;background:#fcfafa}
+  .aloc-canceltag{font-size:10px;font-weight:800;color:#fff;background:var(--err);border-radius:10px;padding:2px 8px;white-space:nowrap;height:fit-content}
+  .aloc-cancelbox{font-size:12px;color:var(--weak);padding:8px 2px 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .aloc-lane.late{border-color:#f0c34b}
+  .late-tag{font-size:9px;font-weight:800;color:#8a6d2b;background:#fff3cd;border-radius:8px;padding:1px 6px;vertical-align:middle;margin-left:5px}
+  .aloc-free{display:flex;flex-wrap:wrap;gap:7px;background:var(--card);border:1px dashed var(--border2);border-radius:12px;padding:11px 12px;margin-bottom:14px}
+  .aloc-confirm{margin-bottom:18px}
+  .aloc-confirm .btn{width:100%}
+  .aloc-confirm .btn:disabled{opacity:.5;cursor:default}
   /* ---- botões / footer / botnav ---- */
   .btn{display:block;width:100%;border:none;border-radius:6px;padding:13px;font-size:14.5px;font-weight:700;cursor:pointer}
   .btn-brand{background:var(--brand);color:#fff}
@@ -564,6 +582,7 @@ const KITS=[
 ];
 let mntSeq=70001;
 const HOJE='29/06';
+const AGORANOW={dia:'29/06', hora:'23:10'}; /* relógio simulado p/ demo do alerta de alocação tardia */
 function pad5(n){ return String(n).padStart(5,'0'); }
 function parseDia(s){ if(!s)return null; const p=s.split('/').map(Number); return new Date(2026,(p[1]||1)-1,p[0]||1); }
 function addDias(s,n){ const dt=parseDia(s)||new Date(2026,5,29); dt.setDate(dt.getDate()+n); return String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0'); }
@@ -1562,21 +1581,33 @@ function chipAvail(o,f){
     return `<div class="fch busy" title="Já alocado em ${cf.os.id} (${cf.os.cli}) ${cf.oa.dia} ${cf.oa.janela}">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>ocupado · ${cf.os.id} ${hh}</small></span></div>`; }
   return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`;
 }
-function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474';
-  return `<div class="fch in" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc">${avatarHTML(a.nome,cor)}<span class="fnm">${firstName(a.nome)}<small>${a.papel||(f?f.cargo:'')}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
+function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474'; const pend=!a.confirmada;
+  return `<div class="fch in${pend?' pend':''}" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc" title="${pend?'Pendente — clique em Confirmar Alocações':'Alocação confirmada'}">${avatarHTML(a.nome,cor)}<span class="fnm">${firstName(a.nome)}<small>${a.papel||(f?f.cargo:'')}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
+function hhmm2min(t){ const x=t.split(':').map(Number); return x[0]*60+(x[1]||0); }
+function isLateOS(o){ const ap=apptForOS(o); if(!ap)return false; const d1=parseDia(ap.dia), d2=parseDia(AGORANOW.dia); if(!d1||!d2)return false; if(d1.getTime()!==d2.getTime()) return d1.getTime()<d2.getTime(); return janelaMin(ap.janela)[0] < hhmm2min(AGORANOW.hora); }
+function countPendentes(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada)n++; }); }); return n; }
+function confirmAloc(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada){a.confirmada=true;n++;} }); }); if(!n){ toast('Nada novo para confirmar.'); return; } renderAloc(); toast('✓ '+n+' alocação(ões) gerada(s) e enviada(s) para agenda/autorização.'); }
+function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
+function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
 function renderAloc(){
   const wrap=document.getElementById('alocList'); if(!wrap)return; wrap.innerHTML='';
   const hint=document.createElement('div'); hint.className='aloc-hint';
-  hint.innerHTML='Cada OS mostra só os funcionários <b>autorizados naquela loja</b> (vindos do processo de autorização de acesso ao shopping). Arraste um cartão para <b>Alocados</b> — ou toque nele. Para tirar, use o ×.';
+  hint.innerHTML='Cada OS mostra só os funcionários <b>autorizados naquela loja</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
   wrap.appendChild(hint);
   ordens.forEach(o=>{
+    const ap=apptForOS(o);
+    if(o.cancelada){
+      const lc=document.createElement('div'); lc.className='aloc-lane cancel';
+      lc.innerHTML=`<div class="aloc-lhd"><div><div class="aloc-os">${o.id}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div><span class="aloc-canceltag">CANCELADA</span></div>
+        <div class="aloc-cancelbox">OS cancelada — recursos liberados para realocação. <button class="lane-act reopen" onclick="reopenOS('${o.id}')">Reabrir OS</button></div>`;
+      wrap.appendChild(lc); return;
+    }
     const allocMats=o.alocacoes.map(a=>a.matricula);
     const avail=FUNCIONARIOS.filter(f=>f.lojas.includes(o.cli) && !allocMats.includes(f.matricula));
-    const ap=apptForOS(o);
-    const lane=document.createElement('div'); lane.className='aloc-lane';
+    const lane=document.createElement('div'); lane.className='aloc-lane'+(isLateOS(o)?' late':'');
     lane.innerHTML=`
-      <div class="aloc-lhd"><div><div class="aloc-os">${o.id}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div>
-        <span class="aloc-count">${o.alocacoes.length} alocado(s)</span></div>
+      <div class="aloc-lhd"><div><div class="aloc-os">${o.id}${isLateOS(o)?' <span class="late-tag">já iniciada</span>':''}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div>
+        <div class="aloc-rhd"><span class="aloc-count">${o.alocacoes.length} alocado(s)</span><button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
       <div class="aloc-zlabel">Alocados</div>
       <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
         ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
@@ -1585,14 +1616,26 @@ function renderAloc(){
         ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : '<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>'}</div>`;
     wrap.appendChild(lane);
   });
-  // resumo das alocações (abaixo dos cards): recurso · conta · horário agendado
+  // resumo das alocações: recurso · conta · horário agendado · status
   const todas=[];
-  ordens.forEach(o=>{ const ap=apptForOS(o); o.alocacoes.forEach(a=>{ const f=funcByNome(a.nome); todas.push({nome:a.nome, cor:f?f.cor:'#747474', conta:o.cli, quando: ap?(ap.dia+' · '+ap.janela):'—'}); }); });
+  ordens.forEach(o=>{ if(o.cancelada)return; const ap=apptForOS(o); o.alocacoes.forEach(a=>{ const f=funcByNome(a.nome); todas.push({nome:a.nome, cor:f?f.cor:'#747474', conta:o.cli, quando: ap?(ap.dia+' · '+ap.janela):'—', conf:!!a.confirmada}); }); });
   todas.sort((x,y)=>x.nome.localeCompare(y.nome));
   const sh=document.createElement('div'); sh.className='aloc-zlabel'; sh.style.marginTop='2px'; sh.textContent='Resumo das alocações ('+todas.length+')'; wrap.appendChild(sh);
   const sum=document.createElement('div'); sum.className='aloc-sum';
-  sum.innerHTML = todas.length ? todas.map(t=>`<div class="aloc-sum-row">${avatarHTML(t.nome,t.cor)}<div class="sum-main"><div class="sum-nm">${t.nome}</div><div class="sum-sub">${t.conta}</div></div><div class="sum-time">${t.quando}</div></div>`).join('') : '<div class="aloc-sum-empty">Nenhuma alocação ainda — arraste funcionários para as OS acima.</div>';
+  sum.innerHTML = todas.length ? todas.map(t=>`<div class="aloc-sum-row">${avatarHTML(t.nome,t.cor)}<div class="sum-main"><div class="sum-nm">${t.nome}</div><div class="sum-sub">${t.conta}</div></div><div class="sum-time">${t.quando}<span class="sum-pill ${t.conf?'ok':'pd'}">${t.conf?'confirmada':'pendente'}</span></div></div>`).join('') : '<div class="aloc-sum-empty">Nenhuma alocação ainda — arraste funcionários para as OS acima.</div>';
   wrap.appendChild(sum);
+  // recursos não alocados (lembrete para o supervisor)
+  const usados=new Set(); ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>usados.add(a.matricula)); });
+  const livres=FUNCIONARIOS.filter(f=>!usados.has(f.matricula));
+  const lh=document.createElement('div'); lh.className='aloc-zlabel'; lh.style.marginTop='2px'; lh.textContent='Recursos não alocados ('+livres.length+')'; wrap.appendChild(lh);
+  const free=document.createElement('div'); free.className='aloc-free';
+  free.innerHTML = livres.length ? livres.map(f=>`<div class="fch info"><span class="av" style="background:${f.cor}">${iniName(f.nome)}</span><span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`).join('') : '<div class="aloc-empty-txt" style="text-align:left">Todos os recursos estão alocados. ✓</div>';
+  wrap.appendChild(free);
+  // botão confirmar
+  const nPend=countPendentes();
+  const bar=document.createElement('div'); bar.className='aloc-confirm';
+  bar.innerHTML=`<button class="btn btn-brand" ${nPend?'':'disabled'} onclick="confirmAloc()">Confirmar Alocações${nPend?' ('+nPend+' pendente'+(nPend>1?'s':'')+')':''}</button>`;
+  wrap.appendChild(bar);
   bindAlocDrag();
 }
 function bindAlocDrag(){ document.querySelectorAll('#alocList .fch').forEach(ch=>{ ch.addEventListener('pointerdown',onAlocDown); }); }
@@ -1600,7 +1643,7 @@ function dropZoneAt(x,y){ const el=document.elementFromPoint(x,y); return el?el.
 function clearDropHL(){ document.querySelectorAll('#alocList .aloc-drop.over').forEach(z=>z.classList.remove('over')); }
 function onAlocDown(e){
   if(e.target.classList.contains('frm')) return;
-  const ch=e.currentTarget; if(ch.classList.contains('busy')) return;
+  const ch=e.currentTarget; if(ch.classList.contains('busy')||!ch.dataset.src) return;
   const start={x:e.clientX,y:e.clientY};
   const data={mat:ch.dataset.mat,osid:ch.dataset.osid,src:ch.dataset.src};
   let moved=false, ghost=null;
@@ -1623,12 +1666,15 @@ function onAlocDown(e){
 }
 function allocate(osid,mat){
   const o=ordens.find(x=>x.id===osid), f=funcByMat(mat); if(!o||!f) return;
+  if(o.cancelada){ toast('OS cancelada — reabra para alocar.'); return; }
   if(o.alocacoes.some(a=>a.matricula===mat)) return;
   if(!f.lojas.includes(o.cli)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
   const cf=allocConflict(mat,o);
   if(cf){ toast('⛔ '+firstName(f.nome)+' já alocado em '+cf.os.id+' ('+cf.os.cli+') · '+cf.oa.dia+' '+cf.oa.janela); return; }
-  o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null});
-  renderAloc(); toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
+  o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null,confirmada:false});
+  renderAloc();
+  if(isLateOS(o)){ const ap=apptForOS(o); toast('⚠️ '+firstName(f.nome)+' alocado APÓS o início da OS ('+ap.dia+' '+ap.janela.split('–')[0].trim()+'). Registrado com alerta.'); }
+  else toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
 }
 function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
