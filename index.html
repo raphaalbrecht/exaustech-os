@@ -249,6 +249,7 @@
   .av-star{position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;color:#f7b500;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 1px #fff}
   .lider-note{font-size:11px;color:#8a6d2b;font-weight:600;margin:-4px 0 13px}
   .lider-note .st{color:#f7b500}
+  .nolead-tag{font-size:9.5px;font-weight:800;color:#fff;background:#e5484d;border-radius:9px;padding:2px 8px;white-space:nowrap}
   .fch .fnm{line-height:1.05}
   .fch .fnm small{display:block;font-size:9.5px;font-weight:600;color:var(--weak)}
   .fch .frm{margin-left:1px;border:none;background:none;color:var(--weaker);font-size:16px;line-height:1;cursor:pointer;padding:0 3px}
@@ -1607,7 +1608,13 @@ function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474'
 function hhmm2min(t){ const x=t.split(':').map(Number); return x[0]*60+(x[1]||0); }
 function isLateOS(o){ const ap=apptForOS(o); if(!ap)return false; const d1=parseDia(ap.dia), d2=parseDia(AGORANOW.dia); if(!d1||!d2)return false; if(d1.getTime()!==d2.getTime()) return d1.getTime()<d2.getTime(); return janelaMin(ap.janela)[0] < hhmm2min(AGORANOW.hora); }
 function countPendentes(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada)n++; }); }); return n; }
-function confirmAloc(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada){a.confirmada=true;n++;} }); }); if(!n){ toast('Nada novo para confirmar.'); return; } renderAloc(); toast('✓ '+n+' alocação(ões) gerada(s) e enviada(s) para agenda/autorização.'); }
+function confirmAloc(){
+  const semLider=ordens.filter(o=>!o.cancelada && o.alocacoes.length>0 && !o.alocacoes.some(a=>isLider(a.nome)));
+  if(semLider.length){ toast('⛔ Toda OS precisa de ao menos 1 líder. Sem líder em: '+semLider.map(o=>o.id).join(', ')); return; }
+  let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada){a.confirmada=true;n++;} }); });
+  if(!n){ toast('Nada novo para confirmar.'); return; }
+  renderAloc(); toast('✓ '+n+' alocação(ões) gerada(s) e enviada(s) para agenda/autorização.');
+}
 function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
 function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
 function renderAloc(){
@@ -1618,7 +1625,7 @@ function renderAloc(){
   const leg=document.createElement('div'); leg.className='team-legend';
   leg.innerHTML='<i class="lg-ok">equipe completa</i><i class="lg-under">faltam pessoas</i><i class="lg-over">acima do previsto</i>';
   wrap.appendChild(leg);
-  const ln=document.createElement('div'); ln.className='lider-note'; ln.innerHTML='<span class="st">★</span> líder de equipe (estrela + anel dourado)'; wrap.appendChild(ln);
+  const ln=document.createElement('div'); ln.className='lider-note'; ln.innerHTML='<span class="st">★</span> líder de equipe — <b>obrigatório ao menos 1 por OS</b>'; wrap.appendChild(ln);
   ordens.forEach(o=>{
     const ap=apptForOS(o);
     if(o.cancelada){
@@ -1629,12 +1636,13 @@ function renderAloc(){
     }
     const allocMats=o.alocacoes.map(a=>a.matricula);
     const avail=FUNCIONARIOS.filter(f=>f.lojas.includes(o.cli) && !allocMats.includes(f.matricula));
-    const need=o.equipePadrao||0, have=o.alocacoes.length;
-    const tstate = !need ? 'ok' : (have<need ? 'under' : (have>need ? 'over' : 'ok'));
+    const need=o.equipePadrao||0, have=o.alocacoes.length, lead=o.alocacoes.some(a=>isLider(a.nome));
+    const missingLead = have>0 && !lead;
+    const tstate = (have===need && lead) ? 'ok' : ((have>need && lead) ? 'over' : 'under');
     const lane=document.createElement('div'); lane.className='aloc-lane team-'+tstate+(isLateOS(o)?' late':'');
     lane.innerHTML=`
       <div class="aloc-lhd"><div><div class="aloc-os">${o.id}${isLateOS(o)?' <span class="late-tag">já iniciada</span>':''}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div>
-        <div class="aloc-rhd"><span class="tcount tcount-${tstate}" title="Alocados / equipe padrão">${have}/${need} equipe</span><button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
+        <div class="aloc-rhd"><span class="tcount tcount-${tstate}" title="Alocados / equipe padrão">${have}/${need} equipe</span>${missingLead?'<span class="nolead-tag">⚠ falta líder</span>':''}<button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
       <div class="aloc-zlabel">Alocados</div>
       <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
         ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
