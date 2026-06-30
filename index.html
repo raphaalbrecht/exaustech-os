@@ -485,6 +485,8 @@
   </nav>
 
   <div class="toast" id="toast"></div>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+
 
   <!-- MODAL ASSINATURA -->
   <div class="modal" id="sigModal"><div class="modal-card">
@@ -1523,35 +1525,47 @@ function saveSig(){
 
 /* ===== inclusão de foto no PDF (Coordenador+) ===== */
 function setFotoPDF(ii,tipo,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima pode decidir as fotos do PDF'); return; } const eq=curOS._itens[ii]; if(tipo==='antes')eq.fotoAntesPDF=val; else eq.fotoDepoisPDF=val; toast(val?('✓ Foto '+tipo+' entra no PDF'):('Foto '+tipo+' fora do PDF')); }
-/* ===== foto + marca d'água ===== */
-function drawFoto(eq,labelText,cols){
-  const cv=document.createElement('canvas'); cv.width=400; cv.height=300; const ctx=cv.getContext('2d');
-  const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,cols[0]); g.addColorStop(1,cols[1]); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
-  ctx.fillStyle='rgba(255,255,255,.08)'; for(let i=0;i<6;i++)ctx.fillRect(40+i*60,30,30,240);
-  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(eq.tag+' — '+labelText,18,150);
-  watermark(ctx,400,300,eq);
-  return cv.toDataURL('image/jpeg',0.8);
+/* ===== foto: câmera real + GPS + carimbo (timestamp, geo, logo Exaustech) ===== */
+const EX_LOGO=new Image(); EX_LOGO.src='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6.5 19a4 4 0 0 1-.8-7.9A5 5 0 0 1 15 9.3a3.8 3.8 0 0 1 4.4 3.2A3.3 3.3 0 0 1 18.7 19H6.5Z" fill="#ffffff"/></svg>');
+let _lastGeo=null;
+function fmtDT(n){ const p=x=>String(x).padStart(2,'0'); return p(n.getDate())+'/'+p(n.getMonth()+1)+'/'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes()); }
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function getGeo(){ return new Promise(res=>{ if(!navigator.geolocation) return res(_lastGeo); navigator.geolocation.getCurrentPosition(p=>{ _lastGeo={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy||0)}; res(_lastGeo); }, ()=>res(_lastGeo), {enableHighAccuracy:true,timeout:6000,maximumAge:30000}); }); }
+function pickPhoto(cb){ const inp=document.getElementById('photoInput'); if(!inp){ toast('Câmera indisponível'); return; } inp.value=''; inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(f) cb(f); }; inp.click(); }
+async function loadBitmap(file){ try{ return await createImageBitmap(file,{imageOrientation:'from-image'}); }catch(e){ return await new Promise((rs,rj)=>{ const im=new Image(); im.onload=()=>rs(im); im.onerror=rj; im.src=URL.createObjectURL(file); }); } }
+function drawWatermark(ctx,W,H,eq,geo,now,label){
+  const fs=Math.max(13, Math.round(W*0.027)); const bh=Math.round(fs*3.6);
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,H-bh,W,bh);
+  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.font='bold '+fs+'px sans-serif';
+  ctx.fillText(fmtDT(now), 14, H-bh+fs*0.95);
+  ctx.font=Math.round(fs*0.82)+'px sans-serif'; ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.fillText(geo?(geo.lat.toFixed(5)+', '+geo.lng.toFixed(5)+'  ±'+geo.acc+'m'):'GPS indisponível', 14, H-bh+fs*2.0);
+  ctx.font='bold '+Math.round(fs*0.78)+'px sans-serif'; ctx.fillStyle='rgba(255,255,255,.86)';
+  ctx.fillText((label?label+' · ':'')+eq.tag+(curAppt?('  ·  '+curAppt.os.id+' · '+(curAppt.os.local||'')):''), 14, H-bh+fs*2.95);
+  const lh=Math.round(H*0.072)+6, pad=12, bw=lh*4.4, bx=W-bw-pad;
+  ctx.fillStyle='rgba(0,0,0,.34)'; roundRect(ctx,bx,pad,bw,lh,lh*0.26); ctx.fill();
+  if(EX_LOGO.complete && EX_LOGO.naturalWidth){ try{ ctx.drawImage(EX_LOGO, bx+lh*0.16, pad+lh*0.14, lh*0.72, lh*0.72); }catch(e){} }
+  ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.font='bold '+Math.round(lh*0.4)+'px sans-serif';
+  ctx.fillText('EXAUSTECH', bx+lh*1.0, pad+lh*0.55);
+}
+async function processFoto(file,eq,label){
+  const geo=await getGeo(); const bmp=await loadBitmap(file);
+  const iw=bmp.width||bmp.naturalWidth, ih=bmp.height||bmp.naturalHeight;
+  const maxW=1280, s=Math.min(1,maxW/iw), W=Math.round(iw*s), H=Math.round(ih*s);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const ctx=cv.getContext('2d');
+  ctx.drawImage(bmp,0,0,W,H); const now=new Date(); drawWatermark(ctx,W,H,eq,geo,now,label);
+  return { img:cv.toDataURL('image/jpeg',0.82), meta:{ t:now.toISOString(), tLocal:fmtDT(now), lat:geo?geo.lat:null, lng:geo?geo.lng:null, acc:geo?geo.acc:null, dispositivo:(navigator.userAgent||'').slice(0,60) } };
 }
 function capturar(ii,tipo){
-  const eq=curOS._itens[ii];
-  const cols=tipo==='antes'?['#7d8a99','#5a6675']:['#5b94c4','#356a96'];
-  const data=drawFoto(eq, tipo==='antes'?'ANTES':'DEPOIS', cols);
-  if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=data; } else { eq.fotoDepois=true; eq.fotoDepoisImg=data; }
-  showSub(); toast('📷 Foto com marca d’água');
+  if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); }catch(e){ toast('Falha ao processar a foto'); } });
 }
 function capturarExtra(ii){
-  const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[];
-  const data=drawFoto(eq, 'ADICIONAL '+(eq.fotos.length+1), ['#6f7b6b','#4c5847']);
-  eq.fotos.push({img:data, usarPDF:true}); showSub(); toast('📷 Foto adicional registrada');
+  if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq,'ADICIONAL '+(eq.fotos.length+1)); eq.fotos.push({img:r.img, usarPDF:true, meta:r.meta}); showSub(); toast('📷 Foto adicional registrada'); }catch(e){ toast('Falha ao processar a foto'); } });
 }
 function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; (eq.fotos||[]).splice(idx,1); showSub(); toast('Foto adicional removida'); }
 function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima decide as fotos do PDF'); return; } curOS._itens[ii].fotos[idx].usarPDF=val; toast(val?'✓ Foto adicional no PDF':'Foto adicional fora do PDF'); }
-function watermark(ctx,w,h,eq){
-  const n=new Date(); const dd=String(n.getDate()).padStart(2,'0'),mm=String(n.getMonth()+1).padStart(2,'0'),hh=String(n.getHours()).padStart(2,'0'),mi=String(n.getMinutes()).padStart(2,'0');
-  ctx.fillStyle='rgba(0,0,0,.42)'; ctx.fillRect(0,h-32,w,32); ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.textBaseline='middle'; ctx.fillText('🕐 '+dd+'/'+mm+'/2026 '+hh+':'+mi,10,h-16);
-  ctx.font='bold 12px sans-serif'; ctx.textAlign='right'; ctx.fillStyle='rgba(255,255,255,.55)'; ctx.fillText('EXAUSTECH',w-12,h-16); ctx.textAlign='left';
-  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,0,w,20); ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='10px sans-serif'; ctx.fillText('📍 -22.951, -43.184 · '+(curAppt?curAppt.id:'')+' · '+eq.tag,8,11+4);
-}
 
 /* ===== rede / toast ===== */
 function toggleNet(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Tudo sincronizado');},1100);} updateNet(); }
