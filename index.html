@@ -244,6 +244,11 @@
   .fch:active{cursor:grabbing}
   .fch.in{background:var(--brand-l);border-color:#bcd8f5}
   .fch .av{width:27px;height:27px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:800}
+  .av{position:relative}
+  .av.lider{box-shadow:0 0 0 1.5px #f7b500}
+  .av-star{position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;color:#f7b500;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 1px #fff}
+  .lider-note{font-size:11px;color:#8a6d2b;font-weight:600;margin:-4px 0 13px}
+  .lider-note .st{color:#f7b500}
   .fch .fnm{line-height:1.05}
   .fch .fnm small{display:block;font-size:9.5px;font-weight:600;color:var(--weak)}
   .fch .frm{margin-left:1px;border:none;background:none;color:var(--weaker);font-size:16px;line-height:1;cursor:pointer;padding:0 3px}
@@ -1578,7 +1583,8 @@ function funcByMat(m){ return FUNCIONARIOS.find(f=>f.matricula===m); }
 function funcByNome(n){ return FUNCIONARIOS.find(f=>f.nome===n); }
 function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function firstName(n){ return n.split(' ')[0]; }
-function avatarHTML(nome,cor){ return `<span class="av" style="background:${cor||'#747474'}">${iniName(nome)}</span>`; }
+function isLider(nome){ const f=funcByNome(nome); return !!(f && /Líder/i.test(f.cargo)); }
+function avatarHTML(nome,cor){ const l=isLider(nome); return `<span class="av${l?' lider':''}" style="background:${cor||'#747474'}">${iniName(nome)}${l?'<span class="av-star">★</span>':''}</span>`; }
 function janelaMin(j){ const p=j.split('–').map(s=>s.trim()); const m=t=>{const x=t.split(':').map(Number); return x[0]*60+(x[1]||0);}; return [m(p[0]), m(p[1])]; }
 function apptsOfOS(o){ return appts.filter(a=>a.os===o); }
 function apptsOverlap(a,b){ if(a.dia!==b.dia) return false; const [s1,e1]=janelaMin(a.janela),[s2,e2]=janelaMin(b.janela); return s1<e2 && s2<e1; }
@@ -1612,6 +1618,7 @@ function renderAloc(){
   const leg=document.createElement('div'); leg.className='team-legend';
   leg.innerHTML='<i class="lg-ok">equipe completa</i><i class="lg-under">faltam pessoas</i><i class="lg-over">acima do previsto</i>';
   wrap.appendChild(leg);
+  const ln=document.createElement('div'); ln.className='lider-note'; ln.innerHTML='<span class="st">★</span> líder de equipe (estrela + anel dourado)'; wrap.appendChild(ln);
   ordens.forEach(o=>{
     const ap=apptForOS(o);
     if(o.cancelada){
@@ -1647,7 +1654,7 @@ function renderAloc(){
   let H='<div class="sum-grp">Alocados ('+todas.length+')</div>';
   H += todas.length ? todas.map(t=>`<div class="aloc-sum-row">${avatarHTML(t.nome,t.cor)}<div class="sum-main"><div class="sum-nm">${t.nome}</div><div class="sum-sub">${t.conta}</div></div><div class="sum-time">${t.quando}<span class="sum-pill ${t.conf?'ok':'pd'}">${t.conf?'confirmada':'pendente'}</span></div></div>`).join('') : '<div class="aloc-sum-empty">Ninguém alocado ainda.</div>';
   H += '<div class="sum-grp">Não alocados ('+livres.length+')</div>';
-  H += livres.length ? livres.map(f=>`<div class="aloc-sum-row"><span class="av" style="background:${f.cor}">${iniName(f.nome)}</span><div class="sum-main"><div class="sum-nm">${f.nome}</div><div class="sum-sub" style="color:var(--weak)">${f.cargo}</div></div><div class="sum-time"><span class="sum-pill free">disponível</span></div></div>`).join('') : '<div class="aloc-sum-empty">Todos os recursos estão alocados. ✓</div>';
+  H += livres.length ? livres.map(f=>`<div class="aloc-sum-row">${avatarHTML(f.nome,f.cor)}<div class="sum-main"><div class="sum-nm">${f.nome}</div><div class="sum-sub" style="color:var(--weak)">${f.cargo}</div></div><div class="sum-time"><span class="sum-pill free">disponível</span></div></div>`).join('') : '<div class="aloc-sum-empty">Todos os recursos estão alocados. ✓</div>';
   sum.innerHTML=H; wrap.appendChild(sum);
   // botão confirmar
   const nPend=countPendentes();
