@@ -266,6 +266,8 @@
   .sum-pill{font-size:9px;font-weight:800;border-radius:8px;padding:1px 7px}
   .sum-pill.ok{background:var(--succ-bg);color:var(--succ)}
   .sum-pill.pd{background:#fff3cd;color:#8a6d2b}
+  .sum-pill.free{background:var(--brand-l);color:var(--brand-d)}
+  .sum-grp{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--weaker);padding:11px 0 4px}
   .fch.pend{border-color:#f0c34b;background:#fff8e8}
   .fch.info{cursor:default;background:#fbfbfb}
   .aloc-rhd{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
@@ -1616,21 +1618,19 @@ function renderAloc(){
         ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : '<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>'}</div>`;
     wrap.appendChild(lane);
   });
-  // resumo das alocações: recurso · conta · horário agendado · status
+  // resumo com dois grupos: Alocados e Não alocados
   const todas=[];
   ordens.forEach(o=>{ if(o.cancelada)return; const ap=apptForOS(o); o.alocacoes.forEach(a=>{ const f=funcByNome(a.nome); todas.push({nome:a.nome, cor:f?f.cor:'#747474', conta:o.cli, quando: ap?(ap.dia+' · '+ap.janela):'—', conf:!!a.confirmada}); }); });
   todas.sort((x,y)=>x.nome.localeCompare(y.nome));
-  const sh=document.createElement('div'); sh.className='aloc-zlabel'; sh.style.marginTop='2px'; sh.textContent='Resumo das alocações ('+todas.length+')'; wrap.appendChild(sh);
-  const sum=document.createElement('div'); sum.className='aloc-sum';
-  sum.innerHTML = todas.length ? todas.map(t=>`<div class="aloc-sum-row">${avatarHTML(t.nome,t.cor)}<div class="sum-main"><div class="sum-nm">${t.nome}</div><div class="sum-sub">${t.conta}</div></div><div class="sum-time">${t.quando}<span class="sum-pill ${t.conf?'ok':'pd'}">${t.conf?'confirmada':'pendente'}</span></div></div>`).join('') : '<div class="aloc-sum-empty">Nenhuma alocação ainda — arraste funcionários para as OS acima.</div>';
-  wrap.appendChild(sum);
-  // recursos não alocados (lembrete para o supervisor)
   const usados=new Set(); ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>usados.add(a.matricula)); });
-  const livres=FUNCIONARIOS.filter(f=>!usados.has(f.matricula));
-  const lh=document.createElement('div'); lh.className='aloc-zlabel'; lh.style.marginTop='2px'; lh.textContent='Recursos não alocados ('+livres.length+')'; wrap.appendChild(lh);
-  const free=document.createElement('div'); free.className='aloc-free';
-  free.innerHTML = livres.length ? livres.map(f=>`<div class="fch info"><span class="av" style="background:${f.cor}">${iniName(f.nome)}</span><span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`).join('') : '<div class="aloc-empty-txt" style="text-align:left">Todos os recursos estão alocados. ✓</div>';
-  wrap.appendChild(free);
+  const livres=FUNCIONARIOS.filter(f=>!usados.has(f.matricula)).sort((x,y)=>x.nome.localeCompare(y.nome));
+  const sh=document.createElement('div'); sh.className='aloc-zlabel'; sh.style.marginTop='2px'; sh.textContent='Resumo'; wrap.appendChild(sh);
+  const sum=document.createElement('div'); sum.className='aloc-sum';
+  let H='<div class="sum-grp">Alocados ('+todas.length+')</div>';
+  H += todas.length ? todas.map(t=>`<div class="aloc-sum-row">${avatarHTML(t.nome,t.cor)}<div class="sum-main"><div class="sum-nm">${t.nome}</div><div class="sum-sub">${t.conta}</div></div><div class="sum-time">${t.quando}<span class="sum-pill ${t.conf?'ok':'pd'}">${t.conf?'confirmada':'pendente'}</span></div></div>`).join('') : '<div class="aloc-sum-empty">Ninguém alocado ainda.</div>';
+  H += '<div class="sum-grp">Não alocados ('+livres.length+')</div>';
+  H += livres.length ? livres.map(f=>`<div class="aloc-sum-row"><span class="av" style="background:${f.cor}">${iniName(f.nome)}</span><div class="sum-main"><div class="sum-nm">${f.nome}</div><div class="sum-sub" style="color:var(--weak)">${f.cargo}</div></div><div class="sum-time"><span class="sum-pill free">disponível</span></div></div>`).join('') : '<div class="aloc-sum-empty">Todos os recursos estão alocados. ✓</div>';
+  sum.innerHTML=H; wrap.appendChild(sum);
   // botão confirmar
   const nPend=countPendentes();
   const bar=document.createElement('div'); bar.className='aloc-confirm';
