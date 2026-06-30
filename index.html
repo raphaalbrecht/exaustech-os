@@ -225,6 +225,30 @@
   .appr-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
   .appr-cli{font-weight:700;font-size:14px}
   .appr-meta{font-size:12px;color:var(--weak);margin-top:4px}
+  /* ---- alocação (board do supervisor) ---- */
+  .aloc-hint{font-size:11.5px;color:var(--brand-d);background:var(--brand-l);border:1px solid #cfe2f7;border-radius:8px;padding:9px 11px;margin:0 0 12px}
+  .aloc-lane{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 13px;margin:0 0 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .aloc-lhd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:9px}
+  .aloc-os{font-weight:800;font-size:13.5px;color:var(--txt)}
+  .aloc-cli{font-size:12px;color:var(--brand-d);font-weight:700;margin-top:1px}
+  .aloc-loc{font-size:11.5px;color:var(--weak);margin-top:1px}
+  .aloc-count{font-size:10px;font-weight:800;color:#fff;background:var(--brand);border-radius:10px;padding:2px 8px;white-space:nowrap}
+  .aloc-zlabel{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--weaker);margin:0 0 6px}
+  .aloc-drop{min-height:48px;border:1.5px dashed var(--border2);border-radius:10px;padding:7px;display:flex;flex-wrap:wrap;gap:7px;align-content:flex-start;background:#fafbfc;transition:background .12s,border-color .12s}
+  .aloc-drop.empty{align-items:center;justify-content:center}
+  .aloc-drop.over{background:var(--brand-l);border-color:var(--brand);border-style:solid}
+  .aloc-empty-txt{font-size:11.5px;color:var(--weaker);text-align:center;width:100%}
+  .aloc-pool{display:flex;flex-wrap:wrap;gap:7px}
+  .fch{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border2);border-radius:22px;padding:3px 9px 3px 3px;font-size:12.5px;font-weight:600;color:var(--txt);cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 1px rgba(0,0,0,.04)}
+  .fch:active{cursor:grabbing}
+  .fch.in{background:var(--brand-l);border-color:#bcd8f5}
+  .fch .av{width:27px;height:27px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:800}
+  .fch .fnm{line-height:1.05}
+  .fch .fnm small{display:block;font-size:9.5px;font-weight:600;color:var(--weak)}
+  .fch .frm{margin-left:1px;border:none;background:none;color:var(--weaker);font-size:16px;line-height:1;cursor:pointer;padding:0 3px}
+  .fch .frm:hover{color:var(--err)}
+  .fch.drag-src{opacity:.38}
+  .fch-ghost{position:fixed;z-index:9999;pointer-events:none;left:0;top:0;transform:translate(-50%,-50%) scale(1.05);opacity:.97;box-shadow:0 8px 20px rgba(0,0,0,.24)}
   /* ---- botões / footer / botnav ---- */
   .btn{display:block;width:100%;border:none;border-radius:6px;padding:13px;font-size:14.5px;font-weight:700;cursor:pointer}
   .btn-brand{background:var(--brand);color:#fff}
@@ -328,6 +352,14 @@
       <div id="estoqueList"></div>
     </section>
 
+    <!-- ALOCAÇÃO (board do supervisor) -->
+    <section class="screen" id="scr-aloc">
+      <div class="sched-top"><div class="sched-title">Alocação de Equipe</div>
+        <div class="subnote" style="padding:0 0 6px">Arraste os funcionários <b>autorizados</b> para a OS onde vão trabalhar — cada atribuição gera uma <b>Alocação</b>. <span class="demo-tag">DEMONSTRAÇÃO</span></div>
+      </div>
+      <div id="alocList"></div>
+    </section>
+
     <!-- NOTIFICAÇÕES -->
     <section class="screen" id="scr-notifs">
       <div class="sched-top"><div class="sched-title">Notificações</div><div class="subnote" id="notifsSub" style="padding:0 0 6px"></div></div>
@@ -383,6 +415,7 @@
   <nav class="botnav" id="botnav" style="display:none">
     <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
+    <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
     <button id="nav-estoque" onclick="go('estoque')"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque</button>
   </nav>
 
@@ -621,7 +654,7 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='estoque');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='estoque'||scr==='aloc');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
   document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
@@ -630,14 +663,15 @@ function go(scr){
   if(scr==='appt'){ tt.textContent=curAppt.id; ts.textContent=curOS.cli; }
   else if(scr==='sub'){ tt.textContent=curSubTitle; ts.textContent=curSubSub; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'; }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
   if(scr==='estoque') renderEstoque();
+  if(scr==='aloc') renderAloc();
   if(scr==='notifs') renderNotifs();
   if(scr==='appt') renderAppt();
-  renderRoleChip(); updateApprBadge(); updateBell();
+  renderRoleChip(); updateApprBadge(); updateBell(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
 const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
@@ -652,7 +686,8 @@ function openRole(){
 }
 function closeRole(){ document.getElementById('roleModal').classList.remove('show'); }
 function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.querySelector('.screen.active').id;
-  if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-notifs')renderNotifs();
+  if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-aloc')renderAloc(); else if(cur==='scr-notifs')renderNotifs();
+  updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
   updateBell(); toast('Perfil: '+r); }
 function back(){
   const cur=document.querySelector('.screen.active').id;
@@ -1476,6 +1511,88 @@ function renderEstoque(){
   const h4=document.createElement('div'); h4.className='rel-hd'; h4.textContent='Calibração / manutenção programada'; wrap.appendChild(h4);
   const cal=CAT_FERR.filter(c=>c.calibracao);
   if(!cal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada programado.'; wrap.appendChild(e); } else cal.forEach(c=>{ const venc=calibVencida(c); const row=document.createElement('div'); row.className='rel-row'; row.innerHTML=`${tile('asset','#7a5cc8')}<div class="eq-tt"><div class="eq-name">${c.nome} <span class="eq-pill">${c.patrimonio}</span></div><div class="eq-sub">próx. calibração ${c.calibracao}</div></div><span class="lz ${venc?'lz-warn':'lz-neu'}" style="font-size:10px;padding:1px 7px">${venc?'vencida':'agendada'}</span>`; wrap.appendChild(row); });
+}
+
+/* ===== alocação de equipe (board do supervisor) ===== */
+function canAloc(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none'; }
+const FUNCIONARIOS=[
+  {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0176D3',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
+  {nome:'Pedro Gomes',matricula:'F-1188',cargo:'Auxiliar',cor:'#2e844a',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
+  {nome:'Ana Souza',matricula:'F-1205',cargo:'Auxiliar',cor:'#7a5cc8',lojas:['Outback · Botafogo','Madero · Leblon']},
+  {nome:'Carlos Lima',matricula:'F-1310',cargo:'Técnico',cor:'#e8770e',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
+  {nome:'Marcos Reis',matricula:'F-1366',cargo:'Técnico Líder',cor:'#ba0517',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
+  {nome:'Bruno Alves',matricula:'F-1402',cargo:'Auxiliar',cor:'#0b827c',lojas:['Outback · Barra Shopping','Madero · Leblon']},
+  {nome:'Rafael Pinto',matricula:'F-1455',cargo:'Técnico',cor:'#3b3bb3',lojas:['Outback · Botafogo']},
+  {nome:'Tiago Nunes',matricula:'F-1490',cargo:'Auxiliar',cor:'#8a6d2b',lojas:['Outback · Barra Shopping','Madero · Leblon']},
+  {nome:'Lucas Dias',matricula:'F-1521',cargo:'Técnico',cor:'#5867aa',lojas:['Outback · Botafogo','Madero · Leblon']},
+];
+function funcByMat(m){ return FUNCIONARIOS.find(f=>f.matricula===m); }
+function funcByNome(n){ return FUNCIONARIOS.find(f=>f.nome===n); }
+function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function firstName(n){ return n.split(' ')[0]; }
+function avatarHTML(nome,cor){ return `<span class="av" style="background:${cor||'#747474'}">${iniName(nome)}</span>`; }
+function chipAvail(o,f){ return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`; }
+function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474';
+  return `<div class="fch in" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc">${avatarHTML(a.nome,cor)}<span class="fnm">${firstName(a.nome)}<small>${a.papel||(f?f.cargo:'')}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
+function renderAloc(){
+  const wrap=document.getElementById('alocList'); if(!wrap)return; wrap.innerHTML='';
+  const hint=document.createElement('div'); hint.className='aloc-hint';
+  hint.innerHTML='Cada OS mostra só os funcionários <b>autorizados naquela loja</b> (vindos do processo de autorização de acesso ao shopping). Arraste um cartão para <b>Alocados</b> — ou toque nele. Para tirar, use o ×.';
+  wrap.appendChild(hint);
+  ordens.forEach(o=>{
+    const allocMats=o.alocacoes.map(a=>a.matricula);
+    const avail=FUNCIONARIOS.filter(f=>f.lojas.includes(o.cli) && !allocMats.includes(f.matricula));
+    const lane=document.createElement('div'); lane.className='aloc-lane';
+    lane.innerHTML=`
+      <div class="aloc-lhd"><div><div class="aloc-os">${o.id}</div><div class="aloc-cli">${o.cli}</div><div class="aloc-loc">${o.local}</div></div>
+        <span class="aloc-count">${o.alocacoes.length} alocado(s)</span></div>
+      <div class="aloc-zlabel">Alocados</div>
+      <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
+        ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
+      <div class="aloc-zlabel" style="margin-top:11px">Autorizados nesta loja${avail.length?'':' — todos já alocados'}</div>
+      <div class="aloc-pool" data-drop="avail" data-osid="${o.id}">
+        ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : '<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>'}</div>`;
+    wrap.appendChild(lane);
+  });
+  bindAlocDrag();
+}
+function bindAlocDrag(){ document.querySelectorAll('#alocList .fch').forEach(ch=>{ ch.addEventListener('pointerdown',onAlocDown); }); }
+function dropZoneAt(x,y){ const el=document.elementFromPoint(x,y); return el?el.closest('[data-drop]'):null; }
+function clearDropHL(){ document.querySelectorAll('#alocList .aloc-drop.over').forEach(z=>z.classList.remove('over')); }
+function onAlocDown(e){
+  if(e.target.classList.contains('frm')) return;
+  const ch=e.currentTarget; const start={x:e.clientX,y:e.clientY};
+  const data={mat:ch.dataset.mat,osid:ch.dataset.osid,src:ch.dataset.src};
+  let moved=false, ghost=null;
+  const move=(ev)=>{
+    const dx=ev.clientX-start.x, dy=ev.clientY-start.y;
+    if(!moved && Math.hypot(dx,dy)<6) return;
+    if(!moved){ moved=true; ch.classList.add('drag-src'); ghost=ch.cloneNode(true); ghost.classList.add('fch-ghost'); const rb=ghost.querySelector('.frm'); if(rb)rb.remove(); document.body.appendChild(ghost); document.body.style.cursor='grabbing'; }
+    ghost.style.left=ev.clientX+'px'; ghost.style.top=ev.clientY+'px';
+    clearDropHL(); const z=dropZoneAt(ev.clientX,ev.clientY); if(z && z.dataset.drop==='alloc' && data.src==='avail') z.classList.add('over');
+  };
+  const up=(ev)=>{
+    document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up);
+    document.body.style.cursor=''; if(ghost) ghost.remove(); clearDropHL(); ch.classList.remove('drag-src');
+    if(!moved){ if(data.src==='avail') allocate(data.osid,data.mat); return; }
+    const z=dropZoneAt(ev.clientX,ev.clientY); if(!z) return;
+    if(data.src==='avail' && z.dataset.drop==='alloc' && z.dataset.osid===data.osid) allocate(data.osid,data.mat);
+    else if(data.src==='alloc' && z.dataset.drop==='avail' && z.dataset.osid===data.osid) removeAloc(data.osid,data.mat);
+  };
+  document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+}
+function allocate(osid,mat){
+  const o=ordens.find(x=>x.id===osid), f=funcByMat(mat); if(!o||!f) return;
+  if(o.alocacoes.some(a=>a.matricula===mat)) return;
+  if(!f.lojas.includes(o.cli)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
+  o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null});
+  renderAloc(); toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
+}
+function removeAloc(osid,mat){
+  const o=ordens.find(x=>x.id===osid); if(!o) return;
+  const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
+  const nm=firstName(o.alocacoes[i].nome); o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
 }
 
 go('login');
