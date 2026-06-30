@@ -568,7 +568,7 @@ function aptStatus(id){ const a=apontamentos.find(x=>x.id===id); return a?a.stat
 const FABR={'Coifas':'Tramontina','Caixa de filtros':'Trox','Exaustores':'Otam','Duto (Site)':'—'};
 const ordens=[
   { id:'OS-3001', cli:'Outback · Botafogo', contrato:'CT-OUTBACK-BOTAFOGO', local:'Cozinha — Coifa central', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
-    alocacoes:[{nome:'João Silva',papel:'Técnico Líder',matricula:'F-1042'},{nome:'Pedro Gomes',papel:'Auxiliar',matricula:'F-1188'}],
+    alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-01'},{tag:'CF-02'}]},
       {nome:'Caixa de filtros',tarefa:'Troca de filtros',chk:'filtros',equipamentos:[{tag:'FB-01'}]},
@@ -583,7 +583,7 @@ const ordens=[
     ]},
   },
   { id:'OS-3002', cli:'Outback · Barra Shopping', contrato:'CT-OUTBACK-BARRA', local:'Cozinha — Praça de alimentação', modelo:'MPP Completa de Exaustão', plano:'Exaustão · MPP Completa',
-    alocacoes:[{nome:'João Silva',papel:'Técnico',matricula:'F-1042'}],
+    alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-10'}]},
       {nome:'Exaustores',tarefa:'Inspeção de exaustor',chk:'exaustor',equipamentos:[{tag:'EX-10'},{tag:'EX-11'}]},
@@ -594,7 +594,7 @@ const ordens=[
     ]},
   },
   { id:'OS-2987', cli:'Madero · Leblon', contrato:'CT-MADERO-LEBLON', local:'Cozinha principal', modelo:'MPP Exaustão Leve', plano:'Exaustão · Trimestral',
-    alocacoes:[{nome:'Ana Souza',papel:'Auxiliar',matricula:'F-1205'}],
+    alocacoes:[],
     grupos:[
       {nome:'Coifas',tarefa:'Limpeza de coifa',chk:'coifa',equipamentos:[{tag:'CF-30'},{tag:'CF-31'}]},
       {nome:'Duto (Site)',tarefa:'Limpeza de dutos',chk:'duto',site:true,equipamentos:[{tag:'Duto principal',site:true}]},
@@ -635,9 +635,9 @@ const DAYS=[
 ];
 const DAYLABEL={'29/06':'Hoje · segunda, 29 de junho','30/06':'Terça, 30 de junho','01/07':'Quarta, 1 de julho','02/07':'Quinta, 2 de julho','03/07':'Sexta, 3 de julho','06/07':'Segunda, 6 de julho'};
 const appts=[
-  {id:'SA-7001', os:ordens[0], dia:'29/06', janela:'09:00 – 11:00', tipo:'Principal', stage:1},
-  {id:'SA-7002', os:ordens[1], dia:'29/06', janela:'14:00 – 15:30', tipo:'Principal', stage:5},
-  {id:'SA-7003', os:ordens[2], dia:'29/06', janela:'10:00 – 11:30', tipo:'Principal', stage:0},
+  {id:'SA-7001', os:ordens[0], dia:'29/06', janela:'23:00 – 23:59', tipo:'Principal', stage:0},
+  {id:'SA-7002', os:ordens[1], dia:'29/06', janela:'23:00 – 23:59', tipo:'Principal', stage:0},
+  {id:'SA-7003', os:ordens[2], dia:'29/06', janela:'23:00 – 23:59', tipo:'Principal', stage:0},
   {id:'SA-7004', os:ordens[0], dia:'06/07', janela:'09:00 – 11:00', tipo:'Revisita', stage:0},
 ];
 appts.forEach(a=>{ a.outcome=null; a.tempos={}; });
