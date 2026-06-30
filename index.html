@@ -255,6 +255,14 @@
   .pdf-pick-h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--brand-d);margin-bottom:5px}
   .pdfchk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--txt);padding:4px 0;cursor:pointer}
   .pdfchk input{width:16px;height:16px;accent-color:var(--brand);flex:none}
+  .extra-fotos{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px}
+  .xf{position:relative;width:84px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--border2)}
+  .xf-img{width:100%;height:100%;object-fit:cover;display:block}
+  .xf-n{position:absolute;bottom:2px;left:2px;background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:800;border-radius:6px;padding:1px 5px}
+  .xf-rm{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .xf-add{width:84px;height:64px;border:1.5px dashed var(--border2);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--weaker);background:#fafbfc}
+  .xf-add .ph-ico svg{width:18px;height:18px;stroke:var(--weaker);fill:none}
+  .xf-add .ph-txt{font-size:9px;font-weight:700}
   .fch .fnm{line-height:1.05}
   .fch .fnm small{display:block;font-size:9.5px;font-weight:600;color:var(--weak)}
   .fch .frm{margin-left:1px;border:none;background:none;color:var(--weaker);font-size:16px;line-height:1;cursor:pointer;padding:0 3px}
@@ -669,7 +677,7 @@ function buildItems(o){
       eq.tipo=g.nome; eq.fabricante=FABR[g.nome]||'Genérico';
       eq.serie='SN-'+(eq.tag.replace(/[^0-9]/g,'')||'00').padStart(4,'0')+'-'+((g.nome.length*7)%97).toString().padStart(2,'0');
       eq.instalacao='03/2023'; eq.statusEquip='Operacional';
-      eq.fotoAntes=false; eq.fotoDepois=false; eq.fotoAntesImg=null; eq.fotoDepoisImg=null; eq.fotoAntesPDF=true; eq.fotoDepoisPDF=true; eq.obs=''; eq.checks={}; eq.det={};
+      eq.fotoAntes=false; eq.fotoDepois=false; eq.fotoAntesImg=null; eq.fotoDepoisImg=null; eq.fotoAntesPDF=true; eq.fotoDepoisPDF=true; eq.fotos=[]; eq.obs=''; eq.checks={}; eq.det={};
       eq.checklist.forEach(c=>{eq.checks[c]=null; eq.det[c]={prob:['','',''], obs:'', neMotivo:'', neObs:'', apt:null};});
       o._itens.push(eq);
     });
@@ -974,10 +982,15 @@ function itemForm(eq,ii){
   const lk=repLocked();
   const c=document.createElement('div');
   const photo=(side,filled,tipo)=>{ const img=tipo==='antes'?eq.fotoAntesImg:eq.fotoDepoisImg; return `<div class="photo ${filled?'filled':''}${lk?' locked':''}" id="ph-${side}-${ii}" ${lk?'':`onclick="capturar(${ii},'${tipo}')"`}>${filled?(img?`<img src="${img}" class="ph-img"><span class="ph-cap">${tipo.toUpperCase()}</span>`:`<span class="ph-cap">${tipo.toUpperCase()}</span>`):`<div class="ph-ico">${svgI('camera')}</div><div class="ph-txt">${tipo==='antes'?'ANTES':'DEPOIS'}</div>`}</div>`; };
-  const pdfPick = (canPDF(ROLE) && (eq.fotoAntes||eq.fotoDepois)) ? `<div class="pdf-pick"><div class="pdf-pick-h">Inclusão no PDF do cliente · Coordenador+</div>${eq.fotoAntes?`<label class="pdfchk"><input type="checkbox" ${eq.fotoAntesPDF?'checked':''} onchange="setFotoPDF(${ii},'antes',this.checked)"><span>Usar foto <b>ANTES</b> no PDF</span></label>`:''}${eq.fotoDepois?`<label class="pdfchk"><input type="checkbox" ${eq.fotoDepoisPDF?'checked':''} onchange="setFotoPDF(${ii},'depois',this.checked)"><span>Usar foto <b>DEPOIS</b> no PDF</span></label>`:''}</div>` : '';
+  const extras=eq.fotos||[];
+  const hasFotos = eq.fotoAntes||eq.fotoDepois||extras.length;
+  const pdfPick = (canPDF(ROLE) && hasFotos) ? `<div class="pdf-pick"><div class="pdf-pick-h">Inclusão no PDF do cliente · Coordenador+</div>${eq.fotoAntes?`<label class="pdfchk"><input type="checkbox" ${eq.fotoAntesPDF?'checked':''} onchange="setFotoPDF(${ii},'antes',this.checked)"><span>Usar foto <b>ANTES</b></span></label>`:''}${eq.fotoDepois?`<label class="pdfchk"><input type="checkbox" ${eq.fotoDepoisPDF?'checked':''} onchange="setFotoPDF(${ii},'depois',this.checked)"><span>Usar foto <b>DEPOIS</b></span></label>`:''}${extras.map((f,idx)=>`<label class="pdfchk"><input type="checkbox" ${f.usarPDF?'checked':''} onchange="setFotoExtraPDF(${ii},${idx},this.checked)"><span>Usar foto <b>adicional ${idx+1}</b></span></label>`).join('')}</div>` : '';
+  const showExtras = !lk || extras.length;
+  const extrasHTML = showExtras ? `<div class="label">Fotos adicionais${extras.length?' ('+extras.length+')':''}</div><div class="extra-fotos">${extras.map((f,idx)=>`<div class="xf"><img src="${f.img}" class="xf-img"><span class="xf-n">${idx+1}</span>${lk?'':`<button class="xf-rm" onclick="removeFotoExtra(${ii},${idx})">×</button>`}</div>`).join('')}${lk?'':`<div class="xf-add" onclick="capturarExtra(${ii})"><div class="ph-ico">${svgI('camera')}</div><div class="ph-txt">+ FOTO</div></div>`}</div>` : '';
   c.innerHTML=`
     <div class="label">Fotos antes / depois</div>
     <div class="photos">${photo('a',eq.fotoAntes,'antes')}${photo('d',eq.fotoDepois,'depois')}</div>
+    ${extrasHTML}
     ${pdfPick}
     <div class="label">Checklist</div>
     <div class="chk-hint">Marque cada item: OK · Não conforme · N/E (não executado)</div>
@@ -1465,7 +1478,7 @@ function gerarPDF(o){
   o.separacao.materiais.forEach(m=>{ if(y>790){doc.addPage();y=48;} const bx=matBaixaTotal(m); let ln='• '+m.nome+': usado '+m.consumido+' · retorno '+(m.retorno||0); if(bx>0)ln+=' · baixa '+bx+' ('+baixaResumo(m)+')'; ln+=' '+m.un; doc.text(ln,46,y); y+=13; });
   // Fotos marcadas para uso no PDF (decisão do Coordenador+)
   const fotos=[];
-  o._itens.forEach(eq=>{ if(eq.fotoAntesImg && eq.fotoAntesPDF) fotos.push({img:eq.fotoAntesImg, cap:eq.tag+' — Antes'}); if(eq.fotoDepoisImg && eq.fotoDepoisPDF) fotos.push({img:eq.fotoDepoisImg, cap:eq.tag+' — Depois'}); });
+  o._itens.forEach(eq=>{ if(eq.fotoAntesImg && eq.fotoAntesPDF) fotos.push({img:eq.fotoAntesImg, cap:eq.tag+' — Antes'}); if(eq.fotoDepoisImg && eq.fotoDepoisPDF) fotos.push({img:eq.fotoDepoisImg, cap:eq.tag+' — Depois'}); (eq.fotos||[]).forEach((f,i)=>{ if(f.img && f.usarPDF) fotos.push({img:f.img, cap:eq.tag+' — Adicional '+(i+1)}); }); });
   if(fotos.length){
     y+=6; if(y>650){doc.addPage();y=48;}
     doc.setTextColor(20); doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Fotos',40,y); y+=14; doc.setFontSize(8); doc.setFont('helvetica','normal');
@@ -1511,19 +1524,28 @@ function saveSig(){
 /* ===== inclusão de foto no PDF (Coordenador+) ===== */
 function setFotoPDF(ii,tipo,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima pode decidir as fotos do PDF'); return; } const eq=curOS._itens[ii]; if(tipo==='antes')eq.fotoAntesPDF=val; else eq.fotoDepoisPDF=val; toast(val?('✓ Foto '+tipo+' entra no PDF'):('Foto '+tipo+' fora do PDF')); }
 /* ===== foto + marca d'água ===== */
-function capturar(ii,tipo){
-  const eq=curOS._itens[ii]; const box=document.getElementById((tipo==='antes'?'ph-a-':'ph-d-')+ii);
+function drawFoto(eq,labelText,cols){
   const cv=document.createElement('canvas'); cv.width=400; cv.height=300; const ctx=cv.getContext('2d');
-  const cols=tipo==='antes'?['#7d8a99','#5a6675']:['#5b94c4','#356a96'];
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,cols[0]); g.addColorStop(1,cols[1]); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.08)'; for(let i=0;i<6;i++)ctx.fillRect(40+i*60,30,30,240);
-  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(eq.tag+' — '+(tipo==='antes'?'ANTES':'DEPOIS'),18,150);
+  ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(eq.tag+' — '+labelText,18,150);
   watermark(ctx,400,300,eq);
-  box.innerHTML=`<span class="ph-cap">${tipo.toUpperCase()}</span>`; cv.style.width='100%';cv.style.height='100%';cv.style.objectFit='cover'; box.appendChild(cv); box.classList.add('filled');
-  const data=cv.toDataURL('image/jpeg',0.8);
-  if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=data; } else { eq.fotoDepois=true; eq.fotoDepoisImg=data; }
-  toast('📷 Foto com marca d’água');
+  return cv.toDataURL('image/jpeg',0.8);
 }
+function capturar(ii,tipo){
+  const eq=curOS._itens[ii];
+  const cols=tipo==='antes'?['#7d8a99','#5a6675']:['#5b94c4','#356a96'];
+  const data=drawFoto(eq, tipo==='antes'?'ANTES':'DEPOIS', cols);
+  if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=data; } else { eq.fotoDepois=true; eq.fotoDepoisImg=data; }
+  showSub(); toast('📷 Foto com marca d’água');
+}
+function capturarExtra(ii){
+  const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[];
+  const data=drawFoto(eq, 'ADICIONAL '+(eq.fotos.length+1), ['#6f7b6b','#4c5847']);
+  eq.fotos.push({img:data, usarPDF:true}); showSub(); toast('📷 Foto adicional registrada');
+}
+function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; (eq.fotos||[]).splice(idx,1); showSub(); toast('Foto adicional removida'); }
+function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima decide as fotos do PDF'); return; } curOS._itens[ii].fotos[idx].usarPDF=val; toast(val?'✓ Foto adicional no PDF':'Foto adicional fora do PDF'); }
 function watermark(ctx,w,h,eq){
   const n=new Date(); const dd=String(n.getDate()).padStart(2,'0'),mm=String(n.getMonth()+1).padStart(2,'0'),hh=String(n.getHours()).padStart(2,'0'),mi=String(n.getMinutes()).padStart(2,'0');
   ctx.fillStyle='rgba(0,0,0,.42)'; ctx.fillRect(0,h-32,w,32); ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.textBaseline='middle'; ctx.fillText('🕐 '+dd+'/'+mm+'/2026 '+hh+':'+mi,10,h-16);
