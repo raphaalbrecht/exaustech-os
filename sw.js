@@ -1,7 +1,7 @@
 /* Exaustech Field Service — Service Worker
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização. */
-const CACHE = 'exaustech-os-v4';
+const CACHE = 'exaustech-os-v5';
 const SHELL = [
   './',
   './index.html',
@@ -28,6 +28,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Só cuida de arquivos do próprio app; chamadas a outros domínios (API do Salesforce, Google) passam direto, sem cache
+  if (new URL(req.url).origin !== self.location.origin) return;
   const accept = req.headers.get('accept') || '';
   const isHTML = req.mode === 'navigate' || accept.includes('text/html');
 

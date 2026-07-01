@@ -1802,7 +1802,7 @@ async function sfConnect(){
 }
 async function sfApi(q){
   const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/query?q=' + encodeURIComponent(q),
-                        { headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok') } });
+                        { cache:'no-store', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok') } });
   return r.json();
 }
 function _esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
