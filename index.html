@@ -1653,9 +1653,9 @@ function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2)
 function firstName(n){ return n.split(' ')[0]; }
 function isLider(nome){ const f=funcByNome(nome); return !!(f && /Líder/i.test(f.cargo)); }
 function avatarHTML(nome,cor){ const l=isLider(nome); return `<span class="av${l?' lider':''}" style="background:${cor||'#747474'}">${iniName(nome)}${l?'<span class="av-star">★</span>':''}</span>`; }
-function janelaMin(j){ const p=j.split('–').map(s=>s.trim()); const m=t=>{const x=t.split(':').map(Number); return x[0]*60+(x[1]||0);}; return [m(p[0]), m(p[1])]; }
+function janelaMin(j){ const p=(j||'').split('–').map(s=>s.trim()); const m=t=>{const x=(t||'0:0').split(':').map(Number); return (x[0]||0)*60+(x[1]||0);}; return [m(p[0]), m(p[1])]; }
 function apptsOfOS(o){ return appts.filter(a=>a.os===o); }
-function apptsOverlap(a,b){ if(a.dia!==b.dia) return false; const [s1,e1]=janelaMin(a.janela),[s2,e2]=janelaMin(b.janela); return s1<e2 && s2<e1; }
+function apptsOverlap(a,b){ if(a.dia!==b.dia) return false; if(!a.janela||!b.janela||!a.janela.includes(':')||!b.janela.includes(':')) return a.dia===b.dia; const [s1,e1]=janelaMin(a.janela),[s2,e2]=janelaMin(b.janela); return s1<e2 && s2<e1; }
 /* conflito de agenda: o funcionário já está alocado em OUTRA OS cujo compromisso choca em dia+hora */
 function allocConflict(mat,targetOS){
   const tgt=apptsOfOS(targetOS);
