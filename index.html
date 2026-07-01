@@ -396,7 +396,7 @@
     <button class="iconbtn" id="bellBtn" onclick="openNotifs()" title="Notificações" style="position:relative;display:none"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="nbadge" id="bellBadge" style="display:none">0</span></button>
     <button class="rolechip" id="roleChip" onclick="openRole()" title="Trocar perfil"></button>
     <div class="net" id="netBtn" onclick="toggleNet()"><span class="dot"></span></div>
-    <button class="iconbtn" id="logoutBtn" onclick="go('login')" title="Sair" style="display:none">⎋</button>
+    <button class="iconbtn" id="logoutBtn" onclick="logout()" title="Sair" style="display:none">⎋</button>
   </header>
 
   <main id="main" class="screen">
@@ -767,6 +767,15 @@ function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.q
   if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-aloc')renderAloc(); else if(cur==='scr-notifs')renderNotifs();
   updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
   updateBell(); toast('Perfil: '+r); }
+function logout(){
+  const gt=(typeof gToken!=='undefined')?gToken:null;
+  ['sf_tok','sf_inst','sf_v','sf_st'].forEach(k=>sessionStorage.removeItem(k));
+  try{ gToken=null; gTokenExp=0; }catch(e){}
+  SF_LIVE=false; document.body.classList.remove('sf-live');
+  const lb=document.getElementById('sfLiveBtn'); if(lb) lb.textContent='🔌 Salesforce';
+  try{ if(gt && typeof google!=='undefined' && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) google.accounts.oauth2.revoke(gt); }catch(e){}
+  go('login'); toast('Você saiu — toque em 🔌 Salesforce para entrar de novo.');
+}
 function back(){
   const cur=document.querySelector('.screen.active').id;
   if(cur==='scr-sub'){ navStack.pop(); if(navStack.length) showSub(); else go('appt'); }
@@ -791,8 +800,10 @@ function renderSchedule(){
     const el=document.createElement('div'); el.className='appt '+apptClass(a); el.onclick=()=>openAppt(a);
     const temJanela = a.janela && a.janela!=='—';
     el.innerHTML=`
-      <div class="appt-row"><div class="appt-time" style="font-weight:800;color:#0176D3">${a.os.id||''}</div><span class="lz ${al.cls}">${al.txt}</span></div>
-      <div class="appt-wt">${a.os.plano}${a.tipo==='Revisita'?' · Revisita':''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:18px;font-weight:800;color:#0176D3;letter-spacing:.3px">${a.os.id||'OS'}</div>
+        <span class="lz ${al.cls}">${al.txt}</span></div>
+      <div class="appt-wt" style="font-size:13.5px">${a.os.plano}${a.tipo==='Revisita'?' · Revisita':''}</div>
       <div class="appt-acc">${a.os.cli}</div>
       <div class="appt-meta">${inI('pin')} ${a.os.local}</div>
       <div class="appt-meta">${inI('asset')} ${a.os._itens.length} equipamento(s)${temJanela?' · '+a.janela:''} · ${a.id}</div>`;
