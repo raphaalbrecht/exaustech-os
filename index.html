@@ -369,6 +369,7 @@
   .modal-actions{display:flex;gap:8px}
   .modal-actions .btn{padding:10px;font-size:13px}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="phone" id="app">
@@ -493,6 +494,7 @@
 
   <div class="toast" id="toast"></div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="videoInput" accept="video/*" capture="environment" style="display:none">
 
 
   <!-- MODAL ASSINATURA -->
@@ -1001,6 +1003,7 @@ function itemForm(eq,ii){
     <div class="label">Fotos antes / depois</div>
     <div class="photos">${photo('a',eq.fotoAntes,'antes')}${photo('d',eq.fotoDepois,'depois')}</div>
     ${extrasHTML}
+    ${(SF_LIVE && !lk) ? `<div class="label">Vídeo do serviço${eq._temVideo?' · <span style="color:#2e844a">enviado ✓</span>':''}</div><button class="btn btn-neutral" style="width:100%;margin-bottom:6px" onclick="capturarVideo(${ii})">🎥 Gravar / anexar vídeo (Drive)</button>` : ''}
     ${pdfPick}
     <div class="label">Checklist</div>
     <div class="chk-hint">Marque cada item: OK · Não conforme · N/E (não executado)</div>
@@ -1528,7 +1531,7 @@ function saveSig(){
   const cv=document.getElementById('sigPad'),a=curOS.alocacoes[sigTarget]; a.assinatura=cv.toDataURL('image/png');
   const now=new Date(); a.assinadoEm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
-  toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada');
+  toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada'); gMaybeUploadSig(a);
 }
 
 /* ===== inclusão de foto no PDF (Coordenador+) ===== */
@@ -1566,7 +1569,7 @@ async function processFoto(file,eq,label){
 }
 function capturar(ii,tipo){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
-  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); sfMaybePushItem(eq); }catch(e){ toast('Falha ao processar a foto'); } });
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); sfMaybePushItem(eq); gMaybeUploadFoto(eq,tipo); }catch(e){ toast('Falha ao processar a foto'); } });
 }
 function capturarExtra(ii){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
@@ -2063,6 +2066,110 @@ async function sfHydrate(){
   if(document.body) document.body.appendChild(b);
   _sfRedirect();
 })();
+
+/* ===== Google Drive: sobe foto/vídeo/assinatura e registra Mídia da OS no Salesforce ===== */
+const GOOGLE = {
+  clientId: '1039787065614-kv5qov1eib8j5km89bt35eq0sad8j9aj.apps.googleusercontent.com',
+  scope: 'https://www.googleapis.com/auth/drive.file',
+  folderName: 'Exaustech — Mídias de OS'
+};
+let gToken=null, gTokenExp=0, gTokenClient=null, gFolderId=localStorage.getItem('g_folder')||null, _gWait=0;
+function _gReady(){ return typeof google!=='undefined' && google.accounts && google.accounts.oauth2; }
+function dataURLtoBlob(d){ const c=d.split(','), mime=(c[0].match(/:(.*?);/)||[])[1]||'application/octet-stream', bin=atob(c[1]), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new Blob([u],{type:mime}); }
+function gConnect(){
+  return new Promise((resolve,reject)=>{
+    if(gToken && Date.now()<gTokenExp-60000) return resolve(gToken);
+    if(!_gReady()){ if(_gWait++>15) return reject(new Error('Google não carregou')); toast('Carregando Google…'); return setTimeout(()=>gConnect().then(resolve,reject),700); }
+    _gWait=0;
+    if(!gTokenClient) gTokenClient=google.accounts.oauth2.initTokenClient({client_id:GOOGLE.clientId, scope:GOOGLE.scope, callback:()=>{}});
+    gTokenClient.callback=(r)=>{ if(r && r.access_token){ gToken=r.access_token; gTokenExp=Date.now()+((r.expires_in||3500)*1000); resolve(gToken); } else reject(new Error((r&&r.error)||'Login Google cancelado')); };
+    try{ gTokenClient.requestAccessToken({prompt: gToken?'':'consent'}); }catch(e){ reject(e); }
+  });
+}
+async function gFolder(){
+  if(gFolderId){
+    try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+gFolderId+'?fields=id,trashed',{headers:{Authorization:'Bearer '+gToken}}); if(r.ok){ const j=await r.json(); if(!j.trashed) return gFolderId; } }catch(e){}
+    gFolderId=null; localStorage.removeItem('g_folder');
+  }
+  const q="name='"+GOOGLE.folderName.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+  let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id)',{headers:{Authorization:'Bearer '+gToken}});
+  let j=await r.json(); if(j.files&&j.files[0]){ gFolderId=j.files[0].id; localStorage.setItem('g_folder',gFolderId); return gFolderId; }
+  r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},body:JSON.stringify({name:GOOGLE.folderName,mimeType:'application/vnd.google-apps.folder'})});
+  j=await r.json(); gFolderId=j.id; localStorage.setItem('g_folder',gFolderId); return gFolderId;
+}
+function _blobToB64(blob){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]); fr.onerror=rej; fr.readAsDataURL(blob); }); }
+async function _gUploadMultipart(blob, filename, mime, folder){
+  const b=await _blobToB64(blob);
+  const bd='exaustech'+Date.now();
+  const body="--"+bd+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify({name:filename,parents:[folder]})
+    +"\r\n--"+bd+"\r\nContent-Type: "+mime+"\r\nContent-Transfer-Encoding: base64\r\n\r\n"+b+"\r\n--"+bd+"--";
+  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',{
+    method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'multipart/related; boundary='+bd}, body});
+  const j=await r.json(); if(!r.ok) throw new Error('Drive '+(j&&j.error?j.error.message:r.status)); return j;
+}
+async function gUploadBlob(blob, filename, mime){
+  await gConnect();
+  const folder=await gFolder();
+  let init;
+  try{
+    init=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink',{
+      method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime},
+      body:JSON.stringify({name:filename, parents:[folder]})});
+  }catch(e){ init=null; }
+  const loc=init&&init.ok?init.headers.get('Location'):null;
+  if(loc){
+    const put=await fetch(loc,{method:'PUT',headers:{'Content-Type':mime},body:blob});
+    const j=await put.json(); if(!put.ok) throw new Error('Drive upload '+(j&&j.error?j.error.message:put.status));
+    return j;
+  }
+  /* fallback: multipart/related (Location indisponível por CORS) */
+  return _gUploadMultipart(blob, filename, mime, folder);
+}
+async function sfCreateMidia(rec){
+  const body={ Tipo__c:rec.tipo, URL__c:rec.url, Drive_File_Id__c:rec.driveId, Data__c:new Date().toISOString() };
+  if(rec.woId) body.WorkOrder__c=rec.woId;
+  if(rec.woliId) body.WorkOrderLineItem__c=rec.woliId;
+  if(rec.equip) body.Equipamento__c=(rec.equip||'').slice(0,120);
+  const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/Midia_OS__c',{method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json(); if(!r.ok) throw new Error((j&&j[0]&&j[0].message)||('SF '+r.status)); return j;
+}
+async function gMaybeUploadFoto(eq,tipo){
+  if(!SF_LIVE || !curOS || !curOS._wo || !eq) return;
+  const img = tipo==='antes'?eq.fotoAntesImg:eq.fotoDepoisImg; if(!img) return;
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_'+(tipo==='antes'?'ANTES':'DEPOIS')+'_'+stamp+'.jpg';
+  try{ toast('☁️ Enviando foto ao Drive…');
+    const up=await gUploadBlob(dataURLtoBlob(img), fn, 'image/jpeg');
+    await sfCreateMidia({tipo:tipo==='antes'?'Foto Antes':'Foto Depois', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+    toast('✅ Foto no Drive + registrada na OS');
+  }catch(e){ toast('Falha no Drive: '+e.message); }
+}
+async function gMaybeUploadSig(a){
+  if(!SF_LIVE || !curOS || !curOS._wo || !a || !a.assinatura) return;
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=(curOS.id||'OS')+'_ASSINATURA_'+((a.nome||'').replace(/\s+/g,'_'))+'_'+stamp+'.png';
+  try{ toast('☁️ Enviando assinatura ao Drive…');
+    const up=await gUploadBlob(dataURLtoBlob(a.assinatura), fn, 'image/png');
+    await sfCreateMidia({tipo:'Assinatura', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, equip:a.nome});
+    toast('✅ Assinatura no Drive + registrada na OS');
+  }catch(e){ toast('Falha no Drive: '+e.message); }
+}
+function capturarVideo(ii){
+  const eq=curOS&&curOS._itens?curOS._itens[ii]:null; if(!eq) return;
+  if(!(SF_LIVE && curOS && curOS._wo)){ toast('Vídeo disponível no modo ao vivo (Salesforce).'); return; }
+  const inp=document.getElementById('videoInput'); if(!inp){ toast('Câmera indisponível'); return; }
+  inp.value=''; inp.onchange=async()=>{ const f=inp.files&&inp.files[0]; if(!f) return;
+    const ext=((f.name||'').split('.').pop()||'mp4').toLowerCase();
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+    const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
+    try{ toast('☁️ Enviando vídeo ao Drive… (pode levar)');
+      const up=await gUploadBlob(f, fn, f.type||'video/mp4');
+      await sfCreateMidia({tipo:'Vídeo', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+      eq._temVideo=true; showSub(); toast('✅ Vídeo no Drive + registrado na OS');
+    }catch(e){ toast('Falha no vídeo: '+e.message); }
+  };
+  inp.click();
+}
 
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
