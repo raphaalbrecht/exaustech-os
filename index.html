@@ -567,6 +567,7 @@ function inI(n){ return `<span class="ico">${svgI(n)}</span>`; }
 const TC={ itens:'#e8732c', materiais:'#0d9488', assin:'#5867e8', relatorio:'#2e844a', csat:'#fe9339', asset:'#16557e' };
 
 /* ===== dados ===== */
+let SF_LIVE=false; /* modo ao vivo: telas nativas hidratadas com dados reais do Salesforce */
 const NET={online:true, queue:0};
 const STAGES=['Agendado','Despachado','A caminho','No local','Em execução','Concluído'];
 const REP_STAGES=['Rascunho','Supervisão','Coordenação','Aprovado','Cliente'];
@@ -737,7 +738,7 @@ function go(scr){
   const tt=document.getElementById('hdrTitle'), ts=document.getElementById('hdrSub');
   if(scr==='appt'){ tt.textContent=curAppt.id; ts.textContent=curOS.cli; }
   else if(scr==='sub'){ tt.textContent=curSubTitle; ts.textContent=curSubSub; }
-  else { tt.textContent='Field Service'; ts.textContent='Exaustech'; }
+  else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
   if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
@@ -851,8 +852,8 @@ function renderStatusBtn(){
   btn.textContent=(a.stage+1===STAGES.length-1)?'Concluir compromisso':('Marcar como '+STAGES[a.stage+1]);
   alt.innerHTML='<button class="ab warn" onclick="openOutcome(\'Não Concluído\')">Não foi possível concluir</button><button class="ab danger" onclick="openOutcome(\'Cancelado\')">Cancelar compromisso</button>';
 }
-function setStage(i){ const a=curAppt; if(a.outcome){toast('Reabra o compromisso para mudar o status');return;} if(i===a.stage)return; if(i===STAGES.length-1){completeAppt();return;} a.stage=i; stamp(a); renderAppt(); toast('Status: '+STAGES[i]); }
-function advanceStatus(){ const a=curAppt; if(a.stage+1===STAGES.length-1){completeAppt();return;} a.stage++; stamp(a); renderAppt(); toast('Status: '+STAGES[a.stage]); }
+function setStage(i){ const a=curAppt; if(a.outcome){toast('Reabra o compromisso para mudar o status');return;} if(i===a.stage)return; if(i===STAGES.length-1){completeAppt();return;} a.stage=i; stamp(a); renderAppt(); toast('Status: '+STAGES[i]); sfMaybePush(a); }
+function advanceStatus(){ const a=curAppt; if(a.stage+1===STAGES.length-1){completeAppt();return;} a.stage++; stamp(a); renderAppt(); toast('Status: '+STAGES[a.stage]); sfMaybePush(a); }
 function completeAppt(){
   const a=curAppt, o=curOS; let faltas=[]; o._itens.forEach(eq=>{ if(!itemComplete(eq))faltas.push(eq.tag); });
   if(faltas.length){ toast('⚠️ Itens incompletos: '+faltas[0]+(faltas.length>1?` (+${faltas.length-1})`:'')); pushSub({type:'itens'}); return; }
@@ -860,7 +861,7 @@ function completeAppt(){
   if(semApt.length){ toast('📝 Registre o apontamento: '+semApt[0]+(semApt.length>1?` (+${semApt.length-1})`:'')); pushSub({type:'itens'}); return; }
   const semAssin=o.alocacoes.filter(x=>!x.assinatura);
   if(semAssin.length){ toast('✍️ Falta assinatura de '+semAssin[0].nome.split(' ')[0]); pushSub({type:'assin'}); return; }
-  a.stage=STAGES.length-1; stamp(a);
+  a.stage=STAGES.length-1; stamp(a); sfMaybePush(a);
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
   if(NET.online) toast('☁️ Status sincronizado com o Salesforce'); else { NET.queue++; updateNet(); }
@@ -1020,7 +1021,7 @@ function chkItem(eq,item){
   const paint=()=>{ okB.className=eq.checks[item]==='ok'?'on-ok':''; noB.className=eq.checks[item]==='nok'?'on-nok':''; neB.className=eq.checks[item]==='ne'?'on-ne':''; };
   const renderDet=()=>{ det.innerHTML=''; const v=eq.checks[item]; if(v==='nok')det.appendChild(nokDetail(eq,item,lk)); else if(v==='ne')det.appendChild(neDetail(eq,item,lk)); };
   if(lk){ [okB,noB,neB].forEach(b=>b.disabled=true); }
-  else { okB.onclick=()=>{ eq.checks[item]='ok'; paint(); renderDet(); }; noB.onclick=()=>{ eq.checks[item]='nok'; paint(); renderDet(); }; neB.onclick=()=>{ eq.checks[item]='ne'; paint(); renderDet(); }; }
+  else { okB.onclick=()=>{ eq.checks[item]='ok'; paint(); renderDet(); sfMaybePushItem(eq); }; noB.onclick=()=>{ eq.checks[item]='nok'; paint(); renderDet(); sfMaybePushItem(eq); }; neB.onclick=()=>{ eq.checks[item]='ne'; paint(); renderDet(); sfMaybePushItem(eq); }; }
   paint(); renderDet();
   wrap.appendChild(row); wrap.appendChild(det); return wrap;
 }
@@ -1565,7 +1566,7 @@ async function processFoto(file,eq,label){
 }
 function capturar(ii,tipo){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
-  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); }catch(e){ toast('Falha ao processar a foto'); } });
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); sfMaybePushItem(eq); }catch(e){ toast('Falha ao processar a foto'); } });
 }
 function capturarExtra(ii){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
@@ -1892,12 +1893,131 @@ async function _sfRedirect(){
     sessionStorage.setItem('sf_tok', t.access_token);
     sessionStorage.setItem('sf_inst', t.instance_url || SF.instance);
     history.replaceState({}, '', SF.redirect);
-    sfLoadOS();
+    sfHydrate();
   }catch(e){ toast('Falha na troca de token (CORS?): ' + e.message); console.log(e); }
 }
+/* ===== MODO AO VIVO: hidrata as telas nativas (agenda/detalhe/board) com dados reais do Salesforce ===== */
+/* mapeia o tipo do equipamento (pelo nome do Asset) para grupo + checklist do app */
+function _sfClassify(name){
+  const n=(name||'').toLowerCase();
+  if(n.includes('coifa'))    return {nome:'Coifas',            tarefa:'Limpeza de coifa',      chk:'coifa'};
+  if(n.includes('filtro')||n.includes('caixa')) return {nome:'Caixa de filtros', tarefa:'Troca de filtros', chk:'filtros'};
+  if(n.includes('exaustor')||n.includes('motor')) return {nome:'Exaustores',    tarefa:'Inspeção de exaustor',  chk:'exaustor'};
+  if(n.includes('duto'))     return {nome:'Duto (Site)',       tarefa:'Limpeza de dutos',      chk:'duto', site:true};
+  return {nome:'Equipamentos', tarefa:'Manutenção preventiva', chk:'coifa'};
+}
+/* Status__c da WorkOrder -> estágio da Path (0..5) */
+function _sfStatusToStage(st){
+  if(st==='Completed') return 5;
+  if(st==='In Progress') return 4;
+  if(st==='On Hold') return 3;
+  if(st==='Cannot Complete'||st==='Canceled') return 0;
+  return 0; /* New / Open / etc. */
+}
+/* estágio da Path -> Status__c a gravar */
+function _sfStageToStatus(stage){
+  if(stage>=5) return 'Completed';
+  if(stage>=4) return 'In Progress';
+  return 'New';
+}
+async function sfMaybePush(a){
+  if(!SF_LIVE || !a || !a.os || !a.os._wo) return;
+  const st=_sfStageToStatus(a.stage);
+  if(a.os._sfStatus===st) return;
+  a.os._sfStatus=st;
+  try{
+    const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/WorkOrder__c/'+a.os._wo,{
+      method:'PATCH',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
+      body:JSON.stringify({Status__c:st})});
+    if(r.ok) toast('☁️ Status "'+st+'" gravado na OS '+a.os._sfName);
+    else { let m=r.status; try{const t=await r.json(); if(t&&t[0])m=t[0].message;}catch(e){} toast('Erro ao gravar status: '+m); }
+  }catch(e){ toast('Erro ao gravar status: '+e.message); }
+}
+/* grava a conclusão do equipamento (WorkOrderLineItem) quando o item fica completo no app */
+async function sfMaybePushItem(eq){
+  if(!SF_LIVE || !eq || !eq._woli || eq._sfDone) return;
+  if(!itemComplete(eq)) return;
+  eq._sfDone=true;
+  try{
+    const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/WorkOrderLineItem__c/'+eq._woli,{
+      method:'PATCH',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
+      body:JSON.stringify({Status__c:'Completed'})});
+    if(r.ok) toast('☁️ '+eq.tag+' concluído — gravado no Salesforce');
+    else { let m=r.status; try{const t=await r.json(); if(t&&t[0])m=t[0].message;}catch(e){} eq._sfDone=false; toast('Erro ao concluir item: '+m); }
+  }catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
+}
+async function sfHydrate(){
+  toast('Carregando OS do Salesforce…');
+  try{
+    const wos=((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 30")).records)||[];
+    if(!wos.length){ toast('Nenhuma OS no Salesforce.'); return; }
+    const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
+    for(const wo of wos){
+      const items=((await sfApi("SELECT Id, AssetId__c, Description__c, Status__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
+      const aids=items.map(i=>i.AssetId__c).filter(Boolean);
+      let amap={};
+      if(aids.length){ (((await sfApi("SELECT Id, Name, SerialNumber__c FROM Asset__c WHERE Id IN ('"+aids.join("','")+"')")).records)||[]).forEach(a=>amap[a.Id]=a); }
+      let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0])acc=r[0].Name; }
+      let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0])loc=r[0].Name; }
+      /* agrupa itens por tipo de equipamento */
+      const gmap={};
+      items.forEach(i=>{ const a=amap[i.AssetId__c]; const nm=a?a.Name:'Equipamento'; const cls=_sfClassify(nm);
+        if(!gmap[cls.nome]) gmap[cls.nome]={nome:cls.nome,tarefa:cls.tarefa,chk:cls.chk,site:cls.site||false,equipamentos:[]};
+        gmap[cls.nome].equipamentos.push({ tag:(a&&a.SerialNumber__c)?a.SerialNumber__c:(a?a.Name:'—'), nome:nm, site:cls.site||false, _woli:i.Id, _sfDone:i.Status__c==='Completed' });
+      });
+      const grupos=Object.values(gmap);
+      if(!grupos.length) grupos.push({nome:'Equipamentos',tarefa:'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento'}]});
+      /* materiais (ProductRequest -> linhas) */
+      const materiais=[];
+      const prs=((await sfApi("SELECT Id FROM ProductRequest__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
+      if(prs.length){
+        const prIds=prs.map(p=>p.Id);
+        const lines=((await sfApi("SELECT Suprimento__c, QuantityRequested__c FROM ProductRequestLineItem__c WHERE ParentId__c IN ('"+prIds.join("','")+"')")).records)||[];
+        const supIds=lines.map(l=>l.Suprimento__c).filter(Boolean); let supMap={};
+        if(supIds.length){ (((await sfApi("SELECT Id, Name FROM Suprimento__c WHERE Id IN ('"+supIds.join("','")+"')")).records)||[]).forEach(s=>supMap[s.Id]=s.Name); }
+        lines.forEach(l=>materiais.push({nome:supMap[l.Suprimento__c]||'material',un:'un',solicitado:l.QuantityRequested__c!=null?l.QuantityRequested__c:0,embarcado:0,base:'template'}));
+      }
+      /* compromisso (ServiceAppointment) */
+      const sas=((await sfApi("SELECT Id, Name, SchedStartTime__c, Status__c FROM ServiceAppointment__c WHERE ParentRecordWorkOrder__c='"+wo.Id+"' ORDER BY CreatedDate LIMIT 1")).records)||[];
+      let dia, janela='—';
+      const dt = wo.StartDate__c ? new Date(wo.StartDate__c) : ((sas[0]&&sas[0].SchedStartTime__c)?new Date(sas[0].SchedStartTime__c):new Date());
+      dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
+      diasSet.add(dia+'|'+dt.getFullYear());
+      const o={ id:_esc(wo.Name||'OS'), _wo:wo.Id, _sfName:wo.Name, _sfStatus:wo.Status__c, equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
+        cli:acc, contrato:'—', local:loc, modelo:wo.Subject__c||'Manutenção preventiva', plano:wo.Subject__c||'Exaustão · MPP', alocacoes:[], grupos:grupos,
+        separacao:{id:'SEP-'+(wo.Name||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais:materiais} };
+      buildItems(o);
+      /* marca itens já concluídos no Salesforce (checklist auto-ok + fotos p/ refletir estado real) */
+      o._itens.forEach(eq=>{ if(eq._sfDone){ eq.fotoAntes=true; eq.fotoDepois=true; eq.checklist.forEach(c=>eq.checks[c]='ok'); } });
+      o.alocacoes.forEach(a=>{a.assinatura=null;a.assinadoEm=null;});
+      o.separacao.materiais.forEach(m=>{m.consumido=0;m.retorno=0;m.baixa={danificado:0,extraviado:0,inutilizado:0,obs:'',fotos:[],responsavel:'',bxId:null};});
+      o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
+      o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
+      o.notas=[];
+      novasOrdens.push(o);
+      novosAppts.push({ id:(sas[0]&&sas[0].Name)?sas[0].Name:('SA-'+(saSeq++)), os:o, dia:dia, janela:janela, tipo:'Principal', stage:_sfStatusToStage(wo.Status__c), outcome:null, tempos:{} });
+    }
+    /* substitui os dados mock pelos reais */
+    ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
+    appts.length=0; novosAppts.forEach(a=>appts.push(a));
+    /* reconstrói a barra de dias a partir dos compromissos reais */
+    const WD=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'], MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    DAYS.length=0;
+    Array.from(diasSet).sort().forEach(k=>{ const [dm,y]=k.split('|'); const [d,m]=dm.split('/').map(Number); const dt=new Date(Number(y),m-1,d);
+      DAYS.push({key:dm,wd:WD[dt.getDay()],d:d}); DAYLABEL[dm]=WD[dt.getDay()]+', '+d+' de '+MES[m-1]; });
+    if(DAYS.length) selDay=DAYS[0].key;
+    SF_LIVE=true;
+    document.body.classList.add('sf-live');
+    const lb=document.getElementById('sfLiveBtn'); if(lb) lb.textContent='🔄 Atualizar (ao vivo)';
+    let ov=document.getElementById('sfOverlay'); if(ov) ov.remove();
+    go('schedule');
+    toast('✅ '+ordens.length+' OS carregadas do Salesforce (modo ao vivo)');
+  }catch(e){ toast('Erro ao carregar: '+e.message); console.log(e); }
+}
 (function(){
-  const b=document.createElement('button'); b.textContent='🔌 Salesforce'; b.onclick=function(){ sessionStorage.getItem('sf_tok') ? sfLoadOS() : sfConnect(); };
-  b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+  const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔌 Salesforce';
+  b.onclick=function(){ sessionStorage.getItem('sf_tok') ? sfHydrate() : sfConnect(); };
+  b.style.cssText='position:fixed;right:12px;bottom:70px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
   document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));
   if(document.body) document.body.appendChild(b);
   _sfRedirect();
