@@ -738,7 +738,7 @@ function go(scr){
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
   document.getElementById('bellBtn').style.display=(scr!=='login')?'flex':'none';
   const tt=document.getElementById('hdrTitle'), ts=document.getElementById('hdrSub');
-  if(scr==='appt'){ tt.textContent=curAppt.id; ts.textContent=curOS.cli; }
+  if(scr==='appt'){ tt.textContent=curOS.id; ts.textContent=curOS.cli+' · '+curAppt.id; }
   else if(scr==='sub'){ tt.textContent=curSubTitle; ts.textContent=curSubSub; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
   if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); }
@@ -789,12 +789,13 @@ function renderSchedule(){
   day.forEach(a=>{
     const al=apptLoz(a);
     const el=document.createElement('div'); el.className='appt '+apptClass(a); el.onclick=()=>openAppt(a);
+    const temJanela = a.janela && a.janela!=='—';
     el.innerHTML=`
-      <div class="appt-row"><div class="appt-time">${a.janela}</div><span class="lz ${al.cls}">${al.txt}</span></div>
+      <div class="appt-row"><div class="appt-time" style="font-weight:800;color:#0176D3">${a.os.id||''}</div><span class="lz ${al.cls}">${al.txt}</span></div>
       <div class="appt-wt">${a.os.plano}${a.tipo==='Revisita'?' · Revisita':''}</div>
       <div class="appt-acc">${a.os.cli}</div>
       <div class="appt-meta">${inI('pin')} ${a.os.local}</div>
-      <div class="appt-meta">${inI('asset')} ${a.os._itens.length} equipamento(s) · ${a.id} · ${a.os.id}</div>`;
+      <div class="appt-meta">${inI('asset')} ${a.os._itens.length} equipamento(s)${temJanela?' · '+a.janela:''} · ${a.id}</div>`;
     list.appendChild(el);
   });
 }
