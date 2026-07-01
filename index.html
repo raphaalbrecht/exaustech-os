@@ -379,10 +379,13 @@
     <div class="cloud"><svg viewBox="0 0 24 24"><path d="M6.5 19a4 4 0 0 1-.8-7.9A5 5 0 0 1 15 9.3a3.8 3.8 0 0 1 4.4 3.2A3.3 3.3 0 0 1 18.7 19H6.5Z" fill="#0176D3"/></svg></div>
     <h1>Field Service</h1>
     <p>Exaustech · Manutenção</p>
-    <div class="field"><label>Usuário</label><input type="text" value="joao.silva" readonly></div>
-    <div class="field"><label>Senha</label><input type="text" value="••••••••" readonly></div>
-    <button class="btn" onclick="go('schedule')">Entrar</button>
-    <small>Protótipo de demonstração · dados fictícios</small>
+    <div id="gbtn" style="display:flex;justify-content:center;margin:14px 0 6px"></div>
+    <div style="text-align:center;color:#8aa;font-size:12px;margin:8px 0">ou entre com usuário e senha</div>
+    <div class="field"><label>Usuário</label><input type="text" id="loginUser" placeholder="usuário"></div>
+    <div class="field"><label>Senha</label><input type="password" id="loginPass" placeholder="senha" onkeydown="if(event.key==='Enter')beLoginLocal()"></div>
+    <button class="btn" onclick="beLoginLocal()">Entrar</button>
+    <small id="loginMsg">Exaustech · Field Service</small>
+    <small style="margin-top:6px"><a href="#" onclick="go('schedule');return false" style="color:#9ab">Ver demonstração (dados fictícios)</a></small>
   </section>
 
   <!-- HEADER -->
@@ -768,13 +771,9 @@ function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.q
   updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
   updateBell(); toast('Perfil: '+r); }
 function logout(){
-  const gt=(typeof gToken!=='undefined')?gToken:null;
-  ['sf_tok','sf_inst','sf_v','sf_st'].forEach(k=>sessionStorage.removeItem(k));
-  try{ gToken=null; gTokenExp=0; }catch(e){}
+  ['be_tok','be_name','sf_tok','sf_inst','sf_v','sf_st'].forEach(k=>sessionStorage.removeItem(k));
   SF_LIVE=false; document.body.classList.remove('sf-live');
-  const lb=document.getElementById('sfLiveBtn'); if(lb) lb.textContent='🔌 Salesforce';
-  try{ if(gt && typeof google!=='undefined' && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) google.accounts.oauth2.revoke(gt); }catch(e){}
-  go('login'); toast('Você saiu — toque em 🔌 Salesforce para entrar de novo.');
+  go('login'); toast('Você saiu.');
 }
 function back(){
   const cur=document.querySelector('.screen.active').id;
@@ -1959,26 +1958,16 @@ async function sfMaybePush(a){
   const st=_sfStageToStatus(a.stage);
   if(a.os._sfStatus===st) return;
   a.os._sfStatus=st;
-  try{
-    const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/WorkOrder__c/'+a.os._wo,{
-      method:'PATCH',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
-      body:JSON.stringify({Status__c:st})});
-    if(r.ok) toast('☁️ Status "'+st+'" gravado na OS '+a.os._sfName);
-    else { let m=r.status; try{const t=await r.json(); if(t&&t[0])m=t[0].message;}catch(e){} toast('Erro ao gravar status: '+m); }
-  }catch(e){ toast('Erro ao gravar status: '+e.message); }
+  try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('☁️ Status "'+st+'" gravado na OS '+a.os._sfName); }
+  catch(e){ toast('Erro ao gravar status: '+e.message); }
 }
 /* grava a conclusão do equipamento (WorkOrderLineItem) quando o item fica completo no app */
 async function sfMaybePushItem(eq){
   if(!SF_LIVE || !eq || !eq._woli || eq._sfDone) return;
   if(!itemComplete(eq)) return;
   eq._sfDone=true;
-  try{
-    const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/WorkOrderLineItem__c/'+eq._woli,{
-      method:'PATCH',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
-      body:JSON.stringify({Status__c:'Completed'})});
-    if(r.ok) toast('☁️ '+eq.tag+' concluído — gravado no Salesforce');
-    else { let m=r.status; try{const t=await r.json(); if(t&&t[0])m=t[0].message;}catch(e){} eq._sfDone=false; toast('Erro ao concluir item: '+m); }
-  }catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
+  try{ await bePatch('/itens/'+eq._woli+'/concluir',{}); toast('☁️ '+eq.tag+' concluído'); }
+  catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
 }
 async function sfHydrate(){
   toast('Carregando OS do Salesforce…');
@@ -2071,12 +2060,13 @@ async function sfHydrate(){
   }catch(e){ toast('Erro ao carregar: '+e.message); console.log(e); }
 }
 (function(){
-  const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔌 Salesforce';
-  b.onclick=function(){ sessionStorage.getItem('sf_tok') ? sfHydrate() : sfConnect(); };
-  b.style.cssText='position:fixed;right:12px;bottom:70px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
-  document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));
-  if(document.body) document.body.appendChild(b);
-  _sfRedirect();
+  const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔄 Atualizar';
+  b.onclick=function(){ beTok() ? beHydrate() : go('login'); };
+  b.style.cssText='position:fixed;right:12px;bottom:70px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;display:none';
+  const show=()=>{ b.style.display = beTok()?'block':'none'; };
+  document.addEventListener('DOMContentLoaded',()=>{document.body.appendChild(b);show();});
+  if(document.body){ document.body.appendChild(b); show(); }
+  setInterval(show, 1500);
 })();
 
 /* ===== Google Drive: sobe foto/vídeo/assinatura e registra Mídia da OS no Salesforce ===== */
@@ -2158,21 +2148,19 @@ async function gMaybeUploadFoto(eq,tipo){
   const img = tipo==='antes'?eq.fotoAntesImg:eq.fotoDepoisImg; if(!img) return;
   const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_'+(tipo==='antes'?'ANTES':'DEPOIS')+'_'+stamp+'.jpg';
-  try{ toast('☁️ Enviando foto ao Drive…');
-    const up=await gUploadBlob(dataURLtoBlob(img), fn, 'image/jpeg');
-    await sfCreateMidia({tipo:tipo==='antes'?'Foto Antes':'Foto Depois', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
-    toast('✅ Foto no Drive + registrada na OS');
-  }catch(e){ toast('Falha no Drive: '+e.message); }
+  try{ toast('☁️ Enviando foto…');
+    await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+    toast('✅ Foto salva na OS');
+  }catch(e){ toast('Falha ao enviar foto: '+e.message); }
 }
 async function gMaybeUploadSig(a){
   if(!SF_LIVE || !curOS || !curOS._wo || !a || !a.assinatura) return;
   const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const fn=(curOS.id||'OS')+'_ASSINATURA_'+((a.nome||'').replace(/\s+/g,'_'))+'_'+stamp+'.png';
-  try{ toast('☁️ Enviando assinatura ao Drive…');
-    const up=await gUploadBlob(dataURLtoBlob(a.assinatura), fn, 'image/png');
-    await sfCreateMidia({tipo:'Assinatura', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, equip:a.nome});
-    toast('✅ Assinatura no Drive + registrada na OS');
-  }catch(e){ toast('Falha no Drive: '+e.message); }
+  try{ toast('☁️ Enviando assinatura…');
+    await beUploadMidia(dataURLtoBlob(a.assinatura), fn, 'Assinatura', {woId:curOS._wo, equip:a.nome});
+    toast('✅ Assinatura salva na OS');
+  }catch(e){ toast('Falha ao enviar assinatura: '+e.message); }
 }
 function capturarVideo(ii){
   const eq=curOS&&curOS._itens?curOS._itens[ii]:null; if(!eq) return;
@@ -2182,14 +2170,93 @@ function capturarVideo(ii){
     const ext=((f.name||'').split('.').pop()||'mp4').toLowerCase();
     const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
-    try{ toast('☁️ Enviando vídeo ao Drive… (pode levar)');
-      const up=await gUploadBlob(f, fn, f.type||'video/mp4');
-      await sfCreateMidia({tipo:'Vídeo', url:up.webViewLink||('https://drive.google.com/file/d/'+up.id+'/view'), driveId:up.id, woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
-      eq._temVideo=true; showSub(); toast('✅ Vídeo no Drive + registrado na OS');
+    try{ toast('☁️ Enviando vídeo… (pode levar)');
+      await beUploadMidia(f, fn, 'Vídeo', {woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+      eq._temVideo=true; showSub(); toast('✅ Vídeo salvo na OS');
     }catch(e){ toast('Falha no vídeo: '+e.message); }
   };
   inp.click();
 }
+
+/* ===== BACKEND (identidade única): login + dados + escrita via Cloud Run ===== */
+const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
+function beTok(){ return sessionStorage.getItem('be_tok'); }
+async function beGet(path){ const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}}); if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); } return r.json(); }
+async function bePatch(path,body){ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }
+async function beDoLogin(payload){
+  const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
+  try{
+    const r=await fetch(BACKEND+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
+    sessionStorage.setItem('be_tok', j.token); sessionStorage.setItem('be_name', j.name||'');
+    toast('Bem-vindo, '+((j.name||'').split(' ')[0]||'')); beHydrate();
+  }catch(e){ if(m)m.textContent='Erro de conexão'; toast('Erro de conexão: '+e.message); }
+}
+function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()){toast('Informe o usuário');return;} beDoLogin({username:u.trim(),password:p||''}); }
+function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
+function beLogout(){ ['be_tok','be_name'].forEach(k=>sessionStorage.removeItem(k)); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beInitGoogle(){
+  if(!(window.google&&google.accounts&&google.accounts.id)){ if((beInitGoogle._n=(beInitGoogle._n||0)+1)>20)return; setTimeout(beInitGoogle,600); return; }
+  try{
+    google.accounts.id.initialize({ client_id:'1039787065614-kv5qov1eib8j5km89bt35eq0sad8j9aj.apps.googleusercontent.com', callback:onGoogleCredential });
+    const el=document.getElementById('gbtn'); if(el && !el.dataset.done){ google.accounts.id.renderButton(el,{theme:'filled_blue',size:'large',text:'signin_with',shape:'pill',width:260}); el.dataset.done='1'; }
+  }catch(e){}
+}
+async function beUploadMidia(blob, filename, tipo, meta){
+  const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
+  if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
+  const r=await fetch(BACKEND+'/midias',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+  const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+}
+async function beHydrate(){
+  toast('Carregando OS…');
+  try{
+    const wos = await beGet('/hydrate');
+    if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
+    if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
+    const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
+    for(const wo of wos){
+      const gmap={};
+      (wo.items||[]).forEach(i=>{ const nm=i.assetName||'Equipamento'; const cls=_sfClassify(nm);
+        if(!gmap[cls.nome]) gmap[cls.nome]={nome:cls.nome,tarefa:cls.tarefa,chk:cls.chk,site:cls.site||false,equipamentos:[]};
+        gmap[cls.nome].equipamentos.push({ tag:i.serial||nm, nome:nm, site:cls.site||false, _woli:i.id, _sfDone:i.status==='Completed' });
+      });
+      const grupos=Object.values(gmap);
+      if(!grupos.length) grupos.push({nome:'Equipamentos',tarefa:'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento'}]});
+      const materiais=(wo.materiais||[]).map(m=>({nome:m.nome,un:'un',solicitado:m.qtd,embarcado:0,base:'template'}));
+      const dt = wo.startDate ? new Date(wo.startDate) : new Date();
+      const dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
+      diasSet.add(dia+'|'+dt.getFullYear());
+      const o={ id:_esc(wo.id||'OS'), _wo:wo.woId, _sfName:wo.id, _sfStatus:wo.status, _sa:wo.saId||null, _territoryName:'',
+        equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
+        cli:wo.account, contrato:'—', local:wo.location, modelo:wo.subject||'Manutenção preventiva', plano:wo.subject||'Exaustão · MPP',
+        alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais} };
+      buildItems(o);
+      o._itens.forEach(eq=>{ if(eq._sfDone){ eq.fotoAntes=true; eq.fotoDepois=true; eq.checklist.forEach(c=>eq.checks[c]='ok'); } });
+      o.alocacoes.forEach(a=>{a.assinatura=null;a.assinadoEm=null;});
+      o.separacao.materiais.forEach(m=>{m.consumido=0;m.retorno=0;m.baixa={danificado:0,extraviado:0,inutilizado:0,obs:'',fotos:[],responsavel:'',bxId:null};});
+      o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
+      o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
+      o.notas=[];
+      novasOrdens.push(o);
+      novosAppts.push({ id:wo.saName||('SA-'+(saSeq++)), os:o, dia, janela:'—', tipo:'Principal', stage:_sfStatusToStage(wo.status), outcome:null, tempos:{} });
+    }
+    ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
+    appts.length=0; novosAppts.forEach(a=>appts.push(a));
+    const WD=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'], MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    DAYS.length=0;
+    Array.from(diasSet).sort().forEach(k=>{ const p=k.split('|'), dm=p[0], y=p[1]; const dd=dm.split('/').map(Number); const dt=new Date(Number(y),dd[1]-1,dd[0]);
+      DAYS.push({key:dm,wd:WD[dt.getDay()],d:dd[0]}); DAYLABEL[dm]=WD[dt.getDay()]+', '+dd[0]+' de '+MES[dd[1]-1]; });
+    if(DAYS.length) selDay=DAYS[0].key;
+    SF_LIVE=true; document.body.classList.add('sf-live');
+    go('schedule');
+    toast('✅ '+ordens.length+' OS carregadas');
+  }catch(e){ toast('Erro: '+e.message); }
+}
+document.addEventListener('DOMContentLoaded', beInitGoogle);
+setTimeout(beInitGoogle, 400);
+if(beTok()) setTimeout(beHydrate, 300);  /* já logado (reload): recarrega as OS */
 
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
