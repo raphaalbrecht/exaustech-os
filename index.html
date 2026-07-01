@@ -1805,13 +1805,36 @@ async function sfApi(q){
                         { headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok') } });
   return r.json();
 }
-async function sfTest(){
+function _esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function sfLoadOS(){
+  toast('Carregando OS do Salesforce…');
   try{
-    const o = await sfApi('SELECT Name FROM Organization LIMIT 1');
-    const w = await sfApi('SELECT COUNT() FROM WorkOrder__c');
-    const nm = (o.records && o.records[0]) ? o.records[0].Name : '(sem nome)';
-    toast('✅ Salesforce conectado — ' + nm + ' · WorkOrders: ' + (w.totalSize!=null ? w.totalSize : '?'));
-  }catch(e){ toast('Erro na leitura: ' + e.message); }
+    const wos = ((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 20")).records) || [];
+    let cards='';
+    for(const wo of wos){
+      const items = ((await sfApi("SELECT Id, AssetId__c, Description__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records) || [];
+      const aids = items.map(i=>i.AssetId__c).filter(Boolean);
+      let amap={};
+      if(aids.length){ (((await sfApi("SELECT Id, Name, SerialNumber__c FROM Asset__c WHERE Id IN ('"+aids.join("','")+"')")).records)||[]).forEach(a=>amap[a.Id]=a); }
+      let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0]) acc=r[0].Name; }
+      let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0]) loc=r[0].Name; }
+      const its = items.map(i=>{ const a=amap[i.AssetId__c]; return '<div style="padding:7px 12px;border-top:1px solid #eee;font-size:13px"><b>'+_esc(a?a.Name:'(equip.)')+'</b> <span style="color:#999">'+_esc(a&&a.SerialNumber__c?a.SerialNumber__c:'')+'</span><br><span style="color:#666">'+_esc(i.Description__c||'')+'</span></div>'; }).join('');
+      cards += '<div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;margin:10px 0;overflow:hidden">'
+        + '<div style="background:#0176D3;color:#fff;padding:10px 12px"><div style="font-weight:700">'+_esc(wo.Name||'(OS)')+' · '+_esc(wo.Status__c||'sem status')+'</div><div style="font-size:12px;opacity:.92">'+_esc(wo.Subject__c||'')+'</div></div>'
+        + '<div style="padding:8px 12px;font-size:12.5px;color:#444"><b>Conta:</b> '+_esc(acc)+' &nbsp;·&nbsp; <b>Local:</b> '+_esc(loc)+'</div>'
+        + '<div style="font-size:12px;color:#0176D3;font-weight:700;padding:2px 12px 4px">'+items.length+' item(s) · equipamentos:</div>'
+        + its + '</div>';
+    }
+    if(!wos.length) cards='<p style="text-align:center;color:#888;padding:30px">Nenhuma OS no Salesforce.</p>';
+    let ov=document.getElementById('sfOverlay'); if(ov) ov.remove();
+    ov=document.createElement('div'); ov.id='sfOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px';
+    ov.innerHTML='<div style="background:#f3f3f3;max-width:460px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 12px 44px rgba(0,0,0,.45)">'
+      + '<div style="background:#032D60;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">Ordens de Serviço · ao vivo</div><div style="font-size:11px;opacity:.85">Salesforce mob3 · '+wos.length+' OS</div></div><button onclick="document.getElementById(\'sfOverlay\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:17px;cursor:pointer">×</button></div>'
+      + '<div style="padding:10px 14px 20px">'+cards+'</div></div>';
+    document.body.appendChild(ov);
+    toast('✅ '+wos.length+' OS lida(s) do Salesforce real');
+  }catch(e){ toast('Erro ao carregar OS: '+e.message); console.log(e); }
 }
 async function _sfRedirect(){
   const p = new URLSearchParams(location.search); const code = p.get('code');
@@ -1825,11 +1848,11 @@ async function _sfRedirect(){
     sessionStorage.setItem('sf_tok', t.access_token);
     sessionStorage.setItem('sf_inst', t.instance_url || SF.instance);
     history.replaceState({}, '', SF.redirect);
-    sfTest();
+    sfLoadOS();
   }catch(e){ toast('Falha na troca de token (CORS?): ' + e.message); console.log(e); }
 }
 (function(){
-  const b=document.createElement('button'); b.textContent='🔌 Salesforce'; b.onclick=sfConnect;
+  const b=document.createElement('button'); b.textContent='🔌 Salesforce'; b.onclick=function(){ sessionStorage.getItem('sf_tok') ? sfLoadOS() : sfConnect(); };
   b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
   document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));
   if(document.body) document.body.appendChild(b);
