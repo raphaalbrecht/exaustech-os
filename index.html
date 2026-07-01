@@ -1647,6 +1647,8 @@ const FUNCIONARIOS=[
 ];
 function funcByMat(m){ return FUNCIONARIOS.find(f=>f.matricula===m); }
 function funcByNome(n){ return FUNCIONARIOS.find(f=>f.nome===n); }
+/* autorização do funcionário na OS: ao vivo usa o território real da OS; no mock usa a loja (conta) */
+function funcAuth(f,o){ return SF_LIVE ? (f.lojas||[]).includes(o._territoryName) : (f.lojas||[]).includes(o.cli); }
 function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function firstName(n){ return n.split(' ')[0]; }
 function isLider(nome){ const f=funcByNome(nome); return !!(f && /Líder/i.test(f.cargo)); }
@@ -1673,12 +1675,27 @@ function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474'
 function hhmm2min(t){ const x=t.split(':').map(Number); return x[0]*60+(x[1]||0); }
 function isLateOS(o){ const ap=apptForOS(o); if(!ap)return false; const d1=parseDia(ap.dia), d2=parseDia(AGORANOW.dia); if(!d1||!d2)return false; if(d1.getTime()!==d2.getTime()) return d1.getTime()<d2.getTime(); return janelaMin(ap.janela)[0] < hhmm2min(AGORANOW.hora); }
 function countPendentes(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada)n++; }); }); return n; }
-function confirmAloc(){
+async function confirmAloc(){
   const semLider=ordens.filter(o=>!o.cancelada && o.alocacoes.length>0 && !o.alocacoes.some(a=>isLider(a.nome)));
   if(semLider.length){ toast('⛔ Toda OS precisa de ao menos 1 líder. Sem líder em: '+semLider.map(o=>o.id).join(', ')); return; }
-  let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada){a.confirmada=true;n++;} }); });
-  if(!n){ toast('Nada novo para confirmar.'); return; }
-  renderAloc(); toast('✓ '+n+' alocação(ões) gerada(s) e enviada(s) para agenda/autorização.');
+  const pend=[]; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada) pend.push({o,a}); }); });
+  if(!pend.length){ toast('Nada novo para confirmar.'); return; }
+  if(SF_LIVE){
+    toast('Gravando alocações no Salesforce…');
+    for(const it of pend){ const o=it.o, a=it.a;
+      if(!o._sa){ toast('OS '+o.id+' sem compromisso — não deu para gravar.'); continue; }
+      try{
+        const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/AssignedResource__c',{
+          method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
+          body:JSON.stringify({ServiceResource__c:a.matricula, ServiceAppointment__c:o._sa})});
+        const t=await r.json();
+        if(r.ok && t.id){ a._ar=t.id; a.confirmada=true; }
+        else { let m=r.status; if(t&&t[0])m=t[0].message; toast('Erro em '+firstName(a.nome)+': '+m); }
+      }catch(e){ toast('Erro em '+firstName(a.nome)+': '+e.message); }
+    }
+  } else { pend.forEach(it=>it.a.confirmada=true); }
+  const n=pend.filter(it=>it.a.confirmada).length;
+  renderAloc(); toast('✓ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s) no Salesforce (AssignedResource).':'gerada(s) e enviada(s) para agenda/autorização.'));
 }
 function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
 function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
@@ -1700,7 +1717,7 @@ function renderAloc(){
       wrap.appendChild(lc); return;
     }
     const allocMats=o.alocacoes.map(a=>a.matricula);
-    const avail=FUNCIONARIOS.filter(f=>f.lojas.includes(o.cli) && !allocMats.includes(f.matricula));
+    const avail=FUNCIONARIOS.filter(f=>funcAuth(f,o) && !allocMats.includes(f.matricula));
     const need=o.equipePadrao||0, have=o.alocacoes.length, lead=o.alocacoes.some(a=>isLider(a.nome));
     const missingLead = have>0 && !lead;
     const tstate = (have===need && lead) ? 'ok' : ((have>need && lead) ? 'over' : 'under');
@@ -1766,7 +1783,7 @@ function allocate(osid,mat){
   const o=ordens.find(x=>x.id===osid), f=funcByMat(mat); if(!o||!f) return;
   if(o.cancelada){ toast('OS cancelada — reabra para alocar.'); return; }
   if(o.alocacoes.some(a=>a.matricula===mat)) return;
-  if(!f.lojas.includes(o.cli)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
+  if(!funcAuth(f,o)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
   const cf=allocConflict(mat,o);
   if(cf){ toast('⛔ '+firstName(f.nome)+' já alocado em '+cf.os.id+' ('+cf.os.cli+') · '+cf.oa.dia+' '+cf.oa.janela); return; }
   o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null,confirmada:false});
@@ -1777,7 +1794,9 @@ function allocate(osid,mat){
 function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
   const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
-  const nm=firstName(o.alocacoes[i].nome); o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
+  const a=o.alocacoes[i], nm=firstName(a.nome);
+  if(SF_LIVE && a._ar){ fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/AssignedResource__c/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok')}}).then(()=>toast('☁️ Alocação removida do Salesforce')).catch(()=>{}); }
+  o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
 }
 
 go('login');
@@ -1949,9 +1968,23 @@ async function sfMaybePushItem(eq){
 async function sfHydrate(){
   toast('Carregando OS do Salesforce…');
   try{
-    const wos=((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 30")).records)||[];
+    const wos=((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c, ServiceTerritory__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 30")).records)||[];
     if(!wos.length){ toast('Nenhuma OS no Salesforce.'); return; }
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
+    /* ---- recursos / territórios / autorização (board de Alocação ao vivo) ---- */
+    const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
+    const resById={}, terrById={};
+    ((await sfApi("SELECT Id, Name FROM ServiceResource__c")).records||[]).forEach(r=>resById[r.Id]=r.Name);
+    ((await sfApi("SELECT Id, Name FROM ServiceTerritory__c")).records||[]).forEach(t=>terrById[t.Id]=t.Name);
+    const memByRes={}; /* resourceId -> [territoryName] */
+    ((await sfApi("SELECT ServiceResource__c, ServiceTerritory__c FROM ServiceTerritoryMember__c")).records||[]).forEach(m=>{
+      const tn=terrById[m.ServiceTerritory__c]; if(!tn) return; (memByRes[m.ServiceResource__c]=memByRes[m.ServiceResource__c]||[]).push(tn);
+    });
+    /* monta a lista viva de funcionários; herda cargo/cor do mock quando o nome bate */
+    const mockByName={}; FUNCIONARIOS.forEach(f=>mockByName[f.nome]=f);
+    const funcLive=Object.keys(resById).map((rid,i)=>{ const nm=resById[rid]; const mk=mockByName[nm]||{};
+      return { nome:nm, matricula:rid, cargo:mk.cargo||'Técnico', cor:mk.cor||_pal[i%_pal.length], lojas:(memByRes[rid]||[]) }; });
+    if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
     for(const wo of wos){
       const items=((await sfApi("SELECT Id, AssetId__c, Description__c, Status__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
       const aids=items.map(i=>i.AssetId__c).filter(Boolean);
@@ -1983,7 +2016,7 @@ async function sfHydrate(){
       const dt = wo.StartDate__c ? new Date(wo.StartDate__c) : ((sas[0]&&sas[0].SchedStartTime__c)?new Date(sas[0].SchedStartTime__c):new Date());
       dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
       diasSet.add(dia+'|'+dt.getFullYear());
-      const o={ id:_esc(wo.Name||'OS'), _wo:wo.Id, _sfName:wo.Name, _sfStatus:wo.Status__c, equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
+      const o={ id:_esc(wo.Name||'OS'), _wo:wo.Id, _sfName:wo.Name, _sfStatus:wo.Status__c, _sa:(sas[0]?sas[0].Id:null), _territoryId:wo.ServiceTerritory__c||null, _territoryName:(wo.ServiceTerritory__c?terrById[wo.ServiceTerritory__c]:'')||'', equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
         cli:acc, contrato:'—', local:loc, modelo:wo.Subject__c||'Manutenção preventiva', plano:wo.Subject__c||'Exaustão · MPP', alocacoes:[], grupos:grupos,
         separacao:{id:'SEP-'+(wo.Name||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais:materiais} };
       buildItems(o);
@@ -1996,6 +2029,14 @@ async function sfHydrate(){
       o.notas=[];
       novasOrdens.push(o);
       novosAppts.push({ id:(sas[0]&&sas[0].Name)?sas[0].Name:('SA-'+(saSeq++)), os:o, dia:dia, janela:janela, tipo:'Principal', stage:_sfStatusToStage(wo.Status__c), outcome:null, tempos:{} });
+    }
+    /* alocações já existentes (AssignedResource) por compromisso */
+    const saIds=novasOrdens.map(o=>o._sa).filter(Boolean);
+    if(saIds.length){
+      const ars=((await sfApi("SELECT Id, ServiceResource__c, ServiceAppointment__c FROM AssignedResource__c WHERE ServiceAppointment__c IN ('"+saIds.join("','")+"')")).records)||[];
+      const bySa={}; ars.forEach(ar=>{ (bySa[ar.ServiceAppointment__c]=bySa[ar.ServiceAppointment__c]||[]).push(ar); });
+      novasOrdens.forEach(o=>{ const list=bySa[o._sa]||[]; o.alocacoes=list.map(ar=>{ const nm=resById[ar.ServiceResource__c]||'(recurso)'; const mk=FUNCIONARIOS.find(f=>f.matricula===ar.ServiceResource__c);
+        return { nome:nm, papel:mk?mk.cargo:'Técnico', matricula:ar.ServiceResource__c, _ar:ar.Id, confirmada:true, assinatura:null, assinadoEm:null }; }); });
     }
     /* substitui os dados mock pelos reais */
     ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
