@@ -1821,19 +1821,33 @@ function _stsBtns(wo){
     return '<button onclick="sfSetStatus(\''+wo.Id+'\',\''+s+'\')" style="border:1px solid '+(on?'#0176D3':'#c9c9c9')+';background:'+(on?'#0176D3':'#fff')+';color:'+(on?'#fff':'#444')+';border-radius:14px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer">'+s+'</button>';
   }).join('');
 }
+async function sfSetItemStatus(woliId){
+  toast('Concluindo item no Salesforce…');
+  try{
+    const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/sobjects/WorkOrderLineItem__c/' + woliId, {
+      method:'PATCH', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok'), 'Content-Type':'application/json' },
+      body: JSON.stringify({ Status__c: 'Completed' }) });
+    if(r.ok){ toast('✅ Item concluído — gravado no Salesforce'); sfLoadOS(); }
+    else { let m=r.status; try{ const t=await r.json(); if(t && t[0]) m=t[0].message; }catch(e){} toast('Erro ao concluir: ' + m); }
+  }catch(e){ toast('Erro ao concluir: ' + e.message); }
+}
 async function sfLoadOS(){
   toast('Carregando OS do Salesforce…');
   try{
     const wos = ((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 20")).records) || [];
     let cards='';
     for(const wo of wos){
-      const items = ((await sfApi("SELECT Id, AssetId__c, Description__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records) || [];
+      const items = ((await sfApi("SELECT Id, AssetId__c, Description__c, Status__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records) || [];
       const aids = items.map(i=>i.AssetId__c).filter(Boolean);
       let amap={};
       if(aids.length){ (((await sfApi("SELECT Id, Name, SerialNumber__c FROM Asset__c WHERE Id IN ('"+aids.join("','")+"')")).records)||[]).forEach(a=>amap[a.Id]=a); }
       let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0]) acc=r[0].Name; }
       let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0]) loc=r[0].Name; }
-      const its = items.map(i=>{ const a=amap[i.AssetId__c]; return '<div style="padding:7px 12px;border-top:1px solid #eee;font-size:13px"><b>'+_esc(a?a.Name:'(equip.)')+'</b> <span style="color:#999">'+_esc(a&&a.SerialNumber__c?a.SerialNumber__c:'')+'</span><br><span style="color:#666">'+_esc(i.Description__c||'')+'</span></div>'; }).join('');
+      const its = items.map(i=>{ const a=amap[i.AssetId__c]; const done=i.Status__c==='Completed';
+        const ctrl = done
+          ? '<span style="color:#2e844a;font-weight:700;font-size:11.5px;white-space:nowrap">✓ Concluído</span>'
+          : '<button onclick="sfSetItemStatus(\''+i.Id+'\')" style="border:1px solid #0176D3;background:#fff;color:#0176D3;border-radius:12px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Concluir</button>';
+        return '<div style="padding:7px 12px;border-top:1px solid #eee;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>'+_esc(a?a.Name:'(equip.)')+'</b> <span style="color:#999">'+_esc(a&&a.SerialNumber__c?a.SerialNumber__c:'')+'</span><br><span style="color:#666">'+_esc(i.Description__c||'')+'</span></div>'+ctrl+'</div>'; }).join('');
       // separação de materiais da OS (ProductRequest)
       let matsHtml='';
       const prs = ((await sfApi("SELECT Id FROM ProductRequest__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
