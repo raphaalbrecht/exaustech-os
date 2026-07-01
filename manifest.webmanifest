@@ -1,0 +1,19 @@
+{
+  "name": "Exaustech · Field Service",
+  "short_name": "Exaustech",
+  "description": "App de campo — Ordens de Serviço, checklists, fotos e alocação de equipes.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/exaustech-os/",
+  "scope": "/exaustech-os/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0176D3",
+  "theme_color": "#0176D3",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
