@@ -1695,16 +1695,15 @@ async function confirmAloc(){
   const pend=[]; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada) pend.push({o,a}); }); });
   if(!pend.length){ toast('Nada novo para confirmar.'); return; }
   if(SF_LIVE){
-    toast('Gravando alocações no Salesforce…');
+    toast('Gravando alocações…');
     for(const it of pend){ const o=it.o, a=it.a;
       if(!o._sa){ toast('OS '+o.id+' sem compromisso — não deu para gravar.'); continue; }
       try{
-        const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/AssignedResource__c',{
-          method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},
-          body:JSON.stringify({ServiceResource__c:a.matricula, ServiceAppointment__c:o._sa})});
+        const r=await fetch(BACKEND+'/alocacoes',{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},
+          body:JSON.stringify({resourceId:a.matricula, saId:o._sa})});
         const t=await r.json();
         if(r.ok && t.id){ a._ar=t.id; a.confirmada=true; }
-        else { let m=r.status; if(t&&t[0])m=t[0].message; toast('Erro em '+firstName(a.nome)+': '+m); }
+        else { toast('Erro em '+firstName(a.nome)+': '+((t&&t.error)||r.status)); }
       }catch(e){ toast('Erro em '+firstName(a.nome)+': '+e.message); }
     }
   } else { pend.forEach(it=>it.a.confirmada=true); }
@@ -1809,7 +1808,7 @@ function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
   const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
   const a=o.alocacoes[i], nm=firstName(a.nome);
-  if(SF_LIVE && a._ar){ fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/AssignedResource__c/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok')}}).then(()=>toast('☁️ Alocação removida do Salesforce')).catch(()=>{}); }
+  if(SF_LIVE && a._ar){ fetch(BACKEND+'/alocacoes/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}).then(()=>toast('☁️ Alocação removida')).catch(()=>{}); }
   o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
 }
 
@@ -2226,6 +2225,15 @@ async function beHydrate(){
     const wos = await beGet('/hydrate');
     if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
     if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
+    /* recursos p/ o board (técnicos + territórios) — pode vir vazio se o permset FSL_Recursos ainda não estiver ativo */
+    let REC={resources:[],territorios:{},membros:[]};
+    try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],territorios:{},membros:[]}; }catch(e){ REC={resources:[],territorios:{},membros:[]}; }
+    const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
+    const memByRes={}; (REC.membros||[]).forEach(m=>{ if(m.territorio){ (memByRes[m.resourceId]=memByRes[m.resourceId]||[]).push(m.territorio); } });
+    const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
+    const mockByName={}; FUNCIONARIOS.forEach(f=>mockByName[f.nome]=f);
+    const funcLive=(REC.resources||[]).map((r,i)=>{ const mk=mockByName[r.name]||{}; return { nome:r.name, matricula:r.id, cargo:mk.cargo||'Técnico', cor:mk.cor||_pal[i%_pal.length], lojas:(memByRes[r.id]||[]) }; });
+    if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
     for(const wo of wos){
       const gmap={};
@@ -2239,13 +2247,14 @@ async function beHydrate(){
       const dt = wo.startDate ? new Date(wo.startDate) : new Date();
       const dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
       diasSet.add(dia+'|'+dt.getFullYear());
-      const o={ id:_esc(wo.id||'OS'), _wo:wo.woId, _sfName:wo.id, _sfStatus:wo.status, _sa:wo.saId||null, _territoryName:'',
+      const o={ id:_esc(wo.id||'OS'), _wo:wo.woId, _sfName:wo.id, _sfStatus:wo.status, _sa:wo.saId||null,
+        _territoryName:(wo.territoryId?(REC.territorios[wo.territoryId]||''):''),
         equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
         cli:wo.account, contrato:'—', local:wo.location, modelo:wo.subject||'Manutenção preventiva', plano:wo.subject||'Exaustão · MPP',
         alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais} };
       buildItems(o);
       o._itens.forEach(eq=>{ if(eq._sfDone){ eq.fotoAntes=true; eq.fotoDepois=true; eq.checklist.forEach(c=>eq.checks[c]='ok'); } });
-      o.alocacoes.forEach(a=>{a.assinatura=null;a.assinadoEm=null;});
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.arId, confirmada:true, assinatura:null, assinadoEm:null }; });
       o.separacao.materiais.forEach(m=>{m.consumido=0;m.retorno=0;m.baixa={danificado:0,extraviado:0,inutilizado:0,obs:'',fotos:[],responsavel:'',bxId:null};});
       o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
