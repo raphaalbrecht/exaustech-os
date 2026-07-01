@@ -2094,8 +2094,16 @@ function gConnect(){
     if(!_gReady()){ if(_gWait++>15) return reject(new Error('Google não carregou')); toast('Carregando Google…'); return setTimeout(()=>gConnect().then(resolve,reject),700); }
     _gWait=0;
     if(!gTokenClient) gTokenClient=google.accounts.oauth2.initTokenClient({client_id:GOOGLE.clientId, scope:GOOGLE.scope, callback:()=>{}});
-    gTokenClient.callback=(r)=>{ if(r && r.access_token){ gToken=r.access_token; gTokenExp=Date.now()+((r.expires_in||3500)*1000); resolve(gToken); } else reject(new Error((r&&r.error)||'Login Google cancelado')); };
-    try{ gTokenClient.requestAccessToken({prompt: gToken?'':'consent'}); }catch(e){ reject(e); }
+    let forcou=false;
+    const pedir=(p)=>{
+      gTokenClient.callback=(r)=>{
+        if(r && r.access_token){ gToken=r.access_token; gTokenExp=Date.now()+((r.expires_in||3500)*1000); resolve(gToken); }
+        else if(!forcou){ forcou=true; pedir('consent'); }   /* só força consentimento se o silencioso falhar */
+        else reject(new Error((r&&r.error)||'Login Google cancelado'));
+      };
+      try{ gTokenClient.requestAccessToken({prompt:p}); }catch(e){ reject(e); }
+    };
+    pedir('');  /* 1ª tentativa silenciosa: pede consentimento só quando é realmente necessário (1ª vez / após revogar) */
   });
 }
 async function gFolder(){
