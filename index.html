@@ -1834,12 +1834,26 @@ async function sfLoadOS(){
       let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0]) acc=r[0].Name; }
       let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0]) loc=r[0].Name; }
       const its = items.map(i=>{ const a=amap[i.AssetId__c]; return '<div style="padding:7px 12px;border-top:1px solid #eee;font-size:13px"><b>'+_esc(a?a.Name:'(equip.)')+'</b> <span style="color:#999">'+_esc(a&&a.SerialNumber__c?a.SerialNumber__c:'')+'</span><br><span style="color:#666">'+_esc(i.Description__c||'')+'</span></div>'; }).join('');
+      // separação de materiais da OS (ProductRequest)
+      let matsHtml='';
+      const prs = ((await sfApi("SELECT Id FROM ProductRequest__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
+      if(prs.length){
+        const prIds = prs.map(p=>p.Id);
+        const lines = ((await sfApi("SELECT Suprimento__c, QuantityRequested__c FROM ProductRequestLineItem__c WHERE ParentId__c IN ('"+prIds.join("','")+"')")).records)||[];
+        const supIds = lines.map(l=>l.Suprimento__c).filter(Boolean);
+        let supMap={};
+        if(supIds.length){ (((await sfApi("SELECT Id, Name FROM Suprimento__c WHERE Id IN ('"+supIds.join("','")+"')")).records)||[]).forEach(s=>supMap[s.Id]=s.Name); }
+        if(lines.length){
+          matsHtml = '<div style="font-size:12px;color:#2e844a;font-weight:700;padding:8px 12px 2px;border-top:1px solid #eee">Separação de materiais:</div>'
+            + lines.map(l=>'<div style="padding:5px 12px;font-size:13px;display:flex;justify-content:space-between"><span>'+_esc(supMap[l.Suprimento__c]||'material')+'</span><b>'+(l.QuantityRequested__c!=null?l.QuantityRequested__c:0)+'</b></div>').join('');
+        }
+      }
       cards += '<div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;margin:10px 0;overflow:hidden">'
         + '<div style="background:#0176D3;color:#fff;padding:10px 12px"><div style="font-weight:700">'+_esc(wo.Name||'(OS)')+' · '+_esc(wo.Status__c||'sem status')+'</div><div style="font-size:12px;opacity:.92">'+_esc(wo.Subject__c||'')+'</div></div>'
         + '<div style="padding:8px 12px;font-size:12.5px;color:#444"><b>Conta:</b> '+_esc(acc)+' &nbsp;·&nbsp; <b>Local:</b> '+_esc(loc)+'</div>'
         + '<div style="padding:2px 12px 8px;display:flex;gap:6px;flex-wrap:wrap">'+_stsBtns(wo)+'</div>'
         + '<div style="font-size:12px;color:#0176D3;font-weight:700;padding:2px 12px 4px">'+items.length+' item(s) · equipamentos:</div>'
-        + its + '</div>';
+        + its + matsHtml + '</div>';
     }
     if(!wos.length) cards='<p style="text-align:center;color:#888;padding:30px">Nenhuma OS no Salesforce.</p>';
     let ov=document.getElementById('sfOverlay'); if(ov) ov.remove();
