@@ -1781,6 +1781,61 @@ function removeAloc(osid,mat){
 
 go('login');
 
+/* ===== Conexão Salesforce (OAuth PKCE) — teste de integração mob3 ===== */
+const SF = {
+  instance: 'https://exaustech--mob3.sandbox.my.salesforce.com',
+  clientId: '3MVG9jaVFD0NWW.8pa.WuSCcbku5bds90YNCmZJU9NKfSC61jMQhE_khQqr49O0jrskohGK3iug==',
+  redirect: 'https://raphaalbrecht.github.io/exaustech-os/',
+  scope:    'api refresh_token openid'
+};
+function _b64url(buf){ let s=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))); return s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function _rand(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return _b64url(a.buffer); }
+async function _sha256(s){ return await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); }
+async function sfConnect(){
+  const v=_rand(48); sessionStorage.setItem('sf_v',v);
+  const c=_b64url(await _sha256(v)); const st=_rand(8); sessionStorage.setItem('sf_st',st);
+  location.href = SF.instance + '/services/oauth2/authorize?response_type=code'
+    + '&client_id=' + encodeURIComponent(SF.clientId)
+    + '&redirect_uri=' + encodeURIComponent(SF.redirect)
+    + '&scope=' + encodeURIComponent(SF.scope)
+    + '&code_challenge=' + c + '&code_challenge_method=S256&state=' + st;
+}
+async function sfApi(q){
+  const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/query?q=' + encodeURIComponent(q),
+                        { headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok') } });
+  return r.json();
+}
+async function sfTest(){
+  try{
+    const o = await sfApi('SELECT Name FROM Organization LIMIT 1');
+    const w = await sfApi('SELECT COUNT() FROM WorkOrder__c');
+    const nm = (o.records && o.records[0]) ? o.records[0].Name : '(sem nome)';
+    toast('✅ Salesforce conectado — ' + nm + ' · WorkOrders: ' + (w.totalSize!=null ? w.totalSize : '?'));
+  }catch(e){ toast('Erro na leitura: ' + e.message); }
+}
+async function _sfRedirect(){
+  const p = new URLSearchParams(location.search); const code = p.get('code');
+  if(!code) return;
+  const v = sessionStorage.getItem('sf_v');
+  const body = new URLSearchParams({ grant_type:'authorization_code', code:code, client_id:SF.clientId, redirect_uri:SF.redirect, code_verifier:v });
+  try{
+    const r = await fetch(SF.instance + '/services/oauth2/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body });
+    const t = await r.json();
+    if(!r.ok){ toast('Erro OAuth: ' + (t.error_description||t.error||r.status)); console.log('OAuth error', t); return; }
+    sessionStorage.setItem('sf_tok', t.access_token);
+    sessionStorage.setItem('sf_inst', t.instance_url || SF.instance);
+    history.replaceState({}, '', SF.redirect);
+    sfTest();
+  }catch(e){ toast('Falha na troca de token (CORS?): ' + e.message); console.log(e); }
+}
+(function(){
+  const b=document.createElement('button'); b.textContent='🔌 Salesforce'; b.onclick=sfConnect;
+  b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:99999;background:#0176D3;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+  document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(b));
+  if(document.body) document.body.appendChild(b);
+  _sfRedirect();
+})();
+
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
