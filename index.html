@@ -1806,6 +1806,21 @@ async function sfApi(q){
   return r.json();
 }
 function _esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function sfSetStatus(woId, st){
+  toast('Salvando status no Salesforce…');
+  try{
+    const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/sobjects/WorkOrder__c/' + woId, {
+      method:'PATCH', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok'), 'Content-Type':'application/json' },
+      body: JSON.stringify({ Status__c: st }) });
+    if(r.ok){ toast('✅ Status "' + st + '" gravado no Salesforce'); sfLoadOS(); }
+    else { let m=r.status; try{ const t=await r.json(); if(t && t[0]) m=t[0].message; }catch(e){} toast('Erro ao salvar: ' + m); }
+  }catch(e){ toast('Erro ao salvar: ' + e.message); }
+}
+function _stsBtns(wo){
+  return ['New','In Progress','On Hold','Completed'].map(s=>{ const on = wo.Status__c===s;
+    return '<button onclick="sfSetStatus(\''+wo.Id+'\',\''+s+'\')" style="border:1px solid '+(on?'#0176D3':'#c9c9c9')+';background:'+(on?'#0176D3':'#fff')+';color:'+(on?'#fff':'#444')+';border-radius:14px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer">'+s+'</button>';
+  }).join('');
+}
 async function sfLoadOS(){
   toast('Carregando OS do Salesforce…');
   try{
@@ -1822,6 +1837,7 @@ async function sfLoadOS(){
       cards += '<div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;margin:10px 0;overflow:hidden">'
         + '<div style="background:#0176D3;color:#fff;padding:10px 12px"><div style="font-weight:700">'+_esc(wo.Name||'(OS)')+' · '+_esc(wo.Status__c||'sem status')+'</div><div style="font-size:12px;opacity:.92">'+_esc(wo.Subject__c||'')+'</div></div>'
         + '<div style="padding:8px 12px;font-size:12.5px;color:#444"><b>Conta:</b> '+_esc(acc)+' &nbsp;·&nbsp; <b>Local:</b> '+_esc(loc)+'</div>'
+        + '<div style="padding:2px 12px 8px;display:flex;gap:6px;flex-wrap:wrap">'+_stsBtns(wo)+'</div>'
         + '<div style="font-size:12px;color:#0176D3;font-weight:700;padding:2px 12px 4px">'+items.length+' item(s) · equipamentos:</div>'
         + its + '</div>';
     }
