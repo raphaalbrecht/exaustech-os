@@ -945,6 +945,7 @@ function closeRole(){ document.getElementById('roleModal').classList.remove('sho
 function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.querySelector('.screen.active').id;
   if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-aloc')renderAloc(); else if(cur==='scr-notifs')renderNotifs();
   updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
+  if(r==='Estoquista') go('estoque'); /* casa do Estoquista é o painel de Estoque */
   updateBell(); toast('Perfil: '+r); }
 function logout(){
   ['be_tok','be_name','sf_tok','sf_inst','sf_v','sf_st'].forEach(k=>sessionStorage.removeItem(k));
@@ -3196,7 +3197,7 @@ async function beHydrate(){
     if(DAYS.length) selDay=DAYS[0].key;
     SF_LIVE=true; document.body.classList.add('sf-live');
     const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
-    go(stayAloc?'aloc':'schedule');
+    go(stayAloc?'aloc':(ROLE==='Estoquista'?'estoque':'schedule'));
     toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ toast('Erro: '+e.message); }
