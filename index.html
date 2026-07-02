@@ -425,6 +425,8 @@
   .cargo-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .cargo-chip{border:1px solid var(--border2);background:#fff;color:var(--txt);font-size:12px;font-weight:600;padding:7px 11px;border-radius:16px;cursor:pointer}
   .cargo-chip.on{border-color:var(--brand);background:var(--brand-l);color:var(--brand-d)}
+  .sig-btn-col{display:flex;flex-direction:column;gap:6px}
+  .sig-btn.del{color:var(--err-tx);border-color:var(--err-bd)}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -1530,7 +1532,7 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
@@ -1726,8 +1728,9 @@ function sigCliSelChange(){
   const v=document.getElementById('sigCliSel').value;
   const resumo=document.getElementById('sigCliResumo');
   const fN=document.getElementById('sigFNome'), fC=document.getElementById('sigFCPF'), fG=document.getElementById('sigFCargo');
-  if(v===''){ /* nada escolhido: o dropdown é o único elemento na tela */
+  if(v===''){ /* nada escolhido (ou seleção desfeita): o dropdown volta a ser o único elemento */
     resumo.style.display='none'; fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
+    document.getElementById('sigCliNome').value=''; document.getElementById('sigCliCPF').value=''; document.getElementById('sigCliCargo').value='';
     sigSetPad(false); return;
   }
   if(v==='new'){
@@ -1744,6 +1747,13 @@ function sigCliSelChange(){
   sigSetPad(true);
 }
 function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCliSelChange(); }
+/* remove o aceite por completo: a OS volta a exigir aceite OU justificativa na conclusão */
+function removerAceite(){
+  if(!window.confirm('Remover o aceite do cliente? A conclusão voltará a exigir assinatura ou justificativa.')) return;
+  curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null};
+  if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
+  toast('✅ Aceite removido');
+}
 /* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
 function sigCliProg(){
   if(document.getElementById('sigCliSel').value!=='new') return;
@@ -1762,7 +1772,7 @@ function openSigCliente(){
   document.getElementById('sigCliCargo').value=cs.cargo||'';
   _recAss=assinantesDaLoja(curOS.cli||'');
   const sel=document.getElementById('sigCliSel');
-  sel.innerHTML='<option value="" disabled selected>Escolha uma opção…</option>'
+  sel.innerHTML='<option value="" selected>Escolha uma opção…</option>'
     +'<option value="new">➕ Cadastrar novo assinante</option>'
     +_recAss.slice(0,5).map((r,i)=>`<option value="${i}">${r.nome}${r.cargo?' — '+r.cargo:''}</option>`).join('');
   sel.value='';
