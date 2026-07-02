@@ -1790,7 +1790,7 @@ function renderAloc(){
       <div class="aloc-zlabel" style="margin-top:11px">${SF_LIVE?'Autorizados pela AS':'Autorizados nesta loja'}${avail.length?'':' — '+(SF_LIVE&&!Object.keys(o._autorizados||{}).length?'nenhum ainda':'todos já alocados')}</div>
       <div class="aloc-pool" data-drop="avail" data-osid="${o.id}">
         ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : (noauth.length?'':`<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>`)}
-        ${!avail.length&&noauth.length?`<div class="aloc-empty-txt" style="text-align:left;flex-basis:100%">Nenhum autorizado ainda — os cinzas abaixo precisam entrar numa AS confirmada.</div>`:''}
+        ${!avail.length&&noauth.length&&!Object.keys(o._autorizados||{}).length?`<div class="aloc-empty-txt" style="text-align:left;flex-basis:100%">Nenhum autorizado ainda — os cinzas abaixo precisam entrar numa AS confirmada.</div>`:''}
         ${noauth.map(f=>`<div class="fch busy noauth" title="Não autorizado — precisa estar numa AS confirmada desta OS">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>🛡️ não autorizado</small></span></div>`).join('')}</div>`;
     wrap.appendChild(lane);
   });
