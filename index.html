@@ -404,6 +404,8 @@
   .det-v{font-weight:600;text-align:right;word-break:break-word}
   .sig-click{cursor:pointer}
   .sig-drill{color:var(--weaker);font-weight:400}
+  .sig-status.warn{color:#8a5a12;font-weight:700;font-size:11px}
+  .sig-just{font-size:11px;color:var(--weak);font-style:italic;margin-top:2px}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -610,6 +612,16 @@
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeASModal('asConfModal')">Cancelar</button>
       <button class="btn btn-brand" onclick="submitConfirmarAS()">Confirmar autorização</button>
+    </div></div></div>
+
+  <!-- MODAL JUSTIFICATIVA · CONCLUIR SEM ACEITE DO CLIENTE -->
+  <div class="modal" id="csigJustModal"><div class="modal-card">
+    <div class="modal-title">⚠️ Concluir sem aceite do cliente</div>
+    <div class="modal-sub">Você está concluindo este compromisso <b>sem a assinatura/aceite do cliente</b>. Isso ficará registrado no relatório e no PDF, e exige justificativa.</div>
+    <div class="field"><label>Justificativa (obrigatória)</label><textarea id="csigJustText" rows="3" placeholder="ex.: responsável da loja ausente no encerramento do serviço…"></textarea></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeCsigJust()">Voltar e colher aceite</button>
+      <button class="btn btn-brand" onclick="confirmCsigJust()">Concluir mesmo assim</button>
     </div></div></div>
 
   <!-- MODAL DETALHES DA ALOCAÇÃO -->
@@ -957,6 +969,7 @@ function completeAppt(){
   if(semApt.length){ toast('📝 Registre o apontamento: '+semApt[0]+(semApt.length>1?` (+${semApt.length-1})`:'')); pushSub({type:'itens'}); return; }
   const semAssin=o.alocacoes.filter(x=>!x.assinatura);
   if(semAssin.length){ toast('✍️ Falta assinatura de '+semAssin[0].nome.split(' ')[0]); pushSub({type:'assin'}); return; }
+  if(!(o.csig&&o.csig.assinatura) && !(o.csig&&o.csig.justificativa)){ openCsigJust(); return; }
   a.stage=STAGES.length-1; stamp(a); sfMaybePush(a);
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
@@ -965,6 +978,16 @@ function completeAppt(){
   go('done');
 }
 function reabrir(){ curAppt.outcome=null; renderAppt(); toast('Compromisso reaberto'); }
+/* concluir SEM aceite do cliente exige justificativa (fica no registro e no PDF) */
+function openCsigJust(){ document.getElementById('csigJustText').value=(curOS.csig&&curOS.csig.justificativa)||''; document.getElementById('csigJustModal').classList.add('show'); }
+function closeCsigJust(){ document.getElementById('csigJustModal').classList.remove('show'); }
+function confirmCsigJust(){
+  const t=document.getElementById('csigJustText').value.trim();
+  if(!t) return markInvalid('csigJustText','Justifique a conclusão sem o aceite do cliente');
+  curOS.csig=curOS.csig||{nome:'',cargo:'',assinatura:null,assinadoEm:null};
+  curOS.csig.justificativa=t; curOS.csig.justificadoPor=ROLE; curOS.csig.justificadoEm=agora();
+  closeCsigJust(); toast('⚠️ Registrado: conclusão sem aceite do cliente'); completeAppt();
+}
 function stamp(a){ a.tempos[STAGES[a.stage]]=agora(); }
 function openApptReport(){ go('appt'); pushSub({type:'relatorio'}); }
 
@@ -1474,7 +1497,7 @@ function assinBody(){
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
     ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da loja'} · aceite do serviço</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
-    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da loja · aceite do serviço</div><div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
+    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da loja · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
   return wrap;
@@ -1610,6 +1633,7 @@ function gerarPDF(o){
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipe e Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
   o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } doc.text(a.nome+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
   if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
+  else if(o.csig && o.csig.justificativa){ if(y>720){doc.addPage();y=48;} doc.setFont('helvetica','bold'); doc.text('CLIENTE: SEM ACEITE',46,y+12); doc.setFont('helvetica','normal'); doc.text('Justificativa: '+o.csig.justificativa.slice(0,180)+(o.csig.justificadoEm?(' — '+o.csig.justificadoEm):''),46,y+26,{maxWidth:500}); y+=50; }
   if(!aprovado){ doc.setTextColor(235,170,170); doc.setFontSize(70); doc.setFont('helvetica','bold'); doc.text('RASCUNHO',110,520,{angle:38}); }
   else { doc.setTextColor(150,210,160); doc.setFontSize(62); doc.setFont('helvetica','bold'); doc.text('APROVADO',110,520,{angle:38}); }
   doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo app de campo · '+(aprovado?'versão aprovada para o cliente':'rascunho pendente de aprovação interna'),40,824);
