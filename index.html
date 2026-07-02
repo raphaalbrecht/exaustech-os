@@ -822,12 +822,48 @@ const ordens=[
     ]},
   },
 ];
+/* checklist REAL da Ordem_de_Servico__c (campo API × rótulo), agrupado por família de equipamento */
+const CHECKLIST_REAL=[
+ {grupo:'Coifas', chk:'coifa', itens:[
+   ['Limpeza_interna_e_externa_da_s_coifa_s__c','Limpeza interna e externa da(s) coifa(s)'],
+   ['Limpeza_de_filtros_de_coifa_s__c','Limpeza de filtros de coifa(s)'],
+   ['Coifas_sem_ocorr_ncia_de_vazamentos__c','Coifas sem ocorrência de vazamentos']]},
+ {grupo:'Dutos', chk:'duto', itens:[
+   ['Limpeza_de_dutos__c','Limpeza de dutos'],
+   ['Isolamento_t_rmico_dutos_sem_avarias__c','Isolamento térmico dos dutos sem avarias'],
+   ['Juntas_de_veda_o_portas_de_inspe_o_ok__c','Juntas de vedação das portas de inspeção OK'],
+   ['Tela_do_terminal_de_descarga_limpa__c','Tela do terminal de descarga limpa'],
+   ['Dutos_sem_corros_o_aparente__c','Dutos sem corrosão aparente']]},
+ {grupo:'Lavador de gases', chk:'coifa', itens:[
+   ['Limpeza_do_tanque__c','Limpeza do tanque'],
+   ['Limpeza_dos_aspersores__c','Limpeza dos aspersores'],
+   ['Limpeza_dos_eliminadores_de_n_voa__c','Limpeza dos eliminadores de névoa'],
+   ['Substitui_o_do_liquido_recirculante__c','Substituição do líquido recirculante'],
+   ['Tubula_o_hidr_ulica_normal__c','Tubulação hidráulica normal'],
+   ['Mangueiras_hidr_ulicas_ntegras__c','Mangueiras hidráulicas íntegras'],
+   ['Limpeza_do_filtro_de_suc_o__c','Limpeza do filtro de sucção da bomba'],
+   ['Lavador_de_gases_sem_vazamentos__c','Lavador de gases sem vazamentos'],
+   ['Juntas_de_veda_o_portas_lavador_OK__c','Juntas de vedação das portas do lavador OK']]},
+ {grupo:'Filtro eletrostático', chk:'filtros', itens:[
+   ['Filtro_eletrostatico_limpeza_camara_in__c','Limpeza da câmara interna'],
+   ['Filtro_eletrost_limpeza_externa__c','Limpeza externa'],
+   ['Verifica_o_da_veda__c','Vedação das portas íntegras'],
+   ['Lampadas_indicadoras_funcionamento_norma__c','Lâmpadas indicadoras funcionando'],
+   ['Prefiltros_completos_e_sem_avarias__c','Pré-filtros completos e sem avarias'],
+   ['Pos_filtros_completos_e_sem_avarias__c','Pós-filtros completos e sem avarias'],
+   ['Filtro_eletrostatico_sem_corros_o__c','Sem sinais de corrosão']]}
+];
+/* valor de "não se aplica" por campo (o org tem um typo em Verifica_o_da_veda__c: "Não de aplica") */
+function chkNA(campo){ return campo==='Verifica_o_da_veda__c' ? 'Não de aplica' : 'Não se aplica'; }
+function chkValor(campo,estado){ return estado==='ok'?'Sim':(estado==='nok'?'Não':chkNA(campo)); }
+function chkEstado(valor){ if(valor==='Sim')return 'ok'; if(valor==='Não')return 'nok'; if(valor&&/aplica/i.test(valor))return 'ne'; return null; }
 function buildItems(o){
   o._itens=[];
   o.grupos.forEach(g=>{
-    g.checklist=CHK[g.chk]||[];
+    g.checklist=(g.real? g.real.itens.map(i=>i[1]) : (CHK[g.chk]||[]));
     g.equipamentos.forEach(eq=>{
       eq.grupo=g; eq.tarefa=g.tarefa; eq.checklist=g.checklist; eq.site=eq.site||false;
+      if(g.real){ eq._real=g.real; eq._map={}; g.real.itens.forEach(i=>eq._map[i[1]]=i[0]); }
       eq.tipo=g.nome; eq.fabricante=FABR[g.nome]||'Genérico';
       eq.serie='SN-'+(eq.tag.replace(/[^0-9]/g,'')||'00').padStart(4,'0')+'-'+((g.nome.length*7)%97).toString().padStart(2,'0');
       eq.instalacao='03/2023'; eq.statusEquip='Operacional';
@@ -1191,7 +1227,7 @@ function chkItem(eq,item){
   const paint=()=>{ okB.className=eq.checks[item]==='ok'?'on-ok':''; noB.className=eq.checks[item]==='nok'?'on-nok':''; neB.className=eq.checks[item]==='ne'?'on-ne':''; };
   const renderDet=()=>{ det.innerHTML=''; const v=eq.checks[item]; if(v==='nok')det.appendChild(nokDetail(eq,item,lk)); else if(v==='ne')det.appendChild(neDetail(eq,item,lk)); };
   if(lk){ [okB,noB,neB].forEach(b=>b.disabled=true); }
-  else { okB.onclick=()=>{ eq.checks[item]='ok'; paint(); renderDet(); sfMaybePushItem(eq); }; noB.onclick=()=>{ eq.checks[item]='nok'; paint(); renderDet(); sfMaybePushItem(eq); }; neB.onclick=()=>{ eq.checks[item]='ne'; paint(); renderDet(); sfMaybePushItem(eq); }; }
+  else { okB.onclick=()=>{ eq.checks[item]='ok'; paint(); renderDet(); sfMaybePushItem(eq); sfPushCheck(eq,item); }; noB.onclick=()=>{ eq.checks[item]='nok'; paint(); renderDet(); sfMaybePushItem(eq); sfPushCheck(eq,item); }; neB.onclick=()=>{ eq.checks[item]='ne'; paint(); renderDet(); sfMaybePushItem(eq); sfPushCheck(eq,item); }; }
   paint(); renderDet();
   wrap.appendChild(row); wrap.appendChild(det); return wrap;
 }
@@ -2486,6 +2522,13 @@ async function sfMaybePush(a){
   try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('✅ Status gravado no Salesforce'); }
   catch(e){ toast('Erro ao gravar status: '+e.message); }
 }
+/* grava o item do checklist REAL na OS (silencioso no sucesso — o estado visual é o feedback; toast só em erro) */
+function sfPushCheck(eq,item){
+  if(!SF_LIVE || !curOS || !curOS._wo || !eq._map || !eq._map[item]) return;
+  const campo=eq._map[item];
+  bePatch('/ordens/'+curOS._wo+'/checklist',{campos:{[campo]:chkValor(campo,eq.checks[item])}})
+    .catch(e=>toast('⚠️ Item não gravado: '+e.message));
+}
 /* grava a conclusão do equipamento (WorkOrderLineItem) quando o item fica completo no app */
 async function sfMaybePushItem(eq){
   if(!SF_LIVE || !eq || !eq._woli || eq._sfDone) return;
@@ -2674,7 +2717,7 @@ async function gMaybeUploadFoto(eq,tipo){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_'+(tipo==='antes'?'ANTES':'DEPOIS')+'_'+stamp+'.jpg';
   try{ toast('☁️ Enviando foto…');
-    await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+    await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {osId:curOS._wo, equip:eq.tag});
     bigOK('Foto salva na OS');
   }catch(e){ toast('Falha ao enviar foto: '+e.message); }
 }
@@ -2696,7 +2739,7 @@ function capturarVideo(ii){
     const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
     try{ toast('☁️ Enviando vídeo…');
-      await beUploadMidia(f, fn, 'Vídeo', {woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
+      await beUploadMidia(f, fn, 'Vídeo', {osId:curOS._wo, equip:eq.tag});
       eq._temVideo=true; showSub(); bigOK('Vídeo salvo na OS');
     }catch(e){ toast('Falha no vídeo: '+e.message); }
   };
@@ -2750,7 +2793,7 @@ async function beUploadAssinatura(blob, campos){
 function _geoStr(m){ return (m&&m.geo)? (m.geo.lat.toFixed(5)+','+m.geo.lng.toFixed(5)+(m.geo.acc?('±'+Math.round(m.geo.acc)+'m'):'')) : ''; }
 async function beUploadMidia(blob, filename, tipo, meta){
   const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
-  if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
+  if(meta.osId)fd.append('osId',meta.osId); if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
   const r=await fetch(BACKEND+'/midias',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
   const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
 }
@@ -2771,8 +2814,9 @@ async function beHydrate(){
     HABILIDADES.length=0; (REC.habilidades||[]).forEach(h=>HABILIDADES.push(h));
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
     for(const wo of wos){
-      /* Opção A: sem itens/equipamento reais (checklist é inline na OS) — telas de equipamento seguem mock/placeholder */
-      const grupos=[{nome:'Equipamentos',tarefa:wo.objeto||'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento (mapeamento em fase posterior)'}]}];
+      /* checklist REAL: 4 grupos de família de equipamento com os campos inline da Ordem_de_Servico__c */
+      const grupos=CHECKLIST_REAL.map(gr=>({nome:gr.grupo,tarefa:'Checklist · '+gr.grupo,chk:gr.chk,site:false,real:gr,
+        equipamentos:[{tag:gr.grupo,nome:gr.grupo,site:false}]}));
       const materiais=[];
       const dt = wo.startDate ? new Date(wo.startDate) : new Date();
       const dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
@@ -2787,6 +2831,8 @@ async function beHydrate(){
         plano:wo.descricao||wo.objeto||'Exaustão · MPP',
         alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:'Sem materiais',materiais} };
       buildItems(o);
+      /* restaura o checklist real gravado na OS */
+      o._itens.forEach(eq=>{ if(eq._map){ eq.checklist.forEach(lbl=>{ const st=chkEstado((wo.checklist||{})[eq._map[lbl]]); if(st) eq.checks[lbl]=st; }); } });
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
