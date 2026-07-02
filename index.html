@@ -1069,7 +1069,7 @@ function confirmCsigJust(){
   if(SF_LIVE && curOS._wo){
     beUploadAssinatura(null,{osId:curOS._wo,tipo:'Cliente — sem aceite',justificativa:t,justificadoPor:ROLE,
       assinadoEm:new Date().toISOString(),dispositivo:(navigator.userAgent||'').slice(0,80)})
-      .then(()=>toast('✅ Justificativa gravada no Salesforce')).catch(()=>{});
+      .then(r=>toast(r&&r._queued?'📡 Justificativa salva no aparelho — sincroniza com sinal':'✅ Justificativa gravada no Salesforce')).catch(()=>{});
   }
   closeCsigJust(); toast('⚠️ Sem aceite do cliente — justificado'); completeAppt();
 }
@@ -1878,10 +1878,10 @@ function saveSig(){
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
     if(SF_LIVE && curOS._wo){
-      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo}).catch(()=>{});
+      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
-        .then(r=>{cs._sigId=r.id;cs._sigUrl=r.driveUrl;toast('✅ Aceite gravado no Salesforce');})
+        .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;toast('✅ Aceite gravado no Salesforce'); } })
         .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
     }
     closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
@@ -1895,7 +1895,7 @@ function saveSig(){
     const fc=funcByMat(a.matricula)||{};
     beUploadAssinatura(dataURLtoBlob(a.assinatura),{osId:curOS._wo,tipo:'Equipe',alocId:a._ar||'',nome:a.nome,cpf:fc.cpf||'',cargo:a.papel||'',
       declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(a.meta&&a.meta.t)||new Date().toISOString(),geo:_geoStr(a.meta),dispositivo:(a.meta&&a.meta.dispositivo)||''})
-      .then(r=>{a._sigId=r.id;a._sigUrl=r.driveUrl;toast('✅ Assinatura gravada no Salesforce');})
+      .then(r=>{ if(r&&r._queued){ toast('📡 Assinatura salva no aparelho — sincroniza com sinal'); } else { a._sigId=r.id;a._sigUrl=r.driveUrl;toast('✅ Assinatura gravada no Salesforce'); } })
       .catch(e=>toast('⚠️ Assinatura salva no aparelho — falha ao gravar: '+e.message));
   }
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
@@ -2519,14 +2519,14 @@ async function sfMaybePush(a){
   const st=_sfStageToStatus(a.stage);
   if(!st || a.os._sfStatus===st) return;
   a.os._sfStatus=st;
-  try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('✅ Status gravado no Salesforce'); }
+  try{ const r=await bePatch('/ordens/'+a.os._wo+'/status',{status:st},'Status → '+st); toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Status gravado no Salesforce'); }
   catch(e){ toast('Erro ao gravar status: '+e.message); }
 }
 /* grava o item do checklist REAL na OS (silencioso no sucesso — o estado visual é o feedback; toast só em erro) */
 function sfPushCheck(eq,item){
   if(!SF_LIVE || !curOS || !curOS._wo || !eq._map || !eq._map[item]) return;
   const campo=eq._map[item];
-  bePatch('/ordens/'+curOS._wo+'/checklist',{campos:{[campo]:chkValor(campo,eq.checks[item])}})
+  bePatch('/ordens/'+curOS._wo+'/checklist',{campos:{[campo]:chkValor(campo,eq.checks[item])}},'Checklist: '+item)
     .catch(e=>toast('⚠️ Item não gravado: '+e.message));
 }
 /* grava a conclusão do equipamento (WorkOrderLineItem) quando o item fica completo no app */
@@ -2534,7 +2534,7 @@ async function sfMaybePushItem(eq){
   if(!SF_LIVE || !eq || !eq._woli || eq._sfDone) return;
   if(!itemComplete(eq)) return;
   eq._sfDone=true;
-  try{ await bePatch('/itens/'+eq._woli+'/concluir',{}); toast('✅ '+eq.tag+' concluído'); }
+  try{ const r=await bePatch('/itens/'+eq._woli+'/concluir',{},'Concluir '+eq.tag); toast(r&&r._queued?'📡 Conclusão salva no aparelho':'✅ '+eq.tag+' concluído'); }
   catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
 }
 async function sfHydrate(){
@@ -2717,8 +2717,8 @@ async function gMaybeUploadFoto(eq,tipo){
   const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_'+(tipo==='antes'?'ANTES':'DEPOIS')+'_'+stamp+'.jpg';
   try{ toast('☁️ Enviando foto…');
-    await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {osId:curOS._wo, equip:eq.tag});
-    bigOK('Foto salva na OS');
+    const r=await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {osId:curOS._wo, equip:eq.tag});
+    if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal'); else bigOK('Foto salva na OS');
   }catch(e){ toast('Falha ao enviar foto: '+e.message); }
 }
 async function gMaybeUploadSig(a){
@@ -2739,8 +2739,8 @@ function capturarVideo(ii){
     const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
     try{ toast('☁️ Enviando vídeo…');
-      await beUploadMidia(f, fn, 'Vídeo', {osId:curOS._wo, equip:eq.tag});
-      eq._temVideo=true; showSub(); bigOK('Vídeo salvo na OS');
+      const r=await beUploadMidia(f, fn, 'Vídeo', {osId:curOS._wo, equip:eq.tag});
+      eq._temVideo=true; showSub(); if(r&&r._queued) toast('📡 Vídeo salvo no aparelho — envia quando houver sinal'); else bigOK('Vídeo salvo na OS');
     }catch(e){ toast('Falha no vídeo: '+e.message); }
   };
   inp.click();
@@ -2748,23 +2748,87 @@ function capturarVideo(ii){
 
 /* ===== BACKEND (identidade única): login + dados + escrita via Cloud Run ===== */
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
-function beTok(){ return sessionStorage.getItem('be_tok'); }
+function beTok(){ return localStorage.getItem('be_tok')||sessionStorage.getItem('be_tok'); }
 async function beGet(path){ const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}}); if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); } return r.json(); }
-async function bePatch(path,body){ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }
-async function bePost(path,body){ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }
+
+/* ===== OFFLINE-FIRST: fila de sincronização + snapshot do hydrate (IndexedDB; fallback em memória) =====
+   Escritas de CAMPO (checklist, status, conclusão de item, assinaturas, fotos/vídeos, assinantes) que
+   falharem por falta de rede entram na fila local e sincronizam sozinhas quando a conexão volta.
+   Fluxos de coordenação (alocar, solicitar/confirmar AS) continuam exigindo conexão. */
+function netFail(e){ return (e instanceof TypeError) || /failed to fetch|networkerror|load failed|network request failed|erro de conex/i.test((e&&e.message)||''); }
+const OFF={mem:{fila:[],kv:{}},seq:1,db:null};
+function offOpen(){ return new Promise(res=>{ if(OFF.db) return res(OFF.db);
+  if(!window.indexedDB) return res(null);
+  try{ const rq=indexedDB.open('exaustech-off',1);
+    rq.onupgradeneeded=()=>{ const d=rq.result; if(!d.objectStoreNames.contains('fila')) d.createObjectStore('fila',{keyPath:'_id',autoIncrement:true}); if(!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); };
+    rq.onsuccess=()=>{ OFF.db=rq.result; res(OFF.db); };
+    rq.onerror=()=>res(null);
+  }catch(e){ res(null); } }); }
+async function offAdd(job){ job.t=job.t||Date.now(); const db=await offOpen();
+  if(!db){ job._id=OFF.seq++; OFF.mem.fila.push(job); offBadge(); return; }
+  await new Promise((res,rej)=>{ const tx=db.transaction('fila','readwrite'); tx.objectStore('fila').add(job); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); });
+  offBadge(); }
+async function offAll(){ const db=await offOpen(); if(!db) return OFF.mem.fila.slice();
+  return new Promise((res,rej)=>{ const rq=db.transaction('fila','readonly').objectStore('fila').getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function offDel(id){ const db=await offOpen(); if(!db){ OFF.mem.fila=OFF.mem.fila.filter(j=>j._id!==id); return; }
+  return new Promise((res,rej)=>{ const tx=db.transaction('fila','readwrite'); tx.objectStore('fila').delete(id); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+async function offCount(){ const db=await offOpen(); if(!db) return OFF.mem.fila.length;
+  return new Promise((res,rej)=>{ const rq=db.transaction('fila','readonly').objectStore('fila').count(); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+async function offPut(key,val){ const db=await offOpen(); if(!db){ OFF.mem.kv[key]=val; return; }
+  return new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(val,key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
+async function offGet(key){ const db=await offOpen(); if(!db) return OFF.mem.kv[key];
+  return new Promise((res,rej)=>{ const rq=db.transaction('kv','readonly').objectStore('kv').get(key); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+async function offBadge(){
+  let el=document.getElementById('offBadge');
+  if(!el){ el=document.createElement('div'); el.id='offBadge';
+    el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:100002;background:#032d60;color:#fff;font:600 12px system-ui,-apple-system,sans-serif;padding:6px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;align-items:center;gap:6px;white-space:nowrap';
+    if(document.body) document.body.appendChild(el); else return; }
+  const n=await offCount().catch(()=>0);
+  const off=!navigator.onLine;
+  if(!off && !n){ el.style.display='none'; return; }
+  el.style.display='flex';
+  el.textContent = off ? ('📡 Offline — trabalho salvo no aparelho'+(n?(' · '+n+' pendente'+(n>1?'s':'')):''))
+                       : ('⏳ '+n+' pendente'+(n>1?'s':'')+' — sincronizando…');
+}
+async function offDrain(){
+  if(offDrain._run) return; offDrain._run=true;
+  try{
+    if(!beTok()) return;
+    const jobs=await offAll(); let n=0;
+    for(const j of jobs){
+      try{
+        if(j.kind==='patch') await bePatch(j.path,j.body);
+        else if(j.kind==='post') await bePost(j.path,j.body);
+        else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
+        else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
+        await offDel(j._id); n++;
+      }catch(e){
+        if(netFail(e)) break; /* continua sem rede: para e tenta na próxima */
+        await offDel(j._id); toast('⚠️ Não sincronizado (descartado): '+(j.label||j.kind)+' — '+e.message);
+      }
+    }
+    if(n) toast('✅ '+n+' pendência'+(n>1?'s':'')+' sincronizada'+(n>1?'s':''));
+  }finally{ offDrain._run=false; offBadge(); }
+}
+window.addEventListener('online', ()=>{ offBadge(); offDrain(); });
+window.addEventListener('offline', ()=>offBadge());
+setInterval(()=>{ if(navigator.onLine && beTok()) offCount().then(n=>{ if(n) offDrain(); }).catch(()=>{}); }, 60000);
+
+async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
 async function beDoLogin(payload){
   const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
   try{
     const r=await fetch(BACKEND+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
     if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
-    sessionStorage.setItem('be_tok', j.token); sessionStorage.setItem('be_name', j.name||'');
+    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', j.name||'');
     toast('Bem-vindo, '+((j.name||'').split(' ')[0]||'')); beHydrate();
-  }catch(e){ if(m)m.textContent='Erro de conexão'; toast('Erro de conexão: '+e.message); }
+  }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
 function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()) return markInvalid('loginUser','Informe o usuário'); if(!p) return markInvalid('loginPass','Informe a senha'); beDoLogin({username:u.trim(),password:p}); }
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name'].forEach(k=>sessionStorage.removeItem(k)); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 function beInitGoogle(){
   if(!(window.google&&google.accounts&&google.accounts.id)){ if((beInitGoogle._n=(beInitGoogle._n||0)+1)>20)return; setTimeout(beInitGoogle,600); return; }
   try{
@@ -2784,28 +2848,47 @@ function bigOK(msg){
   o.onclick=()=>{ o.style.opacity='0'; setTimeout(()=>o.remove(),200); };
 }
 /* grava assinatura estruturada no Salesforce (imagem no Drive + registro Assinatura_OS__c) */
-async function beUploadAssinatura(blob, campos){
-  const fd=new FormData(); if(blob) fd.append('file', blob, 'assinatura.png');
-  Object.keys(campos).forEach(k=>{ const v=campos[k]; if(v!=null && v!=='') fd.append(k, v); });
-  const r=await fetch(BACKEND+'/assinaturas',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
-  const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+async function beUploadAssinatura(blob, campos, noQ){
+  try{
+    const fd=new FormData(); if(blob) fd.append('file', blob, 'assinatura.png');
+    Object.keys(campos).forEach(k=>{ const v=campos[k]; if(v!=null && v!=='') fd.append(k, v); });
+    const r=await fetch(BACKEND+'/assinaturas',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+  }catch(e){
+    if(!noQ && netFail(e)){ await offAdd({kind:'assinatura',blob:blob||null,campos,label:'Assinatura ('+(campos.tipo||'')+')'}); return {ok:true,_queued:true}; }
+    throw e;
+  }
 }
 function _geoStr(m){ return (m&&m.geo)? (m.geo.lat.toFixed(5)+','+m.geo.lng.toFixed(5)+(m.geo.acc?('±'+Math.round(m.geo.acc)+'m'):'')) : ''; }
-async function beUploadMidia(blob, filename, tipo, meta){
-  const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
-  if(meta.osId)fd.append('osId',meta.osId); if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
-  const r=await fetch(BACKEND+'/midias',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
-  const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+async function beUploadMidia(blob, filename, tipo, meta, noQ){
+  try{
+    const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
+    if(meta.osId)fd.append('osId',meta.osId); if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
+    const r=await fetch(BACKEND+'/midias',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+  }catch(e){
+    if(!noQ && netFail(e)){ await offAdd({kind:'midia',blob,filename,tipo,meta,label:tipo+' '+filename}); return {ok:true,_queued:true}; }
+    throw e;
+  }
 }
 async function beHydrate(){
   toast('Carregando OS…');
   try{
-    const wos = await beGet('/hydrate');
-    if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
+    let wos, REC={resources:[],habilidades:[]}, _snapT=null;
+    try{
+      wos = await beGet('/hydrate');
+      if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
+      /* recursos reais (SFL5_Resource ativos) + habilidades — pode vir vazio se o permset ainda não estiver ativo */
+      try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],habilidades:[]}; }catch(e){ REC={resources:[],habilidades:[]}; }
+      offPut('hydrate',{wos,REC,t:Date.now()}).catch(()=>{});
+    }catch(e){
+      if(!netFail(e)) throw e;
+      /* SEM REDE: abre com o último snapshot salvo no aparelho */
+      const s=await offGet('hydrate').catch(()=>null);
+      if(!s||!s.wos) throw new Error('Sem conexão e sem dados salvos neste aparelho');
+      wos=s.wos; REC=s.REC||{resources:[],habilidades:[]}; _snapT=s.t||null;
+    }
     if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
-    /* recursos reais (SFL5_Resource ativos) + habilidades — pode vir vazio se o permset ainda não estiver ativo */
-    let REC={resources:[],habilidades:[]};
-    try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],habilidades:[]}; }catch(e){ REC={resources:[],habilidades:[]}; }
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
     const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
     const funcLive=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
@@ -2858,7 +2941,8 @@ async function beHydrate(){
     SF_LIVE=true; document.body.classList.add('sf-live');
     const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
     go(stayAloc?'aloc':'schedule');
-    toast('✅ '+ordens.length+' OS carregadas');
+    toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
+    offBadge(); if(!_snapT) offDrain();
   }catch(e){ toast('Erro: '+e.message); }
 }
 const HABILIDADES=[];
