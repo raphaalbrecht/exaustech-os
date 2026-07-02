@@ -1743,16 +1743,15 @@ function sigCliSelChange(){
   resumo.innerHTML=`<b>${r.nome}</b><small>CPF ${r.cpf} · ${r.cargo||'—'}</small><a href="#" onclick="sigCliEditar();return false">editar dados</a>`;
   sigSetPad(true);
 }
-function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; document.getElementById('sigFCPF').style.display=''; document.getElementById('sigFCargo').style.display=''; sigCliSelChange(); }
+function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCliSelChange(); }
 /* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
 function sigCliProg(){
   if(document.getElementById('sigCliSel').value!=='new') return;
   const nome=document.getElementById('sigCliNome').value.trim();
   const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
   document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
-  const showCargo=document.getElementById('sigFCargo').style.display==='';
   document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
-  if(cpfOk && !showCargo) sigCargoRender();
+  if(cpfOk) sigCargoRender();
   sigSetPad(cpfOk);
 }
 function openSigCliente(){
