@@ -993,7 +993,6 @@ function renderSchedule(){
         <span class="lz ${al.cls}">${al.txt}</span></div>
       <div class="appt-wt" style="font-size:13.5px">${a.os.plano}${a.tipo==='Revisita'?' · Revisita':''}</div>
       <div class="appt-acc">${a.os.cli}</div>
-      <div class="appt-meta">${inI('pin')} ${a.os.local}</div>
       <div class="appt-meta">${inI('asset')} ${a.os._itens.length} equipamento(s)${temJanela?' · '+a.janela:''} · ${a.id}</div>`;
     list.appendChild(el);
   });
