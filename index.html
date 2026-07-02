@@ -1011,9 +1011,9 @@ function completeAppt(){
   if(faltas.length){ toast('⚠️ Itens incompletos: '+faltas[0]+(faltas.length>1?` (+${faltas.length-1})`:'')); pushSub({type:'itens'}); return; }
   let semApt=[]; o._itens.forEach(eq=>eq.checklist.forEach(it=>{ if(eq.checks[it]==='nok' && !eq.det[it].apt) semApt.push(eq.tag+' · '+it); }));
   if(semApt.length){ toast('📝 Registre o apontamento: '+semApt[0]+(semApt.length>1?` (+${semApt.length-1})`:'')); pushSub({type:'itens'}); return; }
-  const semAssin=o.alocacoes.filter(x=>!x.assinatura);
+  const semAssin=o.alocacoes.filter(x=>!(x.assinatura||x._sigRec));
   if(semAssin.length){ toast('✍️ Falta assinatura de '+semAssin[0].nome.split(' ')[0]); pushSub({type:'assin'}); return; }
-  if(!(o.csig&&o.csig.assinatura) && !(o.csig&&o.csig.justificativa)){ openCsigJust(); return; }
+  if(!(o.csig&&(o.csig.assinatura||o.csig._sigRec)) && !(o.csig&&o.csig.justificativa)){ openCsigJust(); return; }
   a.stage=STAGES.length-1; stamp(a); sfMaybePush(a);
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
@@ -1030,6 +1030,11 @@ function confirmCsigJust(){
   if(!t) return markInvalid('csigJustText','Justifique a conclusão sem o aceite do cliente');
   curOS.csig=curOS.csig||{nome:'',cargo:'',assinatura:null,assinadoEm:null};
   curOS.csig.justificativa=t; curOS.csig.justificadoPor=ROLE; curOS.csig.justificadoEm=agora();
+  if(SF_LIVE && curOS._wo){
+    beUploadAssinatura(null,{osId:curOS._wo,tipo:'Cliente — sem aceite',justificativa:t,justificadoPor:ROLE,
+      assinadoEm:new Date().toISOString(),dispositivo:(navigator.userAgent||'').slice(0,80)})
+      .then(()=>toast('✅ Justificativa gravada no Salesforce')).catch(()=>{});
+  }
   closeCsigJust(); toast('⚠️ Sem aceite do cliente — justificado'); completeAppt();
 }
 function stamp(a){ a.tempos[STAGES[a.stage]]=agora(); }
@@ -1055,7 +1060,7 @@ function agora(){ const n=new Date(); return `${String(n.getHours()).padStart(2,
 function renderSections(){
   const o=curOS, wrap=document.getElementById('sections'); wrap.innerHTML='';
   const compl=o._itens.filter(itemComplete).length;
-  const assin=o.alocacoes.filter(a=>a.assinatura).length + ((o.csig&&o.csig.assinatura)?1:0);
+  const assin=o.alocacoes.filter(a=>a.assinatura||a._sigRec).length + ((o.csig&&(o.csig.assinatura||o.csig._sigRec))?1:0);
   const assinTot=o.alocacoes.length+1; /* equipe + cliente */
   wrap.appendChild(relRow('itens','checklist',TC.itens,'Itens · Equipamentos', compl+'/'+o._itens.length, compl===o._itens.length));
   wrap.appendChild(relRow('materiais','box',TC.materiais,'Produtos necessários', String(o.separacao.materiais.length), false));
@@ -1530,8 +1535,9 @@ function assinBody(){
     const c=document.createElement('div'); c.className='sig-card';
     const fc=funcByMat(a.matricula); const cpf=(fc&&fc.cpf)||'';
     const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div>${cpf?`<div class="sig-role">CPF ${cpf}</div>`:''}<div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
-    c.innerHTML=a.assinatura
-      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm}</div></div><img class="sig-thumb" src="${a.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
+    const aSigned=a.assinatura||a._sigRec;
+    c.innerHTML=aSigned
+      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm||'—'}</div></div>${a.assinatura?`<img class="sig-thumb" src="${a.assinatura}">`:(a._sigUrl?`<a class="sig-btn re" href="${a._sigUrl}" target="_blank">📄 ver</a>`:'')}${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
       : info+`<div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
     wrap.appendChild(c);
   });
@@ -1540,8 +1546,8 @@ function assinBody(){
   o.csig=o.csig||{nome:'',cargo:'',assinatura:null,assinadoEm:null};
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
-  cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
+  cc.innerHTML=(cs.assinatura||cs._sigRec)
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm||'—'}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div>${cs.assinatura?`<img class="sig-thumb" src="${cs.assinatura}">`:(cs._sigUrl?`<a class="sig-btn re" href="${cs._sigUrl}" target="_blank">📄 ver</a>`:'')}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
@@ -1835,17 +1841,29 @@ function saveSig(){
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
-    if(SF_LIVE && curOS._wo){ bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo})
-      .then(r=>toast(r.created?'✅ Assinante cadastrado — aguardando validação':'✅ Assinante já cadastrado — atualizado, sem duplicar')).catch(()=>{}); }
+    if(SF_LIVE && curOS._wo){
+      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo}).catch(()=>{});
+      beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
+        declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
+        .then(r=>{cs._sigId=r.id;cs._sigUrl=r.driveUrl;toast('✅ Aceite gravado no Salesforce');})
+        .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
+    }
     closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
-    toast('✅ Aceite do cliente registrado'); gMaybeUploadSig({nome:'CLIENTE_'+nome, assinatura:cs.assinatura});
+    toast('✅ Aceite do cliente registrado');
     return;
   }
   if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
   const a=curOS.alocacoes[sigTarget]; a.assinatura=cv.toDataURL('image/png');
   a.assinadoEm=hh; a.declaracao=SIG_LEGAL.equipe; a.declaracaoVersao=SIG_LEGAL.versao; a.meta=_sigMeta();
+  if(SF_LIVE && curOS._wo){
+    const fc=funcByMat(a.matricula)||{};
+    beUploadAssinatura(dataURLtoBlob(a.assinatura),{osId:curOS._wo,tipo:'Equipe',alocId:a._ar||'',nome:a.nome,cpf:fc.cpf||'',cargo:a.papel||'',
+      declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(a.meta&&a.meta.t)||new Date().toISOString(),geo:_geoStr(a.meta),dispositivo:(a.meta&&a.meta.dispositivo)||''})
+      .then(r=>{a._sigId=r.id;a._sigUrl=r.driveUrl;toast('✅ Assinatura gravada no Salesforce');})
+      .catch(e=>toast('⚠️ Assinatura salva no aparelho — falha ao gravar: '+e.message));
+  }
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
-  toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada'); gMaybeUploadSig(a);
+  toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada');
 }
 
 /* ===== inclusão de foto no PDF (Coordenador+) ===== */
@@ -2722,6 +2740,14 @@ function bigOK(msg){
   setTimeout(()=>{ o.style.opacity='0'; setTimeout(()=>o.remove(),250); }, 1500);
   o.onclick=()=>{ o.style.opacity='0'; setTimeout(()=>o.remove(),200); };
 }
+/* grava assinatura estruturada no Salesforce (imagem no Drive + registro Assinatura_OS__c) */
+async function beUploadAssinatura(blob, campos){
+  const fd=new FormData(); if(blob) fd.append('file', blob, 'assinatura.png');
+  Object.keys(campos).forEach(k=>{ const v=campos[k]; if(v!=null && v!=='') fd.append(k, v); });
+  const r=await fetch(BACKEND+'/assinaturas',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+  const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+}
+function _geoStr(m){ return (m&&m.geo)? (m.geo.lat.toFixed(5)+','+m.geo.lng.toFixed(5)+(m.geo.acc?('±'+Math.round(m.geo.acc)+'m'):'')) : ''; }
 async function beUploadMidia(blob, filename, tipo, meta){
   const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
   if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
@@ -2762,6 +2788,14 @@ async function beHydrate(){
         alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:'Sem materiais',materiais} };
       buildItems(o);
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+      /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
+      const sigs=wo.assinaturas||[];
+      o.alocacoes.forEach(a=>{ const s=sigs.filter(x=>x.tipo==='Equipe'&&x.alocId===a._ar).pop();
+        if(s){ a._sigRec=true; a._sigId=s.id; a._sigUrl=s.driveUrl||null; a.assinadoEm=s.assinadoEm?fmtDH(s.assinadoEm):''; } });
+      const sc=sigs.filter(x=>x.tipo==='Cliente').pop();
+      const sj=sigs.filter(x=>x.tipo==='Cliente — sem aceite').pop();
+      if(sc) o.csig={nome:sc.nome||'',cargo:sc.cargo||'',cpf:sc.cpf||'',obs:sc.obs||'',assinatura:null,_sigRec:true,_sigId:sc.id,_sigUrl:sc.driveUrl||null,assinadoEm:sc.assinadoEm?fmtDH(sc.assinadoEm):''};
+      else if(sj) o.csig={nome:'',cargo:'',cpf:'',obs:'',assinatura:null,assinadoEm:null,justificativa:sj.justificativa||'',justificadoPor:sj.justificadoPor||''};
       o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
       o.notas=[];
