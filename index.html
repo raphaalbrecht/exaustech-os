@@ -567,7 +567,7 @@
 
   <!-- MODAL ASSINATURA -->
   <div class="modal" id="sigModal"><div class="modal-card">
-    <div class="modal-title">Assinatura</div><div class="modal-sub" id="sigWho"></div>
+    <div class="modal-title">Aceite do cliente</div><div class="modal-sub" id="sigWho"></div>
     <div id="sigCliFields" style="display:none">
       <div class="field"><label>Quem assina pela unidade?</label><select id="sigCliSel" onchange="sigCliSelChange()"></select></div>
       <div id="sigCliResumo" class="sig-resumo" style="display:none"></div>
@@ -577,16 +577,25 @@
         <div class="cargo-chips" id="cargoChips"></div>
         <input id="sigCliCargo" placeholder="digite o cargo…" style="display:none">
       </div>
+      <div class="field" id="sigFObs" style="display:none"><label>Observações do representante (opcional)</label>
+        <textarea id="sigCliObs" rows="2" placeholder="ex.: acompanhei parcialmente; ressalvo que…"></textarea>
+      </div>
     </div>
-    <div id="sigPadWrap">
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
+      <button class="btn btn-brand" id="sigBtnToPad" onclick="sigToPad()">Assinar ✍️</button>
+    </div></div></div>
+
+  <!-- POP-UP DEDICADO DA ASSINATURA (sem rolagem = sem toque acidental no pad) -->
+  <div class="modal" id="padModal"><div class="modal-card">
+    <div class="modal-title">Assinatura</div><div class="modal-sub" id="padWho"></div>
     <div id="sigLegal" class="sig-legal"></div>
     <canvas id="sigPad" width="320" height="170"></canvas>
     <div class="pad-line">Assine no campo acima</div>
-    </div>
     <div class="modal-actions">
-      <button class="btn btn-neutral" id="sigBtnLimpar" onclick="clearSig()">Limpar</button>
-      <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
-      <button class="btn btn-brand" id="sigBtnConfirm" onclick="saveSig()">Confirmar</button>
+      <button class="btn btn-neutral" onclick="clearSig()">Limpar</button>
+      <button class="btn btn-neutral" id="padBtnBack" onclick="padVoltar()">Cancelar</button>
+      <button class="btn btn-brand" onclick="saveSig()">Confirmar</button>
     </div></div></div>
 
   <!-- MODAL DESFECHO -->
@@ -1532,7 +1541,7 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
@@ -1668,7 +1677,8 @@ function gerarPDF(o){
   y+=8; if(y>700){doc.addPage();y=48;}
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipe e Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
   o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } const fc=funcByMat(a.matricula); doc.text(a.nome+((fc&&fc.cpf)?' · CPF '+fc.cpf:'')+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
-  if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cpf?' · CPF '+o.csig.cpf:'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
+  if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cpf?' · CPF '+o.csig.cpf:'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50;
+    if(o.csig.obs){ if(y>720){doc.addPage();y=48;} doc.text('Observações do representante: '+o.csig.obs.slice(0,220),46,y+6,{maxWidth:500}); y+=30; } }
   else if(o.csig && o.csig.justificativa){ if(y>720){doc.addPage();y=48;} doc.setFont('helvetica','bold'); doc.text('CLIENTE: SEM ACEITE',46,y+12); doc.setFont('helvetica','normal'); doc.text('Justificativa: '+o.csig.justificativa.slice(0,180)+(o.csig.justificadoEm?(' — '+o.csig.justificadoEm):''),46,y+26,{maxWidth:500}); y+=50; }
   if(y>700){doc.addPage();y=48;}
   doc.setFontSize(7); doc.setTextColor(120);
@@ -1689,18 +1699,35 @@ const SIG_LEGAL={ versao:'v1',
   base:'Assinatura eletrônica com trilha de auditoria (nome, CPF, data/hora, geolocalização e dispositivo) — MP 2.200-2/2001, art. 10, §2º · Lei 14.063/2020.' };
 function _sigMeta(){ return { t:new Date().toISOString(), geo:(_lastGeo?{lat:_lastGeo.lat,lng:_lastGeo.lng,acc:_lastGeo.acc}:null), dispositivo:(navigator.userAgent||'').slice(0,80) }; }
 function _sigPrep(){
-  const cv=document.getElementById('sigPad'); const r=cv.getBoundingClientRect(); cv.width=Math.max(320,r.width); cv.height=170;
+  document.getElementById('padModal').classList.add('show');
+  const cv=document.getElementById('sigPad'); const r=cv.getBoundingClientRect(); cv.width=Math.max(320,r.width||0); cv.height=170;
   sigCtx=cv.getContext('2d'); if(sigCtx){ sigCtx.lineWidth=2.4; sigCtx.lineCap='round'; sigCtx.strokeStyle='#032D60'; } sigDirty=false; bindPad(cv);
-  document.getElementById('sigModal').classList.add('show');
 }
 function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
-  document.getElementById('sigCliFields').style.display='none';
-  sigSetPad(true);
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.equipe+'”</b><small>'+SIG_LEGAL.base+'</small>';
   const fc=funcByMat(a.matricula);
-  document.getElementById('sigWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
+  document.getElementById('padWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
+  document.getElementById('padBtnBack').textContent='Cancelar';
   _sigPrep();
+}
+/* avança do formulário de dados para o pop-up de assinatura (valida antes) */
+function sigToPad(){
+  if(document.getElementById('sigCliSel').value==='') return markInvalid('sigCliSel','Escolha uma opção');
+  const nome=document.getElementById('sigCliNome').value.trim();
+  if(!nome) return markInvalid('sigCliNome','Informe o nome de quem assina pelo cliente');
+  const cpf=document.getElementById('sigCliCPF').value.trim();
+  if(!cpf) return markInvalid('sigCliCPF','Informe o CPF de quem assina');
+  if(!validaCPF(cpf)) return markInvalid('sigCliCPF','CPF inválido — confira os dígitos');
+  document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
+  document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
+  document.getElementById('padBtnBack').textContent='Voltar';
+  document.getElementById('sigModal').classList.remove('show');
+  _sigPrep();
+}
+function padVoltar(){
+  document.getElementById('padModal').classList.remove('show');
+  if(sigTarget==='cli') document.getElementById('sigModal').classList.add('show');
 }
 /* base local de quem assina por unidade (últimos 3, únicos por CPF) — em produção alimenta Assinante_Unidade__c no Salesforce */
 function cpfMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>9) v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4'); else if(v.length>6) v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3'); else if(v.length>3) v=v.replace(/(\d{3})(\d{0,3})/,'$1.$2'); el.value=v; }
@@ -1709,7 +1736,7 @@ function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\
   s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
-function sigSetPad(show){ document.getElementById('sigPadWrap').style.display=show?'':'none'; document.getElementById('sigBtnLimpar').style.display=show?'':'none'; document.getElementById('sigBtnConfirm').style.display=show?'':'none'; }
+function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; document.getElementById('sigFObs').style.display=show?'':'none'; }
 let _recAss=[];
 /* cargo: presets de um toque + "Outro…" com texto livre */
 const CARGO_PRESETS=['Gerente','Subgerente','Sócio','Supervisor','Coordenador','Técnico de manutenção','Prestador de serviço'];
@@ -1750,7 +1777,7 @@ function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCl
 /* remove o aceite por completo: a OS volta a exigir aceite OU justificativa na conclusão */
 function removerAceite(){
   if(!window.confirm('Remover o aceite do cliente? A conclusão voltará a exigir assinatura ou justificativa.')) return;
-  curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null};
+  curOS.csig={nome:'',cargo:'',cpf:'',obs:'',assinatura:null,assinadoEm:null};
   if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
   toast('✅ Aceite removido');
 }
@@ -1770,16 +1797,16 @@ function openSigCliente(){
   document.getElementById('sigCliNome').value=cs.nome||'';
   document.getElementById('sigCliCPF').value=cs.cpf||'';
   document.getElementById('sigCliCargo').value=cs.cargo||'';
+  document.getElementById('sigCliObs').value=cs.obs||'';
   _recAss=assinantesDaLoja(curOS.cli||'');
   const sel=document.getElementById('sigCliSel');
   sel.innerHTML='<option value="" selected>Escolha uma opção…</option>'
     +'<option value="new">➕ Cadastrar novo assinante</option>'
     +_recAss.slice(0,5).map((r,i)=>`<option value="${i}">${r.nome}${r.cargo?' — '+r.cargo:''}</option>`).join('');
   sel.value='';
-  document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
-  document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
+  document.getElementById('sigWho').textContent='Aceite do serviço · '+(curOS.cli||'');
   sigCliSelChange();
-  _sigPrep();
+  document.getElementById('sigModal').classList.add('show');
 }
 function padPos(cv,e){const r=cv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(cv.width/r.width),y:(p.clientY-r.top)*(cv.height/r.height)};}
 function bindPad(cv){
@@ -1788,8 +1815,8 @@ function bindPad(cv){
   const end=()=>{sigDrawing=false;};
   cv.onmousedown=start;cv.onmousemove=move;window.onmouseup=end;cv.ontouchstart=start;cv.ontouchmove=move;cv.ontouchend=end;
 }
-function clearSig(){const cv=document.getElementById('sigPad');sigCtx.clearRect(0,0,cv.width,cv.height);sigDirty=false;}
-function closeSig(){document.getElementById('sigModal').classList.remove('show');}
+function clearSig(){const cv=document.getElementById('sigPad');if(sigCtx)sigCtx.clearRect(0,0,cv.width,cv.height);sigDirty=false;}
+function closeSig(){document.getElementById('sigModal').classList.remove('show');document.getElementById('padModal').classList.remove('show');}
 function saveSig(){
   const cv=document.getElementById('sigPad');
   const now=new Date(); const hh=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -1802,6 +1829,7 @@ function saveSig(){
     if(!validaCPF(cpf)) return markInvalid('sigCliCPF','CPF inválido — confira os dígitos');
     if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
     const cs=curOS.csig; cs.nome=nome; cs.cpf=cpf; cs.cargo=document.getElementById('sigCliCargo').value.trim();
+    cs.obs=document.getElementById('sigCliObs').value.trim();
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
