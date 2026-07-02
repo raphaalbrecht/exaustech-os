@@ -1682,6 +1682,13 @@ function relatorioPage(){
   REP_STAGES.forEach((s,i)=>{ const cls=r.stage<0?'':(i<r.stage?'done':(i===r.stage?(r.stage>=3?'appr':'cur'):'')); const el=document.createElement('div'); el.className='rt '+cls; el.textContent=s; tr.appendChild(el); });
   wrap.appendChild(tr);
   const info=document.createElement('div'); info.className='subnote'; info.innerHTML='A equipe de campo <b>não envia ao cliente</b>. Fluxo: Líder envia → Supervisor revisa → Coordenador aprova e libera. O <b>PDF e a liberação são de Coordenador para cima</b>. Perfil atual: <b>'+ROLE+'</b>.'; wrap.appendChild(info);
+  /* relatórios já arquivados na OS (Drive) — visualização embutida */
+  if((o._relatorios||[]).length && canPDF(ROLE)){
+    const arc=document.createElement('div'); arc.className='subcard';
+    arc.innerHTML='<div class="sec-title2">Relatórios arquivados na OS</div>'+o._relatorios.map((rp,i)=>
+      `<div class="det-row"><span class="det-k">📄 Relatório${rp.versao?' v'+rp.versao:''}${rp.quando?' · '+rp.quando:''}</span><button class="sig-btn re" onclick="verImagem('${rp.driveId}','Relatório de Serviço — ${_esc(o.id)}')">ver</button></div>`).join('');
+    wrap.appendChild(arc);
+  }
   if(r.ajustes && r.obsAjuste){ const aj=document.createElement('div'); aj.className='nc-box'; aj.style.margin='10px 14px'; aj.innerHTML=`<div class="label">↩️ Ajustes solicitados</div><div style="font-size:12.5px">${r.obsAjuste}</div>`; wrap.appendChild(aj); }
   const card=document.createElement('div'); card.className='subcard';
   // PDF — gerado só APÓS aprovação (evita versão desatualizada) e só Coordenador para cima
@@ -1732,8 +1739,21 @@ function openAjuste(){ document.getElementById('ajText').value=''; document.getE
 function closeAjuste(){ document.getElementById('ajusteModal').classList.remove('show'); }
 function confirmAjuste(){ const t=document.getElementById('ajText').value.trim(); if(!t) return markInvalid('ajText','Descreva os ajustes'); const o=curOS,r=o.relatorio; r.ajustes=true; r.obsAjuste=t; r.versao++; r.stage=0; repLog(o,'Ajustes solicitados: '+t); closeAjuste(); showSub(); toast('↩️ Devolvido ao técnico para ajustes'); }
 
-function gerarPDF(o){
+/* carrega do Drive o que o PDF precisa e ainda não está em memória (assinaturas e fotos restauradas) */
+async function prepararMidiasPDF(o){
+  const jobs=[];
+  (o.alocacoes||[]).forEach(a=>{ if(a._sigDrive && !a.assinatura) jobs.push(beArquivoDataURL(a._sigDrive).then(du=>{a.assinatura=du;}).catch(()=>{})); });
+  const cs=o.csig; if(cs && cs._sigDrive && !cs.assinatura) jobs.push(beArquivoDataURL(cs._sigDrive).then(du=>{cs.assinatura=du;}).catch(()=>{}));
+  (o._itens||[]).forEach(eq=>{
+    if(eq._fotoAntesDrive && !eq.fotoAntesImg) jobs.push(beArquivoDataURL(eq._fotoAntesDrive).then(du=>{eq.fotoAntesImg=du;}).catch(()=>{}));
+    if(eq._fotoDepoisDrive && !eq.fotoDepoisImg) jobs.push(beArquivoDataURL(eq._fotoDepoisDrive).then(du=>{eq.fotoDepoisImg=du;}).catch(()=>{}));
+    (eq.fotos||[]).forEach(f=>{ if(f._drive && !f.img) jobs.push(beArquivoDataURL(f._drive).then(du=>{f.img=du;}).catch(()=>{})); });
+  });
+  if(jobs.length){ toast('☁️ Carregando mídias do relatório…'); await Promise.all(jobs); }
+}
+async function gerarPDF(o){
   if(!window.jspdf||!window.jspdf.jsPDF){ toast('Gerador de PDF ainda carregando…'); return; }
+  if(SF_LIVE) await prepararMidiasPDF(o);
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'});
   const W=doc.internal.pageSize.getWidth(); const r=o.relatorio, aprovado=r.stage>=3; let y=100;
   doc.setFillColor(1,118,211); doc.rect(0,0,W,70,'F');
@@ -1773,6 +1793,16 @@ function gerarPDF(o){
   else { doc.setTextColor(150,210,160); doc.setFontSize(62); doc.setFont('helvetica','bold'); doc.text('APROVADO',110,520,{angle:38}); }
   doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo app de campo · '+(aprovado?'versão aprovada para o cliente':'rascunho pendente de aprovação interna'),40,824);
   doc.save('Relatorio-'+o.id+'.pdf'); toast('✅ PDF gerado'+(aprovado?'':' · rascunho'));
+  /* relatório APROVADO é arquivado na OS (Drive + Midia_OS__c tipo "Relatório") */
+  if(SF_LIVE && o._wo && aprovado){
+    try{ toast('☁️ Arquivando relatório na OS…');
+      const blob=doc.output('blob');
+      const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+      const up=await beUploadMidia(blob,'RELATORIO_'+(o.id||'OS').replace(/\s+/g,'')+'_v'+o.relatorio.versao+'_'+stamp+'.pdf','Relatório',{osId:o._wo});
+      if(up&&up._queued) toast('📡 Relatório salvo no aparelho — envia quando houver sinal');
+      else { (o._relatorios=o._relatorios||[]).push({driveId:up.driveId,_midiaId:up.midiaId,quando:agora(),versao:o.relatorio.versao}); bigOK('Relatório arquivado na OS'); if(navStack.length&&navStack[navStack.length-1].type==='relatorio') showSub(); }
+    }catch(e){ toast('⚠️ Relatório não arquivado: '+e.message); }
+  }
 }
 
 /* ===== assinatura (pad) ===== */
@@ -2981,7 +3011,9 @@ async function verImagem(driveId,titulo){
     const bl=await r.blob(); const url=URL.createObjectURL(bl);
     body.innerHTML=(bl.type||'').startsWith('video')
       ? '<video src="'+url+'" controls playsinline style="max-width:100%;max-height:70dvh;border-radius:8px"></video>'
-      : '<img src="'+url+'" style="max-width:100%;max-height:70dvh;border-radius:8px">';
+      : ((bl.type||'')==='application/pdf'
+        ? '<iframe src="'+url+'" style="width:min(88vw,520px);height:70dvh;border:none;border-radius:8px"></iframe>'
+        : '<img src="'+url+'" style="max-width:100%;max-height:70dvh;border-radius:8px">');
   }catch(e){ body.innerHTML='<div style="font:600 13px system-ui;color:#ba0517">Não foi possível carregar: '+_esc(e.message)+'</div>'; }
 }
 function fecharImagem(){ const m=document.getElementById('imgViewModal'); if(m) m.style.display='none'; }
@@ -3054,7 +3086,9 @@ async function beHydrate(){
       /* restaura o checklist real gravado na OS */
       o._itens.forEach(eq=>{ if(eq._map){ eq.checklist.forEach(lbl=>{ const st=chkEstado((wo.checklist||{})[eq._map[lbl]]); if(st) eq.checks[lbl]=st; }); } });
       /* restaura fotos/vídeos já enviados (referência ao Drive; imagem carrega sob demanda ao abrir o item) */
-      (wo.midias||[]).forEach(md=>{ const eq=o._itens.find(e=>e.tag===md.equip); if(!eq||!md.driveId) return;
+      (wo.midias||[]).forEach(md=>{
+        if(md.tipo==='Relatório'){ if(md.driveId) (o._relatorios=o._relatorios||[]).push({driveId:md.driveId,_midiaId:md.id,quando:md.data?fmtDH(md.data):''}); return; }
+        const eq=o._itens.find(e=>e.tag===md.equip); if(!eq||!md.driveId) return;
         if(md.tipo==='Foto Antes'){ eq.fotoAntes=true; eq._fotoAntesDrive=md.driveId; }
         else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
         else if(md.tipo==='Foto Adicional'){ (eq.fotos=eq.fotos||[]).push({img:null,usarPDF:true,_drive:md.driveId,_midiaId:md.id}); }
