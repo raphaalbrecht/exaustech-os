@@ -1530,7 +1530,7 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm} · com declaração de veracidade</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
