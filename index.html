@@ -1341,6 +1341,21 @@ function materiaisBody(){
   const o=curOS, sep=o.separacao, lk=repLocked(), wrap=document.createElement('div');
   if(lk) wrap.appendChild(lockBanner());
   const bar=document.createElement('div'); bar.className='mat-bar'; bar.innerHTML=`${inI('box')} Ordem de Separação <b>${sep.id}</b> <span style="margin-left:auto" class="lz lz-info">${sep.status}</span>`; wrap.appendChild(bar);
+  /* estoquista/coordenação movem o status da separação real */
+  if(SF_LIVE && sep._sf && (ROLE==='Estoquista'||canPDF(ROLE)) && !lk){
+    const stBox=document.createElement('div'); stBox.className='field'; stBox.style.cssText='margin:8px 0';
+    stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value)" style="width:100%;height:44px;border:1.5px solid #c9c9c9;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>`;
+    wrap.appendChild(stBox);
+  }
+  /* sem separação real ainda: solicitar ao estoque */
+  if(SF_LIVE && curOS._wo && !sep._sf && !lk){
+    const nf=document.createElement('div'); nf.className='subcard';
+    nf.innerHTML=`<div class="sec-title2">Solicitar separação de materiais</div><div id="sepRows"></div>
+      <button class="btn btn-neutral" style="width:100%;margin:8px 0" onclick="sepAddRow()">＋ adicionar material</button>
+      <button class="btn btn-brand" style="width:100%" onclick="sepEnviar()">📦 Enviar solicitação ao estoque</button>`;
+    wrap.appendChild(nf);
+    setTimeout(()=>{ const box=document.getElementById('sepRows'); if(box && !box.children.length) sepAddRow(); },0);
+  }
   sep.materiais.forEach((m,mi)=>{
     const r=document.createElement('div'); r.className='mat-row';
     r.innerHTML=`${tile('box',TC.materiais)}<div class="mat-info"><div class="mat-name">${m.nome}</div>
@@ -1351,16 +1366,71 @@ function materiaisBody(){
         <div><span class="mg-k">Baixa:</span> <b id="mat-baixa-${mi}">${matBaixaTotal(m)}</b> ${m.un}</div>
         <div><span class="mg-k">Retorno:</span> <b id="mat-ret-${mi}">${matRetorno(m)}</b> ${m.un}</div>
         <div><span class="mat-baixa-link" onclick="pushSub({type:'matBaixa',mi:${mi}})">Registrar baixa ›</span></div>
+        ${(SF_LIVE&&m._sf&&(ROLE==='Estoquista'||canPDF(ROLE))&&!lk)?`<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px"><span class="mg-k">Embarcar (estoque):</span><button class="stp" onclick="matEmbarque(${mi},-1)">–</button><b>${m.embarcado}</b><button class="stp" onclick="matEmbarque(${mi},1)">+</button></div>`:''}
       </div></div><div class="mat-ctrl"><button class="stp" ${lk?'disabled':''} onclick="matConsumo(${mi},-1)">–</button><div class="qtd-num" id="mat-cons-${mi}">${m.consumido}</div><button class="stp" ${lk?'disabled':''} onclick="matConsumo(${mi},1)">+</button></div>`;
     wrap.appendChild(r);
   });
   const note=document.createElement('div'); note.className='ret-note'; note.id='retNote'; wrap.appendChild(note);
   setTimeout(()=>updateMatLines(),0); return wrap;
 }
+/* ===== SEPARAÇÃO REAL (Ordem_de_Separacao__c + Item_de_Separacao__c) ===== */
+function sepParseBaixa(total,motivo){
+  const b={danificado:0,extraviado:0,inutilizado:0,resp:'',obs:'',fotos:[],bxId:null};
+  let ok=false;
+  (motivo||'').split(';').forEach(p=>{ const m=p.split(':'); if(m.length<2)return; const k=m[0].trim().toLowerCase(), v=parseFloat(m[1])||0;
+    if(k.startsWith('danific')){b.danificado=v;ok=true;} else if(k.startsWith('extrav')){b.extraviado=v;ok=true;} else if(k.startsWith('inutil')){b.inutilizado=v;ok=true;} else if(k.startsWith('resp')){b.resp=m[1].trim();} });
+  if(!ok && total>0) b.danificado=total;
+  return b;
+}
+function sepFromSF(wo){
+  const sp=(wo.separacoes||[]).slice(-1)[0];
+  if(!sp) return {id:'—', status:'Sem materiais', materiais:[]};
+  return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'',
+    materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
+      embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[] })) };
+}
+function sfPushSepItem(m,campos,label){
+  if(!SF_LIVE || !m._sf) return;
+  clearTimeout(m._syncT);
+  m._syncT=setTimeout(()=>{ bePatch('/itens-separacao/'+m._sf,campos,label||('Material: '+m.nome))
+    .catch(e=>toast('⚠️ Material não gravado: '+e.message)); },600);
+}
+function matBaixaMotivoStr(m){ const b=m.baixa; let s=`Danificado:${b.danificado||0}; Extraviado:${b.extraviado||0}; Inutilizado:${b.inutilizado||0}`; if(b.resp)s+='; Resp:'+b.resp; return s; }
+const SEP_STATUS_APP=['Solicitada','Aguardando aprovação','Em separação','Pronta para embarque','Embarcada','Recebida pelo usuário','Em uso','Retorno','Encerrada','Reprovada','Cancelada'];
+function sepSetStatus(v){ const sep=curOS.separacao; if(!sep._sf||!v) return; sep.status=v;
+  bePatch('/separacoes/'+sep._sf,{status:v},'Status da separação')
+    .then(r=>toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v))
+    .catch(e=>toast('⚠️ Status não gravado: '+e.message));
+  if(navStack.length) showSub(); }
+function sepAddRow(){
+  const box=document.getElementById('sepRows'); if(!box) return;
+  const row=document.createElement('div'); row.className='sep-row'; row.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
+  row.innerHTML=`<input type="text" placeholder="Material (ex.: Desengraxante 5L)" style="flex:1;min-width:0">
+    <input type="text" class="sep-un" placeholder="un" style="width:52px" value="un">
+    <input type="number" class="sep-qtd" placeholder="qtd" min="0" style="width:64px;height:44px;border:1.5px solid #c9c9c9;border-radius:10px;padding:0 8px">
+    <button onclick="this.parentNode.remove()" style="border:none;background:none;font-size:18px;color:#ba0517;cursor:pointer">×</button>`;
+  box.appendChild(row);
+}
+async function sepEnviar(){
+  const rows=[...document.querySelectorAll('#sepRows .sep-row')];
+  const itens=rows.map(r=>({ material:r.querySelector('input[type=text]').value.trim(), un:(r.querySelector('.sep-un').value.trim()||'un'), qtd:parseFloat(r.querySelector('.sep-qtd').value)||0 }))
+    .filter(i=>i.material && i.qtd>0);
+  if(!itens.length){ const f=document.querySelector('#sepRows .sep-row input[type=text]'); return markInvalid(f,'Informe ao menos um material com quantidade'); }
+  try{
+    const r=await bePost('/separacoes',{osId:curOS._wo, itens},'Solicitação de separação');
+    if(r&&r._queued){ toast('📡 Solicitação salva no aparelho — sincroniza com sinal'); return; }
+    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada',
+      materiais:(r.itens||itens).map(i=>({ _sf:i.id||null, nome:i.material, un:i.un||'un', solicitado:i.solicitada!=null?i.solicitada:i.qtd, embarcado:0, consumido:0, baixa:sepParseBaixa(0,''), retorno:0, fotos:[] })) };
+    bigOK('Separação '+(r.name||'')+' solicitada'); if(navStack.length) showSub();
+  }catch(e){ toast('⚠️ Solicitação não enviada: '+e.message); }
+}
 function matBaixaTotal(m){ return m.baixa.danificado+m.baixa.extraviado+m.baixa.inutilizado; }
 function matRetorno(m){ return Math.max(0,(m.embarcado||0)-m.consumido-matBaixaTotal(m)); }
 function setTxt(id,v){ const e=document.getElementById(id); if(e)e.textContent=v; }
-function matConsumo(mi,delta){ const m=curOS.separacao.materiais[mi]; const maxU=Math.max(0,(m.embarcado||m.solicitado)-matBaixaTotal(m)); m.consumido=Math.max(0,Math.min(maxU,m.consumido+delta)); updateMatLines(); }
+function matConsumo(mi,delta){ const m=curOS.separacao.materiais[mi]; const maxU=Math.max(0,(m.embarcado||m.solicitado)-matBaixaTotal(m)); m.consumido=Math.max(0,Math.min(maxU,m.consumido+delta)); updateMatLines(); sfPushSepItem(m,{usada:m.consumido},'Consumo: '+m.nome); }
+function matEmbarque(mi,delta){ const m=curOS.separacao.materiais[mi]; const novo=(m.embarcado||0)+delta;
+  if(novo<0) return; if(novo<m.consumido+matBaixaTotal(m)){ toast('Embarcado não pode ficar menor que usado + baixa'); return; }
+  m.embarcado=novo; sfPushSepItem(m,{embarcada:novo},'Embarque: '+m.nome); if(navStack.length) showSub(); }
 function updateMatLines(){
   const sep=curOS.separacao; let tot=0, totBx=0;
   sep.materiais.forEach((m,mi)=>{ const bx=matBaixaTotal(m); const ret=Math.max(0,(m.embarcado||0)-m.consumido-bx); m.retorno=ret; tot+=ret; totBx+=bx;
@@ -1378,6 +1448,7 @@ function baixaAdj(mi,key,delta){
   const novoTotal=matBaixaTotal(m)-m.baixa[key]+novo;
   if(m.consumido+novoTotal>(m.embarcado||0)){ toast('Usado + baixa não pode passar do embarcado ('+m.embarcado+' '+m.un+')'); return; }
   m.baixa[key]=novo; ensureBx(m); showSub();
+  sfPushSepItem(m,{baixa:matBaixaTotal(m), motivoBaixa:matBaixaMotivoStr(m)},'Baixa: '+m.nome);
 }
 function capturarBaixa(mi){
   const m=curOS.separacao.materiais[mi];
@@ -3081,7 +3152,7 @@ async function beHydrate(){
         equipePadrao:2,
         cli:wo.account||'—', contrato:'—', local:wo.account||'—', modelo:wo.objeto||'Manutenção preventiva',
         plano:wo.descricao||wo.objeto||'Exaustão · MPP',
-        alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:'Sem materiais',materiais} };
+        alocacoes:[], grupos, separacao:sepFromSF(wo) };
       buildItems(o);
       /* restaura o checklist real gravado na OS */
       o._itens.forEach(eq=>{ if(eq._map){ eq.checklist.forEach(lbl=>{ const st=chkEstado((wo.checklist||{})[eq._map[lbl]]); if(st) eq.checks[lbl]=st; }); } });
