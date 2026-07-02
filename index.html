@@ -419,10 +419,9 @@
   .sig-just{font-size:11px;color:var(--weak);font-style:italic;margin-top:2px}
   .sig-legal{background:var(--brand-l);border:1px solid var(--border2);border-radius:8px;padding:9px 11px;font-size:11.5px;line-height:1.45;color:var(--txt);margin:2px 0 10px;text-align:left}
   .sig-legal small{display:block;color:var(--weak);font-size:10px;margin-top:5px}
-  .sig-rec-lb{font-size:11px;font-weight:700;color:var(--weak);text-align:left;margin:0 0 6px}
-  .sig-rec-chip{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--border2);border-radius:8px;padding:8px 11px;margin-bottom:6px;font-size:13px;font-weight:700;color:var(--txt);cursor:pointer}
-  .sig-rec-chip small{display:block;font-weight:400;font-size:11px;color:var(--weak)}
-  .sig-rec-chip:active{background:var(--brand-l)}
+  .sig-resumo{background:#fff;border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin:0 0 12px;text-align:left;font-size:13.5px}
+  .sig-resumo small{display:block;font-weight:400;font-size:11.5px;color:var(--weak);margin-top:2px}
+  .sig-resumo a{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:700;color:var(--brand)}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -565,14 +564,17 @@
   <div class="modal" id="sigModal"><div class="modal-card">
     <div class="modal-title">Assinatura</div><div class="modal-sub" id="sigWho"></div>
     <div id="sigCliFields" style="display:none">
-      <div id="sigCliRecent"></div>
-      <div class="field"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo"></div>
-      <div class="field"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this)"></div>
-      <div class="field"><label>Cargo / função na unidade</label><input id="sigCliCargo" placeholder="ex.: Gerente da unidade"></div>
+      <div class="field"><label>Quem assina pela unidade?</label><select id="sigCliSel" onchange="sigCliSelChange()"></select></div>
+      <div id="sigCliResumo" class="sig-resumo" style="display:none"></div>
+      <div class="field" id="sigFNome" style="display:none"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo" oninput="sigCliProg()"></div>
+      <div class="field" id="sigFCPF" style="display:none"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this);sigCliProg()"></div>
+      <div class="field" id="sigFCargo" style="display:none"><label>Cargo / função na unidade</label><input id="sigCliCargo" placeholder="ex.: Gerente da unidade"></div>
     </div>
+    <div id="sigPadWrap">
     <div id="sigLegal" class="sig-legal"></div>
     <canvas id="sigPad" width="320" height="170"></canvas>
     <div class="pad-line">Assine no campo acima</div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-neutral" onclick="clearSig()">Limpar</button>
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
@@ -1686,6 +1688,7 @@ function _sigPrep(){
 function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
   document.getElementById('sigCliFields').style.display='none';
+  document.getElementById('sigPadWrap').style.display='';
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.equipe+'”</b><small>'+SIG_LEGAL.base+'</small>';
   const fc=funcByMat(a.matricula);
   document.getElementById('sigWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
@@ -1699,9 +1702,34 @@ function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,3); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
 let _recAss=[];
-function usarAssinante(i){ const r=_recAss[i]; if(!r) return;
-  document.getElementById('sigCliNome').value=r.nome; document.getElementById('sigCliCPF').value=r.cpf; document.getElementById('sigCliCargo').value=r.cargo||'';
-  toast('✅ Dados preenchidos — falta só a assinatura'); }
+/* seletor: 1ª opção = cadastrar novo; demais = pré-cadastrados da unidade (nome completo) */
+function sigCliSelChange(){
+  const v=document.getElementById('sigCliSel').value;
+  const resumo=document.getElementById('sigCliResumo');
+  const fN=document.getElementById('sigFNome'), fC=document.getElementById('sigFCPF'), fG=document.getElementById('sigFCargo');
+  if(v==='new'){
+    resumo.style.display='none'; fN.style.display='';
+    sigCliProg(); return;
+  }
+  const r=_recAss[+v]; if(!r) return;
+  document.getElementById('sigCliNome').value=r.nome;
+  document.getElementById('sigCliCPF').value=r.cpf;
+  document.getElementById('sigCliCargo').value=r.cargo||'';
+  fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
+  resumo.style.display='';
+  resumo.innerHTML=`<b>${r.nome}</b><small>CPF ${r.cpf} · ${r.cargo||'—'}</small><a href="#" onclick="sigCliEditar();return false">editar dados</a>`;
+  document.getElementById('sigPadWrap').style.display='';
+}
+function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; document.getElementById('sigFCPF').style.display=''; document.getElementById('sigFCargo').style.display=''; sigCliSelChange(); }
+/* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
+function sigCliProg(){
+  if(document.getElementById('sigCliSel').value!=='new') return;
+  const nome=document.getElementById('sigCliNome').value.trim();
+  const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
+  document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
+  document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
+  document.getElementById('sigPadWrap').style.display = cpfOk ? '' : 'none';
+}
 function openSigCliente(){
   sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null});
   document.getElementById('sigCliFields').style.display='';
@@ -1709,11 +1737,14 @@ function openSigCliente(){
   document.getElementById('sigCliCPF').value=cs.cpf||'';
   document.getElementById('sigCliCargo').value=cs.cargo||'';
   _recAss=assinantesDaLoja(curOS.cli||'');
-  document.getElementById('sigCliRecent').innerHTML=_recAss.length
-    ? '<div class="sig-rec-lb">Assina por esta unidade — toque para preencher:</div>'+_recAss.map((r,i)=>`<button type="button" class="sig-rec-chip" onclick="usarAssinante(${i})">${r.nome}<small>${r.cargo||'—'} · ${r.cpf}</small></button>`).join('')
-    : '';
+  const sel=document.getElementById('sigCliSel');
+  sel.innerHTML='<option value="new">➕ Cadastrar novo assinante</option>'+_recAss.map((r,i)=>`<option value="${i}">${r.nome}${r.cargo?' — '+r.cargo:''}</option>`).join('');
+  /* se quem assinou antes nesta OS está na base, pré-seleciona; senão abre em "novo" */
+  const idx=_recAss.findIndex(r=>cs.cpf && r.cpf===cs.cpf);
+  sel.value = idx>=0 ? String(idx) : 'new';
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
+  sigCliSelChange();
   _sigPrep();
 }
 function padPos(cv,e){const r=cv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(cv.width/r.width),y:(p.clientY-r.top)*(cv.height/r.height)};}
