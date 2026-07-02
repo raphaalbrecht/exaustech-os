@@ -2163,12 +2163,35 @@ function renderNotifs(){
   list.forEach(n=>{ const el=document.createElement('div'); el.className='rel-row'; el.innerHTML=`${tile(n.ico,n.color)}<div class="rel-name" style="font-weight:600">${n.tit}<div style="font-size:11.5px;color:var(--weak);font-weight:400;margin-top:2px">${n.sub}</div></div><span class="rel-arrow">›</span>`; el.onclick=()=>n.go(); wrap.appendChild(el); });
 }
 /* ===== painel do estoquista ===== */
+/* cor do status da separação no dashboard */
+function sepLozCls(st){
+  if(['Encerrada'].includes(st)) return 'lz-neu';
+  if(['Recebida pelo usuário','Em uso'].includes(st)) return 'lz-succ';
+  if(['Reprovada','Cancelada'].includes(st)) return 'lz-err';
+  if(['Embarcada','Pronta para embarque','Retorno'].includes(st)) return 'lz-info';
+  return 'lz-warn'; /* Solicitada / Aguardando aprovação / Em separação = fila de trabalho */
+}
+function sepFaltaEmbarcar(s){ return (s.materiais||[]).reduce((t,m)=>t+Math.max(0,(m.solicitado||0)-(m.embarcado||0)),0); }
 function renderEstoque(){
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
-  const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separações de materiais'; wrap.appendChild(h1);
-  ordens.forEach(o=>{ const a=apptForOS(o); const row=document.createElement('div'); row.className='rel-row';
-    row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${o.separacao.id}</div><div class="eq-sub">${o.cli} · ${o.separacao.materiais.length} material(is)</div></div><span class="lz lz-info" style="font-size:10px;padding:1px 7px">${o.separacao.status}</span><span class="rel-arrow">›</span>`;
-    row.onclick=()=>{ if(a){curAppt=a;curOS=o;navStack=[];pushSub({type:'materiais'});} }; wrap.appendChild(row);
+  /* ===== DASHBOARD: Ordens de Separação por status (página principal do Estoquista) ===== */
+  const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Ordens de Separação — fila por status'; wrap.appendChild(h1);
+  const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); });
+  const counts={}; seps.forEach(x=>{ counts[x.s.status]=(counts[x.s.status]||0)+1; });
+  /* resumo: chips com contagem por status */
+  const strip=document.createElement('div'); strip.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin:8px 2px 12px';
+  SEP_STATUS_APP.filter(st=>counts[st]).forEach(st=>{ const c=document.createElement('span'); c.className='lz '+sepLozCls(st); c.style.cssText='font-size:11px;padding:3px 10px'; c.textContent=st+' · '+counts[st]; strip.appendChild(c); });
+  if(!seps.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhuma ordem de separação.'; wrap.appendChild(e); }
+  else wrap.appendChild(strip);
+  /* seções por status, na ordem da esteira */
+  SEP_STATUS_APP.forEach(st=>{
+    const list=seps.filter(x=>x.s.status===st); if(!list.length) return;
+    const hd=document.createElement('div'); hd.className='rel-hd'; hd.style.fontSize='12px'; hd.textContent=st+' ('+list.length+')'; wrap.appendChild(hd);
+    list.forEach(({o,s})=>{ const a=apptForOS(o); const falta=sepFaltaEmbarcar(s);
+      const row=document.createElement('div'); row.className='rel-row';
+      row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#b8530f">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+      row.onclick=()=>{ if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} }; wrap.appendChild(row);
+    });
   });
   const h2=document.createElement('div'); h2.className='rel-hd'; h2.textContent='Ferramentas em custódia'; wrap.appendChild(h2);
   let any=false;
