@@ -1064,7 +1064,7 @@ function completeAppt(){
   const semAssin=o.alocacoes.filter(x=>!(x.assinatura||x._sigRec));
   if(semAssin.length){ toast('✍️ Falta assinatura de '+semAssin[0].nome.split(' ')[0]); pushSub({type:'assin'}); return; }
   if(!(o.csig&&(o.csig.assinatura||o.csig._sigRec)) && !(o.csig&&o.csig.justificativa)){ openCsigJust(); return; }
-  a.stage=STAGES.length-1; stamp(a); sfMaybePush(a);
+  a.stage=STAGES.length-1; stamp(a); sfMaybePush(a); sfPushDesfecho('Concluída','');
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
   if(NET.online) toast('✅ Status sincronizado'); else { NET.queue++; updateNet(); }
@@ -1100,7 +1100,25 @@ function quickAction(k){
 let outcomeTipo=null;
 function openOutcome(t){ outcomeTipo=t; document.getElementById('ocTitle').textContent=t; document.getElementById('ocReason').value=''; document.getElementById('outcomeModal').classList.add('show'); }
 function closeOutcome(){ document.getElementById('outcomeModal').classList.remove('show'); }
-function confirmOutcome(){ const m=document.getElementById('ocReason').value.trim(); if(!m) return markInvalid('ocReason','Informe o motivo'); curAppt.outcome=outcomeTipo; curAppt.motivo=m; closeOutcome(); renderAppt(); toast(outcomeTipo+' registrado'); }
+function confirmOutcome(){ const m=document.getElementById('ocReason').value.trim(); if(!m) return markInvalid('ocReason','Informe o motivo'); curAppt.outcome=outcomeTipo; curAppt.motivo=m; closeOutcome(); renderAppt(); toast(outcomeTipo+' registrado');
+  sfPushDesfecho(outcomeTipo==='Cancelado'?'Cancelada':'Não concluída', m); }
+/* ===== Desfecho de Visita (Política de Faturamento por Compromisso) =====
+   O app registra o FATO + sugestão derivada; o escritório arbitra a cobrança no Salesforce. */
+function sugFaturamento(desfecho,motivo){
+  if(desfecho==='Concluída') return 'Cobrança principal';
+  const m=(motivo||'').toLowerCase();
+  if(/fechad|acesso|cliente|indispon|shopping|loja|autoriza/.test(m)) return 'Improdutiva — cliente (cobrar)';
+  return 'Improdutiva — nossa (AC)';
+}
+function sfPushDesfecho(desfecho,motivo){
+  if(!SF_LIVE || !curOS || !curOS._wo) return;
+  if(curAppt && curAppt._desfSF) return; /* 1 registro por visita nesta sessão */
+  const sug=sugFaturamento(desfecho,motivo);
+  bePost('/desfechos',{osId:curOS._wo, desfecho, motivo:motivo||'', sugestao:sug, registradoPor:(localStorage.getItem('be_name')||ROLE)},'Desfecho: '+desfecho)
+    .then(r=>{ if(curAppt) curAppt._desfSF=true;
+      toast(r&&r._queued?'📡 Desfecho salvo no aparelho — sincroniza com sinal':'✅ Desfecho registrado ('+sug+')'); })
+    .catch(e=>toast('⚠️ Desfecho não gravado: '+e.message));
+}
 function openNota(){ document.getElementById('notaText').value=''; document.getElementById('notaModal').classList.add('show'); }
 function closeNota(){ document.getElementById('notaModal').classList.remove('show'); }
 function saveNota(){ const t=document.getElementById('notaText').value.trim(); if(!t) return markInvalid('notaText','Escreva a nota'); curOS.notas.push({txt:t,quando:agora()}); closeNota(); toast('✅ Nota salva'); }
@@ -3330,6 +3348,8 @@ async function beHydrate(){
         else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
         else if(md.tipo==='Foto Adicional'){ (eq.fotos=eq.fotos||[]).push({img:null,usarPDF:true,_drive:md.driveId,_midiaId:md.id}); }
         else if(md.tipo==='Vídeo'){ eq._temVideo=true; eq._videoDrive=md.driveId; } });
+      /* desfechos de visita já gravados (evita duplicar na mesma OS após reload) */
+      o._desfechos=wo.desfechos||[];
       /* restaura apontamentos (não conformidades) gravados no Salesforce */
       (wo.apontamentos||[]).forEach(ap=>{ const eq=o._itens.find(e=>e.tag===ap.equip); if(!eq) return;
         const d=eq.det[ap.item]; if(d){ d.apt=ap.name; d.obs=d.obs||ap.obs||''; const ps=(ap.problemas||'').split(';').map(s=>s.trim()).filter(Boolean); ps.forEach((p,i)=>{ if(i<3) d.prob[i]=p; }); }
@@ -3350,7 +3370,7 @@ async function beHydrate(){
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
       o.notas=[];
       novasOrdens.push(o);
-      novosAppts.push({ id:'SA-'+(saSeq++), os:o, dia, janela:hh+' – '+hf, tipo:'Principal', stage:_sfStatusToStage(wo.status), outcome:null, tempos:{} });
+      novosAppts.push({ id:'SA-'+(saSeq++), os:o, dia, janela:hh+' – '+hf, tipo:'Principal', stage:_sfStatusToStage(wo.status), outcome:null, tempos:{}, _desfSF:(wo.desfechos||[]).length>0 });
     }
     ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
     appts.length=0; novosAppts.forEach(a=>appts.push(a));
