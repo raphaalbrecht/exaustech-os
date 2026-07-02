@@ -577,9 +577,6 @@
         <div class="cargo-chips" id="cargoChips"></div>
         <input id="sigCliCargo" placeholder="digite o cargo…" style="display:none">
       </div>
-      <div class="field" id="sigFObs" style="display:none"><label>Observações do representante (opcional)</label>
-        <textarea id="sigCliObs" rows="2" placeholder="ex.: acompanhei parcialmente; ressalvo que…"></textarea>
-      </div>
     </div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
@@ -590,9 +587,12 @@
   <div class="modal" id="padModal"><div class="modal-card">
     <div class="modal-title">Assinatura</div><div class="modal-sub" id="padWho"></div>
     <div id="sigLegal" class="sig-legal"></div>
+    <div class="field" id="sigFObs" style="display:none"><label>Observações do representante (opcional)</label>
+      <textarea id="sigCliObs" rows="2" placeholder="ex.: acompanhei parcialmente; ressalvo que…"></textarea>
+    </div>
     <canvas id="sigPad" width="320" height="170"></canvas>
     <div class="pad-line">Assine no campo acima</div>
-    <div class="modal-actions">
+    <div class="modal-actions" style="margin-top:10px">
       <button class="btn btn-neutral" onclick="clearSig()">Limpar</button>
       <button class="btn btn-neutral" id="padBtnBack" onclick="padVoltar()">Cancelar</button>
       <button class="btn btn-brand" onclick="saveSig()">Confirmar</button>
@@ -1709,6 +1709,7 @@ function openSig(ai){
   const fc=funcByMat(a.matricula);
   document.getElementById('padWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
   document.getElementById('padBtnBack').textContent='Cancelar';
+  document.getElementById('sigFObs').style.display='none';
   _sigPrep();
 }
 /* avança do formulário de dados para o pop-up de assinatura (valida antes) */
@@ -1722,6 +1723,7 @@ function sigToPad(){
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
   document.getElementById('padBtnBack').textContent='Voltar';
+  document.getElementById('sigFObs').style.display='';
   document.getElementById('sigModal').classList.remove('show');
   _sigPrep();
 }
@@ -1736,7 +1738,7 @@ function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\
   s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
-function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; document.getElementById('sigFObs').style.display=show?'':'none'; }
+function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; }
 let _recAss=[];
 /* cargo: presets de um toque + "Outro…" com texto livre */
 const CARGO_PRESETS=['Gerente','Subgerente','Sócio','Supervisor','Coordenador','Técnico de manutenção','Prestador de serviço'];
