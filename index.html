@@ -1216,7 +1216,7 @@ function itemForm(eq,ii){
   const hasFotos = eq.fotoAntes||eq.fotoDepois||extras.length;
   const pdfPick = (canPDF(ROLE) && hasFotos) ? `<div class="pdf-pick"><div class="pdf-pick-h">Inclusão no PDF do cliente · Coordenador+</div>${eq.fotoAntes?`<label class="pdfchk"><input type="checkbox" ${eq.fotoAntesPDF?'checked':''} onchange="setFotoPDF(${ii},'antes',this.checked)"><span>Usar foto <b>ANTES</b></span></label>`:''}${eq.fotoDepois?`<label class="pdfchk"><input type="checkbox" ${eq.fotoDepoisPDF?'checked':''} onchange="setFotoPDF(${ii},'depois',this.checked)"><span>Usar foto <b>DEPOIS</b></span></label>`:''}${extras.map((f,idx)=>`<label class="pdfchk"><input type="checkbox" ${f.usarPDF?'checked':''} onchange="setFotoExtraPDF(${ii},${idx},this.checked)"><span>Usar foto <b>adicional ${idx+1}</b></span></label>`).join('')}</div>` : '';
   const showExtras = !lk || extras.length;
-  const extrasHTML = showExtras ? `<div class="label">Fotos adicionais${extras.length?' ('+extras.length+')':''}</div><div class="extra-fotos">${extras.map((f,idx)=>`<div class="xf"><img src="${f.img}" class="xf-img"><span class="xf-n">${idx+1}</span>${lk?'':`<button class="xf-rm" onclick="removeFotoExtra(${ii},${idx})">×</button>`}</div>`).join('')}${lk?'':`<div class="xf-add" onclick="capturarExtra(${ii})"><div class="ph-ico">${svgI('camera')}</div><div class="ph-txt">+ FOTO</div></div>`}</div>` : '';
+  const extrasHTML = showExtras ? `<div class="label">Fotos adicionais${extras.length?' ('+extras.length+')':''}</div><div class="extra-fotos">${extras.map((f,idx)=>`<div class="xf">${f.img?`<img src="${f.img}" class="xf-img">`:`<div class="xf-img" style="display:flex;align-items:center;justify-content:center;font-size:16px;background:#eef1f6">⏳</div>`}<span class="xf-n">${idx+1}</span>${lk?'':`<button class="xf-rm" onclick="removeFotoExtra(${ii},${idx})">×</button>`}</div>`).join('')}${lk?'':`<div class="xf-add" onclick="capturarExtra(${ii})"><div class="ph-ico">${svgI('camera')}</div><div class="ph-txt">+ FOTO</div></div>`}</div>` : '';
   c.innerHTML=`
     <div class="label">Fotos antes / depois</div>
     <div class="photos">${photo('a',eq.fotoAntes,'antes')}${photo('d',eq.fotoDepois,'depois')}</div>
@@ -1588,7 +1588,7 @@ function assinBody(){
     const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div>${cpf?`<div class="sig-role">CPF ${cpf}</div>`:''}<div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
     const aSigned=a.assinatura||a._sigRec;
     c.innerHTML=aSigned
-      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm||'—'}</div></div>${a.assinatura?`<img class="sig-thumb" src="${a.assinatura}">`:(a._sigDrive?`<button class="sig-btn re" onclick="verImagem('${a._sigDrive}','Assinatura — ${_esc(a.nome).replace(/'/g,'’')}')">📄 ver</button>`:(a._sigUrl?`<a class="sig-btn re" href="${a._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
+      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm||'—'}</div></div>${a.assinatura?`<img class="sig-thumb" src="${a.assinatura}">`:(a._sigDrive?`<button class="sig-btn re" onclick="verImagem('${a._sigDrive}','Assinatura — ${_esc(a.nome).replace(/'/g,'’')}')">📄 ver</button>`:(a._sigUrl?`<a class="sig-btn re" href="${a._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSig(${ai})">Refazer</button><button class="sig-btn del" onclick="removerAssinatura(${ai})">Remover</button></span>`}`
       : info+`<div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
     wrap.appendChild(c);
   });
@@ -1836,9 +1836,20 @@ function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCl
 /* remove o aceite por completo: a OS volta a exigir aceite OU justificativa na conclusão */
 function removerAceite(){
   if(!window.confirm('Remover o aceite do cliente? A conclusão voltará a exigir assinatura ou justificativa.')) return;
+  const sid=curOS.csig&&curOS.csig._sigId;
+  if(SF_LIVE&&sid) beDelete('/assinaturas/'+sid,'Remover aceite').catch(()=>toast('⚠️ Registro não removido no Salesforce'));
   curOS.csig={nome:'',cargo:'',cpf:'',obs:'',assinatura:null,assinadoEm:null};
   if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
   toast('✅ Aceite removido');
+}
+/* padronizado com o aceite do cliente: assinatura da equipe também pode ser removida (engano/pessoa errada) */
+function removerAssinatura(ai){
+  const a=curOS.alocacoes[ai]; if(!a) return;
+  if(!window.confirm('Remover a assinatura de '+(a.nome||'').split(' ')[0]+'? Será preciso colher de novo para concluir a OS.')) return;
+  if(SF_LIVE&&a._sigId) beDelete('/assinaturas/'+a._sigId,'Remover assinatura').catch(()=>toast('⚠️ Registro não removido no Salesforce'));
+  a.assinatura=null; a.assinadoEm=null; a._sigRec=false; a._sigId=null; a._sigUrl=null; a._sigDrive=null; a.declaracao=null; a.meta=null;
+  if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
+  toast('✅ Assinatura removida');
 }
 /* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
 function sigCliProg(){
@@ -1956,9 +1967,22 @@ function capturar(ii,tipo){
 }
 function capturarExtra(ii){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
-  pickPhoto(async file=>{ const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq,'ADICIONAL '+(eq.fotos.length+1)); eq.fotos.push({img:r.img, usarPDF:true, meta:r.meta}); showSub(); toast('✅ Foto adicional registrada'); }catch(e){ toast('Falha ao processar a foto'); } });
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq,'ADICIONAL '+(eq.fotos.length+1)); const f={img:r.img, usarPDF:true, meta:r.meta}; eq.fotos.push(f); showSub(); toast('✅ Foto adicional registrada'); gMaybeUploadExtra(eq,f); }catch(e){ toast('Falha ao processar a foto'); } });
 }
-function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; (eq.fotos||[]).splice(idx,1); showSub(); toast('✅ Foto removida'); }
+function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; const f=(eq.fotos||[])[idx];
+  if(f && SF_LIVE && f._midiaId) beDelete('/midias/'+f._midiaId,'Remover foto adicional').catch(()=>toast('⚠️ Registro não removido no Salesforce'));
+  (eq.fotos||[]).splice(idx,1); showSub(); toast('✅ Foto removida'); }
+/* sobe a foto adicional pro Drive + Midia_OS__c (mesmo padrão do antes/depois) */
+async function gMaybeUploadExtra(eq,f){
+  if(!SF_LIVE || !curOS || !curOS._wo || !f || !f.img) return;
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_ADICIONAL_'+stamp+'.jpg';
+  try{ toast('☁️ Enviando foto…');
+    const r=await beUploadMidia(dataURLtoBlob(f.img), fn, 'Foto Adicional', {osId:curOS._wo, equip:eq.tag});
+    if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+    else { f._drive=r.driveId||null; f._midiaId=r.midiaId||null; bigOK('Foto salva na OS'); }
+  }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+}
 function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima decide as fotos do PDF'); return; } curOS._itens[ii].fotos[idx].usarPDF=val; toast(val?'✓ Foto adicional no PDF':'Foto adicional fora do PDF'); }
 
 /* ===== rede / toast ===== */
@@ -2815,6 +2839,7 @@ async function offDrain(){
       try{
         if(j.kind==='patch') await bePatch(j.path,j.body);
         else if(j.kind==='post') await bePost(j.path,j.body);
+        else if(j.kind==='delete') await beDelete(j.path);
         else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
         await offDel(j._id); n++;
@@ -2832,6 +2857,7 @@ setInterval(()=>{ if(navigator.onLine && beTok()) offCount().then(n=>{ if(n) off
 
 async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
 async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
 async function beDoLogin(payload){
   const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
   try{
@@ -2914,6 +2940,8 @@ function sfRestoreFotos(eq,ii){
       beArquivoDataURL(eq[dk])
         .then(du=>{ eq[ik]=du; if(document.getElementById('ph-a-'+ii)) showSub(); })
         .catch(()=>{ eq['_carregando'+dk]=false; }); } });
+  (eq.fotos||[]).forEach(f=>{ if(f._drive && !f.img && !f._carregando){ f._carregando=true;
+    beArquivoDataURL(f._drive).then(du=>{ f.img=du; if(document.getElementById('ph-a-'+ii)) showSub(); }).catch(()=>{ f._carregando=false; }); } });
 }
 async function beUploadMidia(blob, filename, tipo, meta, noQ){
   try{
@@ -2975,6 +3003,7 @@ async function beHydrate(){
       (wo.midias||[]).forEach(md=>{ const eq=o._itens.find(e=>e.tag===md.equip); if(!eq||!md.driveId) return;
         if(md.tipo==='Foto Antes'){ eq.fotoAntes=true; eq._fotoAntesDrive=md.driveId; }
         else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
+        else if(md.tipo==='Foto Adicional'){ (eq.fotos=eq.fotos||[]).push({img:null,usarPDF:true,_drive:md.driveId,_midiaId:md.id}); }
         else if(md.tipo==='Vídeo'){ eq._temVideo=true; eq._videoDrive=md.driveId; } });
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
