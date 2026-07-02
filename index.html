@@ -2246,11 +2246,21 @@ function estoqueSepPage(wrap){
   (s.materiais||[]).forEach((m,mi)=>{
     const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
-    row.innerHTML=`<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${m.nome}</div><div style="font-size:12px;color:var(--weak)">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · separado ✓':''}</div></div>
-      <button class="btn ${ok?'btn-neutral':'btn-brand'}" style="min-width:110px" onclick="sepToggleItem(${mi})">${ok?'Desfazer':'Separar ✓'}</button>`;
+    row.innerHTML=`<div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${m.nome}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · <span style="color:#2e844a">separado ✓</span>':''}</div></div>
+      <button class="btn ${ok?'btn-neutral':'btn-brand'}" style="width:auto;flex:0 0 auto;min-width:104px;height:40px;padding:0 12px;margin:0;font-size:13px" onclick="sepToggleItem(${mi})">${ok?'Desfazer':'Separar ✓'}</button>`;
     card.appendChild(row);
   });
   wrap.appendChild(card);
+  /* etiquetas dos volumes (Zebra no PC do estoque; sem Zebra sai PDF) */
+  const etq=document.createElement('div'); etq.className='subcard';
+  etq.innerHTML=`<div class="sec-title2" style="margin-top:0">🖨️ Etiquetas dos volumes</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <label style="font-size:12.5px;color:#444;font-weight:600">Volumes:</label>
+      <input type="number" id="etqQtd" min="1" max="50" value="1" style="width:70px;height:44px;border:1.5px solid #c9c9c9;border-radius:10px;padding:0 10px;text-align:center">
+      <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;height:44px;margin:0" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas</button>
+    </div>
+    <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
+  wrap.appendChild(etq);
   const todos=(s.materiais||[]).length>0 && (s.materiais||[]).every(m=>(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0);
   const done=document.createElement('button'); done.className='btn btn-brand'; done.style.cssText='width:100%;margin-top:12px;height:52px;font-size:15px';
   done.textContent='📦 Confirmar separação concluída'; done.disabled=!todos;
@@ -2265,6 +2275,53 @@ function estoqueSepPage(wrap){
     estoqGo('dash');
   };
   wrap.appendChild(done);
+}
+/* ===== ETIQUETAS DE SEPARAÇÃO (Zebra via Browser Print no PC do estoque; fallback = PDF p/ imprimir onde estiver) ===== */
+function etqZPL(s,o,i,n){ /* etiqueta 100×50mm @203dpi (800×400 dots), QR com o nº da SEP */
+  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,60);
+  return '^XA^CI28'
+    +'^FO30,22^A0N,34,34^FDEXAUSTECH - SEPARACAO DE MATERIAIS^FS'
+    +'^FO30,72^A0N,80,80^FD'+s.id+'^FS'
+    +'^FO30,168^A0N,34,34^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
+    +'^FO30,214^A0N,30,30^FB540,2,0,L^FD'+cli+'^FS'
+    +'^FO30,300^A0N,44,44^FDVOLUME '+i+' / '+n+'^FS'
+    +'^FO590,120^BQN,2,7^FDQA,'+s.id+'^FS'
+    +'^PQ1^XZ';
+}
+async function zebraAchar(){
+  try{ const r=await fetch('http://127.0.0.1:9100/available',{signal:AbortSignal.timeout?AbortSignal.timeout(1500):undefined});
+    const j=await r.json(); const list=j.printer||j.deviceList||[]; return list.length?list[0]:null;
+  }catch(e){ return null; }
+}
+async function zebraEnviar(dev,zpl){
+  const r=await fetch('http://127.0.0.1:9100/write',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({device:dev,data:zpl})});
+  if(!r.ok) throw new Error('Browser Print recusou ('+r.status+')');
+}
+function etqPDF(s,o,n){ /* fallback: PDF com 1 etiqueta 100×50mm por página, imprime em qualquer impressora */
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
+  for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('EXAUSTECH — SEPARAÇÃO DE MATERIAIS',5,7);
+    doc.setFontSize(22); doc.text(s.id,5,18);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,26);
+    doc.text(String(o.cli||'').slice(0,48),5,32);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('VOLUME '+i+' / '+n,5,43);
+    doc.setDrawColor(120); doc.rect(72,12,23,23); doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83.5,36.5,{align:'center'});
+  }
+  doc.save('Etiquetas-'+s.id+'.pdf');
+}
+async function imprimirEtiquetas(){
+  const s=estoqView.sep, o=estoqView.os; if(!s||!o) return;
+  const inp=document.getElementById('etqQtd'); const n=Math.max(1,Math.min(50,parseInt(inp&&inp.value)||1));
+  toast('🖨️ Procurando impressora Zebra…');
+  const dev=await zebraAchar();
+  if(dev){
+    try{ for(let i=1;i<=n;i++) await zebraEnviar(dev,etqZPL(s,o,i,n));
+      bigOK(n+' etiqueta'+(n>1?'s':'')+' na Zebra'); return;
+    }catch(e){ toast('⚠️ Zebra falhou ('+e.message+') — gerando PDF'); }
+  } else toast('Zebra não encontrada neste computador — gerando PDF para imprimir');
+  if(!window.jspdf||!window.jspdf.jsPDF) return toast('Gerador de PDF ainda carregando…');
+  etqPDF(s,o,n);
 }
 function sepToggleItem(mi){
   const s=estoqView.sep; const m=s.materiais[mi]; if(!m) return;
