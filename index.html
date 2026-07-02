@@ -1971,7 +1971,7 @@ function capturarExtra(ii){
 }
 function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; const f=(eq.fotos||[])[idx];
   if(f && SF_LIVE && f._midiaId) beDelete('/midias/'+f._midiaId,'Remover foto adicional').catch(()=>toast('⚠️ Registro não removido no Salesforce'));
-  (eq.fotos||[]).splice(idx,1); showSub(); toast('✅ Foto removida'); }
+  (eq.fotos||[]).splice(idx,1); if(navStack.length) showSub(); toast('✅ Foto removida'); }
 /* sobe a foto adicional pro Drive + Midia_OS__c (mesmo padrão do antes/depois) */
 async function gMaybeUploadExtra(eq,f){
   if(!SF_LIVE || !curOS || !curOS._wo || !f || !f.img) return;
@@ -2244,11 +2244,35 @@ function openAlocDet(osid,mat){
   ];
   if(a._inicio) rows.push(['Início da alocação', fmtDH(a._inicio)]);
   if(a._termino) rows.push(['Término da alocação', fmtDH(a._termino)]);
+  if(a._efIni) rows.push(['✔ Check-in', fmtDH(a._efIni)]);
+  if(a._efFim) rows.push(['✔ Check-out', fmtDH(a._efFim)]);
+  if(a._efIni&&a._efFim) rows.push(['Tempo no local', tempoNoLocal(a._efIni,a._efFim)]);
   if(a._presenca) rows.push(['Presença', a._presenca]);
   document.getElementById('alocDetSub').textContent=(a._num?a._num+' · ':'')+a.nome;
-  document.getElementById('alocDetBody').innerHTML=rows.map(r=>`<div class="det-row"><span class="det-k">${r[0]}</span><span class="det-v">${r[1]}</span></div>`).join('');
+  document.getElementById('alocDetBody').innerHTML=rows.map(r=>`<div class="det-row"><span class="det-k">${r[0]}</span><span class="det-v">${r[1]}</span></div>`).join('')+presencaHTML(a);
   document.getElementById('alocDetModal').classList.add('show');
 }
+/* ===== PRESENÇA: check-in/check-out com hora real + status (base do tempo de mão de obra) ===== */
+function tempoNoLocal(i,f){ const ms=new Date(f)-new Date(i); if(!(ms>0)) return '—'; const m=Math.round(ms/60000); return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'min'; }
+const PRESENCAS=['Normal','Atraso','Compensação (Extra)','Falta (Extra)','Falta justificada','Falta não justificada','Licença (descrever)'];
+function presencaHTML(a){
+  if(!(SF_LIVE&&a._ar)) return '';
+  const btn = !a._efIni ? `<button class="btn btn-brand" style="width:100%" onclick="checkInAloc()">▶️ Check-in — cheguei ao local</button>`
+            : (!a._efFim ? `<button class="btn btn-brand" style="width:100%" onclick="checkOutAloc()">⏹ Check-out — encerrei no local</button>` : '');
+  return `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">${btn}
+    <div class="field"><label>Presença</label><select id="presSel" onchange="setPresencaAloc(this.value)"><option value="">— definir —</option>${PRESENCAS.map(p=>`<option ${a._presenca===p?'selected':''}>${p}</option>`).join('')}</select></div></div>`;
+}
+function sfPushPresenca(a,body,label){
+  return bePatch('/alocacoes/'+a._ar+'/presenca',body,label)
+    .then(r=>{ toast(r&&r._queued?('📡 '+label+' salvo no aparelho — sincroniza com sinal'):('✅ '+label+' gravado')); return r; })
+    .catch(e=>toast('⚠️ '+label+' não gravado: '+e.message));
+}
+function checkInAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
+  a._efIni=t; sfPushPresenca(a,{efetivoInicio:t},'Check-in'); openAlocDet(_alocDet.o.id,a.matricula); }
+function checkOutAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
+  a._efFim=t; sfPushPresenca(a,{efetivoTermino:t},'Check-out'); openAlocDet(_alocDet.o.id,a.matricula); }
+function setPresencaAloc(v){ if(!_alocDet||!v) return; const a=_alocDet.a;
+  a._presenca=v; sfPushPresenca(a,{presenca:v},'Presença'); }
 function closeAlocDet(){ document.getElementById('alocDetModal').classList.remove('show'); }
 function alocDetRemover(){ if(!_alocDet) return; const d=_alocDet; _alocDet=null; closeAlocDet(); removeAloc(d.o.id,d.a.matricula); }
 function removeAloc(osid,mat){
@@ -3005,7 +3029,7 @@ async function beHydrate(){
         else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
         else if(md.tipo==='Foto Adicional'){ (eq.fotos=eq.fotos||[]).push({img:null,usarPDF:true,_drive:md.driveId,_midiaId:md.id}); }
         else if(md.tipo==='Vídeo'){ eq._temVideo=true; eq._videoDrive=md.driveId; } });
-      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
