@@ -1261,8 +1261,17 @@ function registrarApt(eq,item,box){
   const d=eq.det[item];
   if(!d.prob.some(Boolean) && !d.obs.trim()) return markInvalid(box?box.querySelector('textarea'):null,'Selecione um problema ou descreva antes de registrar');
   const id='APT-'+pad5(aptSeq++); d.apt=id;
-  apontamentos.push({id, osId:curOS.id, equipTag:eq.tag, tarefa:eq.tarefa, item, problemas:d.prob.filter(Boolean), obs:d.obs, severidade:'Média', acaoRecomendada:'', fotos:[], status:'Registrado', quando:agora(), eqRef:eq, osRef:curOS});
+  const rec={id, osId:curOS.id, equipTag:eq.tag, tarefa:eq.tarefa, item, problemas:d.prob.filter(Boolean), obs:d.obs, severidade:'Média', acaoRecomendada:'', fotos:[], status:'Registrado', quando:agora(), eqRef:eq, osRef:curOS};
+  apontamentos.push(rec);
   toast('✅ Apontamento '+id+' registrado'); pushSub({type:'apt', aptId:id});
+  /* grava a não conformidade no Salesforce (Apontamento_OS__c); offline entra na fila */
+  if(SF_LIVE && curOS._wo){
+    bePost('/apontamentos',{osId:curOS._wo, equip:eq.tag, item, problemas:rec.problemas.join('; '), obs:d.obs||'', registradoPor:(localStorage.getItem('be_name')||ROLE)},'Apontamento: '+item)
+      .then(r=>{ if(r&&r._queued){ toast('📡 Apontamento salvo no aparelho — sincroniza com sinal'); return; }
+        if(r&&r.name){ rec._sf=r.id; const old=rec.id; rec.id=r.name; if(d.apt===old) d.apt=r.name;
+          if(navStack.length&&navStack[navStack.length-1].type==='apt'&&navStack[navStack.length-1].aptId===old){ navStack[navStack.length-1].aptId=r.name; showSub(); } } })
+      .catch(e=>toast('⚠️ Apontamento não gravado: '+e.message));
+  }
 }
 function aptById(id){ return apontamentos.find(a=>a.id===id); }
 function aptPage(id){
@@ -3002,6 +3011,8 @@ async function beHydrate(){
       cor:_pal[i%_pal.length], lojas:[], habilidades:r.habilidades||[], externo:!!r.externo, cpf:r.cpf||null }));
     if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
     HABILIDADES.length=0; (REC.habilidades||[]).forEach(h=>HABILIDADES.push(h));
+    /* re-hydrate: remove apontamentos restaurados na carga anterior (evita duplicar) */
+    for(let i=apontamentos.length-1;i>=0;i--){ if(apontamentos[i]._fromSF) apontamentos.splice(i,1); }
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
     for(const wo of wos){
       /* checklist REAL: 4 grupos de família de equipamento com os campos inline da Ordem_de_Servico__c */
@@ -3029,6 +3040,12 @@ async function beHydrate(){
         else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
         else if(md.tipo==='Foto Adicional'){ (eq.fotos=eq.fotos||[]).push({img:null,usarPDF:true,_drive:md.driveId,_midiaId:md.id}); }
         else if(md.tipo==='Vídeo'){ eq._temVideo=true; eq._videoDrive=md.driveId; } });
+      /* restaura apontamentos (não conformidades) gravados no Salesforce */
+      (wo.apontamentos||[]).forEach(ap=>{ const eq=o._itens.find(e=>e.tag===ap.equip); if(!eq) return;
+        const d=eq.det[ap.item]; if(d){ d.apt=ap.name; d.obs=d.obs||ap.obs||''; const ps=(ap.problemas||'').split(';').map(s=>s.trim()).filter(Boolean); ps.forEach((p,i)=>{ if(i<3) d.prob[i]=p; }); }
+        apontamentos.push({id:ap.name, _sf:ap.id, _fromSF:true, osId:o.id, equipTag:eq.tag, tarefa:eq.tarefa, item:ap.item,
+          problemas:(ap.problemas||'').split(';').map(s=>s.trim()).filter(Boolean), obs:ap.obs||'', severidade:'Média', acaoRecomendada:'', fotos:[],
+          status:ap.status||'Registrado', quando:ap.registradoEm?fmtDH(ap.registradoEm):'', eqRef:eq, osRef:o}); });
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
