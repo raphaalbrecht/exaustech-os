@@ -1139,6 +1139,7 @@ function subContent(entry){
   if(entry.type==='equip'){ const eq=curOS._itens[entry.ii]; return {title:(eq.site?eq.tag:eq.tarefa), node:equipPage(entry.ii)}; }
   if(entry.type==='equipHist'){ const eq=curOS._itens[entry.ii]; return {title:'Histórico · '+eq.tag, node:equipHistPage(entry.ii)}; }
   if(entry.type==='apt') return {title:entry.aptId, node:aptPage(entry.aptId)};
+  if(entry.type==='aptNew') return {title:'Novo apontamento', node:aptNewPage(entry.ii, entry.item)};
   if(entry.type==='matBaixa') return {title:'Baixa · '+curOS.separacao.materiais[entry.mi].nome, node:matBaixaPage(entry.mi)};
   if(entry.type==='ferramentas') return {title:'Ferramentas', node:ferramentasPage()};
   if(entry.type==='ferrCat') return {title:'Reservar ferramenta', node:ferrCatPage()};
@@ -1236,7 +1237,7 @@ function chkItem(eq,item){
   const lk=repLocked();
   const wrap=document.createElement('div'); wrap.className='chk-item';
   const row=document.createElement('div'); row.className='check-row';
-  row.innerHTML=`<div class="c-name">${item}</div><div class="seg seg3"><button>OK</button><button>Não</button><button>N/E</button></div>`;
+  row.innerHTML=`<div class="c-name">${item}${eq.det[item]&&eq.det[item].apt?' <span title="Apontamento registrado" style="font-size:12px">📌</span>':''}</div><div class="seg seg3"><button>OK</button><button>Não</button><button>N/E</button></div>`;
   const [okB,noB,neB]=row.querySelectorAll('button');
   const det=document.createElement('div');
   const paint=()=>{ okB.className=eq.checks[item]==='ok'?'on-ok':''; noB.className=eq.checks[item]==='nok'?'on-nok':''; neB.className=eq.checks[item]==='ne'?'on-ne':''; };
@@ -1247,15 +1248,33 @@ function chkItem(eq,item){
   wrap.appendChild(row); wrap.appendChild(det); return wrap;
 }
 function nokDetail(eq,item,lk){
-  const d=eq.det[item], opts=FREQ[item]||FREQ_DEFAULT;
+  /* compacto: só o chip do apontamento existente OU o botão que abre a página completa (decisão do Raphael) */
+  const d=eq.det[item];
   const box=document.createElement('div'); box.className='chk-det nok';
-  const lab=document.createElement('div'); lab.className='label'; lab.textContent='Não conformidade — problemas frequentes'; box.appendChild(lab);
-  for(let k=0;k<3;k++){ const sel=document.createElement('select'); sel.className='dd'; sel.disabled=!!lk; sel.innerHTML='<option value="">— selecione —</option>'+opts.map(o=>`<option ${d.prob[k]===o?'selected':''}>${o}</option>`).join(''); sel.value=d.prob[k]; if(!lk)sel.onchange=()=>{ d.prob[k]=sel.value; }; box.appendChild(sel); }
-  const lab2=document.createElement('div'); lab2.className='label'; lab2.textContent='Observação'; box.appendChild(lab2);
-  const ta=document.createElement('textarea'); ta.rows=2; ta.placeholder='Descreva a não conformidade…'; ta.value=d.obs; ta.disabled=!!lk; if(!lk)ta.oninput=()=>{ d.obs=ta.value; }; box.appendChild(ta);
-  if(d.apt){ const reg=document.createElement('div'); reg.className='apt-reg'; reg.style.cursor='pointer'; const st=aptStatus(d.apt); reg.innerHTML=`<span>✓ Apontamento <b>${d.apt}</b> · toque para detalhar</span><span class="lz ${aptLozCls(st)}" style="font-size:10px;padding:1px 7px">${st}</span>`; reg.onclick=()=>pushSub({type:'apt', aptId:d.apt}); box.appendChild(reg); }
-  else if(!lk){ const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.marginTop='8px'; btn.textContent='Registrar apontamento'; btn.onclick=()=>registrarApt(eq,item,box); box.appendChild(btn); }
+  if(d.apt){ const reg=document.createElement('div'); reg.className='apt-reg'; reg.style.cursor='pointer'; const st=aptStatus(d.apt); reg.innerHTML=`<span>📌 Apontamento <b>${d.apt}</b> · toque para detalhar</span><span class="lz ${aptLozCls(st)}" style="font-size:10px;padding:1px 7px">${st}</span>`; reg.onclick=()=>pushSub({type:'apt', aptId:d.apt}); box.appendChild(reg); }
+  else if(!lk){ const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.marginTop='8px'; btn.textContent='Registrar apontamento'; btn.onclick=()=>pushSub({type:'aptNew', ii:curOS._itens.indexOf(eq), item}); box.appendChild(btn); }
+  else { const n=document.createElement('div'); n.className='subnote'; n.style.padding='4px 0 0'; n.textContent='Sem apontamento registrado.'; box.appendChild(n); }
   return box;
+}
+/* página de NOVO apontamento (drill-down): problemas frequentes + observação, salva e vira a página do APT */
+function aptNewPage(ii,item){
+  const eq=curOS._itens[ii], d=eq.det[item], opts=FREQ[item]||FREQ_DEFAULT;
+  const wrap=document.createElement('div');
+  const hd=document.createElement('div'); hd.className='subhead'; hd.innerHTML=`${tile('doc','#b8530f')}<div style="flex:1"><div class="eq-name">Novo apontamento</div><div class="eq-sub">${eq.tag} · ${item}</div></div>`; wrap.appendChild(hd);
+  const card=document.createElement('div'); card.className='subcard';
+  const lab=document.createElement('div'); lab.className='label'; lab.style.marginTop='0'; lab.textContent='Não conformidade — problemas frequentes'; card.appendChild(lab);
+  for(let k=0;k<3;k++){ const sel=document.createElement('select'); sel.className='dd'; sel.innerHTML='<option value="">— selecione —</option>'+opts.map(o=>`<option ${d.prob[k]===o?'selected':''}>${o}</option>`).join(''); sel.value=d.prob[k]; sel.onchange=()=>{ d.prob[k]=sel.value; }; card.appendChild(sel); }
+  const lab2=document.createElement('div'); lab2.className='label'; lab2.textContent='Observação'; card.appendChild(lab2);
+  const ta=document.createElement('textarea'); ta.rows=3; ta.placeholder='Descreva a não conformidade…'; ta.value=d.obs; ta.oninput=()=>{ d.obs=ta.value; }; card.appendChild(ta);
+  const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;margin-top:12px'; btn.textContent='Salvar apontamento';
+  btn.onclick=()=>{
+    if(!d.prob.some(Boolean) && !d.obs.trim()) return markInvalid(ta,'Selecione um problema ou descreva antes de salvar');
+    navStack.pop();               /* sai da página de novo… */
+    registrarApt(eq,item,card);   /* …cria (local+Salesforce) e abre a página do APT */
+  };
+  card.appendChild(btn);
+  wrap.appendChild(card);
+  return wrap;
 }
 function registrarApt(eq,item,box){
   const d=eq.det[item];
