@@ -422,6 +422,9 @@
   .sig-resumo{background:#fff;border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin:0 0 12px;text-align:left;font-size:13.5px}
   .sig-resumo small{display:block;font-weight:400;font-size:11.5px;color:var(--weak);margin-top:2px}
   .sig-resumo a{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:700;color:var(--brand)}
+  .cargo-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+  .cargo-chip{border:1px solid var(--border2);background:#fff;color:var(--txt);font-size:12px;font-weight:600;padding:7px 11px;border-radius:16px;cursor:pointer}
+  .cargo-chip.on{border-color:var(--brand);background:var(--brand-l);color:var(--brand-d)}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -568,7 +571,10 @@
       <div id="sigCliResumo" class="sig-resumo" style="display:none"></div>
       <div class="field" id="sigFNome" style="display:none"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo" oninput="sigCliProg()"></div>
       <div class="field" id="sigFCPF" style="display:none"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this);sigCliProg()"></div>
-      <div class="field" id="sigFCargo" style="display:none"><label>Cargo / função na unidade</label><input id="sigCliCargo" placeholder="ex.: Gerente da unidade"></div>
+      <div class="field" id="sigFCargo" style="display:none"><label>Cargo / função na unidade</label>
+        <div class="cargo-chips" id="cargoChips"></div>
+        <input id="sigCliCargo" placeholder="digite o cargo…" style="display:none">
+      </div>
     </div>
     <div id="sigPadWrap">
     <div id="sigLegal" class="sig-legal"></div>
@@ -1703,6 +1709,18 @@ function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('a
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
 function sigSetPad(show){ document.getElementById('sigPadWrap').style.display=show?'':'none'; document.getElementById('sigBtnLimpar').style.display=show?'':'none'; document.getElementById('sigBtnConfirm').style.display=show?'':'none'; }
 let _recAss=[];
+/* cargo: presets de um toque + "Outro…" com texto livre */
+const CARGO_PRESETS=['Gerente','Subgerente','Sócio','Supervisor','Coordenador','Técnico de manutenção','Prestador de serviço'];
+function sigCargoRender(){
+  const cur=document.getElementById('sigCliCargo').value.trim();
+  const custom=cur && !CARGO_PRESETS.includes(cur);
+  document.getElementById('cargoChips').innerHTML=
+    CARGO_PRESETS.map(c=>`<button type="button" class="cargo-chip${cur===c?' on':''}" onclick="sigCargoPick('${c}')">${c}</button>`).join('')
+    +`<button type="button" class="cargo-chip${custom?' on':''}" onclick="sigCargoOutro()">✏️ Outro…</button>`;
+  document.getElementById('sigCliCargo').style.display=custom?'':'none';
+}
+function sigCargoPick(c){ document.getElementById('sigCliCargo').value=c; sigCargoRender(); }
+function sigCargoOutro(){ const el=document.getElementById('sigCliCargo'); if(CARGO_PRESETS.includes(el.value.trim())) el.value=''; el.style.display=''; document.querySelectorAll('#cargoChips .cargo-chip').forEach(b=>b.classList.remove('on')); document.querySelector('#cargoChips .cargo-chip:last-child').classList.add('on'); try{el.focus();}catch(_){ } }
 /* seletor: 1ª opção = cadastrar novo; demais = pré-cadastrados da unidade (nome completo) */
 function sigCliSelChange(){
   const v=document.getElementById('sigCliSel').value;
@@ -1732,7 +1750,9 @@ function sigCliProg(){
   const nome=document.getElementById('sigCliNome').value.trim();
   const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
   document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
+  const showCargo=document.getElementById('sigFCargo').style.display==='';
   document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
+  if(cpfOk && !showCargo) sigCargoRender();
   sigSetPad(cpfOk);
 }
 function openSigCliente(){
