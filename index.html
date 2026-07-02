@@ -475,6 +475,7 @@
         <div class="sched-title">Agenda</div>
         <div class="days" id="days"></div>
       </div>
+      <div id="agFiltroBox" style="display:none;gap:8px;margin:8px 14px 0"></div>
       <div class="daylabel" id="dayLabel"></div>
       <div id="apptList"></div>
     </section>
@@ -957,18 +958,31 @@ function back(){
 }
 
 /* ===== agenda ===== */
+/* filtro "minha agenda": técnico vê só as OS em que está alocado; Coordenador+ começa vendo todas */
+let agFiltro=localStorage.getItem('ag_filtro')||null;
+function agModo(){ if(!(SF_LIVE&&myRid())) return 'todas'; return agFiltro || (canAloc(ROLE)?'todas':'minhas'); }
+function setAgFiltro(m){ agFiltro=m; localStorage.setItem('ag_filtro',m); renderSchedule(); }
+function agVisivel(a){ return agModo()==='todas' || !!(a.os&&(a.os.alocacoes||[]).some(x=>x.matricula===myRid())); }
 function renderSchedule(){
   const days=document.getElementById('days'); days.innerHTML='';
+  /* alternância Minhas OS · Todas (só no modo ao vivo, com usuário vinculado a um recurso) */
+  const fb=document.getElementById('agFiltroBox');
+  if(SF_LIVE&&myRid()){
+    const m=agModo();
+    fb.style.display='flex';
+    fb.innerHTML=['minhas','todas'].map(k=>`<button onclick="setAgFiltro('${k}')" style="flex:1;height:34px;border-radius:999px;border:1.5px solid ${k===m?'#0176D3':'#c9c9c9'};background:${k===m?'#eef4ff':'#fff'};color:${k===m?'#0176D3':'#444'};font:700 13px system-ui;cursor:pointer">${k==='minhas'?'Minhas OS':'Todas'}</button>`).join('');
+  } else if(fb){ fb.style.display='none'; }
   DAYS.forEach(dd=>{
-    const has=appts.some(a=>a.dia===dd.key);
+    const has=appts.some(a=>a.dia===dd.key && agVisivel(a));
     const el=document.createElement('div'); el.className='day'+(dd.key===selDay?' on':'');
     el.innerHTML=`<div class="wd">${dd.wd}</div><div class="dn">${dd.d}</div><div class="pip ${has?'':'no'}"></div>`;
     el.onclick=()=>{selDay=dd.key; renderSchedule();}; days.appendChild(el);
   });
   document.getElementById('dayLabel').textContent=DAYLABEL[selDay]||'';
   const list=document.getElementById('apptList'); list.innerHTML='';
-  const day=appts.filter(a=>a.dia===selDay);
-  if(!day.length){ list.innerHTML=`<div class="empty"><span class="tile"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg></span><div>Sem compromissos neste dia.</div></div>`; return; }
+  const day=appts.filter(a=>a.dia===selDay && agVisivel(a));
+  if(!day.length){ const soMinhas=(agModo()==='minhas' && appts.some(a=>a.dia===selDay));
+    list.innerHTML=`<div class="empty"><span class="tile"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg></span><div>${soMinhas?'Você não está alocado em OS neste dia. Toque em “Todas” para ver as demais.':'Sem compromissos neste dia.'}</div></div>`; return; }
   day.forEach(a=>{
     const al=apptLoz(a);
     const el=document.createElement('div'); el.className='appt '+apptClass(a); el.onclick=()=>openAppt(a);
@@ -2822,13 +2836,15 @@ async function beDoLogin(payload){
     const r=await fetch(BACKEND+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
     if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
-    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', j.name||'');
+    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', j.name||''); localStorage.setItem('be_rid', j.resourceId||'');
     toast('Bem-vindo, '+((j.name||'').split(' ')[0]||'')); beHydrate();
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
 function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()) return markInvalid('loginUser','Informe o usuário'); if(!p) return markInvalid('loginPass','Informe a senha'); beDoLogin({username:u.trim(),password:p}); }
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name','be_rid'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+/* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
+function myRid(){ return localStorage.getItem('be_rid')||''; }
 function beInitGoogle(){
   if(!(window.google&&google.accounts&&google.accounts.id)){ if((beInitGoogle._n=(beInitGoogle._n||0)+1)>20)return; setTimeout(beInitGoogle,600); return; }
   try{
@@ -2917,6 +2933,7 @@ async function beHydrate(){
       /* restaura o checklist real gravado na OS */
       o._itens.forEach(eq=>{ if(eq._map){ eq.checklist.forEach(lbl=>{ const st=chkEstado((wo.checklist||{})[eq._map[lbl]]); if(st) eq.checks[lbl]=st; }); } });
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+      o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
       o.alocacoes.forEach(a=>{ const s=sigs.filter(x=>x.tipo==='Equipe'&&x.alocId===a._ar).pop();
