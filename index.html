@@ -568,7 +568,7 @@
       <div id="sigCliRecent"></div>
       <div class="field"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo"></div>
       <div class="field"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this)"></div>
-      <div class="field"><label>Cargo / função na loja</label><input id="sigCliCargo" placeholder="ex.: Gerente da loja"></div>
+      <div class="field"><label>Cargo / função na unidade</label><input id="sigCliCargo" placeholder="ex.: Gerente da unidade"></div>
     </div>
     <div id="sigLegal" class="sig-legal"></div>
     <canvas id="sigPad" width="320" height="170"></canvas>
@@ -618,7 +618,7 @@
     <div class="field" id="asSolHabWrap"><label>Habilidade</label><select id="asSolHab" onchange="renderASList()"></select></div>
     <div id="asSolList" class="as-list"></div>
     <div id="asSolCount" class="as-count"></div>
-    <textarea id="asSolObs" rows="2" placeholder="Observação para a loja (opcional)…"></textarea>
+    <textarea id="asSolObs" rows="2" placeholder="Observação para a administração da unidade (opcional)…"></textarea>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeASModal('asSolModal')">Cancelar</button>
       <button class="btn btn-brand" onclick="submitSolicitarAS()">Enviar solicitação</button>
@@ -628,11 +628,11 @@
   <div class="modal" id="asConfModal"><div class="modal-card">
     <div class="modal-title">🛡️ Lançar retorno da AS</div>
     <div class="modal-sub" id="asConfSub"></div>
-    <div class="field"><label>Número da AS (devolvido pelo shopping)</label><input id="asConfNum" placeholder="ex.: AS-2026-00341"></div>
+    <div class="field"><label>Número da AS (devolvido pela administração)</label><input id="asConfNum" placeholder="ex.: AS-2026-00341"></div>
     <div class="field"><label>Tipo de validade</label><select id="asConfTipo" onchange="asConfTipoChg()"><option>Data</option><option>Período</option></select></div>
     <div class="field"><label id="asConfL1">Data autorizada</label><input type="date" id="asConfIni"></div>
     <div class="field" id="asConfFimWrap" style="display:none"><label>Fim do período</label><input type="date" id="asConfFim"></div>
-    <div class="modal-sub" style="margin-top:6px">Todos vêm marcados como <b>autorizados</b> ✅ — <b>desmarque</b> quem o shopping recusou.</div>
+    <div class="modal-sub" style="margin-top:6px">Todos vêm marcados como <b>autorizados</b> ✅ — <b>desmarque</b> quem a administração recusou.</div>
     <div id="asConfList" class="as-list"></div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeASModal('asConfModal')">Cancelar</button>
@@ -643,7 +643,7 @@
   <div class="modal" id="csigJustModal"><div class="modal-card">
     <div class="modal-title">⚠️ Concluir sem aceite do cliente</div>
     <div class="modal-sub">Você está concluindo este compromisso <b>sem a assinatura/aceite do cliente</b>. Isso ficará registrado no relatório e no PDF, e exige justificativa.</div>
-    <div class="field"><label>Justificativa (obrigatória)</label><textarea id="csigJustText" rows="3" placeholder="ex.: responsável da loja ausente no encerramento do serviço…"></textarea></div>
+    <div class="field"><label>Justificativa (obrigatória)</label><textarea id="csigJustText" rows="3" placeholder="ex.: responsável da unidade ausente no encerramento do serviço…"></textarea></div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeCsigJust()">Voltar e colher aceite</button>
       <button class="btn btn-brand" onclick="confirmCsigJust()">Concluir mesmo assim</button>
@@ -1509,7 +1509,8 @@ function assinBody(){
   if(!o.alocacoes.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum recurso alocado nesta OS ainda — a alocação é feita no board (aba Alocação).'; wrap.appendChild(e); }
   o.alocacoes.forEach((a,ai)=>{
     const c=document.createElement('div'); c.className='sig-card';
-    const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div><div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
+    const fc=funcByMat(a.matricula); const cpf=(fc&&fc.cpf)||'';
+    const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div>${cpf?`<div class="sig-role">CPF ${cpf}</div>`:''}<div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
     c.innerHTML=a.assinatura
       ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm}</div></div><img class="sig-thumb" src="${a.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
       : info+`<div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
@@ -1521,8 +1522,8 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da loja'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm} · com declaração de veracidade</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
-    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da loja · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm} · com declaração de veracidade</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
+    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
   return wrap;
@@ -1656,7 +1657,7 @@ function gerarPDF(o){
   }
   y+=8; if(y>700){doc.addPage();y=48;}
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipe e Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
-  o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } doc.text(a.nome+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
+  o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } const fc=funcByMat(a.matricula); doc.text(a.nome+((fc&&fc.cpf)?' · CPF '+fc.cpf:'')+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
   if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cpf?' · CPF '+o.csig.cpf:'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
   else if(o.csig && o.csig.justificativa){ if(y>720){doc.addPage();y=48;} doc.setFont('helvetica','bold'); doc.text('CLIENTE: SEM ACEITE',46,y+12); doc.setFont('helvetica','normal'); doc.text('Justificativa: '+o.csig.justificativa.slice(0,180)+(o.csig.justificadoEm?(' — '+o.csig.justificadoEm):''),46,y+26,{maxWidth:500}); y+=50; }
   if(y>700){doc.addPage();y=48;}
@@ -1674,7 +1675,7 @@ let sigCtx=null,sigDrawing=false,sigDirty=false,sigTarget=null;
 /* declarações de veracidade (versão registrada junto da assinatura, p/ trilha de auditoria) */
 const SIG_LEGAL={ versao:'v1',
   equipe:'Declaro, para os devidos fins, que participei da execução dos serviços descritos nesta OS e que as informações por mim registradas são verdadeiras.',
-  cliente:'Declaro que acompanhei/recebi os serviços descritos nesta OS e atesto, na condição de representante da loja, a veracidade das informações e a execução dos serviços.',
+  cliente:'Declaro que acompanhei/recebi os serviços descritos nesta OS e atesto, na condição de representante da unidade, a veracidade das informações e a execução dos serviços.',
   base:'Assinatura eletrônica com trilha de auditoria (nome, CPF, data/hora, geolocalização e dispositivo) — MP 2.200-2/2001, art. 10, §2º · Lei 14.063/2020.' };
 function _sigMeta(){ return { t:new Date().toISOString(), geo:(_lastGeo?{lat:_lastGeo.lat,lng:_lastGeo.lng,acc:_lastGeo.acc}:null), dispositivo:(navigator.userAgent||'').slice(0,80) }; }
 function _sigPrep(){
@@ -1686,10 +1687,11 @@ function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
   document.getElementById('sigCliFields').style.display='none';
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.equipe+'”</b><small>'+SIG_LEGAL.base+'</small>';
-  document.getElementById('sigWho').textContent=`${a.nome} · ${a.papel||''}${a._num?' · '+a._num:''}`;
+  const fc=funcByMat(a.matricula);
+  document.getElementById('sigWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
   _sigPrep();
 }
-/* base local de quem assina por loja (últimos 3, únicos por CPF) — em produção vira Contato da loja no Salesforce */
+/* base local de quem assina por unidade (últimos 3, únicos por CPF) — em produção alimenta Assinante_Unidade__c no Salesforce */
 function cpfMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>9) v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4'); else if(v.length>6) v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3'); else if(v.length>3) v=v.replace(/(\d{3})(\d{0,3})/,'$1.$2'); el.value=v; }
 function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\d)\1{10}$/.test(c)) return false;
   let s=0; for(let i=0;i<9;i++)s+=+c[i]*(10-i); let d=11-s%11; if(d>9)d=0; if(d!==+c[9])return false;
@@ -1708,7 +1710,7 @@ function openSigCliente(){
   document.getElementById('sigCliCargo').value=cs.cargo||'';
   _recAss=assinantesDaLoja(curOS.cli||'');
   document.getElementById('sigCliRecent').innerHTML=_recAss.length
-    ? '<div class="sig-rec-lb">Assina por esta loja — toque para preencher:</div>'+_recAss.map((r,i)=>`<button type="button" class="sig-rec-chip" onclick="usarAssinante(${i})">${r.nome}<small>${r.cargo||'—'} · ${r.cpf}</small></button>`).join('')
+    ? '<div class="sig-rec-lb">Assina por esta unidade — toque para preencher:</div>'+_recAss.map((r,i)=>`<button type="button" class="sig-rec-chip" onclick="usarAssinante(${i})">${r.nome}<small>${r.cargo||'—'} · ${r.cpf}</small></button>`).join('')
     : '';
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
@@ -1737,6 +1739,8 @@ function saveSig(){
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
+    if(SF_LIVE && curOS._wo){ bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo})
+      .then(r=>toast(r.created?'✅ Assinante cadastrado — aguardando validação':'✅ Assinante já cadastrado — atualizado, sem duplicar')).catch(()=>{}); }
     closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
     toast('✅ Aceite do cliente registrado'); gMaybeUploadSig({nome:'CLIENTE_'+nome, assinatura:cs.assinatura});
     return;
@@ -1935,8 +1939,8 @@ function renderAloc(){
   const wrap=document.getElementById('alocList'); if(!wrap)return; wrap.innerHTML='';
   const hint=document.createElement('div'); hint.className='aloc-hint';
   hint.innerHTML=SF_LIVE
-    ? 'Fluxo real: <b>1) Solicite a Autorização de Serviço (AS)</b> à administração da loja · <b>2) Lance o nº da AS e a validade</b> quando o shopping responder · <b>3) Aloque só recursos autorizados</b>. Confirmar grava as alocações no Salesforce, vinculadas à AS.'
-    : 'Cada OS mostra só os funcionários <b>autorizados naquela loja</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
+    ? 'Fluxo real: <b>1) Solicite a Autorização de Serviço (AS)</b> à administração da unidade · <b>2) Lance o nº da AS e a validade</b> quando o shopping responder · <b>3) Aloque só recursos autorizados</b>. Confirmar grava as alocações no Salesforce, vinculadas à AS.'
+    : 'Cada OS mostra só os funcionários <b>autorizados naquela unidade</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
   wrap.appendChild(hint);
   const leg=document.createElement('div'); leg.className='team-legend';
   leg.innerHTML='<i class="lg-ok">equipe completa</i><i class="lg-under">faltam pessoas</i><i class="lg-over">acima do previsto</i>';
@@ -1964,7 +1968,7 @@ function renderAloc(){
       <div class="aloc-zlabel">Alocados</div>
       <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
         ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
-      <div class="aloc-zlabel" style="margin-top:11px">${SF_LIVE?'Autorizados pela AS':'Autorizados nesta loja'}${avail.length?'':' — '+(SF_LIVE&&!Object.keys(o._autorizados||{}).length?'nenhum ainda':'todos já alocados')}</div>
+      <div class="aloc-zlabel" style="margin-top:11px">${SF_LIVE?'Autorizados pela AS':'Autorizados nesta unidade'}${avail.length?'':' — '+(SF_LIVE&&!Object.keys(o._autorizados||{}).length?'nenhum ainda':'todos já alocados')}</div>
       <div class="aloc-pool" data-drop="avail" data-osid="${o.id}">
         ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : (noauth.length?'':`<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>`)}
         ${!avail.length&&noauth.length&&!Object.keys(o._autorizados||{}).length?`<div class="aloc-empty-txt" style="text-align:left;flex-basis:100%">Nenhum autorizado ainda — os cinzas abaixo precisam entrar numa AS confirmada.</div>`:''}
@@ -2021,7 +2025,7 @@ function allocate(osid,mat){
   const o=ordens.find(x=>x.id===osid), f=funcByMat(mat); if(!o||!f) return;
   if(o.cancelada){ toast('OS cancelada — reabra para alocar.'); return; }
   if(o.alocacoes.some(a=>a.matricula===mat)) return;
-  if(!funcAuth(f,o)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta loja'); return; }
+  if(!funcAuth(f,o)){ toast('⚠️ '+firstName(f.nome)+' não está autorizado nesta unidade'); return; }
   const cf=allocConflict(mat,o);
   if(cf){ toast('⛔ '+firstName(f.nome)+' já alocado em '+cf.os.id+' ('+cf.os.cli+') · '+cf.oa.dia+' '+cf.oa.janela); return; }
   o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null,confirmada:false});
@@ -2205,7 +2209,7 @@ async function submitConfirmarAS(){
   const tipo=document.getElementById('asConfTipo').value;
   const ini=document.getElementById('asConfIni').value;
   const fim=document.getElementById('asConfFim').value;
-  if(!num) return markInvalid('asConfNum','Informe o nº da AS devolvido pelo shopping');
+  if(!num) return markInvalid('asConfNum','Informe o nº da AS devolvido pela administração');
   if(!ini) return markInvalid('asConfIni','Informe a data de validade');
   if(tipo==='Período' && !fim) return markInvalid('asConfFim','Informe o fim do período');
   const recusados=[...document.querySelectorAll('#asConfList input:not(:checked)')].map(i=>i.value);
@@ -2640,7 +2644,7 @@ async function beHydrate(){
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
     const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
     const funcLive=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
-      cor:_pal[i%_pal.length], lojas:[], habilidades:r.habilidades||[], externo:!!r.externo }));
+      cor:_pal[i%_pal.length], lojas:[], habilidades:r.habilidades||[], externo:!!r.externo, cpf:r.cpf||null }));
     if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
     HABILIDADES.length=0; (REC.habilidades||[]).forEach(h=>HABILIDADES.push(h));
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
