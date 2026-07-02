@@ -1,11 +1,12 @@
 /* Exaustech Field Service — Service Worker
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização. */
-const CACHE = 'exaustech-os-v20';
+const CACHE = 'exaustech-os-v21';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './logo-exaustech.png',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png'
