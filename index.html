@@ -1111,11 +1111,13 @@ function renderSections(){
   const compl=o._itens.filter(itemComplete).length;
   const assin=o.alocacoes.filter(a=>a.assinatura||a._sigRec).length + ((o.csig&&(o.csig.assinatura||o.csig._sigRec))?1:0);
   const assinTot=o.alocacoes.length+1; /* equipe + cliente */
-  wrap.appendChild(relRow('itens','checklist',TC.itens,'Itens · Equipamentos', compl+'/'+o._itens.length, compl===o._itens.length));
+  /* Estoquista é focado em materiais e ferramentas: não vê itens técnicos, assinaturas nem relatório */
+  const estoq=(ROLE==='Estoquista');
+  if(!estoq) wrap.appendChild(relRow('itens','checklist',TC.itens,'Itens · Equipamentos', compl+'/'+o._itens.length, compl===o._itens.length));
   wrap.appendChild(relRow('materiais','box',TC.materiais,'Produtos necessários', String(o.separacao.materiais.length), false));
   wrap.appendChild(relRow('ferramentas','asset','#7a5cc8','Ferramentas', String(o.ferramentas.itens.length), false));
-  wrap.appendChild(relRow('assin','pen',TC.assin,'Equipe e Assinaturas', assin+'/'+assinTot, assin===assinTot));
-  wrap.appendChild(relRow('relatorio','doc',TC.relatorio,'Relatório de Serviço', repStatusShort(o), o.relatorio.stage>=3));
+  if(!estoq) wrap.appendChild(relRow('assin','pen',TC.assin,'Equipe e Assinaturas', assin+'/'+assinTot, assin===assinTot));
+  if(!estoq) wrap.appendChild(relRow('relatorio','doc',TC.relatorio,'Relatório de Serviço', repStatusShort(o), o.relatorio.stage>=3));
 }
 function relRow(key,icon,color,name,cnt,full){
   const el=document.createElement('div'); el.className='rel-row';
