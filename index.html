@@ -402,6 +402,8 @@
   .det-row:last-child{border-bottom:none}
   .det-k{color:var(--weak);font-size:12px;flex-shrink:0}
   .det-v{font-weight:600;text-align:right;word-break:break-word}
+  .sig-click{cursor:pointer}
+  .sig-drill{color:var(--weaker);font-weight:400}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -543,6 +545,10 @@
   <!-- MODAL ASSINATURA -->
   <div class="modal" id="sigModal"><div class="modal-card">
     <div class="modal-title">Assinatura</div><div class="modal-sub" id="sigWho"></div>
+    <div id="sigCliFields" style="display:none">
+      <div class="field"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo"></div>
+      <div class="field"><label>Cargo / função na loja</label><input id="sigCliCargo" placeholder="ex.: Gerente da loja"></div>
+    </div>
     <canvas id="sigPad" width="320" height="170"></canvas>
     <div class="pad-line">Assine no campo acima</div>
     <div class="modal-actions">
@@ -982,11 +988,12 @@ function agora(){ const n=new Date(); return `${String(n.getHours()).padStart(2,
 function renderSections(){
   const o=curOS, wrap=document.getElementById('sections'); wrap.innerHTML='';
   const compl=o._itens.filter(itemComplete).length;
-  const assin=o.alocacoes.filter(a=>a.assinatura).length;
+  const assin=o.alocacoes.filter(a=>a.assinatura).length + ((o.csig&&o.csig.assinatura)?1:0);
+  const assinTot=o.alocacoes.length+1; /* equipe + cliente */
   wrap.appendChild(relRow('itens','checklist',TC.itens,'Itens · Equipamentos', compl+'/'+o._itens.length, compl===o._itens.length));
   wrap.appendChild(relRow('materiais','box',TC.materiais,'Produtos necessários', String(o.separacao.materiais.length), false));
   wrap.appendChild(relRow('ferramentas','asset','#7a5cc8','Ferramentas', String(o.ferramentas.itens.length), false));
-  wrap.appendChild(relRow('assin','pen',TC.assin,'Assinaturas', assin+'/'+o.alocacoes.length, assin===o.alocacoes.length));
+  wrap.appendChild(relRow('assin','pen',TC.assin,'Equipe e Assinaturas', assin+'/'+assinTot, assin===assinTot));
   wrap.appendChild(relRow('relatorio','doc',TC.relatorio,'Relatório de Serviço', repStatusShort(o), o.relatorio.stage>=3));
 }
 function relRow(key,icon,color,name,cnt,full){
@@ -1019,7 +1026,7 @@ function subContent(entry){
   if(entry.type==='ferrQty') return {title:curOS.ferramentas.itens[entry.idx].nome, node:ferrQtyPage(entry.idx)};
   if(entry.type==='materiais') return {title:'Produtos necessários', node:materiaisBody()};
   if(entry.type==='relatorio') return {title:'Relatório de Serviço', node:relatorioPage()};
-  return {title:'Assinaturas', node:assinBody()};
+  return {title:'Equipe e Assinaturas', node:assinBody()};
 }
 function itensPage(){
   const o=curOS, wrap=document.createElement('div');
@@ -1449,14 +1456,26 @@ function ferrQtyPage(idx){
 function assinBody(){
   const o=curOS, lk=repLocked(), wrap=document.createElement('div');
   if(lk) wrap.appendChild(lockBanner());
+  /* ---- equipe alocada (toque no nome = detalhes da alocação) ---- */
+  const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Equipe alocada ('+o.alocacoes.length+')'; wrap.appendChild(h1);
+  if(!o.alocacoes.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum recurso alocado nesta OS ainda — a alocação é feita no board (aba Alocação).'; wrap.appendChild(e); }
   o.alocacoes.forEach((a,ai)=>{
-    const ini=a.nome.split(' ').map(w=>w[0]).slice(0,2).join('');
     const c=document.createElement('div'); c.className='sig-card';
+    const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div><div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
     c.innerHTML=a.assinatura
-      ? `<div class="sig-av">${ini}</div><div class="sig-info"><div class="sig-name">${a.nome}</div><div class="sig-role">${a.papel} · ${a.matricula}</div><div class="sig-status ok">✓ Assinado às ${a.assinadoEm}</div></div><img class="sig-thumb" src="${a.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
-      : `<div class="sig-av">${ini}</div><div class="sig-info"><div class="sig-name">${a.nome}</div><div class="sig-role">${a.papel} · ${a.matricula}</div><div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
+      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm}</div></div><img class="sig-thumb" src="${a.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
+      : info+`<div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
     wrap.appendChild(c);
   });
+  /* ---- cliente (aceite do serviço) ---- */
+  const h2=document.createElement('div'); h2.className='rel-hd'; h2.textContent='Cliente'; wrap.appendChild(h2);
+  o.csig=o.csig||{nome:'',cargo:'',assinatura:null,assinadoEm:null};
+  const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
+  const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
+  cc.innerHTML=cs.assinatura
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da loja'} · aceite do serviço</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
+    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da loja · aceite do serviço</div><div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
+  wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
   return wrap;
 }
@@ -1588,8 +1607,9 @@ function gerarPDF(o){
     if(fotos.length%2===1) y+=ih+26;
   }
   y+=8; if(y>700){doc.addPage();y=48;}
-  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
-  o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } doc.text(a.nome+' · '+a.papel+' ('+a.matricula+')'+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipe e Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
+  o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } doc.text(a.nome+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
+  if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
   if(!aprovado){ doc.setTextColor(235,170,170); doc.setFontSize(70); doc.setFont('helvetica','bold'); doc.text('RASCUNHO',110,520,{angle:38}); }
   else { doc.setTextColor(150,210,160); doc.setFontSize(62); doc.setFont('helvetica','bold'); doc.text('APROVADO',110,520,{angle:38}); }
   doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo app de campo · '+(aprovado?'versão aprovada para o cliente':'rascunho pendente de aprovação interna'),40,824);
@@ -1598,12 +1618,24 @@ function gerarPDF(o){
 
 /* ===== assinatura (pad) ===== */
 let sigCtx=null,sigDrawing=false,sigDirty=false,sigTarget=null;
+function _sigPrep(){
+  const cv=document.getElementById('sigPad'); const r=cv.getBoundingClientRect(); cv.width=Math.max(320,r.width); cv.height=170;
+  sigCtx=cv.getContext('2d'); if(sigCtx){ sigCtx.lineWidth=2.4; sigCtx.lineCap='round'; sigCtx.strokeStyle='#032D60'; } sigDirty=false; bindPad(cv);
+  document.getElementById('sigModal').classList.add('show');
+}
 function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
-  document.getElementById('sigWho').textContent=`${a.nome} · ${a.papel} (${a.matricula})`;
-  const cv=document.getElementById('sigPad'); const r=cv.getBoundingClientRect(); cv.width=Math.max(320,r.width); cv.height=170;
-  sigCtx=cv.getContext('2d'); sigCtx.lineWidth=2.4; sigCtx.lineCap='round'; sigCtx.strokeStyle='#032D60'; sigDirty=false; bindPad(cv);
-  document.getElementById('sigModal').classList.add('show');
+  document.getElementById('sigCliFields').style.display='none';
+  document.getElementById('sigWho').textContent=`${a.nome} · ${a.papel||''}${a._num?' · '+a._num:''}`;
+  _sigPrep();
+}
+function openSigCliente(){
+  sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',assinatura:null,assinadoEm:null});
+  document.getElementById('sigCliFields').style.display='';
+  document.getElementById('sigCliNome').value=cs.nome||'';
+  document.getElementById('sigCliCargo').value=cs.cargo||'';
+  document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
+  _sigPrep();
 }
 function padPos(cv,e){const r=cv.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(cv.width/r.width),y:(p.clientY-r.top)*(cv.height/r.height)};}
 function bindPad(cv){
@@ -1615,9 +1647,21 @@ function bindPad(cv){
 function clearSig(){const cv=document.getElementById('sigPad');sigCtx.clearRect(0,0,cv.width,cv.height);sigDirty=false;}
 function closeSig(){document.getElementById('sigModal').classList.remove('show');}
 function saveSig(){
+  const cv=document.getElementById('sigPad');
+  const now=new Date(); const hh=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  if(sigTarget==='cli'){
+    const nome=document.getElementById('sigCliNome').value.trim();
+    if(!nome) return markInvalid('sigCliNome','Informe o nome de quem assina pelo cliente');
+    if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
+    const cs=curOS.csig; cs.nome=nome; cs.cargo=document.getElementById('sigCliCargo').value.trim();
+    cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
+    closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
+    toast('✅ Aceite do cliente registrado ('+nome.split(' ')[0]+')'); gMaybeUploadSig({nome:'CLIENTE_'+nome, assinatura:cs.assinatura});
+    return;
+  }
   if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
-  const cv=document.getElementById('sigPad'),a=curOS.alocacoes[sigTarget]; a.assinatura=cv.toDataURL('image/png');
-  const now=new Date(); a.assinadoEm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const a=curOS.alocacoes[sigTarget]; a.assinatura=cv.toDataURL('image/png');
+  a.assinadoEm=hh;
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
   toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada'); gMaybeUploadSig(a);
 }
