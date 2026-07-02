@@ -256,6 +256,20 @@
   .av-star{position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;color:#f7b500;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 1px #fff}
   .lider-note{font-size:11px;color:#8a6d2b;font-weight:600;margin:-4px 0 13px}
   .lider-note .st{color:#f7b500}
+  /* Autorização de Serviço (AS) */
+  .as-box{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-weight:600;border-radius:9px;padding:8px 10px;margin:2px 0 10px;border:1px solid}
+  .as-box span{flex:1;line-height:1.35}
+  .as-none{background:#fef3e6;border-color:#f5c990;color:#8a5a12}
+  .as-sent{background:#eef4ff;border-color:#aac7f2;color:#0b5cab}
+  .as-ok{background:#ebf7ee;border-color:#9fd6ae;color:#1e6b34}
+  .as-bad{background:#fdecec;border-color:#f0a9a9;color:#8e1b1b}
+  .as-act{white-space:nowrap;flex:none}
+  .as-list{max-height:220px;overflow:auto;margin:8px 0;border:1px solid var(--line,#e5e5e5);border-radius:9px;padding:4px 8px}
+  .as-row{display:flex;align-items:center;gap:9px;padding:6px 2px;cursor:pointer}
+  .as-row.done{opacity:.55}
+  .as-row .as-nm{flex:1;font-size:13px;font-weight:600}
+  .as-row .as-nm small{display:block;color:var(--weak,#747474);font-weight:400}
+  .as-row .as-rec{color:#8e1b1b;font-weight:700}
   .nolead-tag{font-size:9.5px;font-weight:800;color:#fff;background:#e5484d;border-radius:9px;padding:2px 8px;white-space:nowrap}
   .ph-img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
   .pdf-pick{background:var(--brand-l);border:1px solid #cfe2f7;border-radius:8px;padding:9px 11px;margin:2px 0 10px}
@@ -537,6 +551,33 @@
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeAjuste()">Cancelar</button>
       <button class="btn btn-brand" onclick="confirmAjuste()">Enviar ao técnico</button>
+    </div></div></div>
+
+  <!-- MODAL SOLICITAR AUTORIZAÇÃO (AS) -->
+  <div class="modal" id="asSolModal"><div class="modal-card">
+    <div class="modal-title">🛡️ Solicitar Autorização de Serviço</div>
+    <div class="modal-sub" id="asSolSub"></div>
+    <div class="field"><label>Habilidade</label><select id="asSolHab" onchange="renderASList()"></select></div>
+    <div id="asSolList" class="as-list"></div>
+    <textarea id="asSolObs" rows="2" placeholder="Observação para a loja (opcional)…"></textarea>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeASModal('asSolModal')">Cancelar</button>
+      <button class="btn btn-brand" onclick="submitSolicitarAS()">Enviar solicitação</button>
+    </div></div></div>
+
+  <!-- MODAL CONFIRMAR AS (retorno do shopping) -->
+  <div class="modal" id="asConfModal"><div class="modal-card">
+    <div class="modal-title">🛡️ Lançar retorno da AS</div>
+    <div class="modal-sub" id="asConfSub"></div>
+    <div class="field"><label>Número da AS (devolvido pelo shopping)</label><input id="asConfNum" placeholder="ex.: AS-2026-00341"></div>
+    <div class="field"><label>Tipo de validade</label><select id="asConfTipo" onchange="asConfTipoChg()"><option>Data</option><option>Período</option></select></div>
+    <div class="field"><label id="asConfL1">Data autorizada</label><input type="date" id="asConfIni"></div>
+    <div class="field" id="asConfFimWrap" style="display:none"><label>Fim do período</label><input type="date" id="asConfFim"></div>
+    <div class="modal-sub" style="margin-top:6px">Marque apenas quem o shopping <b>recusou</b> — os demais serão autorizados.</div>
+    <div id="asConfList" class="as-list"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeASModal('asConfModal')">Cancelar</button>
+      <button class="btn btn-brand" onclick="submitConfirmarAS()">Confirmar autorização</button>
     </div></div></div>
 
   <!-- MODAL PERFIL -->
@@ -1647,6 +1688,8 @@ function renderEstoque(){
 
 /* ===== alocação de equipe (board do supervisor) ===== */
 function canAloc(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* solicitar/confirmar Autorização de Serviço: só Coordenador pra cima (inclusive) */
+function canAS(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
 function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none'; }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0176D3',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
@@ -1661,8 +1704,8 @@ const FUNCIONARIOS=[
 ];
 function funcByMat(m){ return FUNCIONARIOS.find(f=>f.matricula===m); }
 function funcByNome(n){ return FUNCIONARIOS.find(f=>f.nome===n); }
-/* autorização do funcionário na OS: ao vivo usa o território real da OS; no mock usa a loja (conta) */
-function funcAuth(f,o){ return SF_LIVE ? (f.lojas||[]).includes(o._territoryName) : (f.lojas||[]).includes(o.cli); }
+/* autorização do funcionário na OS: ao vivo = item de AS Autorizado na OS (camada de Autorização de Serviço); no mock usa a loja (conta) */
+function funcAuth(f,o){ return SF_LIVE ? !!(o._autorizados && o._autorizados[f.matricula]) : (f.lojas||[]).includes(o.cli); }
 function iniName(n){ return n.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function firstName(n){ return n.split(' ')[0]; }
 function isLider(nome){ const f=funcByNome(nome); return !!(f && /Líder/i.test(f.cargo)); }
@@ -1697,25 +1740,26 @@ async function confirmAloc(){
   if(SF_LIVE){
     toast('Gravando alocações…');
     for(const it of pend){ const o=it.o, a=it.a;
-      if(!o._sa){ toast('OS '+o.id+' sem compromisso — não deu para gravar.'); continue; }
+      if(!o._wo){ toast('OS '+o.id+' sem Id — não deu para gravar.'); continue; }
+      const aut=(o._autorizados||{})[a.matricula]||{};
       try{
-        const r=await fetch(BACKEND+'/alocacoes',{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},
-          body:JSON.stringify({resourceId:a.matricula, saId:o._sa})});
-        const t=await r.json();
-        if(r.ok && t.id){ a._ar=t.id; a.confirmada=true; }
-        else { toast('Erro em '+firstName(a.nome)+': '+((t&&t.error)||r.status)); }
+        const t=await bePost('/alocacoes',{osId:o._wo, resourceId:a.matricula, itemAutorizacaoId:aut.itemId||null});
+        if(t && t.id){ a._ar=t.id; a._itemAS=aut.itemId||null; a.confirmada=true; }
+        else { toast('Erro em '+firstName(a.nome)+': resposta inesperada'); }
       }catch(e){ toast('Erro em '+firstName(a.nome)+': '+e.message); }
     }
   } else { pend.forEach(it=>it.a.confirmada=true); }
   const n=pend.filter(it=>it.a.confirmada).length;
-  renderAloc(); toast('✓ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s) no Salesforce (AssignedResource).':'gerada(s) e enviada(s) para agenda/autorização.'));
+  renderAloc(); toast('✓ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s) no Salesforce (Alocação em OS, com vínculo à AS).':'gerada(s) e enviada(s) para agenda/autorização.'));
 }
 function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
 function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
 function renderAloc(){
   const wrap=document.getElementById('alocList'); if(!wrap)return; wrap.innerHTML='';
   const hint=document.createElement('div'); hint.className='aloc-hint';
-  hint.innerHTML='Cada OS mostra só os funcionários <b>autorizados naquela loja</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
+  hint.innerHTML=SF_LIVE
+    ? 'Fluxo real: <b>1) Solicite a Autorização de Serviço (AS)</b> à administração da loja · <b>2) Lance o nº da AS e a validade</b> quando o shopping responder · <b>3) Aloque só recursos autorizados</b>. Confirmar grava as alocações no Salesforce, vinculadas à AS.'
+    : 'Cada OS mostra só os funcionários <b>autorizados naquela loja</b>. Arraste para <b>Alocados</b> (ou toque). As alocações ficam <b>pendentes</b> até você clicar em <b>Confirmar Alocações</b>. Cancelar uma OS libera os recursos para realocação.';
   wrap.appendChild(hint);
   const leg=document.createElement('div'); leg.className='team-legend';
   leg.innerHTML='<i class="lg-ok">equipe completa</i><i class="lg-under">faltam pessoas</i><i class="lg-over">acima do previsto</i>';
@@ -1731,6 +1775,7 @@ function renderAloc(){
     }
     const allocMats=o.alocacoes.map(a=>a.matricula);
     const avail=FUNCIONARIOS.filter(f=>funcAuth(f,o) && !allocMats.includes(f.matricula));
+    const noauth=SF_LIVE? FUNCIONARIOS.filter(f=>!funcAuth(f,o) && !allocMats.includes(f.matricula)) : [];
     const need=o.equipePadrao||0, have=o.alocacoes.length, lead=o.alocacoes.some(a=>isLider(a.nome));
     const missingLead = have>0 && !lead;
     const tstate = (have===need && lead) ? 'ok' : ((have>need && lead) ? 'over' : 'under');
@@ -1738,12 +1783,15 @@ function renderAloc(){
     lane.innerHTML=`
       <div class="aloc-lhd"><div><div class="aloc-os">${o.id}${isLateOS(o)?' <span class="late-tag">já iniciada</span>':''}</div><div class="aloc-dh">${ap?(ap.dia+' · '+ap.janela):'sem compromisso'}</div><div class="aloc-cli">${o.cli}</div></div>
         <div class="aloc-rhd"><span class="tcount tcount-${tstate}" title="Alocados / equipe padrão">${have}/${need} equipe</span>${missingLead?'<span class="nolead-tag">⚠ falta líder</span>':''}<button class="lane-act" onclick="cancelOS('${o.id}')">Cancelar OS</button></div></div>
+      ${SF_LIVE?asLaneHTML(o):''}
       <div class="aloc-zlabel">Alocados</div>
       <div class="aloc-drop ${o.alocacoes.length?'':'empty'}" data-drop="alloc" data-osid="${o.id}">
         ${o.alocacoes.length? o.alocacoes.map(a=>chipAlloc(o,a)).join('') : '<div class="aloc-empty-txt">Arraste funcionários autorizados para cá</div>'}</div>
-      <div class="aloc-zlabel" style="margin-top:11px">Autorizados nesta loja${avail.length?'':' — todos já alocados'}</div>
+      <div class="aloc-zlabel" style="margin-top:11px">${SF_LIVE?'Autorizados pela AS':'Autorizados nesta loja'}${avail.length?'':' — '+(SF_LIVE&&!Object.keys(o._autorizados||{}).length?'nenhum ainda':'todos já alocados')}</div>
       <div class="aloc-pool" data-drop="avail" data-osid="${o.id}">
-        ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : '<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>'}</div>`;
+        ${avail.length? avail.map(f=>chipAvail(o,f)).join('') : (noauth.length?'':`<div class="aloc-empty-txt" style="text-align:left">Nenhum funcionário disponível para alocar.</div>`)}
+        ${!avail.length&&noauth.length?`<div class="aloc-empty-txt" style="text-align:left;flex-basis:100%">Nenhum autorizado ainda — os cinzas abaixo precisam entrar numa AS confirmada.</div>`:''}
+        ${noauth.map(f=>`<div class="fch busy noauth" title="Não autorizado — precisa estar numa AS confirmada desta OS">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>🛡️ não autorizado</small></span></div>`).join('')}</div>`;
     wrap.appendChild(lane);
   });
   // resumo com dois grupos: Alocados e Não alocados
@@ -1810,6 +1858,95 @@ function removeAloc(osid,mat){
   const a=o.alocacoes[i], nm=firstName(a.nome);
   if(SF_LIVE && a._ar){ fetch(BACKEND+'/alocacoes/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}).then(()=>toast('☁️ Alocação removida')).catch(()=>{}); }
   o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
+}
+
+/* ===== Autorização de Serviço (AS): solicitar à loja e lançar o retorno ===== */
+function fmtDataBR(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d; }
+function asSolAtual(o){ const s=(o._sols||[]); return s.length? s[s.length-1] : null; }
+function asLaneHTML(o){
+  const s=asSolAtual(o), pode=canAS(ROLE);
+  if(!s) return `<div class="as-box as-none"><span>🛡️ Sem Autorização de Serviço${pode?'':' — solicite ao Coordenador'}</span>${pode?`<button class="lane-act as-act" onclick="openSolicitarAS('${o.id}')">Solicitar autorização</button>`:''}</div>`;
+  if(s.status==='Enviada'||s.status==='Rascunho')
+    return `<div class="as-box as-sent"><span>🛡️ ${s.name||'Solicitação'} enviada à loja — aguardando nº da AS</span>${pode?`<button class="lane-act as-act" onclick="openConfirmarAS('${o.id}')">Lançar retorno</button>`:''}</div>`;
+  const val = s.tipoValidade==='Período' ? (fmtDataBR(s.validadeInicio)+' a '+fmtDataBR(s.validadeFim)) : fmtDataBR(s.validadeInicio);
+  const nAut=(s.itens||[]).filter(i=>i.status==='Autorizado').length;
+  const nRec=(s.itens||[]).filter(i=>i.status==='Recusado').length;
+  return `<div class="as-box ${s.status==='Recusada'||s.status==='Expirada'?'as-bad':'as-ok'}"><span>🛡️ AS <b>${s.numeroAS||'—'}</b> · ${s.status} · ${nAut} autorizado(s)${nRec?' · '+nRec+' recusado(s)':''} · validade ${val}</span>${pode?`<button class="lane-act as-act" onclick="openSolicitarAS('${o.id}')">Nova solicitação</button>`:''}</div>`;
+}
+let asCurOS=null;
+function closeASModal(id){ const m=document.getElementById(id); if(m) m.classList.remove('show'); }
+function openSolicitarAS(osid){
+  const o=ordens.find(x=>x.id===osid); if(!o) return;
+  if(!canAS(ROLE)){ toast('⛔ Solicitar AS: só Coordenador pra cima.'); return; }
+  if(!SF_LIVE){ toast('Solicitação de AS disponível no modo ao vivo.'); return; }
+  asCurOS=o;
+  document.getElementById('asSolSub').textContent=o.id+' · '+(o.cli||'');
+  const habs=(HABILIDADES.length?HABILIDADES:[...new Set(FUNCIONARIOS.flatMap(f=>f.habilidades||[]))].sort());
+  document.getElementById('asSolHab').innerHTML='<option value="">Todas as habilidades</option>'+habs.map(h=>`<option>${h}</option>`).join('');
+  document.getElementById('asSolObs').value='';
+  renderASList();
+  document.getElementById('asSolModal').classList.add('show');
+}
+function renderASList(){
+  const o=asCurOS; if(!o) return;
+  const hab=(document.getElementById('asSolHab')||{}).value||'';
+  const ja=new Set(Object.keys(o._autorizados||{}));
+  const list=FUNCIONARIOS.filter(f=>!hab || (f.habilidades||[]).includes(hab) || f.cargo===hab);
+  document.getElementById('asSolList').innerHTML = list.length? list.map(f=>{
+    const aut=ja.has(f.matricula);
+    return `<label class="as-row${aut?' done':''}"><input type="checkbox" value="${f.matricula}" ${aut?'disabled':''}>
+      ${avatarHTML(f.nome,f.cor)}<span class="as-nm">${f.nome}<small>${f.cargo}${f.externo?' · externo':''}${aut?' · já autorizado':''}</small></span></label>`;
+  }).join('') : '<div class="subnote">Nenhum recurso ativo com essa habilidade.</div>';
+}
+async function submitSolicitarAS(){
+  const o=asCurOS; if(!o||!o._wo){ toast('Disponível só no modo ao vivo.'); return; }
+  const ids=[...document.querySelectorAll('#asSolList input:checked')].map(i=>i.value);
+  if(!ids.length){ toast('Selecione ao menos 1 recurso'); return; }
+  const obs=document.getElementById('asSolObs').value.trim();
+  toast('Enviando solicitação…');
+  try{
+    const r=await bePost('/solicitacoes',{osId:o._wo, recursoIds:ids, observacao:obs||undefined});
+    closeASModal('asSolModal');
+    toast('🛡️ Solicitação criada com '+((r.itens||[]).length)+' recurso(s). Envie à administração da loja e lance o nº da AS quando responder.');
+    beHydrate();
+  }catch(e){ toast('Erro: '+e.message); }
+}
+function openConfirmarAS(osid){
+  const o=ordens.find(x=>x.id===osid); if(!o) return;
+  if(!canAS(ROLE)){ toast('⛔ Confirmar AS: só Coordenador pra cima.'); return; }
+  asCurOS=o;
+  const s=asSolAtual(o); if(!s){ toast('Sem solicitação para confirmar.'); return; }
+  document.getElementById('asConfSub').textContent=(s.name||'Solicitação')+' · '+o.id+' · '+(o.cli||'');
+  document.getElementById('asConfNum').value=s.numeroAS||'';
+  document.getElementById('asConfTipo').value=s.tipoValidade||'Data'; asConfTipoChg();
+  document.getElementById('asConfIni').value=s.validadeInicio||o._dataISO||'';
+  document.getElementById('asConfFim').value=s.validadeFim||'';
+  document.getElementById('asConfList').innerHTML=(s.itens||[]).map(i=>
+    `<label class="as-row"><input type="checkbox" value="${i.id}"><span class="as-nm">${i.nome||'(recurso)'}<small>${i.habilidade||''}${i.cpf?' · CPF '+i.cpf:''}</small></span><small class="as-rec">recusar</small></label>`).join('');
+  document.getElementById('asConfModal').classList.add('show');
+}
+function asConfTipoChg(){
+  const per=document.getElementById('asConfTipo').value==='Período';
+  document.getElementById('asConfFimWrap').style.display=per?'':'none';
+  document.getElementById('asConfL1').textContent=per?'Início do período':'Data autorizada';
+}
+async function submitConfirmarAS(){
+  const o=asCurOS, s=o?asSolAtual(o):null; if(!o||!s) return;
+  const num=document.getElementById('asConfNum').value.trim();
+  const tipo=document.getElementById('asConfTipo').value;
+  const ini=document.getElementById('asConfIni').value;
+  const fim=document.getElementById('asConfFim').value;
+  if(!num){ toast('Informe o nº da AS devolvido pelo shopping'); return; }
+  if(!ini){ toast('Informe a data de validade'); return; }
+  if(tipo==='Período' && !fim){ toast('Informe o fim do período'); return; }
+  const recusados=[...document.querySelectorAll('#asConfList input:checked')].map(i=>i.value);
+  toast('Confirmando…');
+  try{
+    const r=await bePatch('/solicitacoes/'+s.id+'/confirmar',{numeroAS:num, tipoValidade:tipo, validadeInicio:ini, validadeFim:fim||undefined, recusados});
+    closeASModal('asConfModal');
+    toast('🛡️ AS '+num+' confirmada — '+r.autorizados+' autorizado(s)'+(r.recusados?', '+r.recusados+' recusado(s)':'')+'.');
+    beHydrate();
+  }catch(e){ toast('Erro: '+e.message); }
 }
 
 go('login');
@@ -1938,24 +2075,24 @@ function _sfClassify(name){
   if(n.includes('duto'))     return {nome:'Duto (Site)',       tarefa:'Limpeza de dutos',      chk:'duto', site:true};
   return {nome:'Equipamentos', tarefa:'Manutenção preventiva', chk:'coifa'};
 }
-/* Status__c da WorkOrder -> estágio da Path (0..5) */
+/* Status__c da OS real (Ordem_de_Servico__c) -> estágio da Path (0..5). Aceita também os antigos da réplica FSL. */
 function _sfStatusToStage(st){
-  if(st==='Completed') return 5;
-  if(st==='In Progress') return 4;
-  if(st==='On Hold') return 3;
-  if(st==='Cannot Complete'||st==='Canceled') return 0;
-  return 0; /* New / Open / etc. */
+  if(!st) return 0;
+  if(st==='Completed'||/^Finalizad/i.test(st)||st==='Fechado com cliente') return 5;
+  if(st==='In Progress'||st==='Liberado para equipe de campo'||st==='Pendente Execução') return 4;
+  if(st==='On Hold'||st==='Aguardando aprovação') return 3;
+  return 0; /* Previsto / Confirmado / Aprovado / etc. */
 }
-/* estágio da Path -> Status__c a gravar */
+/* estágio da Path -> Status__c a gravar (só marcos reais; estágios intermediários não gravam) */
 function _sfStageToStatus(stage){
-  if(stage>=5) return 'Completed';
-  if(stage>=4) return 'In Progress';
-  return 'New';
+  if(stage>=5) return 'Finalizado totalmente pela equipe de campo';
+  if(stage>=4) return 'Liberado para equipe de campo';
+  return null;
 }
 async function sfMaybePush(a){
   if(!SF_LIVE || !a || !a.os || !a.os._wo) return;
   const st=_sfStageToStatus(a.stage);
-  if(a.os._sfStatus===st) return;
+  if(!st || a.os._sfStatus===st) return;
   a.os._sfStatus=st;
   try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('☁️ Status "'+st+'" gravado na OS '+a.os._sfName); }
   catch(e){ toast('Erro ao gravar status: '+e.message); }
@@ -2182,6 +2319,7 @@ const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.r
 function beTok(){ return sessionStorage.getItem('be_tok'); }
 async function beGet(path){ const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}}); if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); } return r.json(); }
 async function bePatch(path,body){ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }
+async function bePost(path,body){ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }
 async function beDoLogin(payload){
   const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
   try{
@@ -2225,42 +2363,39 @@ async function beHydrate(){
     const wos = await beGet('/hydrate');
     if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
     if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
-    /* recursos p/ o board (técnicos + territórios) — pode vir vazio se o permset FSL_Recursos ainda não estiver ativo */
-    let REC={resources:[],territorios:{},membros:[]};
-    try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],territorios:{},membros:[]}; }catch(e){ REC={resources:[],territorios:{},membros:[]}; }
+    /* recursos reais (SFL5_Resource ativos) + habilidades — pode vir vazio se o permset ainda não estiver ativo */
+    let REC={resources:[],habilidades:[]};
+    try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],habilidades:[]}; }catch(e){ REC={resources:[],habilidades:[]}; }
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
-    const memByRes={}; (REC.membros||[]).forEach(m=>{ if(m.territorio){ (memByRes[m.resourceId]=memByRes[m.resourceId]||[]).push(m.territorio); } });
     const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
-    const mockByName={}; FUNCIONARIOS.forEach(f=>mockByName[f.nome]=f);
-    const funcLive=(REC.resources||[]).map((r,i)=>{ const mk=mockByName[r.name]||{}; return { nome:r.name, matricula:r.id, cargo:mk.cargo||'Técnico', cor:mk.cor||_pal[i%_pal.length], lojas:(memByRes[r.id]||[]) }; });
+    const funcLive=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
+      cor:_pal[i%_pal.length], lojas:[], habilidades:r.habilidades||[], externo:!!r.externo }));
     if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
+    HABILIDADES.length=0; (REC.habilidades||[]).forEach(h=>HABILIDADES.push(h));
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
     for(const wo of wos){
-      const gmap={};
-      (wo.items||[]).forEach(i=>{ const nm=i.assetName||'Equipamento'; const cls=_sfClassify(nm);
-        if(!gmap[cls.nome]) gmap[cls.nome]={nome:cls.nome,tarefa:cls.tarefa,chk:cls.chk,site:cls.site||false,equipamentos:[]};
-        gmap[cls.nome].equipamentos.push({ tag:i.serial||nm, nome:nm, site:cls.site||false, _woli:i.id, _sfDone:i.status==='Completed' });
-      });
-      const grupos=Object.values(gmap);
-      if(!grupos.length) grupos.push({nome:'Equipamentos',tarefa:'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento'}]});
-      const materiais=(wo.materiais||[]).map(m=>({nome:m.nome,un:'un',solicitado:m.qtd,embarcado:0,base:'template'}));
+      /* Opção A: sem itens/equipamento reais (checklist é inline na OS) — telas de equipamento seguem mock/placeholder */
+      const grupos=[{nome:'Equipamentos',tarefa:wo.objeto||'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento (mapeamento em fase posterior)'}]}];
+      const materiais=[];
       const dt = wo.startDate ? new Date(wo.startDate) : new Date();
       const dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
+      const hh=String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+      const hf=String(Math.min(23,dt.getHours()+3)).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
       diasSet.add(dia+'|'+dt.getFullYear());
-      const o={ id:_esc(wo.id||'OS'), _wo:wo.woId, _sfName:wo.id, _sfStatus:wo.status, _sa:wo.saId||null,
-        _territoryName:(wo.territoryId?(REC.territorios[wo.territoryId]||''):''),
-        equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
-        cli:wo.account, contrato:'—', local:wo.location, modelo:wo.subject||'Manutenção preventiva', plano:wo.subject||'Exaustão · MPP',
-        alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais} };
+      const o={ id:_esc(wo.id||'OS'), _wo:wo.osId, _sfName:wo.id, _sfStatus:wo.status, _sa:null,
+        _autorizados:wo.autorizados||{}, _sols:wo.solicitacoes||[], _solEnviada:!!wo.solicitacaoEnviada,
+        _dataISO:(wo.startDate||'').slice(0,10),
+        equipePadrao:2,
+        cli:wo.account||'—', contrato:'—', local:wo.account||'—', modelo:wo.objeto||'Manutenção preventiva',
+        plano:wo.descricao||wo.objeto||'Exaustão · MPP',
+        alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:'Sem materiais',materiais} };
       buildItems(o);
-      o._itens.forEach(eq=>{ if(eq._sfDone){ eq.fotoAntes=true; eq.fotoDepois=true; eq.checklist.forEach(c=>eq.checks[c]='ok'); } });
-      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.arId, confirmada:true, assinatura:null, assinadoEm:null }; });
-      o.separacao.materiais.forEach(m=>{m.consumido=0;m.retorno=0;m.baixa={danificado:0,extraviado:0,inutilizado:0,obs:'',fotos:[],responsavel:'',bxId:null};});
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _itemAS:a.itemAutorizacaoId||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
       o.notas=[];
       novasOrdens.push(o);
-      novosAppts.push({ id:wo.saName||('SA-'+(saSeq++)), os:o, dia, janela:'—', tipo:'Principal', stage:_sfStatusToStage(wo.status), outcome:null, tempos:{} });
+      novosAppts.push({ id:'SA-'+(saSeq++), os:o, dia, janela:hh+' – '+hf, tipo:'Principal', stage:_sfStatusToStage(wo.status), outcome:null, tempos:{} });
     }
     ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
     appts.length=0; novosAppts.forEach(a=>appts.push(a));
@@ -2270,10 +2405,12 @@ async function beHydrate(){
       DAYS.push({key:dm,wd:WD[dt.getDay()],d:dd[0]}); DAYLABEL[dm]=WD[dt.getDay()]+', '+dd[0]+' de '+MES[dd[1]-1]; });
     if(DAYS.length) selDay=DAYS[0].key;
     SF_LIVE=true; document.body.classList.add('sf-live');
-    go('schedule');
+    const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
+    go(stayAloc?'aloc':'schedule');
     toast('✅ '+ordens.length+' OS carregadas');
   }catch(e){ toast('Erro: '+e.message); }
 }
+const HABILIDADES=[];
 document.addEventListener('DOMContentLoaded', beInitGoogle);
 setTimeout(beInitGoogle, 400);
 if(beTok()) setTimeout(beHydrate, 300);  /* já logado (reload): recarrega as OS */
