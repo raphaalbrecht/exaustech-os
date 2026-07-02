@@ -417,6 +417,12 @@
   .sig-drill{color:var(--weaker);font-weight:400}
   .sig-status.warn{color:#8a5a12;font-weight:700;font-size:11px}
   .sig-just{font-size:11px;color:var(--weak);font-style:italic;margin-top:2px}
+  .sig-legal{background:var(--brand-l);border:1px solid var(--border2);border-radius:8px;padding:9px 11px;font-size:11.5px;line-height:1.45;color:var(--txt);margin:2px 0 10px;text-align:left}
+  .sig-legal small{display:block;color:var(--weak);font-size:10px;margin-top:5px}
+  .sig-rec-lb{font-size:11px;font-weight:700;color:var(--weak);text-align:left;margin:0 0 6px}
+  .sig-rec-chip{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--border2);border-radius:8px;padding:8px 11px;margin-bottom:6px;font-size:13px;font-weight:700;color:var(--txt);cursor:pointer}
+  .sig-rec-chip small{display:block;font-weight:400;font-size:11px;color:var(--weak)}
+  .sig-rec-chip:active{background:var(--brand-l)}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -559,9 +565,12 @@
   <div class="modal" id="sigModal"><div class="modal-card">
     <div class="modal-title">Assinatura</div><div class="modal-sub" id="sigWho"></div>
     <div id="sigCliFields" style="display:none">
+      <div id="sigCliRecent"></div>
       <div class="field"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo"></div>
+      <div class="field"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this)"></div>
       <div class="field"><label>Cargo / função na loja</label><input id="sigCliCargo" placeholder="ex.: Gerente da loja"></div>
     </div>
+    <div id="sigLegal" class="sig-legal"></div>
     <canvas id="sigPad" width="320" height="170"></canvas>
     <div class="pad-line">Assine no campo acima</div>
     <div class="modal-actions">
@@ -989,7 +998,7 @@ function completeAppt(){
   a.stage=STAGES.length-1; stamp(a); sfMaybePush(a);
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
-  if(NET.online) toast('☁️ Status sincronizado com o Salesforce'); else { NET.queue++; updateNet(); }
+  if(NET.online) toast('✅ Status sincronizado'); else { NET.queue++; updateNet(); }
   document.getElementById('doneMsg').innerHTML='Compromisso concluído. <b>Relatório gerado como Rascunho</b> — segue para revisão antes de ir ao cliente.'+(totRet>0?` ${totRet} material(is) na guia de retorno.`:'');
   go('done');
 }
@@ -1002,7 +1011,7 @@ function confirmCsigJust(){
   if(!t) return markInvalid('csigJustText','Justifique a conclusão sem o aceite do cliente');
   curOS.csig=curOS.csig||{nome:'',cargo:'',assinatura:null,assinadoEm:null};
   curOS.csig.justificativa=t; curOS.csig.justificadoPor=ROLE; curOS.csig.justificadoEm=agora();
-  closeCsigJust(); toast('⚠️ Registrado: conclusão sem aceite do cliente'); completeAppt();
+  closeCsigJust(); toast('⚠️ Sem aceite do cliente — justificado'); completeAppt();
 }
 function stamp(a){ a.tempos[STAGES[a.stage]]=agora(); }
 function openApptReport(){ go('appt'); pushSub({type:'relatorio'}); }
@@ -1020,7 +1029,7 @@ function closeOutcome(){ document.getElementById('outcomeModal').classList.remov
 function confirmOutcome(){ const m=document.getElementById('ocReason').value.trim(); if(!m) return markInvalid('ocReason','Informe o motivo'); curAppt.outcome=outcomeTipo; curAppt.motivo=m; closeOutcome(); renderAppt(); toast(outcomeTipo+' registrado'); }
 function openNota(){ document.getElementById('notaText').value=''; document.getElementById('notaModal').classList.add('show'); }
 function closeNota(){ document.getElementById('notaModal').classList.remove('show'); }
-function saveNota(){ const t=document.getElementById('notaText').value.trim(); if(!t) return markInvalid('notaText','Escreva a nota'); curOS.notas.push({txt:t,quando:agora()}); closeNota(); toast('📝 Nota adicionada'); }
+function saveNota(){ const t=document.getElementById('notaText').value.trim(); if(!t) return markInvalid('notaText','Escreva a nota'); curOS.notas.push({txt:t,quando:agora()}); closeNota(); toast('✅ Nota salva'); }
 function agora(){ const n=new Date(); return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
 
 /* ===== listas relacionadas ===== */
@@ -1214,7 +1223,7 @@ function capturarApt(id){
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#6b7a8a'); g.addColorStop(1,'#46586a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(a.id+' · '+a.equipTag,18,150);
   watermark(ctx,400,300,{tag:a.equipTag});
-  a.fotos.push(cv.toDataURL('image/png')); showSub(); toast('📷 Foto do apontamento adicionada');
+  a.fotos.push(cv.toDataURL('image/png')); showSub(); toast('✅ Foto adicionada');
 }
 function neDetail(eq,item,lk){
   const d=eq.det[item];
@@ -1259,7 +1268,7 @@ function updateMatLines(){
 const BX_MOTIVOS=[['danificado','Danificado'],['extraviado','Extraviado / perdido'],['inutilizado','Inutilizado']];
 function ensureBx(m){
   const total=matBaixaTotal(m);
-  if(total>0 && !m.baixa.bxId){ m.baixa.bxId='BX-'+pad5(bxSeq++); baixas.push({id:m.baixa.bxId, osId:curOS.id, sepId:curOS.separacao.id, material:m.nome, ref:m, quando:agora(), status:'Registrada'}); toast('🧾 Baixa registrada · '+m.baixa.bxId); }
+  if(total>0 && !m.baixa.bxId){ m.baixa.bxId='BX-'+pad5(bxSeq++); baixas.push({id:m.baixa.bxId, osId:curOS.id, sepId:curOS.separacao.id, material:m.nome, ref:m, quando:agora(), status:'Registrada'}); toast('✅ Baixa '+m.baixa.bxId+' registrada'); }
 }
 function baixaAdj(mi,key,delta){
   const m=curOS.separacao.materiais[mi]; const novo=m.baixa[key]+delta; if(novo<0)return;
@@ -1273,7 +1282,7 @@ function capturarBaixa(mi){
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#7a6a6a'); g.addColorStop(1,'#5a4a4a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText('BAIXA · '+m.nome,18,150);
   watermark(ctx,400,300,{tag:m.nome});
-  m.baixa.fotos.push(cv.toDataURL('image/png')); showSub(); toast('📷 Foto da baixa adicionada');
+  m.baixa.fotos.push(cv.toDataURL('image/png')); showSub(); toast('✅ Foto adicionada');
 }
 function matBaixaPage(mi){
   const o=curOS, m=o.separacao.materiais[mi], lk=repLocked(), wrap=document.createElement('div');
@@ -1358,9 +1367,9 @@ function ferrCatPage(){
   });
   return wrap;
 }
-function ferrReservarInd(c,silent){ (c.reservas=c.reservas||[]).push({osId:curOS.id, dia:curAppt?curAppt.dia:''}); curOS.ferramentas.itens.push({modo:'ind', nome:c.nome, patrimonio:c.patrimonio, dia:curAppt?curAppt.dia:'', estado:0, estadoSaida:'', fotoOut:null, estadoRetorno:'', fotoIn:null, danos:'', naoDevolvida:false, responsavel:'', catRef:c}); if(!silent){ showSub(); toast('🔧 '+c.nome+' reservada'); } }
-function ferrReservarQty(t,silent){ const it=curOS.ferramentas.itens.find(x=>x.modo==='qtd'&&x.nome===t.nome); if(it){ it.solicitado++; it.embarcado=it.solicitado; } else curOS.ferramentas.itens.push({modo:'qtd', nome:t.nome, un:t.un, solicitado:1, embarcado:1, devolvido:0, responsavel:''}); if(!silent){ showSub(); toast('🔧 '+t.nome+' +1'); } }
-function ferrReservarKit(k){ let ok=0,skip=0; k.pats.forEach(p=>{ const c=CAT_FERR.find(x=>x.patrimonio===p); if(!c)return; const av=ferrAvail(c); if(av.st==='ok'){ ferrReservarInd(c,true); ok++; } else if(av.st!=='ja') skip++; }); k.qtd.forEach(([nome,q])=>{ const t=CAT_FERR_QTD.find(x=>x.nome===nome); if(t){ for(let i=0;i<q;i++) ferrReservarQty(t,true); ok++; } }); showSub(); toast('🧰 '+k.nome+': '+ok+' reservado(s)'+(skip?' · '+skip+' em conflito':'')); }
+function ferrReservarInd(c,silent){ (c.reservas=c.reservas||[]).push({osId:curOS.id, dia:curAppt?curAppt.dia:''}); curOS.ferramentas.itens.push({modo:'ind', nome:c.nome, patrimonio:c.patrimonio, dia:curAppt?curAppt.dia:'', estado:0, estadoSaida:'', fotoOut:null, estadoRetorno:'', fotoIn:null, danos:'', naoDevolvida:false, responsavel:'', catRef:c}); if(!silent){ showSub(); toast('✅ '+c.nome+' reservada'); } }
+function ferrReservarQty(t,silent){ const it=curOS.ferramentas.itens.find(x=>x.modo==='qtd'&&x.nome===t.nome); if(it){ it.solicitado++; it.embarcado=it.solicitado; } else curOS.ferramentas.itens.push({modo:'qtd', nome:t.nome, un:t.un, solicitado:1, embarcado:1, devolvido:0, responsavel:''}); if(!silent){ showSub(); toast('✅ '+t.nome+' +1'); } }
+function ferrReservarKit(k){ let ok=0,skip=0; k.pats.forEach(p=>{ const c=CAT_FERR.find(x=>x.patrimonio===p); if(!c)return; const av=ferrAvail(c); if(av.st==='ok'){ ferrReservarInd(c,true); ok++; } else if(av.st!=='ja') skip++; }); k.qtd.forEach(([nome,q])=>{ const t=CAT_FERR_QTD.find(x=>x.nome===nome); if(t){ for(let i=0;i<q;i++) ferrReservarQty(t,true); ok++; } }); showSub(); toast('✅ '+k.nome+' · '+ok+' reservado(s)'+(skip?' · '+skip+' em conflito':'')); }
 function ferrHistPage(idx){
   const it=curOS.ferramentas.itens[idx], c=it.catRef||{reservas:[],historico:[]}, wrap=document.createElement('div');
   const hd=document.createElement('div'); hd.className='subhead'; hd.innerHTML=`${tile('asset','#7a5cc8')}<div><div class="eq-name">${it.nome}</div><div class="eq-sub">${it.patrimonio} · ficha e histórico</div></div>`; wrap.appendChild(hd);
@@ -1391,7 +1400,7 @@ function ferrRegAvaria(idx, desc, grav, bloquear, prevDias, el){
   if(!desc) return markInvalid(el||null,'Descreva a avaria');
   const id='MNT-'+pad5(mntSeq++); const prev= bloquear? addDias(HOJE, prevDias) : '';
   if(c){ c.mnt=c.mnt||[]; c.mnt.unshift({id, osId:curOS.id, desc, grav, quando:agora(), previsao:prev, status:bloquear?'Em reparo':'Registrada'}); if(bloquear){ c.bloqueada=true; c.previsaoReparo=prev; } }
-  showSub(); toast('🧰 '+id+(bloquear?' · ativo bloqueado até '+prev:' registrada'));
+  showSub(); toast('✅ '+id+' registrada'+(bloquear?' · bloqueado até '+prev:''));
 }
 function ferrAvariaPage(idx){
   const it=curOS.ferramentas.itens[idx], c=it.catRef, wrap=document.createElement('div');
@@ -1433,9 +1442,9 @@ function capturarFerr(idx,key,nome){
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#6a6a7a'); g.addColorStop(1,'#4a4a5a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(nome,18,150);
   watermark(ctx,400,300,{tag:it.patrimonio||nome});
-  it[key]=cv.toDataURL('image/png'); showSub(); toast('📷 Foto registrada');
+  it[key]=cv.toDataURL('image/png'); showSub(); toast('✅ Foto registrada');
 }
-function ferrNaoDev(idx){ const it=curOS.ferramentas.itens[idx]; it.naoDevolvida=true; it.responsavel=it.responsavel||(curOS.alocacoes[0]?curOS.alocacoes[0].nome:''); showSub(); toast('⚠️ Não devolvida · registro de responsabilidade ('+it.responsavel+')'); }
+function ferrNaoDev(idx){ const it=curOS.ferramentas.itens[idx]; it.naoDevolvida=true; it.responsavel=it.responsavel||(curOS.alocacoes[0]?curOS.alocacoes[0].nome:''); showSub(); toast('⚠️ Não devolvida — responsabilidade registrada'); }
 function ferrToolPage(idx){
   const o=curOS, it=o.ferramentas.itens[idx], wrap=document.createElement('div');
   const hd=document.createElement('div'); hd.className='subhead'; hd.innerHTML=`${tile('asset','#7a5cc8')}<div style="flex:1"><div class="eq-name">${it.nome}</div><div class="eq-sub">${it.patrimonio}</div></div><span class="lz ${ferrLoz(it.estado,it.naoDevolvida)}">${it.naoDevolvida?'Não devolvida':FERR_ESTADOS[it.estado]}</span>`; wrap.appendChild(hd);
@@ -1447,19 +1456,19 @@ function ferrToolPage(idx){
     wrap.appendChild(c); return wrap;
   }
   const card=document.createElement('div'); card.className='subcard'; const e=it.estado;
-  if(e===0){ const b=document.createElement('button'); b.className='btn btn-brand'; b.textContent='Separar (estoquista)'; b.onclick=()=>{ it.estado=1; showSub(); toast('Separada'); }; card.appendChild(b); }
+  if(e===0){ const b=document.createElement('button'); b.className='btn btn-brand'; b.textContent='Separar (estoquista)'; b.onclick=()=>{ it.estado=1; showSub(); toast('✅ Separada'); }; card.appendChild(b); }
   else if(e===1){
     const cbOut=condBlock('Estado de saída', it, 'estadoSaida'); card.appendChild(cbOut);
     card.appendChild(fotoBlock('Foto de saída', it, 'fotoOut', 'out', idx));
-    const b=document.createElement('button'); b.className='btn btn-brand'; b.style.marginTop='8px'; b.textContent='Confirmar embarque (check-out)'; b.onclick=()=>{ if(!it.estadoSaida){markInvalid(cbOut.querySelector('.seg'),'Informe o estado de saída');return;} it.estado=2; showSub(); toast('📦 Check-out · embarcada'); }; card.appendChild(b);
+    const b=document.createElement('button'); b.className='btn btn-brand'; b.style.marginTop='8px'; b.textContent='Confirmar embarque (check-out)'; b.onclick=()=>{ if(!it.estadoSaida){markInvalid(cbOut.querySelector('.seg'),'Informe o estado de saída');return;} it.estado=2; showSub(); toast('✅ Check-out · embarcada'); }; card.appendChild(b);
   }
-  else if(e===2){ const b=document.createElement('button'); b.className='btn btn-brand'; b.textContent='Receber e iniciar uso (técnico)'; b.onclick=()=>{ it.estado=3; showSub(); toast('Em uso'); }; card.appendChild(b); }
+  else if(e===2){ const b=document.createElement('button'); b.className='btn btn-brand'; b.textContent='Receber e iniciar uso (técnico)'; b.onclick=()=>{ it.estado=3; showSub(); toast('✅ Em uso'); }; card.appendChild(b); }
   else if(e===3){
     const cbIn=condBlock('Estado de retorno', it, 'estadoRetorno'); card.appendChild(cbIn);
     card.appendChild(fotoBlock('Foto de retorno', it, 'fotoIn', 'in', idx));
     const dl=document.createElement('div'); dl.className='label'; dl.textContent='Danos / observações'; card.appendChild(dl);
     const ta=document.createElement('textarea'); ta.rows=2; ta.placeholder='Descreva danos, se houver…'; ta.value=it.danos; ta.oninput=()=>{ it.danos=ta.value; }; card.appendChild(ta);
-    const b=document.createElement('button'); b.className='btn btn-brand'; b.style.marginTop='8px'; b.textContent='Devolver (check-in)'; b.onclick=()=>{ if(!it.estadoRetorno){markInvalid(cbIn.querySelector('.seg'),'Informe o estado de retorno');return;} it.estado=4; showSub(); toast('🔄 Check-in · devolvida'); }; card.appendChild(b);
+    const b=document.createElement('button'); b.className='btn btn-brand'; b.style.marginTop='8px'; b.textContent='Devolver (check-in)'; b.onclick=()=>{ if(!it.estadoRetorno){markInvalid(cbIn.querySelector('.seg'),'Informe o estado de retorno');return;} it.estado=4; showSub(); toast('✅ Check-in · devolvida'); }; card.appendChild(b);
     const nd=document.createElement('button'); nd.className='btn btn-neutral'; nd.style.cssText='margin-top:8px;color:var(--err-tx);border-color:var(--err-bd)'; nd.textContent='Marcar como NÃO devolvida'; nd.onclick=()=>ferrNaoDev(idx); card.appendChild(nd);
   }
   else if(e===4){
@@ -1512,7 +1521,7 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=cs.assinatura
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da loja'} · aceite do serviço</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm}</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da loja'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm} · com declaração de veracidade</div></div><img class="sig-thumb" src="${cs.assinatura}">${lk?'':`<button class="sig-btn re" onclick="openSigCliente()">Refazer</button>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da loja · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
@@ -1536,8 +1545,8 @@ function csatPage(){
     if(c.comentario){ const com=document.createElement('div'); com.style.cssText='margin-top:12px;background:#f3f3f3;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-style:italic'; com.textContent='“'+c.comentario+'”'; card.appendChild(com); }
   } else {
     const lz=document.createElement('div'); lz.style.cssText='text-align:center;margin:4px 0 12px'; lz.innerHTML='<span class="lz lz-warn">Aguardando resposta do cliente</span>'; card.appendChild(lz);
-    const b1=document.createElement('button'); b1.className='btn btn-brand'; b1.style.marginBottom='8px'; b1.textContent='Enviar pesquisa por WhatsApp'; b1.onclick=()=>{ c.canal='WhatsApp (Huggy)'; toast('📲 Pesquisa enviada por WhatsApp (Huggy · Bold Solutions)'); }; card.appendChild(b1);
-    const b2=document.createElement('button'); b2.className='btn btn-neutral'; b2.textContent='Abrir no celular do cliente (link / QR)'; b2.onclick=()=>{ c.canal='Celular do cliente'; toast('🔗 Link da pesquisa aberto no celular do cliente'); }; card.appendChild(b2);
+    const b1=document.createElement('button'); b1.className='btn btn-brand'; b1.style.marginBottom='8px'; b1.textContent='Enviar pesquisa por WhatsApp'; b1.onclick=()=>{ c.canal='WhatsApp (Huggy)'; toast('✅ Pesquisa enviada por WhatsApp'); }; card.appendChild(b1);
+    const b2=document.createElement('button'); b2.className='btn btn-neutral'; b2.textContent='Abrir no celular do cliente (link / QR)'; b2.onclick=()=>{ c.canal='Celular do cliente'; toast('✅ Link da pesquisa gerado'); }; card.appendChild(b2);
     const demo=document.createElement('button'); demo.className='btn btn-neutral'; demo.style.marginTop='8px'; demo.innerHTML='Simular resposta do cliente <span class="demo-tag">DEMO</span>'; demo.onclick=()=>{ c.status='respondida'; c.nota=c.nota||5; c.comentario=c.comentario||'Atendimento muito bom, equipe atenciosa.'; c.canal=c.canal||'WhatsApp (Huggy)'; c.quando=agora(); renderSections(); showSub(); toast('✅ Resposta da pesquisa recebida'); }; card.appendChild(demo);
   }
   wrap.appendChild(card);
@@ -1583,7 +1592,7 @@ function relatorioPage(){
     const podeEnviar=curAppt.stage>=STAGES.length-1;
     const sendBtn=document.createElement('button'); sendBtn.className=podeEnviar?'btn btn-brand':'btn btn-neutral';
     sendBtn.textContent=podeEnviar?'Enviar para revisão (Supervisão)':'Conclua o compromisso para enviar';
-    sendBtn.onclick=()=>{ if(!podeEnviar){toast('Conclua o compromisso primeiro');return;} r.stage=1; r.ajustes=false; repLog(o,'Enviado para revisão da Supervisão ('+ROLE+')'); showSub(); updateApprBadge(); toast('📨 Enviado para revisão'); };
+    sendBtn.onclick=()=>{ if(!podeEnviar){toast('Conclua o compromisso primeiro');return;} r.stage=1; r.ajustes=false; repLog(o,'Enviado para revisão da Supervisão ('+ROLE+')'); showSub(); updateApprBadge(); toast('✅ Enviado para revisão'); };
     card.appendChild(sendBtn);
   } else if(r.stage<=0){
     const nt=document.createElement('div'); nt.className='subnote'; nt.style.padding='0'; nt.textContent='Rascunho — o envio para revisão é feito pelo Líder de Equipe.'; card.appendChild(nt);
@@ -1602,7 +1611,7 @@ function relatorioPage(){
       }
     } else { // stage 3 = Aprovado, aguardando liberação
       if(canRelease(ROLE)){
-        const lib=document.createElement('button'); lib.className='btn btn-brand'; lib.textContent='Liberar versão revisada ao cliente'; lib.onclick=()=>{ r.stage=4; repLog(o,'Versão revisada liberada ao cliente ('+ROLE+')'); showSub(); updateApprBadge(); toast('📤 Relatório liberado ao cliente'); }; mod.appendChild(lib);
+        const lib=document.createElement('button'); lib.className='btn btn-brand'; lib.textContent='Liberar versão revisada ao cliente'; lib.onclick=()=>{ r.stage=4; repLog(o,'Versão revisada liberada ao cliente ('+ROLE+')'); showSub(); updateApprBadge(); toast('✅ Liberado ao cliente'); }; mod.appendChild(lib);
       } else {
         const nt=document.createElement('div'); nt.className='subnote'; nt.style.padding='0'; nt.innerHTML='Aprovado — aguardando <b>liberação pelo Coordenador</b> (você é <b>'+ROLE+'</b>).'; mod.appendChild(nt);
       }
@@ -1648,16 +1657,26 @@ function gerarPDF(o){
   y+=8; if(y>700){doc.addPage();y=48;}
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Equipe e Assinaturas',40,y); y+=12; doc.setFontSize(9); doc.setFont('helvetica','normal');
   o.alocacoes.forEach(a=>{ if(y>720){doc.addPage();y=48;} if(a.assinatura){ try{doc.addImage(a.assinatura,'PNG',46,y,120,40);}catch(e){} } doc.text(a.nome+' · '+(a.papel||'')+(a._num?' · '+a._num:'')+(a.assinadoEm?(' — '+a.assinadoEm):''),176,y+24); y+=50; });
-  if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
+  if(o.csig && o.csig.assinatura){ if(y>720){doc.addPage();y=48;} try{doc.addImage(o.csig.assinatura,'PNG',46,y,120,40);}catch(e){} doc.text('CLIENTE: '+(o.csig.nome||'')+(o.csig.cpf?' · CPF '+o.csig.cpf:'')+(o.csig.cargo?' · '+o.csig.cargo:'')+(o.csig.assinadoEm?(' — '+o.csig.assinadoEm):''),176,y+24); y+=50; }
   else if(o.csig && o.csig.justificativa){ if(y>720){doc.addPage();y=48;} doc.setFont('helvetica','bold'); doc.text('CLIENTE: SEM ACEITE',46,y+12); doc.setFont('helvetica','normal'); doc.text('Justificativa: '+o.csig.justificativa.slice(0,180)+(o.csig.justificadoEm?(' — '+o.csig.justificadoEm):''),46,y+26,{maxWidth:500}); y+=50; }
+  if(y>700){doc.addPage();y=48;}
+  doc.setFontSize(7); doc.setTextColor(120);
+  doc.text('Equipe: "'+SIG_LEGAL.equipe+'"  ·  Cliente: "'+SIG_LEGAL.cliente+'" ('+SIG_LEGAL.versao+')',40,y+8,{maxWidth:520});
+  doc.text(SIG_LEGAL.base,40,y+30,{maxWidth:520}); y+=44; doc.setTextColor(0); doc.setFontSize(9);
   if(!aprovado){ doc.setTextColor(235,170,170); doc.setFontSize(70); doc.setFont('helvetica','bold'); doc.text('RASCUNHO',110,520,{angle:38}); }
   else { doc.setTextColor(150,210,160); doc.setFontSize(62); doc.setFont('helvetica','bold'); doc.text('APROVADO',110,520,{angle:38}); }
   doc.setTextColor(120); doc.setFontSize(8); doc.text('Gerado pelo app de campo · '+(aprovado?'versão aprovada para o cliente':'rascunho pendente de aprovação interna'),40,824);
-  doc.save('Relatorio-'+o.id+'.pdf'); toast('📄 PDF gerado'+(aprovado?' (aprovado)':' (rascunho)'));
+  doc.save('Relatorio-'+o.id+'.pdf'); toast('✅ PDF gerado'+(aprovado?'':' · rascunho'));
 }
 
 /* ===== assinatura (pad) ===== */
 let sigCtx=null,sigDrawing=false,sigDirty=false,sigTarget=null;
+/* declarações de veracidade (versão registrada junto da assinatura, p/ trilha de auditoria) */
+const SIG_LEGAL={ versao:'v1',
+  equipe:'Declaro, para os devidos fins, que participei da execução dos serviços descritos nesta OS e que as informações por mim registradas são verdadeiras.',
+  cliente:'Declaro que acompanhei/recebi os serviços descritos nesta OS e atesto, na condição de representante da loja, a veracidade das informações e a execução dos serviços.',
+  base:'Assinatura eletrônica com trilha de auditoria (nome, CPF, data/hora, geolocalização e dispositivo) — MP 2.200-2/2001, art. 10, §2º · Lei 14.063/2020.' };
+function _sigMeta(){ return { t:new Date().toISOString(), geo:(_lastGeo?{lat:_lastGeo.lat,lng:_lastGeo.lng,acc:_lastGeo.acc}:null), dispositivo:(navigator.userAgent||'').slice(0,80) }; }
 function _sigPrep(){
   const cv=document.getElementById('sigPad'); const r=cv.getBoundingClientRect(); cv.width=Math.max(320,r.width); cv.height=170;
   sigCtx=cv.getContext('2d'); if(sigCtx){ sigCtx.lineWidth=2.4; sigCtx.lineCap='round'; sigCtx.strokeStyle='#032D60'; } sigDirty=false; bindPad(cv);
@@ -1666,14 +1685,32 @@ function _sigPrep(){
 function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
   document.getElementById('sigCliFields').style.display='none';
+  document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.equipe+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('sigWho').textContent=`${a.nome} · ${a.papel||''}${a._num?' · '+a._num:''}`;
   _sigPrep();
 }
+/* base local de quem assina por loja (últimos 3, únicos por CPF) — em produção vira Contato da loja no Salesforce */
+function cpfMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>9) v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4'); else if(v.length>6) v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3'); else if(v.length>3) v=v.replace(/(\d{3})(\d{0,3})/,'$1.$2'); el.value=v; }
+function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\d)\1{10}$/.test(c)) return false;
+  let s=0; for(let i=0;i<9;i++)s+=+c[i]*(10-i); let d=11-s%11; if(d>9)d=0; if(d!==+c[9])return false;
+  s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
+function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
+function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,3); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+let _recAss=[];
+function usarAssinante(i){ const r=_recAss[i]; if(!r) return;
+  document.getElementById('sigCliNome').value=r.nome; document.getElementById('sigCliCPF').value=r.cpf; document.getElementById('sigCliCargo').value=r.cargo||'';
+  toast('✅ Dados preenchidos — falta só a assinatura'); }
 function openSigCliente(){
-  sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',assinatura:null,assinadoEm:null});
+  sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null});
   document.getElementById('sigCliFields').style.display='';
   document.getElementById('sigCliNome').value=cs.nome||'';
+  document.getElementById('sigCliCPF').value=cs.cpf||'';
   document.getElementById('sigCliCargo').value=cs.cargo||'';
+  _recAss=assinantesDaLoja(curOS.cli||'');
+  document.getElementById('sigCliRecent').innerHTML=_recAss.length
+    ? '<div class="sig-rec-lb">Assina por esta loja — toque para preencher:</div>'+_recAss.map((r,i)=>`<button type="button" class="sig-rec-chip" onclick="usarAssinante(${i})">${r.nome}<small>${r.cargo||'—'} · ${r.cpf}</small></button>`).join('')
+    : '';
+  document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
   _sigPrep();
 }
@@ -1692,16 +1729,21 @@ function saveSig(){
   if(sigTarget==='cli'){
     const nome=document.getElementById('sigCliNome').value.trim();
     if(!nome) return markInvalid('sigCliNome','Informe o nome de quem assina pelo cliente');
+    const cpf=document.getElementById('sigCliCPF').value.trim();
+    if(!cpf) return markInvalid('sigCliCPF','Informe o CPF de quem assina');
+    if(!validaCPF(cpf)) return markInvalid('sigCliCPF','CPF inválido — confira os dígitos');
     if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
-    const cs=curOS.csig; cs.nome=nome; cs.cargo=document.getElementById('sigCliCargo').value.trim();
+    const cs=curOS.csig; cs.nome=nome; cs.cpf=cpf; cs.cargo=document.getElementById('sigCliCargo').value.trim();
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
+    cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
+    salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
     closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
-    toast('✅ Aceite do cliente registrado ('+nome.split(' ')[0]+')'); gMaybeUploadSig({nome:'CLIENTE_'+nome, assinatura:cs.assinatura});
+    toast('✅ Aceite do cliente registrado'); gMaybeUploadSig({nome:'CLIENTE_'+nome, assinatura:cs.assinatura});
     return;
   }
   if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
   const a=curOS.alocacoes[sigTarget]; a.assinatura=cv.toDataURL('image/png');
-  a.assinadoEm=hh;
+  a.assinadoEm=hh; a.declaracao=SIG_LEGAL.equipe; a.declaracaoVersao=SIG_LEGAL.versao; a.meta=_sigMeta();
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
   toast('✅ Assinatura de '+a.nome.split(' ')[0]+' registrada'); gMaybeUploadSig(a);
 }
@@ -1741,17 +1783,17 @@ async function processFoto(file,eq,label){
 }
 function capturar(ii,tipo){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
-  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('📷 Foto registrada (carimbada)'); sfMaybePushItem(eq); gMaybeUploadFoto(eq,tipo); }catch(e){ toast('Falha ao processar a foto'); } });
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq, tipo==='antes'?'ANTES':'DEPOIS'); if(tipo==='antes'){ eq.fotoAntes=true; eq.fotoAntesImg=r.img; eq.fotoAntesMeta=r.meta; } else { eq.fotoDepois=true; eq.fotoDepoisImg=r.img; eq.fotoDepoisMeta=r.meta; } showSub(); toast('✅ Foto registrada'); sfMaybePushItem(eq); gMaybeUploadFoto(eq,tipo); }catch(e){ toast('Falha ao processar a foto'); } });
 }
 function capturarExtra(ii){
   if(repLocked()){ toast('Relatório em revisão — fotos bloqueadas'); return; }
-  pickPhoto(async file=>{ const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq,'ADICIONAL '+(eq.fotos.length+1)); eq.fotos.push({img:r.img, usarPDF:true, meta:r.meta}); showSub(); toast('📷 Foto adicional registrada'); }catch(e){ toast('Falha ao processar a foto'); } });
+  pickPhoto(async file=>{ const eq=curOS._itens[ii]; eq.fotos=eq.fotos||[]; toast('⏳ Processando foto…'); try{ const r=await processFoto(file,eq,'ADICIONAL '+(eq.fotos.length+1)); eq.fotos.push({img:r.img, usarPDF:true, meta:r.meta}); showSub(); toast('✅ Foto adicional registrada'); }catch(e){ toast('Falha ao processar a foto'); } });
 }
-function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; (eq.fotos||[]).splice(idx,1); showSub(); toast('Foto adicional removida'); }
+function removeFotoExtra(ii,idx){ const eq=curOS._itens[ii]; (eq.fotos||[]).splice(idx,1); showSub(); toast('✅ Foto removida'); }
 function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima decide as fotos do PDF'); return; } curOS._itens[ii].fotos[idx].usarPDF=val; toast(val?'✓ Foto adicional no PDF':'Foto adicional fora do PDF'); }
 
 /* ===== rede / toast ===== */
-function toggleNet(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Tudo sincronizado');},1100);} updateNet(); }
+function toggleNet(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Sincronizado');},1100);} updateNet(); }
 function updateNet(){const b=document.getElementById('netBtn');b.classList.toggle('off',!NET.online);b.title=NET.online?'Online':'Offline'+(NET.queue?(' · '+NET.queue+' na fila'):'');}
 let toastT; function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2200);}
 /* validação inline: marca o campo em vermelho com a mensagem embaixo; limpa quando o usuário digita/muda */
@@ -1885,7 +1927,7 @@ async function confirmAloc(){
     }
   } else { pend.forEach(it=>it.a.confirmada=true); }
   const n=pend.filter(it=>it.a.confirmada).length;
-  renderAloc(); toast('✓ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s) no Salesforce (Alocação em OS, com vínculo à AS).':'gerada(s) e enviada(s) para agenda/autorização.'));
+  renderAloc(); toast('✅ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s)':'criada(s)'));
 }
 function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
 function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
@@ -1984,8 +2026,8 @@ function allocate(osid,mat){
   if(cf){ toast('⛔ '+firstName(f.nome)+' já alocado em '+cf.os.id+' ('+cf.os.cli+') · '+cf.oa.dia+' '+cf.oa.janela); return; }
   o.alocacoes.push({nome:f.nome,papel:f.cargo,matricula:f.matricula,assinatura:null,assinadoEm:null,confirmada:false});
   renderAloc();
-  if(isLateOS(o)){ const ap=apptForOS(o); toast('⚠️ '+firstName(f.nome)+' alocado APÓS o início da OS ('+ap.dia+' '+ap.janela.split('–')[0].trim()+'). Registrado com alerta.'); }
-  else toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
+  if(isLateOS(o)){ const ap=apptForOS(o); toast('⚠️ Alocado após o início da OS — registrado'); }
+  else toast('✅ '+firstName(f.nome)+' alocado(a) em '+o.id);
 }
 /* drill-down da alocação (toque na pílula de quem já está alocado) */
 let _alocDet=null;
@@ -2020,8 +2062,8 @@ function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
   const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
   const a=o.alocacoes[i], nm=firstName(a.nome);
-  if(SF_LIVE && a._ar){ fetch(BACKEND+'/alocacoes/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}).then(()=>toast('☁️ Alocação removida')).catch(()=>{}); }
-  o.alocacoes.splice(i,1); renderAloc(); toast('Alocação removida: '+nm);
+  if(SF_LIVE && a._ar){ fetch(BACKEND+'/alocacoes/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}).then(()=>{}).catch(()=>{}); }
+  o.alocacoes.splice(i,1); renderAloc(); toast('✅ Alocação removida');
 }
 
 /* ===== Autorização de Serviço (AS): solicitar à loja e lançar o retorno ===== */
@@ -2134,7 +2176,7 @@ async function submitSolicitarAS(){
   try{
     const r=await bePost('/solicitacoes',{osId:o._wo, recursoIds:ids, observacao:obs||undefined});
     closeASModal('asSolModal');
-    toast('🛡️ Solicitação criada com '+((r.itens||[]).length)+' recurso(s). Envie à administração da loja e lance o nº da AS quando responder.');
+    toast('✅ Solicitação enviada · '+((r.itens||[]).length)+' recurso(s)');
     beHydrate();
   }catch(e){ toast('Erro: '+e.message); }
 }
@@ -2173,7 +2215,7 @@ async function submitConfirmarAS(){
   try{
     const r=await bePatch('/solicitacoes/'+s.id+'/confirmar',{numeroAS:num, tipoValidade:tipo, validadeInicio:ini, validadeFim:fim||undefined, recusados});
     closeASModal('asConfModal');
-    toast('🛡️ AS '+num+' confirmada — '+r.autorizados+' autorizado(s)'+(r.recusados?', '+r.recusados+' recusado(s)':'')+'.');
+    toast('✅ AS '+num+' confirmada · '+r.autorizados+' autorizado(s)'+(r.recusados?' · '+r.recusados+' recusado(s)':''));
     beHydrate();
   }catch(e){ toast('Erro: '+e.message); }
 }
@@ -2323,7 +2365,7 @@ async function sfMaybePush(a){
   const st=_sfStageToStatus(a.stage);
   if(!st || a.os._sfStatus===st) return;
   a.os._sfStatus=st;
-  try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('☁️ Status "'+st+'" gravado na OS '+a.os._sfName); }
+  try{ await bePatch('/ordens/'+a.os._wo+'/status',{status:st}); toast('✅ Status gravado no Salesforce'); }
   catch(e){ toast('Erro ao gravar status: '+e.message); }
 }
 /* grava a conclusão do equipamento (WorkOrderLineItem) quando o item fica completo no app */
@@ -2331,7 +2373,7 @@ async function sfMaybePushItem(eq){
   if(!SF_LIVE || !eq || !eq._woli || eq._sfDone) return;
   if(!itemComplete(eq)) return;
   eq._sfDone=true;
-  try{ await bePatch('/itens/'+eq._woli+'/concluir',{}); toast('☁️ '+eq.tag+' concluído'); }
+  try{ await bePatch('/itens/'+eq._woli+'/concluir',{}); toast('✅ '+eq.tag+' concluído'); }
   catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
 }
 async function sfHydrate(){
@@ -2535,7 +2577,7 @@ function capturarVideo(ii){
     const ext=((f.name||'').split('.').pop()||'mp4').toLowerCase();
     const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
     const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
-    try{ toast('☁️ Enviando vídeo… (pode levar)');
+    try{ toast('☁️ Enviando vídeo…');
       await beUploadMidia(f, fn, 'Vídeo', {woId:curOS._wo, woliId:eq._woli, equip:eq.tag});
       eq._temVideo=true; showSub(); bigOK('Vídeo salvo na OS');
     }catch(e){ toast('Falha no vídeo: '+e.message); }
