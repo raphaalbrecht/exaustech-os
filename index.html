@@ -2172,27 +2172,100 @@ function sepLozCls(st){
   return 'lz-warn'; /* Solicitada / Aguardando aprovação / Em separação = fila de trabalho */
 }
 function sepFaltaEmbarcar(s){ return (s.materiais||[]).reduce((t,m)=>t+Math.max(0,(m.solicitado||0)-(m.embarcado||0)),0); }
+/* pendente de separação = ainda não está pronta/embarcada */
+function sepPendente(st){ return ['Solicitada','Aguardando aprovação','Em separação'].includes(st); }
+function osHojeAmanha(o){ if(!o._dataISO) return false; const d=new Date(o._dataISO+'T12:00:00'); const t=new Date(); t.setHours(12,0,0,0); const diff=Math.round((d-t)/86400000); return diff===0||diff===1; }
+function osDiaTag(o){ if(!o._dataISO) return ''; const d=new Date(o._dataISO+'T12:00:00'); const t=new Date(); t.setHours(12,0,0,0); const diff=Math.round((d-t)/86400000); return diff===0?'HOJE':(diff===1?'AMANHÃ':fmtDataBR(o._dataISO)); }
+let estoqView={mode:'dash', sep:null, os:null};
+function estoqGo(mode,sep,os){ estoqView={mode, sep:sep||null, os:os||null}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0; }
+function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
 function renderEstoque(){
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
-  /* ===== DASHBOARD: Ordens de Separação por status (página principal do Estoquista) ===== */
+  if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
+  if(estoqView.mode==='pend'){ estoquePendList(wrap); return; }
+  /* ===== DASHBOARD (página principal do Estoquista) ===== */
+  const seps=sepListAll();
+  const pendUrg=seps.filter(x=>sepPendente(x.s.status)&&osHojeAmanha(x.o));
+  /* DESTAQUE: pendentes de hoje e amanhã */
+  const hero=document.createElement('div');
+  hero.style.cssText='border-radius:16px;padding:16px;margin:6px 0 14px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.18);background:linear-gradient(135deg,'+(pendUrg.length?'#b8530f,#e8770e':'#2e844a,#4bb26e')+')';
+  hero.innerHTML=pendUrg.length
+    ? `<div style="display:flex;align-items:center;gap:14px"><div style="font-size:44px;font-weight:900;line-height:1">${pendUrg.length}</div><div style="flex:1"><div style="font-weight:800;font-size:15px">📦 Separações pendentes — hoje e amanhã</div><div style="font-size:12px;opacity:.9;margin-top:2px">OS que saem a campo nas próximas 48h ainda sem materiais prontos. Toque para separar ›</div></div></div>`
+    : `<div style="display:flex;align-items:center;gap:14px"><div style="font-size:34px;line-height:1">✅</div><div style="flex:1"><div style="font-weight:800;font-size:15px">Sem pendências para hoje e amanhã</div><div style="font-size:12px;opacity:.9;margin-top:2px">Toda a fila das próximas 48h está pronta.</div></div></div>`;
+  if(pendUrg.length) hero.onclick=()=>estoqGo('pend');
+  wrap.appendChild(hero);
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Ordens de Separação — fila por status'; wrap.appendChild(h1);
-  const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); });
   const counts={}; seps.forEach(x=>{ counts[x.s.status]=(counts[x.s.status]||0)+1; });
-  /* resumo: chips com contagem por status */
   const strip=document.createElement('div'); strip.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin:8px 2px 12px';
   SEP_STATUS_APP.filter(st=>counts[st]).forEach(st=>{ const c=document.createElement('span'); c.className='lz '+sepLozCls(st); c.style.cssText='font-size:11px;padding:3px 10px'; c.textContent=st+' · '+counts[st]; strip.appendChild(c); });
   if(!seps.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhuma ordem de separação.'; wrap.appendChild(e); }
   else wrap.appendChild(strip);
-  /* seções por status, na ordem da esteira */
   SEP_STATUS_APP.forEach(st=>{
     const list=seps.filter(x=>x.s.status===st); if(!list.length) return;
     const hd=document.createElement('div'); hd.className='rel-hd'; hd.style.fontSize='12px'; hd.textContent=st+' ('+list.length+')'; wrap.appendChild(hd);
-    list.forEach(({o,s})=>{ const a=apptForOS(o); const falta=sepFaltaEmbarcar(s);
-      const row=document.createElement('div'); row.className='rel-row';
-      row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#b8530f">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
-      row.onclick=()=>{ if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} }; wrap.appendChild(row);
-    });
+    list.forEach(({o,s})=>{ wrap.appendChild(sepRow(o,s,()=>{ if(sepPendente(s.status)) estoqGo('sep',s,o); else { const a=apptForOS(o); if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} } })); });
   });
+  estoqueFerrSections(wrap);
+}
+/* linha padrão de SEP nas listas */
+function sepRow(o,s,onclick){
+  const falta=sepFaltaEmbarcar(s); const tag=osDiaTag(o);
+  const row=document.createElement('div'); row.className='rel-row';
+  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#b8530f;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#b8530f">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+  row.onclick=onclick; return row;
+}
+/* LISTA: pendentes de hoje e amanhã (abre do destaque) */
+function estoquePendList(wrap){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📦 Pendentes — hoje e amanhã'; wrap.appendChild(h);
+  const list=sepListAll().filter(x=>sepPendente(x.s.status)&&osHojeAmanha(x.o))
+    .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
+  if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada pendente para as próximas 48h. 🎉'; wrap.appendChild(e); return; }
+  list.forEach(({o,s})=>wrap.appendChild(sepRow(o,s,()=>estoqGo('sep',s,o))));
+}
+/* PÁGINA DE SEPARAÇÃO: itens com botão Separar + confirmação final */
+function estoqueSepPage(wrap){
+  const s=estoqView.sep, o=estoqView.os;
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>estoqGo('pend'); wrap.appendChild(bk);
+  const hd=document.createElement('div'); hd.className='subhead';
+  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}${o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''}</div></div><span class="lz ${sepLozCls(s.status)}">${s.status}</span>`;
+  wrap.appendChild(hd);
+  const card=document.createElement('div'); card.className='subcard';
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Itens para separar</div>';
+  (s.materiais||[]).forEach((m,mi)=>{
+    const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
+    row.innerHTML=`<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${m.nome}</div><div style="font-size:12px;color:var(--weak)">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · separado ✓':''}</div></div>
+      <button class="btn ${ok?'btn-neutral':'btn-brand'}" style="min-width:110px" onclick="sepToggleItem(${mi})">${ok?'Desfazer':'Separar ✓'}</button>`;
+    card.appendChild(row);
+  });
+  wrap.appendChild(card);
+  const todos=(s.materiais||[]).length>0 && (s.materiais||[]).every(m=>(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0);
+  const done=document.createElement('button'); done.className='btn btn-brand'; done.style.cssText='width:100%;margin-top:12px;height:52px;font-size:15px';
+  done.textContent='📦 Confirmar separação concluída'; done.disabled=!todos;
+  if(!todos){ done.style.opacity='.5'; }
+  done.onclick=()=>{ if(!todos) return toast('⚠️ Separe todos os itens antes de confirmar');
+    s.status='Pronta para embarque';
+    if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Pronta para embarque'},'Separação pronta')
+      .then(r=>toast(r&&r._queued?'📡 Confirmação salva no aparelho — sincroniza com sinal':'✅ '+s.id+' pronta para embarque'))
+      .catch(e=>toast('⚠️ Não gravado: '+e.message));
+    else toast('✅ '+s.id+' pronta para embarque');
+    bigOK('Separação concluída');
+    estoqGo('dash');
+  };
+  wrap.appendChild(done);
+}
+function sepToggleItem(mi){
+  const s=estoqView.sep; const m=s.materiais[mi]; if(!m) return;
+  const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
+  m.embarcado = ok?0:(m.solicitado||0);
+  sfPushSepItem(m,{embarcada:m.embarcado},'Separação: '+m.nome);
+  if(s.status==='Solicitada'||s.status==='Aguardando aprovação'){ s.status='Em separação';
+    if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Em separação'},'Status da separação').catch(()=>{}); }
+  renderEstoque();
+}
+/* seções de ferramentas/ativos (abaixo do dashboard) */
+function estoqueFerrSections(wrap){
   const h2=document.createElement('div'); h2.className='rel-hd'; h2.textContent='Ferramentas em custódia'; wrap.appendChild(h2);
   let any=false;
   ordens.forEach(o=>{ o.ferramentas.itens.forEach((it,idx)=>{ if(it.modo==='ind'&&!it.naoDevolvida&&it.estado<5){ any=true; const a=apptForOS(o);
