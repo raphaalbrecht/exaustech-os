@@ -398,6 +398,10 @@
   .modal-card .field select{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="%23747474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4 4 4-4"/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:36px}
   .modal-card .field input:focus,.modal-card .field select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-l)}
   .modal-card textarea{width:100%;box-sizing:border-box}
+  .det-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px}
+  .det-row:last-child{border-bottom:none}
+  .det-k{color:var(--weak);font-size:12px;flex-shrink:0}
+  .det-v{font-weight:600;text-align:right;word-break:break-word}
   #sigPad{width:100%;height:170px;border:1px solid var(--border2);border-radius:8px;background:#fcfdff;touch-action:none;cursor:crosshair}
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
@@ -600,6 +604,16 @@
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeASModal('asConfModal')">Cancelar</button>
       <button class="btn btn-brand" onclick="submitConfirmarAS()">Confirmar autorização</button>
+    </div></div></div>
+
+  <!-- MODAL DETALHES DA ALOCAÇÃO -->
+  <div class="modal" id="alocDetModal"><div class="modal-card">
+    <div class="modal-title">Detalhes da Alocação</div>
+    <div class="modal-sub" id="alocDetSub"></div>
+    <div id="alocDetBody"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-neutral" style="color:var(--err-tx);border-color:var(--err-bd)" onclick="alocDetRemover()">Remover alocação</button>
+      <button class="btn btn-brand" onclick="closeAlocDet()">Fechar</button>
     </div></div></div>
 
   <!-- MODAL PERFIL -->
@@ -1764,7 +1778,8 @@ function chipAvail(o,f){
   return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`;
 }
 function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#747474'; const pend=!a.confirmada;
-  return `<div class="fch in${pend?' pend':''}" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc" title="${pend?'Pendente — clique em Confirmar Alocações':'Alocação confirmada'}">${avatarHTML(a.nome,cor)}<span class="fnm">${firstName(a.nome)}<small>${a.papel||(f?f.cargo:'')}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
+  const sub = pend ? (a.papel||'')+' · pendente' : (a._num || a.papel || '');
+  return `<div class="fch in${pend?' pend':''}" data-mat="${a.matricula}" data-osid="${o.id}" data-src="alloc" title="${pend?'Pendente — clique em Confirmar Alocações':'Toque para ver os detalhes da alocação'}">${avatarHTML(a.nome,cor)}<span class="fnm">${a.nome}<small>${sub}</small></span><button class="frm" title="Remover" onclick="event.stopPropagation();removeAloc('${o.id}','${a.matricula}')">×</button></div>`; }
 function hhmm2min(t){ const x=t.split(':').map(Number); return x[0]*60+(x[1]||0); }
 function isLateOS(o){ const ap=apptForOS(o); if(!ap)return false; const d1=parseDia(ap.dia), d2=parseDia(AGORANOW.dia); if(!d1||!d2)return false; if(d1.getTime()!==d2.getTime()) return d1.getTime()<d2.getTime(); return janelaMin(ap.janela)[0] < hhmm2min(AGORANOW.hora); }
 function countPendentes(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada)n++; }); }); return n; }
@@ -1780,7 +1795,7 @@ async function confirmAloc(){
       const aut=(o._autorizados||{})[a.matricula]||{};
       try{
         const t=await bePost('/alocacoes',{osId:o._wo, resourceId:a.matricula, itemAutorizacaoId:aut.itemId||null});
-        if(t && t.id){ a._ar=t.id; a._itemAS=aut.itemId||null; a.confirmada=true; }
+        if(t && t.id){ a._ar=t.id; a._num=t.name||null; a._itemAS=aut.itemId||null; a.confirmada=true; }
         else { toast('Erro em '+firstName(a.nome)+': resposta inesperada'); }
       }catch(e){ toast('Erro em '+firstName(a.nome)+': '+e.message); }
     }
@@ -1869,7 +1884,7 @@ function onAlocDown(e){
   const up=(ev)=>{
     document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up);
     document.body.style.cursor=''; if(ghost) ghost.remove(); clearDropHL(); ch.classList.remove('drag-src');
-    if(!moved){ if(data.src==='avail') allocate(data.osid,data.mat); return; }
+    if(!moved){ if(data.src==='avail') allocate(data.osid,data.mat); else if(data.src==='alloc') openAlocDet(data.osid,data.mat); return; }
     const z=dropZoneAt(ev.clientX,ev.clientY); if(!z) return;
     if(data.src==='avail' && z.dataset.drop==='alloc' && z.dataset.osid===data.osid) allocate(data.osid,data.mat);
     else if(data.src==='alloc' && z.dataset.drop==='avail' && z.dataset.osid===data.osid) removeAloc(data.osid,data.mat);
@@ -1888,6 +1903,35 @@ function allocate(osid,mat){
   if(isLateOS(o)){ const ap=apptForOS(o); toast('⚠️ '+firstName(f.nome)+' alocado APÓS o início da OS ('+ap.dia+' '+ap.janela.split('–')[0].trim()+'). Registrado com alerta.'); }
   else toast('✓ Alocação criada: '+firstName(f.nome)+' → '+o.id);
 }
+/* drill-down da alocação (toque na pílula de quem já está alocado) */
+let _alocDet=null;
+function openAlocDet(osid,mat){
+  const o=ordens.find(x=>x.id===osid); if(!o) return;
+  const a=o.alocacoes.find(x=>x.matricula===mat); if(!a) return;
+  _alocDet={o,a};
+  const ap=apptForOS(o), f=funcByMat(mat)||{};
+  let asInfo='— (sem vínculo de AS)';
+  const s=(o._sols||[]).find(s=>(s.itens||[]).some(i=>i.id===a._itemAS));
+  if(s) asInfo='AS '+(s.numeroAS||s.name)+(s.validadeInicio?' · validade '+fmtDataBR(s.validadeInicio)+(s.tipoValidade==='Período'?' a '+fmtDataBR(s.validadeFim):''):'');
+  else if((o._autorizados||{})[mat]) asInfo='AS '+((o._autorizados[mat].numeroAS)||'—');
+  const rows=[
+    ['Nº da alocação', a._num || (a.confirmada?'—':'pendente (ainda não gravada)')],
+    ['Status', a.confirmada?'✅ Confirmada'+(SF_LIVE?' · gravada no Salesforce':''):'🕓 Pendente — confirme no rodapé do board'],
+    ['Recurso', a.nome],
+    ['Função', a.papel||f.cargo||'—'],
+    ['OS', o.id+(o.cli?' · '+o.cli:'')],
+    ['Data · janela', ap?(ap.dia+' · '+ap.janela):'—'],
+    ['Autorização (AS)', asInfo]
+  ];
+  if(a._inicio) rows.push(['Início da alocação', fmtDH(a._inicio)]);
+  if(a._termino) rows.push(['Término da alocação', fmtDH(a._termino)]);
+  if(a._presenca) rows.push(['Presença', a._presenca]);
+  document.getElementById('alocDetSub').textContent=(a._num?a._num+' · ':'')+a.nome;
+  document.getElementById('alocDetBody').innerHTML=rows.map(r=>`<div class="det-row"><span class="det-k">${r[0]}</span><span class="det-v">${r[1]}</span></div>`).join('');
+  document.getElementById('alocDetModal').classList.add('show');
+}
+function closeAlocDet(){ document.getElementById('alocDetModal').classList.remove('show'); }
+function alocDetRemover(){ if(!_alocDet) return; const d=_alocDet; _alocDet=null; closeAlocDet(); removeAloc(d.o.id,d.a.matricula); }
 function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
   const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
@@ -2443,7 +2487,7 @@ async function beHydrate(){
         plano:wo.descricao||wo.objeto||'Exaustão · MPP',
         alocacoes:[], grupos, separacao:{id:'SEP-'+(wo.id||''),status:'Sem materiais',materiais} };
       buildItems(o);
-      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _itemAS:a.itemAutorizacaoId||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
       o.notas=[];
