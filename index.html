@@ -367,8 +367,9 @@
   #scr-login.active{display:flex}
   .login-card{background:#fff;border-radius:16px;padding:28px 24px 22px;width:100%;max-width:344px;box-shadow:0 18px 50px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center}
   .login-logo{width:250px;max-width:88%;height:auto;margin:2px 0 10px}
-  .login-app{font-size:17px;font-weight:800;color:var(--txt);letter-spacing:.2px}
-  .login-sub{color:var(--weak);font-size:12.5px;margin:3px 0 18px}
+  .login-fs{display:flex;align-items:center;gap:10px;margin:4px 0 18px}
+  .login-fs-t{font-size:19px;font-weight:900;color:#032d60;letter-spacing:1.5px;line-height:1}
+  .login-fs-t span{color:#0176D3}
   .login-card #gbtn{display:flex;justify-content:center;width:100%;min-height:44px}
   .login-div{display:flex;align-items:center;gap:10px;width:100%;color:var(--weaker);font-size:11.5px;margin:15px 0 13px;white-space:nowrap}
   .login-div::before,.login-div::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -441,15 +442,31 @@
   <section class="login screen" id="scr-login">
     <div class="login-card">
       <img class="login-logo" src="logo-exaustech.png" alt="Exaustech — Ar condicionado, Exaustão e Ventilação">
-      <div class="login-app">Field Service</div>
-      <div class="login-sub">Ordens de serviço · Manutenção em campo</div>
+      <div class="login-fs" aria-label="Field Service">
+        <svg viewBox="0 0 44 44" width="40" height="40" role="img">
+          <defs><linearGradient id="fsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0176D3"/><stop offset="1" stop-color="#032d60"/></linearGradient></defs>
+          <rect x="1" y="1" width="42" height="42" rx="11" fill="url(#fsg)"/>
+          <g fill="#fff">
+            <path d="M22 22c0-7.2 3.4-11.6 9.6-11.9 1 0 1.6 1.1 1 1.9-2.3 3.1-3.8 6.2-7.4 8.4-1.1.7-2.1 1-3.2 1.6z"/>
+            <path d="M22 22c6.2 3.6 7.9 8.9 4.9 14.3-.5.9-1.8.9-2.2-.1-1.5-3.6-3.4-6.5-3.6-10.7-.1-1.3.4-2.3.9-3.5z"/>
+            <path d="M22 22c-6.2 3.6-11.6 2.7-14.9-2.5-.6-.9.1-2 1.2-1.9 3.9.4 7.3.3 10.9 2.4 1.1.7 1.8 1.4 2.8 2z"/>
+            <circle cx="22" cy="22" r="3.1"/>
+          </g>
+        </svg>
+        <div class="login-fs-t">FIELD <span>SERVICE</span></div>
+      </div>
       <div style="width:100%;text-align:left;font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px">Conta Google corporativa (@exaustech.com.br)</div>
       <div id="gbtn"></div>
-      <div class="login-div">ou com usuário e senha do app</div>
-      <div class="field"><label>Usuário</label><input type="text" id="loginUser" placeholder="seu usuário" autocomplete="username"></div>
-      <div class="field"><label>Senha</label><input type="password" id="loginPass" placeholder="sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')beLoginLocal()"></div>
-      <button class="btn btn-brand" onclick="beLoginLocal()">Entrar</button>
-      <small id="loginMsg">Acesso restrito a colaboradores Exaustech</small>
+      <div class="login-div">ou receba um link de acesso</div>
+      <div class="field"><label>Seu e-mail</label><input type="email" id="loginEmail" placeholder="nome@exaustech.com.br" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')beMagicLink()"></div>
+      <button class="btn btn-brand" onclick="beMagicLink()">📩 Enviar link de acesso</button>
+      <div id="loginDev" style="display:none;width:100%">
+        <div class="login-div">acesso técnico (dev)</div>
+        <div class="field"><label>Usuário</label><input type="text" id="loginUser" placeholder="seu usuário" autocomplete="username"></div>
+        <div class="field"><label>Senha</label><input type="password" id="loginPass" placeholder="sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')beLoginLocal()"></div>
+        <button class="btn btn-neutral" style="width:100%" onclick="beLoginLocal()">Entrar</button>
+      </div>
+      <small id="loginMsg"></small>
     </div>
   </section>
 
@@ -3206,6 +3223,26 @@ async function beDoLogin(payload){
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
 function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()) return markInvalid('loginUser','Informe o usuário'); if(!p) return markInvalid('loginPass','Informe a senha'); beDoLogin({username:u.trim(),password:p}); }
+/* ===== LINK MÁGICO (método oficial p/ quem não tem Google corporativo) ===== */
+async function beMagicLink(){
+  const el=document.getElementById('loginEmail'); const email=(el&&el.value||'').trim().toLowerCase();
+  if(!email||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return markInvalid('loginEmail','Informe um e-mail válido');
+  const m=document.getElementById('loginMsg'); if(m)m.textContent='Enviando link…';
+  try{
+    const r=await fetch(BACKEND+'/login/link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ if(m)m.textContent=j.error||'Não foi possível enviar'; toast('⚠️ '+(j.error||'Não foi possível enviar')); return; }
+    if(m)m.textContent='Se o e-mail estiver cadastrado, o link chega em instantes. Abra-o neste aparelho.';
+    toast('✅ Link enviado — confira seu e-mail');
+  }catch(e){ if(m)m.textContent='Erro de conexão'; toast('Erro de conexão: '+e.message); }
+}
+/* link aberto: troca o token do e-mail por sessão */
+(function(){ try{
+  const p=new URLSearchParams(location.search);
+  if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
+  const mlk=p.get('mlk');
+  if(mlk){ history.replaceState(null,'',location.pathname); setTimeout(()=>beDoLogin({magicToken:mlk}),200); }
+}catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
 function beLogout(){ ['be_tok','be_name','be_rid'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
