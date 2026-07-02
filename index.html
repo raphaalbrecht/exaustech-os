@@ -270,6 +270,9 @@
   .as-row .as-nm{flex:1;font-size:13px;font-weight:600}
   .as-row .as-nm small{display:block;color:var(--weak,#747474);font-weight:400}
   .as-row .as-rec{color:#8e1b1b;font-weight:700}
+  .as-row .as-tag{color:#1e6b34;font-weight:700}
+  .as-row.rec .as-tag{color:#8e1b1b}
+  .as-row.rec{background:#fdecec;border-radius:7px}
   .nolead-tag{font-size:9.5px;font-weight:800;color:#fff;background:#e5484d;border-radius:9px;padding:2px 8px;white-space:nowrap}
   .ph-img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
   .pdf-pick{background:var(--brand-l);border:1px solid #cfe2f7;border-radius:8px;padding:9px 11px;margin:2px 0 10px}
@@ -573,7 +576,7 @@
     <div class="field"><label>Tipo de validade</label><select id="asConfTipo" onchange="asConfTipoChg()"><option>Data</option><option>Período</option></select></div>
     <div class="field"><label id="asConfL1">Data autorizada</label><input type="date" id="asConfIni"></div>
     <div class="field" id="asConfFimWrap" style="display:none"><label>Fim do período</label><input type="date" id="asConfFim"></div>
-    <div class="modal-sub" style="margin-top:6px">Marque apenas quem o shopping <b>recusou</b> — os demais serão autorizados.</div>
+    <div class="modal-sub" style="margin-top:6px">Todos vêm marcados como <b>autorizados</b> ✅ — <b>desmarque</b> quem o shopping recusou.</div>
     <div id="asConfList" class="as-list"></div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeASModal('asConfModal')">Cancelar</button>
@@ -1862,7 +1865,15 @@ function removeAloc(osid,mat){
 
 /* ===== Autorização de Serviço (AS): solicitar à loja e lançar o retorno ===== */
 function fmtDataBR(d){ if(!d) return '—'; const p=String(d).slice(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d; }
-function asSolAtual(o){ const s=(o._sols||[]); return s.length? s[s.length-1] : null; }
+function asSolAtual(o){
+  const s=(o._sols||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  if(!s.length) return null;
+  const pend=s.filter(x=>x.status==='Enviada'||x.status==='Rascunho');   /* precisa de ação: lançar retorno */
+  if(pend.length) return pend[pend.length-1];
+  const conf=s.filter(x=>x.status==='Confirmada'||x.status==='Parcial'); /* vigente */
+  if(conf.length) return conf[conf.length-1];
+  return s[s.length-1]; /* só recusadas/expiradas */
+}
 function asLaneHTML(o){
   const s=asSolAtual(o), pode=canAS(ROLE);
   if(!s) return `<div class="as-box as-none"><span>🛡️ Sem Autorização de Serviço${pode?'':' — solicite ao Coordenador'}</span>${pode?`<button class="lane-act as-act" onclick="openSolicitarAS('${o.id}')">Solicitar autorização</button>`:''}</div>`;
@@ -1922,7 +1933,7 @@ function openConfirmarAS(osid){
   document.getElementById('asConfIni').value=s.validadeInicio||o._dataISO||'';
   document.getElementById('asConfFim').value=s.validadeFim||'';
   document.getElementById('asConfList').innerHTML=(s.itens||[]).map(i=>
-    `<label class="as-row"><input type="checkbox" value="${i.id}"><span class="as-nm">${i.nome||'(recurso)'}<small>${i.habilidade||''}${i.cpf?' · CPF '+i.cpf:''}</small></span><small class="as-rec">recusar</small></label>`).join('');
+    `<label class="as-row"><input type="checkbox" value="${i.id}" checked onchange="const t=this.closest('label').querySelector('.as-tag');t.textContent=this.checked?'autorizado':'RECUSADO';this.closest('label').classList.toggle('rec',!this.checked)"><span class="as-nm">${i.nome||'(recurso)'}<small>${i.habilidade||''}${i.cpf?' · CPF '+i.cpf:''}</small></span><small class="as-tag">autorizado</small></label>`).join('');
   document.getElementById('asConfModal').classList.add('show');
 }
 function asConfTipoChg(){
@@ -1939,7 +1950,9 @@ async function submitConfirmarAS(){
   if(!num){ toast('Informe o nº da AS devolvido pelo shopping'); return; }
   if(!ini){ toast('Informe a data de validade'); return; }
   if(tipo==='Período' && !fim){ toast('Informe o fim do período'); return; }
-  const recusados=[...document.querySelectorAll('#asConfList input:checked')].map(i=>i.value);
+  const recusados=[...document.querySelectorAll('#asConfList input:not(:checked)')].map(i=>i.value);
+  const total=document.querySelectorAll('#asConfList input').length;
+  if(recusados.length===total && !window.confirm('Nenhum recurso ficou marcado — a solicitação inteira será RECUSADA. Continuar?')) return;
   toast('Confirmando…');
   try{
     const r=await bePatch('/solicitacoes/'+s.id+'/confirmar',{numeroAS:num, tipoValidade:tipo, validadeInicio:ini, validadeFim:fim||undefined, recusados});
