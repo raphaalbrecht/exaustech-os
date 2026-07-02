@@ -24,10 +24,10 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;font-family:'Salesforce Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#c5cbd2;color:var(--txt)}
-  .phone{max-width:420px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,.25)}
-  @media(min-width:480px){.phone{margin:18px auto;min-height:calc(100vh - 36px);border-radius:22px;overflow:hidden}}
-  .phone.fullbleed{max-width:none;margin:0;min-height:100vh;border-radius:0;box-shadow:none}
-  header{background:var(--brand);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30}
+  .phone{max-width:420px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,.25);overflow:hidden}
+  @media(min-width:480px){.phone{margin:18px auto;height:calc(100vh - 36px);border-radius:22px}}
+  .phone.fullbleed{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
+  header{background:var(--brand);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0}
   .brandmark{display:flex;align-items:center;gap:8px;min-width:0}
   .cloud{width:26px;height:26px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .cloud svg{width:17px;height:17px;display:block}
@@ -346,13 +346,13 @@
   .btn-succ{background:var(--succ);color:#fff}
   .btn-neutral{background:#fff;border:1px solid var(--border2);color:var(--brand)}
   .footer-bar{position:sticky;bottom:0;left:0;width:100%;padding:11px 14px;background:#fff;border-top:1px solid var(--border);z-index:20}
-  .botnav{display:flex;background:#fff;border-top:1px solid var(--border)}
+  .botnav{display:flex;background:#fff;border-top:1px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0)}
   .botnav button{flex:1;background:none;border:none;padding:8px 4px 7px;cursor:pointer;color:var(--weaker);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
   .botnav button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .botnav button.on{color:var(--brand)}
   .botnav .nbadge{position:absolute;top:4px;right:50%;margin-right:-22px;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   #bellBadge{position:absolute;top:-3px;right:-3px;margin:0;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
-  .login{display:none;flex-direction:column;justify-content:center;align-items:center;padding:24px;text-align:center;min-height:100vh;background:linear-gradient(160deg,var(--brand),var(--brand-dk))}
+  .login{display:none;flex-direction:column;justify-content:center;align-items:center;padding:24px;text-align:center;flex:1;min-height:0;overflow-y:auto;background:linear-gradient(160deg,var(--brand),var(--brand-dk))}
   #scr-login.active{display:flex}
   .login-card{background:#fff;border-radius:16px;padding:28px 24px 22px;width:100%;max-width:344px;box-shadow:0 18px 50px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center}
   .login-logo{width:250px;max-width:88%;height:auto;margin:2px 0 10px}
