@@ -1209,6 +1209,7 @@ function equipHistPage(ii){
 }
 function itemForm(eq,ii){
   const lk=repLocked();
+  sfRestoreFotos(eq,ii); /* repõe fotos já enviadas ao abrir a página do equipamento */
   const c=document.createElement('div');
   const photo=(side,filled,tipo)=>{ const img=tipo==='antes'?eq.fotoAntesImg:eq.fotoDepoisImg; return `<div class="photo ${filled?'filled':''}${lk?' locked':''}" id="ph-${side}-${ii}" ${lk?'':`onclick="capturar(${ii},'${tipo}')"`}>${filled?(img?`<img src="${img}" class="ph-img"><span class="ph-cap">${tipo.toUpperCase()}</span>`:`<span class="ph-cap">${tipo.toUpperCase()}</span>`):`<div class="ph-ico">${svgI('camera')}</div><div class="ph-txt">${tipo==='antes'?'ANTES':'DEPOIS'}</div>`}</div>`; };
   const extras=eq.fotos||[];
@@ -1220,7 +1221,7 @@ function itemForm(eq,ii){
     <div class="label">Fotos antes / depois</div>
     <div class="photos">${photo('a',eq.fotoAntes,'antes')}${photo('d',eq.fotoDepois,'depois')}</div>
     ${extrasHTML}
-    ${(SF_LIVE && !lk) ? `<div class="label">Vídeo do serviço${eq._temVideo?' · <span style="color:#2e844a">enviado ✓</span>':''}</div><button class="btn btn-neutral" style="width:100%;margin-bottom:6px" onclick="capturarVideo(${ii})">🎥 Gravar / anexar vídeo (Drive)</button>` : ''}
+    ${(SF_LIVE && !lk) ? `<div class="label">Vídeo do serviço${eq._temVideo?' · <span style="color:#2e844a">enviado ✓</span>':''}</div>${eq._videoDrive?`<button class="btn btn-neutral" style="width:100%;margin-bottom:6px" onclick="verImagem('${eq._videoDrive}','Vídeo — ${_esc(eq.tag).replace(/'/g,'’')}')">▶️ Ver vídeo</button>`:''}<button class="btn btn-neutral" style="width:100%;margin-bottom:6px" onclick="capturarVideo(${ii})">🎥 Gravar / anexar vídeo (Drive)</button>` : ''}
     ${pdfPick}
     <div class="label">Checklist</div>
     <div class="chk-hint">Marque cada item: OK · Não conforme · N/E (não executado)</div>
@@ -1587,7 +1588,7 @@ function assinBody(){
     const info=`<div class="sig-av">${iniName(a.nome)}</div><div class="sig-info sig-click" onclick="openAlocDet('${o.id}','${a.matricula}')"><div class="sig-name">${a.nome} <span class="sig-drill">›</span></div>${cpf?`<div class="sig-role">CPF ${cpf}</div>`:''}<div class="sig-role">${a.papel||''}${a._num?' · '+a._num:''}</div>`;
     const aSigned=a.assinatura||a._sigRec;
     c.innerHTML=aSigned
-      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm||'—'}</div></div>${a.assinatura?`<img class="sig-thumb" src="${a.assinatura}">`:(a._sigUrl?`<a class="sig-btn re" href="${a._sigUrl}" target="_blank">📄 ver</a>`:'')}${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
+      ? info+`<div class="sig-status ok">✓ Assinado às ${a.assinadoEm||'—'}</div></div>${a.assinatura?`<img class="sig-thumb" src="${a.assinatura}">`:(a._sigDrive?`<button class="sig-btn re" onclick="verImagem('${a._sigDrive}','Assinatura — ${_esc(a.nome).replace(/'/g,'’')}')">📄 ver</button>`:(a._sigUrl?`<a class="sig-btn re" href="${a._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<button class="sig-btn re" onclick="openSig(${ai})">Refazer</button>`}`
       : info+`<div class="sig-status pend">● Pendente</div></div>${lk?'':`<button class="sig-btn" onclick="openSig(${ai})">Assinar</button>`}`;
     wrap.appendChild(c);
   });
@@ -1597,7 +1598,7 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=(cs.assinatura||cs._sigRec)
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm||'—'}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div>${cs.assinatura?`<img class="sig-thumb" src="${cs.assinatura}">`:(cs._sigUrl?`<a class="sig-btn re" href="${cs._sigUrl}" target="_blank">📄 ver</a>`:'')}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
+    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm||'—'}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div>${cs.assinatura?`<img class="sig-thumb" src="${cs.assinatura}">`:(cs._sigDrive?`<button class="sig-btn re" onclick="verImagem('${cs._sigDrive}','Aceite — ${_esc(cs.nome||'Cliente').replace(/'/g,'’')}')">📄 ver</button>`:(cs._sigUrl?`<a class="sig-btn re" href="${cs._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
     : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
@@ -1895,7 +1896,7 @@ function saveSig(){
       bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
-        .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;toast('✅ Aceite gravado no Salesforce'); } })
+        .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;cs._sigDrive=r.driveId||null;toast('✅ Aceite gravado no Salesforce'); } })
         .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
     }
     closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
@@ -1909,7 +1910,7 @@ function saveSig(){
     const fc=funcByMat(a.matricula)||{};
     beUploadAssinatura(dataURLtoBlob(a.assinatura),{osId:curOS._wo,tipo:'Equipe',alocId:a._ar||'',nome:a.nome,cpf:fc.cpf||'',cargo:a.papel||'',
       declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(a.meta&&a.meta.t)||new Date().toISOString(),geo:_geoStr(a.meta),dispositivo:(a.meta&&a.meta.dispositivo)||''})
-      .then(r=>{ if(r&&r._queued){ toast('📡 Assinatura salva no aparelho — sincroniza com sinal'); } else { a._sigId=r.id;a._sigUrl=r.driveUrl;toast('✅ Assinatura gravada no Salesforce'); } })
+      .then(r=>{ if(r&&r._queued){ toast('📡 Assinatura salva no aparelho — sincroniza com sinal'); } else { a._sigId=r.id;a._sigUrl=r.driveUrl;a._sigDrive=r.driveId||null;toast('✅ Assinatura gravada no Salesforce'); } })
       .catch(e=>toast('⚠️ Assinatura salva no aparelho — falha ao gravar: '+e.message));
   }
   closeSig(); if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
@@ -2732,7 +2733,8 @@ async function gMaybeUploadFoto(eq,tipo){
   const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_'+(tipo==='antes'?'ANTES':'DEPOIS')+'_'+stamp+'.jpg';
   try{ toast('☁️ Enviando foto…');
     const r=await beUploadMidia(dataURLtoBlob(img), fn, tipo==='antes'?'Foto Antes':'Foto Depois', {osId:curOS._wo, equip:eq.tag});
-    if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal'); else bigOK('Foto salva na OS');
+    if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+    else { if(tipo==='antes') eq._fotoAntesDrive=r.driveId||null; else eq._fotoDepoisDrive=r.driveId||null; bigOK('Foto salva na OS'); }
   }catch(e){ toast('Falha ao enviar foto: '+e.message); }
 }
 async function gMaybeUploadSig(a){
@@ -2754,7 +2756,7 @@ function capturarVideo(ii){
     const fn=(curOS.id||'OS')+'_'+(eq.tag||'equip')+'_VIDEO_'+stamp+'.'+ext;
     try{ toast('☁️ Enviando vídeo…');
       const r=await beUploadMidia(f, fn, 'Vídeo', {osId:curOS._wo, equip:eq.tag});
-      eq._temVideo=true; showSub(); if(r&&r._queued) toast('📡 Vídeo salvo no aparelho — envia quando houver sinal'); else bigOK('Vídeo salvo na OS');
+      eq._temVideo=true; if(r&&!r._queued) eq._videoDrive=r.driveId||null; showSub(); if(r&&r._queued) toast('📡 Vídeo salvo no aparelho — envia quando houver sinal'); else bigOK('Vídeo salvo na OS');
     }catch(e){ toast('Falha no vídeo: '+e.message); }
   };
   inp.click();
@@ -2876,6 +2878,43 @@ async function beUploadAssinatura(blob, campos, noQ){
   }
 }
 function _geoStr(m){ return (m&&m.geo)? (m.geo.lat.toFixed(5)+','+m.geo.lng.toFixed(5)+(m.geo.acc?('±'+Math.round(m.geo.acc)+'m'):'')) : ''; }
+/* ===== mídias do Drive DENTRO do app (proxy autenticado /arquivos/:id — sem depender de permissão no Drive) ===== */
+const _arqCache={};
+async function beArquivoDataURL(driveId){ if(_arqCache[driveId]) return _arqCache[driveId];
+  const r=await fetch(BACKEND+'/arquivos/'+driveId,{headers:{Authorization:'Bearer '+beTok()}});
+  if(!r.ok) throw new Error('Erro '+r.status);
+  const bl=await r.blob();
+  const du=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(bl); });
+  _arqCache[driveId]=du; return du; }
+/* visualizador embutido (pop-up): imagem ou vídeo, sem sair do app */
+async function verImagem(driveId,titulo){
+  let m=document.getElementById('imgViewModal');
+  if(!m){ m=document.createElement('div'); m.id='imgViewModal';
+    m.style.cssText='position:fixed;inset:0;z-index:100003;display:none;align-items:center;justify-content:center;background:rgba(4,45,96,.55);padding:18px';
+    m.innerHTML='<div style="background:#fff;border-radius:16px;max-width:min(92vw,560px);max-height:86dvh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid #e5e5e5"><div id="imgViewTit" style="font:700 14px system-ui;color:#032d60"></div><button onclick="fecharImagem()" style="border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#444">×</button></div><div id="imgViewBody" style="padding:14px;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:120px"></div></div>';
+    m.onclick=e=>{ if(e.target===m) fecharImagem(); };
+    document.body.appendChild(m); }
+  document.getElementById('imgViewTit').textContent=titulo||'Arquivo';
+  const body=document.getElementById('imgViewBody'); body.innerHTML='<div style="font:600 13px system-ui;color:#666">⏳ Carregando…</div>';
+  m.style.display='flex';
+  try{
+    const r=await fetch(BACKEND+'/arquivos/'+driveId,{headers:{Authorization:'Bearer '+beTok()}});
+    if(!r.ok) throw new Error('Erro '+r.status);
+    const bl=await r.blob(); const url=URL.createObjectURL(bl);
+    body.innerHTML=(bl.type||'').startsWith('video')
+      ? '<video src="'+url+'" controls playsinline style="max-width:100%;max-height:70dvh;border-radius:8px"></video>'
+      : '<img src="'+url+'" style="max-width:100%;max-height:70dvh;border-radius:8px">';
+  }catch(e){ body.innerHTML='<div style="font:600 13px system-ui;color:#ba0517">Não foi possível carregar: '+_esc(e.message)+'</div>'; }
+}
+function fecharImagem(){ const m=document.getElementById('imgViewModal'); if(m) m.style.display='none'; }
+/* repõe as fotos antes/depois do equipamento sob demanda (referência gravada no hydrate) */
+function sfRestoreFotos(eq,ii){
+  [['_fotoAntesDrive','fotoAntesImg'],['_fotoDepoisDrive','fotoDepoisImg']].forEach(p=>{ const dk=p[0], ik=p[1];
+    if(eq[dk] && !eq[ik] && !eq['_carregando'+dk]){ eq['_carregando'+dk]=true;
+      beArquivoDataURL(eq[dk])
+        .then(du=>{ eq[ik]=du; if(document.getElementById('ph-a-'+ii)) showSub(); })
+        .catch(()=>{ eq['_carregando'+dk]=false; }); } });
+}
 async function beUploadMidia(blob, filename, tipo, meta, noQ){
   try{
     const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
@@ -2932,15 +2971,20 @@ async function beHydrate(){
       buildItems(o);
       /* restaura o checklist real gravado na OS */
       o._itens.forEach(eq=>{ if(eq._map){ eq.checklist.forEach(lbl=>{ const st=chkEstado((wo.checklist||{})[eq._map[lbl]]); if(st) eq.checks[lbl]=st; }); } });
+      /* restaura fotos/vídeos já enviados (referência ao Drive; imagem carrega sob demanda ao abrir o item) */
+      (wo.midias||[]).forEach(md=>{ const eq=o._itens.find(e=>e.tag===md.equip); if(!eq||!md.driveId) return;
+        if(md.tipo==='Foto Antes'){ eq.fotoAntes=true; eq._fotoAntesDrive=md.driveId; }
+        else if(md.tipo==='Foto Depois'){ eq.fotoDepois=true; eq._fotoDepoisDrive=md.driveId; }
+        else if(md.tipo==='Vídeo'){ eq._temVideo=true; eq._videoDrive=md.driveId; } });
       o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
       o.alocacoes.forEach(a=>{ const s=sigs.filter(x=>x.tipo==='Equipe'&&x.alocId===a._ar).pop();
-        if(s){ a._sigRec=true; a._sigId=s.id; a._sigUrl=s.driveUrl||null; a.assinadoEm=s.assinadoEm?fmtDH(s.assinadoEm):''; } });
+        if(s){ a._sigRec=true; a._sigId=s.id; a._sigUrl=s.driveUrl||null; a._sigDrive=s.driveId||null; a.assinadoEm=s.assinadoEm?fmtDH(s.assinadoEm):''; } });
       const sc=sigs.filter(x=>x.tipo==='Cliente').pop();
       const sj=sigs.filter(x=>x.tipo==='Cliente — sem aceite').pop();
-      if(sc) o.csig={nome:sc.nome||'',cargo:sc.cargo||'',cpf:sc.cpf||'',obs:sc.obs||'',assinatura:null,_sigRec:true,_sigId:sc.id,_sigUrl:sc.driveUrl||null,assinadoEm:sc.assinadoEm?fmtDH(sc.assinadoEm):''};
+      if(sc) o.csig={nome:sc.nome||'',cargo:sc.cargo||'',cpf:sc.cpf||'',obs:sc.obs||'',assinatura:null,_sigRec:true,_sigId:sc.id,_sigUrl:sc.driveUrl||null,_sigDrive:sc.driveId||null,assinadoEm:sc.assinadoEm?fmtDH(sc.assinadoEm):''};
       else if(sj) o.csig={nome:'',cargo:'',cpf:'',obs:'',assinatura:null,assinadoEm:null,justificativa:sj.justificativa||'',justificadoPor:sj.justificadoPor||''};
       o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
       o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
