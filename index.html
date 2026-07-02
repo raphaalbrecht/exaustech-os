@@ -576,9 +576,9 @@
     <div class="pad-line">Assine no campo acima</div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-neutral" onclick="clearSig()">Limpar</button>
+      <button class="btn btn-neutral" id="sigBtnLimpar" onclick="clearSig()">Limpar</button>
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
-      <button class="btn btn-brand" onclick="saveSig()">Confirmar</button>
+      <button class="btn btn-brand" id="sigBtnConfirm" onclick="saveSig()">Confirmar</button>
     </div></div></div>
 
   <!-- MODAL DESFECHO -->
@@ -1688,7 +1688,7 @@ function _sigPrep(){
 function openSig(ai){
   sigTarget=ai; const a=curOS.alocacoes[ai];
   document.getElementById('sigCliFields').style.display='none';
-  document.getElementById('sigPadWrap').style.display='';
+  sigSetPad(true);
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.equipe+'”</b><small>'+SIG_LEGAL.base+'</small>';
   const fc=funcByMat(a.matricula);
   document.getElementById('sigWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
@@ -1700,13 +1700,18 @@ function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\
   let s=0; for(let i=0;i<9;i++)s+=+c[i]*(10-i); let d=11-s%11; if(d>9)d=0; if(d!==+c[9])return false;
   s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
-function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,3); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+function sigSetPad(show){ document.getElementById('sigPadWrap').style.display=show?'':'none'; document.getElementById('sigBtnLimpar').style.display=show?'':'none'; document.getElementById('sigBtnConfirm').style.display=show?'':'none'; }
 let _recAss=[];
 /* seletor: 1ª opção = cadastrar novo; demais = pré-cadastrados da unidade (nome completo) */
 function sigCliSelChange(){
   const v=document.getElementById('sigCliSel').value;
   const resumo=document.getElementById('sigCliResumo');
   const fN=document.getElementById('sigFNome'), fC=document.getElementById('sigFCPF'), fG=document.getElementById('sigFCargo');
+  if(v===''){ /* nada escolhido: o dropdown é o único elemento na tela */
+    resumo.style.display='none'; fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
+    sigSetPad(false); return;
+  }
   if(v==='new'){
     resumo.style.display='none'; fN.style.display='';
     sigCliProg(); return;
@@ -1718,7 +1723,7 @@ function sigCliSelChange(){
   fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
   resumo.style.display='';
   resumo.innerHTML=`<b>${r.nome}</b><small>CPF ${r.cpf} · ${r.cargo||'—'}</small><a href="#" onclick="sigCliEditar();return false">editar dados</a>`;
-  document.getElementById('sigPadWrap').style.display='';
+  sigSetPad(true);
 }
 function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; document.getElementById('sigFCPF').style.display=''; document.getElementById('sigFCargo').style.display=''; sigCliSelChange(); }
 /* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
@@ -1728,7 +1733,7 @@ function sigCliProg(){
   const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
   document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
   document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
-  document.getElementById('sigPadWrap').style.display = cpfOk ? '' : 'none';
+  sigSetPad(cpfOk);
 }
 function openSigCliente(){
   sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null});
@@ -1738,10 +1743,10 @@ function openSigCliente(){
   document.getElementById('sigCliCargo').value=cs.cargo||'';
   _recAss=assinantesDaLoja(curOS.cli||'');
   const sel=document.getElementById('sigCliSel');
-  sel.innerHTML='<option value="new">➕ Cadastrar novo assinante</option>'+_recAss.map((r,i)=>`<option value="${i}">${r.nome}${r.cargo?' — '+r.cargo:''}</option>`).join('');
-  /* se quem assinou antes nesta OS está na base, pré-seleciona; senão abre em "novo" */
-  const idx=_recAss.findIndex(r=>cs.cpf && r.cpf===cs.cpf);
-  sel.value = idx>=0 ? String(idx) : 'new';
+  sel.innerHTML='<option value="" disabled selected>Escolha uma opção…</option>'
+    +'<option value="new">➕ Cadastrar novo assinante</option>'
+    +_recAss.slice(0,5).map((r,i)=>`<option value="${i}">${r.nome}${r.cargo?' — '+r.cargo:''}</option>`).join('');
+  sel.value='';
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('sigWho').textContent='Cliente · aceite do serviço · '+(curOS.cli||'');
   sigCliSelChange();
@@ -1760,6 +1765,7 @@ function saveSig(){
   const cv=document.getElementById('sigPad');
   const now=new Date(); const hh=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   if(sigTarget==='cli'){
+    if(document.getElementById('sigCliSel').value==='') return markInvalid('sigCliSel','Escolha uma opção');
     const nome=document.getElementById('sigCliNome').value.trim();
     if(!nome) return markInvalid('sigCliNome','Informe o nome de quem assina pelo cliente');
     const cpf=document.getElementById('sigCliCPF').value.trim();
