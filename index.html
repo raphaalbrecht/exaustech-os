@@ -363,23 +363,29 @@
   .botnav button.on{color:var(--brand)}
   .botnav .nbadge{position:absolute;top:4px;right:50%;margin-right:-22px;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   #bellBadge{position:absolute;top:-3px;right:-3px;margin:0;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
-  .login{display:none;flex-direction:column;justify-content:center;align-items:center;padding:24px;text-align:center;flex:1;min-height:0;overflow-y:auto;background:linear-gradient(160deg,var(--brand),var(--brand-dk))}
+  /* ---- LOGIN — design "1a Ventilador + pino de localização" (Claude Design do Raphael) ---- */
+  .login{display:none;flex-direction:column;justify-content:center;align-items:center;padding:24px;text-align:center;flex:1;min-height:0;overflow-y:auto;background:#fff}
   #scr-login.active{display:flex}
-  .login-card{background:#fff;border-radius:16px;padding:28px 24px 22px;width:100%;max-width:344px;box-shadow:0 18px 50px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center}
-  .login-logo{width:250px;max-width:88%;height:auto;margin:2px 0 10px}
-  .login-fs{display:flex;align-items:center;gap:10px;margin:4px 0 18px}
-  .login-fs-t{font-size:19px;font-weight:900;color:#032d60;letter-spacing:1.5px;line-height:1}
-  .login-fs-t span{color:#0176D3}
+  .login-card{background:#fff;padding:0;width:100%;max-width:330px;display:flex;flex-direction:column;align-items:center}
+  .login-mark{position:relative;width:110px;height:110px;margin:2px 0 24px}
+  .login-mark img{width:110px;height:110px;display:block}
+  .login-pin{position:absolute;right:-9px;bottom:-5px;width:42px;height:42px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(40,60,80,.18)}
+  .login-word{font:600 32px/1 'Quicksand',sans-serif;letter-spacing:-.5px;color:#58595B}
+  .login-word span{color:#4183B4}
+  .login-sub{font:500 14px 'Barlow Semi Condensed',sans-serif;color:#9aa1a8;letter-spacing:3px;text-transform:uppercase;margin:9px 0 36px}
   .login-card #gbtn{display:flex;justify-content:center;width:100%;min-height:44px}
-  .login-div{display:flex;align-items:center;gap:10px;width:100%;color:var(--weaker);font-size:11.5px;margin:15px 0 13px;white-space:nowrap}
-  .login-div::before,.login-div::after{content:'';flex:1;height:1px;background:var(--border)}
-  .login-card .field{width:100%;text-align:left;margin-bottom:12px}
-  .login-card .field label{color:var(--txt);font-size:12px;font-weight:600;display:block;margin-bottom:5px}
-  .login-card .field input{width:100%;border:1px solid var(--border2);border-radius:8px;padding:11px 12px;font-size:14px;font-family:inherit;background:#fff;color:var(--txt);box-sizing:border-box}
-  .login-card .field input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-l)}
-  .login-card .btn{margin-top:4px;border-radius:8px}
-  .login-card small{color:var(--weaker);margin-top:15px;font-size:11px}
-  .login-card small a{color:var(--brand);font-weight:600}
+  .login-div{display:flex;align-items:center;gap:12px;width:100%;color:#9aa1a8;font-size:12px;margin:16px 0 14px;white-space:nowrap;font-family:'Barlow Semi Condensed',sans-serif}
+  .login-div::before,.login-div::after{content:'';flex:1;height:1px;background:#e3e7ea}
+  .login-card .field{width:100%;text-align:left;margin-bottom:14px}
+  .login-card .field label{display:none}
+  .login-card .field input{width:100%;min-height:52px;border:1.5px solid #d7dce0;border-radius:12px;padding:0 16px;font-size:16px;font-family:'Barlow Semi Condensed',sans-serif;background:#fff;color:#3d3f42;box-sizing:border-box}
+  .login-card .field input::placeholder{color:#9aa1a8}
+  .login-card .field input:focus{outline:none;border-color:#4183B4;box-shadow:0 0 0 2px rgba(65,131,180,.18)}
+  .login-btn{width:100%;min-height:52px;background:#4183B4;border:none;border-radius:12px;color:#fff;font:600 16px 'Barlow Semi Condensed',sans-serif;letter-spacing:.6px;cursor:pointer}
+  .login-btn:active{background:#376f99}
+  .login-hint{font:400 12.5px/1.5 'Barlow Semi Condensed',sans-serif;color:#9aa1a8;margin-top:16px}
+  .login-card small{color:#9aa1a8;margin-top:12px;font-size:11px;font-family:'Barlow Semi Condensed',sans-serif}
+  .login-card small a{color:#4183B4;font-weight:600}
   .done-screen{text-align:center;padding:46px 24px}
   .done-screen .circ{width:80px;height:80px;border-radius:50%;background:var(--succ-bg);color:var(--succ);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 18px;border:1px solid var(--succ-bd)}
   .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#16325c;color:#fff;padding:11px 18px;border-radius:6px;font-size:13px;font-weight:600;opacity:0;transition:.25s;z-index:100005;display:flex;gap:8px;align-items:center;pointer-events:none;max-width:90%}
@@ -433,6 +439,8 @@
   .modal-actions{display:flex;gap:8px}
   .modal-actions .btn{padding:10px;font-size:13px}
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -441,29 +449,21 @@
   <!-- LOGIN -->
   <section class="login screen" id="scr-login">
     <div class="login-card">
-      <img class="login-logo" src="logo-exaustech.png" alt="Exaustech — Ar condicionado, Exaustão e Ventilação">
-      <div class="login-fs" aria-label="Field Service">
-        <svg viewBox="0 0 44 44" width="40" height="40" role="img">
-          <defs><linearGradient id="fsg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0176D3"/><stop offset="1" stop-color="#032d60"/></linearGradient></defs>
-          <rect x="1" y="1" width="42" height="42" rx="11" fill="url(#fsg)"/>
-          <g fill="#fff">
-            <path d="M22 22c0-7.2 3.4-11.6 9.6-11.9 1 0 1.6 1.1 1 1.9-2.3 3.1-3.8 6.2-7.4 8.4-1.1.7-2.1 1-3.2 1.6z"/>
-            <path d="M22 22c6.2 3.6 7.9 8.9 4.9 14.3-.5.9-1.8.9-2.2-.1-1.5-3.6-3.4-6.5-3.6-10.7-.1-1.3.4-2.3.9-3.5z"/>
-            <path d="M22 22c-6.2 3.6-11.6 2.7-14.9-2.5-.6-.9.1-2 1.2-1.9 3.9.4 7.3.3 10.9 2.4 1.1.7 1.8 1.4 2.8 2z"/>
-            <circle cx="22" cy="22" r="3.1"/>
-          </g>
-        </svg>
-        <div class="login-fs-t">FIELD <span>SERVICE</span></div>
+      <div class="login-mark" aria-label="Exaustech Field Service">
+        <img src="fan-mark.png" alt="Exaustech" onerror="this.style.visibility='hidden'">
+        <div class="login-pin"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" role="img"><path d="M12 2.5c-3.6 0-6.5 2.9-6.5 6.5 0 4.9 6.5 12 6.5 12s6.5-7.1 6.5-12c0-3.6-2.9-6.5-6.5-6.5z" fill="#58595B"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg></div>
       </div>
-      <div style="width:100%;text-align:left;font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px">Conta Google corporativa (@exaustech.com.br)</div>
+      <div class="login-word">field <span>service</span></div>
+      <div class="login-sub">exaustech</div>
       <div id="gbtn"></div>
-      <div class="login-div">ou receba um link de acesso</div>
-      <div class="field"><label>Seu e-mail</label><input type="email" id="loginEmail" placeholder="nome@exaustech.com.br" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')beMagicLink()"></div>
-      <button class="btn btn-brand" onclick="beMagicLink()">📩 Enviar link de acesso</button>
+      <div class="login-div">ou</div>
+      <div class="field"><label>Seu e-mail</label><input type="email" id="loginEmail" placeholder="E-mail" aria-label="E-mail" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')beMagicLink()"></div>
+      <button class="login-btn" onclick="beMagicLink()">RECEBER LINK DE ACESSO</button>
+      <div class="login-hint">Sem senha: o link de acesso chega no seu e-mail<br>e vale por 15 minutos.</div>
       <div id="loginDev" style="display:none;width:100%">
         <div class="login-div">acesso técnico (dev)</div>
-        <div class="field"><label>Usuário</label><input type="text" id="loginUser" placeholder="seu usuário" autocomplete="username"></div>
-        <div class="field"><label>Senha</label><input type="password" id="loginPass" placeholder="sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')beLoginLocal()"></div>
+        <div class="field"><input type="text" id="loginUser" placeholder="Usuário" aria-label="Usuário" autocomplete="username"></div>
+        <div class="field"><input type="password" id="loginPass" placeholder="Senha" aria-label="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')beLoginLocal()"></div>
         <button class="btn btn-neutral" style="width:100%" onclick="beLoginLocal()">Entrar</button>
       </div>
       <small id="loginMsg"></small>

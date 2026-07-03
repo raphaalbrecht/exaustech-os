@@ -2,12 +2,13 @@
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
    (republicação 02/07 — runner do Pages instável no commit anterior) */
-const CACHE = 'exaustech-os-v64';
+const CACHE = 'exaustech-os-v65';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './logo-exaustech.png',
+  './fan-mark.png',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png'
