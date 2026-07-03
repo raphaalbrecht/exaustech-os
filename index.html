@@ -456,10 +456,7 @@
       <div class="login-word">field <span>service</span></div>
       <div class="login-sub">exaustech</div>
       <div id="gbtn"></div>
-      <div class="login-div">ou</div>
-      <div class="field"><label>Seu e-mail</label><input type="email" id="loginEmail" placeholder="E-mail" aria-label="E-mail" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')beMagicLink()"></div>
-      <button class="login-btn" onclick="beMagicLink()">RECEBER LINK DE ACESSO</button>
-      <div class="login-hint">Sem senha: o link de acesso chega no seu e-mail<br>e vale por 15 minutos.</div>
+      <div class="login-hint">Entre com a sua conta Google Exaustech<br>(@exaustech.com.br).</div>
       <div id="loginDev" style="display:none;width:100%">
         <div class="login-div">acesso técnico (dev)</div>
         <div class="field"><input type="text" id="loginUser" placeholder="Usuário" aria-label="Usuário" autocomplete="username"></div>
@@ -3230,25 +3227,10 @@ async function beDoLogin(payload){
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
 function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()) return markInvalid('loginUser','Informe o usuário'); if(!p) return markInvalid('loginPass','Informe a senha'); beDoLogin({username:u.trim(),password:p}); }
-/* ===== LINK MÁGICO (método oficial p/ quem não tem Google corporativo) ===== */
-async function beMagicLink(){
-  const el=document.getElementById('loginEmail'); const email=(el&&el.value||'').trim().toLowerCase();
-  if(!email||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return markInvalid('loginEmail','Informe um e-mail válido');
-  const m=document.getElementById('loginMsg'); if(m)m.textContent='Enviando link…';
-  try{
-    const r=await fetch(BACKEND+'/login/link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){ if(m)m.textContent=j.error||'Não foi possível enviar'; toast('⚠️ '+(j.error||'Não foi possível enviar')); return; }
-    if(m)m.textContent='Se o e-mail estiver cadastrado, o link chega em instantes. Abra-o neste aparelho.';
-    toast('✅ Link enviado — confira seu e-mail');
-  }catch(e){ if(m)m.textContent='Erro de conexão'; toast('Erro de conexão: '+e.message); }
-}
-/* link aberto: troca o token do e-mail por sessão */
+/* acesso oficial = só Google SSO (decisão 03/07: licenças Identity p/ todos; link mágico removido); ?dev=1 abre a porta técnica */
 (function(){ try{
   const p=new URLSearchParams(location.search);
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
-  const mlk=p.get('mlk');
-  if(mlk){ history.replaceState(null,'',location.pathname); setTimeout(()=>beDoLogin({magicToken:mlk}),200); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
 function beLogout(){ ['be_tok','be_name','be_rid'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
