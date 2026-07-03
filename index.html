@@ -3216,14 +3216,17 @@ setInterval(()=>{ if(navigator.onLine && beTok()) offCount().then(n=>{ if(n) off
 async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
 async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
 async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
+/* registros de teste levam "[DEMO AS]" no nome no Salesforce; na exibição o marcador é ocultado */
+function _noDemo(s){ return (s==null)?s:String(s).replace(/\s*\[DEMO AS\]/gi,''); }
 async function beDoLogin(payload){
   const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
   try{
     const r=await fetch(BACKEND+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const j=await r.json();
     if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
-    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', j.name||''); localStorage.setItem('be_rid', j.resourceId||'');
-    toast('Bem-vindo, '+((j.name||'').split(' ')[0]||'')); beHydrate();
+    const nm=_noDemo(j.name||'');
+    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
+    toast('Bem-vindo, '+(nm.split(' ')[0]||'')); beHydrate();
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
 function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).value, p=(document.getElementById('loginPass')||{}).value; if(!u||!u.trim()) return markInvalid('loginUser','Informe o usuário'); if(!p) return markInvalid('loginPass','Informe a senha'); beDoLogin({username:u.trim(),password:p}); }
@@ -3351,6 +3354,9 @@ async function beHydrate(){
       if(!s||!s.wos) throw new Error('Sem conexão e sem dados salvos neste aparelho');
       wos=s.wos; REC=s.REC||{resources:[],habilidades:[]}; _snapT=s.t||null;
     }
+    /* oculta o marcador [DEMO AS] em todos os textos exibidos (nomes de teste seguem marcados no Salesforce) */
+    wos=JSON.parse(JSON.stringify(wos).replace(/\s*\[DEMO AS\]/gi,''));
+    REC=JSON.parse(JSON.stringify(REC).replace(/\s*\[DEMO AS\]/gi,''));
     if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
     const _pal=['#0176D3','#2e844a','#7a5cc8','#e8770e','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
