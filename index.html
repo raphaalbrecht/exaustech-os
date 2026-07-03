@@ -2574,8 +2574,8 @@ function openAlocDet(osid,mat){
   ];
   if(a._inicio) rows.push(['Início da alocação', fmtDH(a._inicio)]);
   if(a._termino) rows.push(['Término da alocação', fmtDH(a._termino)]);
-  if(a._efIni) rows.push(['✔ Check-in', fmtDH(a._efIni)]);
-  if(a._efFim) rows.push(['✔ Check-out', fmtDH(a._efFim)]);
+  if(a._efIni) rows.push(['✔ Check-in', fmtDH(a._efIni)+(a._geoIn?' · 📍'+a._geoIn:'')]);
+  if(a._efFim) rows.push(['✔ Check-out', fmtDH(a._efFim)+(a._geoOut?' · 📍'+a._geoOut:'')]);
   if(a._efIni&&a._efFim) rows.push(['Tempo no local', tempoNoLocal(a._efIni,a._efFim)]);
   if(a._presenca) rows.push(['Presença', a._presenca]);
   document.getElementById('alocDetSub').textContent=(a._num?a._num+' · ':'')+a.nome;
@@ -2597,10 +2597,14 @@ function sfPushPresenca(a,body,label){
     .then(r=>{ toast(r&&r._queued?('📡 '+label+' salvo no aparelho — sincroniza com sinal'):('✅ '+label+' gravado')); return r; })
     .catch(e=>toast('⚠️ '+label+' não gravado: '+e.message));
 }
-function checkInAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
-  a._efIni=t; sfPushPresenca(a,{efetivoInicio:t},'Check-in'); openAlocDet(_alocDet.o.id,a.matricula); }
-function checkOutAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
-  a._efFim=t; sfPushPresenca(a,{efetivoTermino:t},'Check-out'); openAlocDet(_alocDet.o.id,a.matricula); }
+async function checkInAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
+  await getGeo(); const geo=_geoStr({geo:_lastGeo});
+  a._efIni=t; if(geo)a._geoIn=geo;
+  sfPushPresenca(a,Object.assign({efetivoInicio:t},geo?{geoCheckin:geo}:{}),'Check-in'); openAlocDet(_alocDet.o.id,a.matricula); }
+async function checkOutAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
+  await getGeo(); const geo=_geoStr({geo:_lastGeo});
+  a._efFim=t; if(geo)a._geoOut=geo;
+  sfPushPresenca(a,Object.assign({efetivoTermino:t},geo?{geoCheckout:geo}:{}),'Check-out'); openAlocDet(_alocDet.o.id,a.matricula); }
 function setPresencaAloc(v){ if(!_alocDet||!v) return; const a=_alocDet.a;
   a._presenca=v; sfPushPresenca(a,{presenca:v},'Presença'); }
 function closeAlocDet(){ document.getElementById('alocDetModal').classList.remove('show'); }
@@ -3393,7 +3397,7 @@ async function beHydrate(){
         apontamentos.push({id:ap.name, _sf:ap.id, _fromSF:true, osId:o.id, equipTag:eq.tag, tarefa:eq.tarefa, item:ap.item,
           problemas:(ap.problemas||'').split(';').map(s=>s.trim()).filter(Boolean), obs:ap.obs||'', severidade:'Média', acaoRecomendada:'', fotos:[],
           status:ap.status||'Registrado', quando:ap.registradoEm?fmtDH(ap.registradoEm):'', eqRef:eq, osRef:o}); });
-      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _geoIn:a.geoCheckin||null, _geoOut:a.geoCheckout||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
