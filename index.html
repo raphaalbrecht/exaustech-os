@@ -64,17 +64,17 @@
   .sched-title{font-size:18px;font-weight:700;margin:0 0 8px}
   .days{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
   .days::-webkit-scrollbar{display:none}
-  .day{flex:0 0 auto;width:46px;text-align:center;border:1px solid var(--border);border-radius:10px;padding:9px 0;cursor:pointer;background:#fff;transition:.12s}
-  .day .wd{font-size:10px;color:var(--weaker);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-  .day .dn{font-size:17px;font-weight:700;margin-top:1px}
+  .day{flex:0 0 auto;width:69px;text-align:center;border:1px solid var(--border);border-radius:10px;padding:9px 0;cursor:pointer;background:#fff;transition:.12s}
+  .day .wd{font-size:13px;color:var(--weaker);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  .day .dn{font-size:22px;font-weight:700;margin-top:1px}
   .day.on{background:var(--brand);border-color:var(--brand)}
   .day.on .wd,.day.on .dn{color:#fff}
   .day .pip{width:5px;height:5px;border-radius:50%;background:var(--brand);margin:3px auto 0}
   .day.on .pip{background:#fff}
   .day .pip.no{visibility:hidden}
   /* pill de "hoje": ~2x maior (largura+altura), com "HOJE" no lugar do número — se destaca das demais */
-  .day.hoje{width:62px;padding:20px 0}
-  .day.hoje .dn{font-size:14px;font-weight:800;letter-spacing:.3px}
+  .day.hoje{width:93px;padding:20px 0}
+  .day.hoje .dn{font-size:19px;font-weight:800;letter-spacing:.3px}
   .daylabel{font-size:12.5px;color:var(--weak);font-weight:600;padding:12px 16px 2px}
   .appt{background:#fff;border:1px solid var(--border);border-left:4px solid var(--brand);border-radius:.25rem;margin:8px 14px;padding:12px 13px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:.12s}
   .appt:active{background:#F2F5F8}
@@ -3448,6 +3448,7 @@ async function beHydrate(quiet){
     /* re-hydrate: remove apontamentos restaurados na carga anterior (evita duplicar) */
     for(let i=apontamentos.length-1;i>=0;i--){ if(apontamentos[i]._fromSF) apontamentos.splice(i,1); }
     const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
+    const _hojeD0=new Date(); _hojeD0.setHours(0,0,0,0);
     for(const wo of wos){
       /* checklist REAL: 4 grupos de família de equipamento com os campos inline da Ordem_de_Servico__c */
       const grupos=CHECKLIST_REAL.map(gr=>({nome:gr.grupo,tarefa:'Checklist · '+gr.grupo,chk:gr.chk,site:false,real:gr,
@@ -3457,7 +3458,9 @@ async function beHydrate(quiet){
       const dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
       const hh=String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
       const hf=String(Math.min(23,dt.getHours()+3)).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
-      diasSet.add(dia+'|'+dt.getFullYear());
+      /* carrossel de dias só mostra hoje em diante — dias passados não entram nos quadrados */
+      const _dtDia0=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());
+      if(_dtDia0>=_hojeD0) diasSet.add(dia+'|'+dt.getFullYear());
       const o={ id:_esc(wo.id||'OS'), _wo:wo.osId, _sfName:wo.id, _sfStatus:wo.status, _sa:null,
         _autorizados:wo.autorizados||{}, _sols:wo.solicitacoes||[], _solEnviada:!!wo.solicitacaoEnviada,
         _dataISO:(wo.startDate||'').slice(0,10),
