@@ -569,7 +569,7 @@
     <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
     <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
-    <button id="nav-estoque" onclick="go('estoque')"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque</button>
+    <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque</button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
 
@@ -958,6 +958,7 @@ function closeRole(){ document.getElementById('roleModal').classList.remove('sho
 function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.querySelector('.screen.active').id;
   if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-aloc')renderAloc(); else if(cur==='scr-notifs')renderNotifs();
   updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
+  if(cur==='scr-estoque'&&!canEstoque(ROLE)) go('schedule');
   if(r==='Estoquista') go('estoque'); /* casa do Estoquista é o painel de Estoque */
   updateBell(); toast('Perfil: '+r); }
 function logout(){
@@ -2375,7 +2376,10 @@ function estoqueFerrSections(wrap){
 function canAloc(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
 /* solicitar/confirmar Autorização de Serviço: só Coordenador pra cima (inclusive) */
 function canAS(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
-function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none'; }
+/* módulo Estoque (aba do bottom nav): só Estoquista e Sócio */
+function canEstoque(r){ return ['Estoquista','Sócio'].includes(r); }
+function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
+  const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none'; }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
   {nome:'Pedro Gomes',matricula:'F-1188',cargo:'Auxiliar',cor:'#2e844a',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
