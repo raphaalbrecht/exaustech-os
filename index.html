@@ -573,7 +573,7 @@
     <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
     <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
-    <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque</button>
+    <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque<span class="nbadge" id="estoqueBadge" style="display:none">0</span></button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
 
@@ -945,7 +945,7 @@ function go(scr){
   if(scr==='exp') renderExp();
   if(scr==='notifs') renderNotifs();
   if(scr==='appt') renderAppt();
-  renderRoleChip(); updateApprBadge(); updateBell(); updateNavRole();
+  renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
 const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
@@ -1025,6 +1025,21 @@ function apptClass(a){ if(a.outcome) return a.outcome==='Cancelado'?'s-cancelado
 /* ===== aprovações (fila) ===== */
 function pendingReports(){ return appts.filter(a=>a.os.relatorio.stage>=1 && a.os.relatorio.stage<4); }
 function updateApprBadge(){ const n=pendingReports().length; const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+/* separações marcadas como urgentes e ainda pendentes (checkbox Urgente__c na Ordem de Separação) */
+function urgentesPendentes(){ return sepListAll().filter(x=>x.s.urgente && sepPendente(x.s.status)); }
+function updateEstoqueBadge(){ const n=urgentesPendentes().length; const b=document.getElementById('estoqueBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+/* alerta de separação urgente: toast só na 1ª vez que cada separação urgente aparece pendente (poll silencioso ou ação na hora) */
+let _urgSeen=new Set();
+function checkUrgentAlerts(){
+  const vistos=new Set();
+  urgentesPendentes().forEach(({o,s})=>{
+    const key=s._sf||s.id; vistos.add(key);
+    if(!_urgSeen.has(key)){ _urgSeen.add(key); if(canEstoque(ROLE)) toast('🚨 Separação urgente: '+s.id+' · '+o.cli); }
+  });
+  /* esquece as que saíram da fila (voltaram a ficar pendente depois avisa de novo) */
+  Array.from(_urgSeen).forEach(k=>{ if(!vistos.has(k)) _urgSeen.delete(k); });
+  updateBell(); updateEstoqueBadge();
+}
 function renderApprovals(){
   const list=document.getElementById('apprList'); list.innerHTML='';
   const items=pendingReports();
@@ -1373,7 +1388,8 @@ function materiaisBody(){
   /* estoquista/coordenação movem o status da separação real */
   if(SF_LIVE && sep._sf && (ROLE==='Estoquista'||canPDF(ROLE)) && !lk){
     const stBox=document.createElement('div'); stBox.className='field'; stBox.style.cssText='margin:8px 0';
-    stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>`;
+    stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="sepUrgenteToggle" ${sep.urgente?'checked':''} onchange="sepSetUrgente(this.checked)"> <span>🚨 Marcar como urgente (avisa o Estoquista)</span></label>`;
     wrap.appendChild(stBox);
   }
   /* sem separação real ainda: solicitar ao estoque */
@@ -1381,6 +1397,7 @@ function materiaisBody(){
     const nf=document.createElement('div'); nf.className='subcard';
     nf.innerHTML=`<div class="sec-title2">Solicitar separação de materiais</div><div id="sepRows"></div>
       <button class="btn btn-neutral" style="width:100%;margin:8px 0" onclick="sepAddRow()">＋ adicionar material</button>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;cursor:pointer"><input type="checkbox" id="sepUrgente"> <span>🚨 Urgente</span></label>
       <button class="btn btn-brand" style="width:100%" onclick="sepEnviar()">📦 Enviar solicitação ao estoque</button>`;
     wrap.appendChild(nf);
     setTimeout(()=>{ const box=document.getElementById('sepRows'); if(box && !box.children.length) sepAddRow(); },0);
@@ -1413,8 +1430,8 @@ function sepParseBaixa(total,motivo){
 }
 function sepFromSF(wo){
   const sp=(wo.separacoes||[]).slice(-1)[0];
-  if(!sp) return {id:'—', status:'Sem materiais', materiais:[]};
-  return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'',
+  if(!sp) return {id:'—', status:'Sem materiais', urgente:false, materiais:[]};
+  return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
       embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[] })) };
 }
@@ -1431,6 +1448,11 @@ function sepSetStatus(v){ const sep=curOS.separacao; if(!sep._sf||!v) return; se
     .then(r=>toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v))
     .catch(e=>toast('⚠️ Status não gravado: '+e.message));
   if(navStack.length) showSub(); }
+/* escalar/rebaixar urgência de uma separação já existente (dispara o alerta pro Estoquista) */
+function sepSetUrgente(v){ const sep=curOS.separacao; if(!sep._sf) return; sep.urgente=!!v;
+  bePatch('/separacoes/'+sep._sf,{urgente:!!v},'Urgência da separação')
+    .then(r=>{ toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':(v?'🚨 Separação marcada como urgente':'Urgência removida')); checkUrgentAlerts(); })
+    .catch(e=>toast('⚠️ Não gravado: '+e.message)); }
 function sepAddRow(){
   const box=document.getElementById('sepRows'); if(!box) return;
   const row=document.createElement('div'); row.className='sep-row'; row.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
@@ -1445,12 +1467,14 @@ async function sepEnviar(){
   const itens=rows.map(r=>({ material:r.querySelector('input[type=text]').value.trim(), un:(r.querySelector('.sep-un').value.trim()||'un'), qtd:parseFloat(r.querySelector('.sep-qtd').value)||0 }))
     .filter(i=>i.material && i.qtd>0);
   if(!itens.length){ const f=document.querySelector('#sepRows .sep-row input[type=text]'); return markInvalid(f,'Informe ao menos um material com quantidade'); }
+  const _su=document.getElementById('sepUrgente'); const urgente=!!(_su&&_su.checked);
   try{
-    const r=await bePost('/separacoes',{osId:curOS._wo, itens},'Solicitação de separação');
+    const r=await bePost('/separacoes',{osId:curOS._wo, itens, urgente},'Solicitação de separação');
     if(r&&r._queued){ toast('📡 Solicitação salva no aparelho — sincroniza com sinal'); return; }
-    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada',
+    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente,
       materiais:(r.itens||itens).map(i=>({ _sf:i.id||null, nome:i.material, un:i.un||'un', solicitado:i.solicitada!=null?i.solicitada:i.qtd, embarcado:0, consumido:0, baixa:sepParseBaixa(0,''), retorno:0, fotos:[] })) };
     bigOK('Separação '+(r.name||'')+' solicitada'); if(navStack.length) showSub();
+    checkUrgentAlerts();
   }catch(e){ toast('⚠️ Solicitação não enviada: '+e.message); }
 }
 function matBaixaTotal(m){ return m.baixa.danificado+m.baixa.extraviado+m.baixa.inutilizado; }
@@ -2177,6 +2201,9 @@ function buildNotifs(){
   });
   CAT_FERR.filter(c=>calibVencida(c)).forEach(c=>{
     list.push({ico:'asset',color:'#8c4b02',tit:'Calibração vencida: '+c.patrimonio,sub:'vencida desde '+c.calibracao,roles:['Estoquista','Gerente','Sócio'],go:()=>go('estoque')});
+  });
+  urgentesPendentes().forEach(({o,s})=>{
+    list.push({ico:'box',color:'#E8730C',tit:'🚨 Separação urgente: '+s.id,sub:o.id+' · '+o.cli,roles:['Estoquista','Gerente','Sócio'],go:()=>{ estoqView={mode:'sep',sep:s,os:o,tile:estoqView.tile}; go('estoque'); }});
   });
   return list;
 }
@@ -3379,13 +3406,13 @@ async function beUploadMidia(blob, filename, tipo, meta, noQ){
     throw e;
   }
 }
-async function beHydrate(){
-  toast('Carregando OS…');
+async function beHydrate(quiet){
+  if(!quiet) toast('Carregando OS…');
   try{
     let wos, REC={resources:[],habilidades:[]}, _snapT=null;
     try{
       wos = await beGet('/hydrate');
-      if(!Array.isArray(wos)){ toast('Erro ao carregar OS'); return; }
+      if(!Array.isArray(wos)){ if(!quiet) toast('Erro ao carregar OS'); return; }
       /* recursos reais (SFL5_Resource ativos) + habilidades — pode vir vazio se o permset ainda não estiver ativo */
       try{ REC = await beGet('/recursos'); if(!REC||REC.error) REC={resources:[],habilidades:[]}; }catch(e){ REC={resources:[],habilidades:[]}; }
       offPut('hydrate',{wos,REC,t:Date.now()}).catch(()=>{});
@@ -3399,7 +3426,7 @@ async function beHydrate(){
     /* oculta o marcador [DEMO AS] em todos os textos exibidos (nomes de teste seguem marcados no Salesforce) */
     wos=JSON.parse(JSON.stringify(wos).replace(/\s*\[DEMO AS\]/gi,''));
     REC=JSON.parse(JSON.stringify(REC).replace(/\s*\[DEMO AS\]/gi,''));
-    if(!wos.length){ toast('Nenhuma OS.'); go('schedule'); return; }
+    if(!wos.length){ if(!quiet){ toast('Nenhuma OS.'); go('schedule'); } return; }
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
     const _pal=['#0B5CAB','#2e844a','#7a5cc8','#E8730C','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
     const funcLive=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
@@ -3469,16 +3496,22 @@ async function beHydrate(){
       DAYS.push({key:dm,wd:WD[dt.getDay()],d:dd[0]}); DAYLABEL[dm]=WD[dt.getDay()]+', '+dd[0]+' de '+MES[dd[1]-1]; });
     if(DAYS.length) selDay=DAYS[0].key;
     SF_LIVE=true; document.body.classList.add('sf-live');
-    const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
-    go(stayAloc?'aloc':(ROLE==='Estoquista'?'estoque':'schedule'));
-    toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
+    if(!quiet){
+      const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
+      go(stayAloc?'aloc':(ROLE==='Estoquista'?'estoque':'schedule'));
+      toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
+    }
+    checkUrgentAlerts();
     offBadge(); if(!_snapT) offDrain();
-  }catch(e){ toast('Erro: '+e.message); }
+  }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
 }
 const HABILIDADES=[];
 document.addEventListener('DOMContentLoaded', beInitGoogle);
 setTimeout(beInitGoogle, 400);
 if(beTok()) setTimeout(beHydrate, 300);  /* já logado (reload): recarrega as OS */
+/* verificação periódica (1-2 min) pra detectar separações marcadas como urgentes enquanto o app está aberto —
+   sem toast de carregamento nem navegação, só atualiza dados + badge/sino (ver aviso-separacao-urgente-estoquista) */
+setInterval(()=>{ if(beTok() && SF_LIVE && document.visibilityState==='visible') beHydrate(true).catch(()=>{}); }, 90000);
 
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
