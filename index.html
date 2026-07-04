@@ -2236,13 +2236,13 @@ let estoqView={mode:'dash', sep:null, os:null, tile:null};
 /* dia selecionado no carrossel do Estoque (independente do selDay da Agenda); null = todos os dias */
 let estoqDia=null;
 function estoqGo(mode,sep,os,tile){ estoqView={mode, sep:sep||null, os:os||null, tile:(tile!==undefined?tile:estoqView.tile)}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0; }
-/* destaque laranja: prioriza separação(ões) marcada(s) como urgente (Urgente__c) quando existir alguma;
-   sem nenhuma marcada, volta a mostrar a dedução automática por data (hoje/amanhã), como sempre foi */
-function estoqDestaqueModoUrg(){ return urgentesPendentes().length>0; }
 /* tiles da home do Estoquista: contagem por etapa, com drill-down */
 const ESTOQ_TILES=[
-  {key:'urgente', label:'A separar — hoje e amanhã', icon:'📦', cor:'#E8730C', destaque:true,
-    f:x=>estoqDestaqueModoUrg() ? (x.s.urgente&&sepPendente(x.s.status)) : (sepPendente(x.s.status)&&osHojeAmanha(x.o))},
+  /* banner de emergência: só existe/aparece quando há separação real marcada como urgente (Urgente__c).
+     sem nenhuma, o tile nem entra na grade — se ficasse sempre laranja (ex: dedução por "hoje e amanhã")
+     viraria paisagem e não chamaria atenção quando surgisse uma de verdade */
+  {key:'urgente', label:'Separação urgente', icon:'🚨', cor:'#ba0517', destaque:true,
+    f:x=>x.s.urgente&&sepPendente(x.s.status)},
   {key:'separar', label:'A separar — total',         icon:'🗂️', cor:'#C25E0A', f:x=>['Solicitada','Aguardando aprovação'].includes(x.s.status)},
   {key:'emsep',   label:'Em separação',              icon:'⏳', cor:'#0B5CAB', f:x=>x.s.status==='Em separação'},
   {key:'pronta',  label:'Prontas p/ embarque',       icon:'🚚', cor:'#0b827c', f:x=>x.s.status==='Pronta para embarque'},
@@ -2275,22 +2275,20 @@ function renderEstoque(){
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 6px';
   ESTOQ_TILES.forEach(t=>{
-    /* "urgente" (hoje/amanhã reais) sempre olha todos os dias; os demais respeitam o dia escolhido no carrossel */
+    /* "urgente" sempre olha todos os dias; os demais respeitam o dia escolhido no carrossel */
     const n=(t.destaque?seps:sepsDia).filter(t.f).length;
+    if(t.destaque && !n) return; /* banner de emergência: só aparece quando existe alguma urgente */
     const el=document.createElement('div');
     if(t.destaque){
-      const modoUrg=estoqDestaqueModoUrg();
-      const tit = modoUrg ? '🚨 '+(n>1?'Separações urgentes':'Separação urgente') : (n?t.icon+' '+t.label:t.icon+' Sem pendências — hoje e amanhã');
-      const sub = modoUrg ? 'Marcada'+(n>1?'s':'')+' como urgente'+(n>1?'s':'')+' — toque para separar agora ›' : (n?'OS que saem a campo nas próximas 48h. Toque para separar ›':'Toda a fila das próximas 48h está pronta. ✅');
-      el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,'+(n?'#C25E0A,#E8730C':'#2e844a,#4bb26e')+')';
-      el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">${tit}</div><div style="font-size:12px;opacity:.9;margin-top:2px">${sub}</div></div></div>`;
+      el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,#ba0517,#E8322C)';
+      el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">🚨 ${n>1?'Separações urgentes':'Separação urgente'}</div><div style="font-size:12px;opacity:.9;margin-top:2px">Marcada${n>1?'s':''} como urgente${n>1?'s':''} — toque para separar agora ›</div></div></div>`;
     } else {
       el.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:10px;min-height:118px';
       el.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:${t.cor}1a;display:flex;align-items:center;justify-content:center;font-size:18px">${t.icon}</div>
         <div style="font-size:12.5px;color:#4A5560;font-weight:600;line-height:1.25;flex:1">${t.label}</div>
         <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:26px;font-weight:900;color:#0B2239">${n}</span><span style="color:#999;font-size:18px">›</span></div>`;
     }
-    if(el && (n||!t.destaque)) el.onclick=()=>estoqGo('list',null,null,t.key);
+    el.onclick=()=>estoqGo('list',null,null,t.key);
     grid.appendChild(el);
   });
   wrap.appendChild(grid);
@@ -2307,7 +2305,7 @@ function sepRow(o,s,onclick){
 function estoqueListPage(wrap){
   const t=ESTOQ_TILES.find(x=>x.key===estoqView.tile)||ESTOQ_TILES[0];
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
-  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=(t.destaque&&estoqDestaqueModoUrg())?'🚨 Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.destaque?'🚨 Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
   const list=(t.destaque?sepListAll():sepListDia()).filter(t.f)
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada por aqui. 🎉'; wrap.appendChild(e); return; }
