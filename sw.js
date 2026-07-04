@@ -2,7 +2,7 @@
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
    (republicação 03/07 — deploy do Pages falhou no commit anterior, forçando novo run) */
-const CACHE = 'exaustech-os-v66';
+const CACHE = 'exaustech-os-v68';
 const SHELL = [
   './',
   './index.html',
