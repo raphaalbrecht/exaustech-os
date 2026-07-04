@@ -502,7 +502,7 @@
 
     <!-- EXP (Programa de pontuação) -->
     <section class="screen" id="scr-exp">
-      <div class="sched-top"><div class="sched-title">EXP</div><div class="subnote" style="padding:0 0 6px">Saldo, extrato e registro de Auditoria Técnica.</div></div>
+      <div class="sched-top"><div class="sched-title">EXP</div><div class="subnote" style="padding:0 0 6px">Saldo e extrato de pontos.</div></div>
       <div id="expBody"></div>
     </section>
 
@@ -572,17 +572,6 @@
     <button id="nav-estoque" onclick="go('estoque')"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque</button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
-
-  <!-- MODAL NOVA AUDITORIA TÉCNICA (Programa EXP) -->
-  <div class="modal" id="auditModal"><div class="modal-card">
-    <div class="modal-title">Nova Auditoria Técnica</div>
-    <div class="modal-sub" id="auditStepSub"></div>
-    <div id="auditBody"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn btn-neutral" style="flex:1" onclick="closeAudit()">Cancelar</button>
-      <button class="btn btn-brand" style="flex:1" id="auditBtnPrimary" onclick="auditPrimaryAction()">Continuar</button>
-    </div>
-  </div></div>
 
   <div class="toast" id="toast"></div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
@@ -3259,8 +3248,7 @@ async function renderExp(){
       +'<div style="display:flex;gap:8px;padding:12px 14px 2px;flex-wrap:wrap">'
       +Object.keys(ciclos).map(c=>'<div onclick="expTrocaCiclo(\''+c+'\')" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-weight:600;cursor:pointer;background:'+(expCiclo===c?'var(--brand-dk)':'var(--card)')+';color:'+(expCiclo===c?'#fff':'var(--weak)')+'">'+ciclos[c]+'</div>').join('')
       +'</div>'
-      +'<div style="padding:10px 14px 14px"><button class="btn btn-brand" style="width:100%" onclick="openAudit()">+ Nova Auditoria Técnica</button></div>'
-      +'<div id="expExtratoList" style="padding:0 14px 20px"></div>';
+      +'<div id="expExtratoList" style="padding:12px 14px 20px"></div>';
     const list=document.getElementById('expExtratoList');
     list.innerHTML = extrato.length ? extrato.map(function(t){
       const cor = t.pontos>=0 ? 'var(--succ)' : 'var(--err)';
@@ -3274,138 +3262,9 @@ async function renderExp(){
 }
 function expTrocaCiclo(c){ expCiclo=c; renderExp(); }
 
-/* ---- Nova Auditoria Técnica (grava direto em Auditoria_tecnica__c / Linha_de_Auditoria_T_cnica__c reais) ---- */
-let auditState=null;
-function openAudit(){
-  auditState={mode:'header', contaId:null, contaNome:'', dataInspecao:'', classCocao:'', classRisco:'', auditoriaId:null, auditoriaName:null, linhas:[], pergunta:null, ncOpcoes:[], prefixoElementoId:null, numeroId:null};
-  document.getElementById('auditModal').classList.add('show');
-  renderAudit();
-}
-function closeAudit(){ document.getElementById('auditModal').classList.remove('show'); }
-function renderAudit(){
-  const s=auditState, body=document.getElementById('auditBody'), sub=document.getElementById('auditStepSub'), btn=document.getElementById('auditBtnPrimary');
-  if(s.mode==='header'){
-    sub.textContent='Passo 1 de 2 — dados da inspeção'; btn.textContent='Continuar';
-    const cocaoOpts=['Leve','Moderado / Severo','Combustível sólido'];
-    const riscoOpts=['Risco 0','Risco 1','Risco 2','Risco 3','Risco 4','Risco 5'];
-    body.innerHTML =
-      '<div class="field"><label>Cliente / shopping</label>'
-      +'<input id="auditContaQ" placeholder="digite pra buscar…" value="'+(s.contaNome||'')+'" oninput="auditBuscaContas(this.value)">'
-      +'<div id="auditContaList" style="margin-top:6px"></div></div>'
-      +'<div class="field"><label>Data da inspeção</label><input type="date" id="auditData" value="'+(s.dataInspecao||'')+'"></div>'
-      +'<div class="field"><label>Classificação da cocção</label><select id="auditCocao"><option value="">selecione…</option>'
-      +cocaoOpts.map(function(o){return '<option value="'+o+'"'+(s.classCocao===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>'
-      +'<div class="field"><label>Classificação de risco</label><select id="auditRisco"><option value="">selecione…</option>'
-      +riscoOpts.map(function(o){return '<option value="'+o+'"'+(s.classRisco===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
-  } else if(s.mode==='lines'){
-    sub.textContent='Passo 2 de 2 — itens auditados ('+s.linhas.length+')'; btn.textContent='Finalizar auditoria';
-    body.innerHTML =
-      '<div style="font-size:13px;color:var(--weak);margin-bottom:8px">'+s.contaNome+' · '+s.dataInspecao+'</div>'
-      +'<div>'+(s.linhas.length ? s.linhas.map(function(l){
-        return '<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:12.5px">'+l.texto+(l.ncTexto?' — <b>'+l.ncTexto+'</b>':'')+'</div>';
-      }).join('') : '<div style="font-size:12.5px;color:var(--weaker)">Nenhum item adicionado ainda.</div>')+'</div>'
-      +'<button class="btn btn-neutral" style="width:100%;margin-top:6px" onclick="auditModoAddLinha()">+ Adicionar item auditado</button>';
-  } else if(s.mode==='addline'){
-    sub.textContent='Novo item — busque a pergunta do checklist'; btn.textContent='Salvar item';
-    body.innerHTML =
-      '<div class="field"><label>Pergunta do checklist</label>'
-      +'<input id="auditPerguntaQ" placeholder="digite pra buscar…" oninput="auditBuscaPerguntas(this.value)">'
-      +'<div id="auditPerguntaList" style="margin-top:6px"></div></div>'
-      +'<div id="auditPerguntaEscolhida"></div>';
-  }
-}
-let _auditContaTimer=null;
-function auditBuscaContas(q){
-  clearTimeout(_auditContaTimer);
-  _auditContaTimer=setTimeout(async function(){
-    const box=document.getElementById('auditContaList'); if(!box) return;
-    if(q.trim().length<2){ box.innerHTML=''; return; }
-    try{
-      const rs=await beGet('/exp/contas?q='+encodeURIComponent(q));
-      window._auditContasCache=rs;
-      box.innerHTML = rs.length ? rs.map(function(c,i){ return '<div onclick="auditEscolheConta('+i+')" style="padding:8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px">'+c.nome+'</div>'; }).join('') : '<div style="font-size:12px;color:var(--weaker)">Nada encontrado.</div>';
-    }catch(e){}
-  },350);
-}
-function auditEscolheConta(i){
-  const c=window._auditContasCache[i]; auditState.contaId=c.id; auditState.contaNome=c.nome;
-  document.getElementById('auditContaQ').value=c.nome; document.getElementById('auditContaList').innerHTML='';
-}
-let _auditPerguntaTimer=null;
-function auditBuscaPerguntas(q){
-  clearTimeout(_auditPerguntaTimer);
-  _auditPerguntaTimer=setTimeout(async function(){
-    const box=document.getElementById('auditPerguntaList'); if(!box) return;
-    if(q.trim().length<2){ box.innerHTML=''; return; }
-    try{
-      const rs=await beGet('/exp/auditorias/perguntas?q='+encodeURIComponent(q));
-      window._auditPerguntasCache=rs;
-      box.innerHTML = rs.length ? rs.map(function(p,i){ return '<div onclick="auditEscolhePergunta('+i+')" style="padding:8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px">'+(p.prefixo||'')+' '+p.texto+'</div>'; }).join('') : '<div style="font-size:12px;color:var(--weaker)">Nada encontrado.</div>';
-    }catch(e){}
-  },350);
-}
-async function auditEscolhePergunta(i){
-  const p=window._auditPerguntasCache[i];
-  auditState.pergunta=p;
-  document.getElementById('auditPerguntaList').innerHTML='';
-  document.getElementById('auditPerguntaQ').value=p.texto;
-  let prefixoId=null;
-  if(p.prefixoOpcoes && p.prefixoOpcoes.length===1) prefixoId=p.prefixoOpcoes[0].id;
-  auditState.prefixoElementoId=prefixoId; auditState.numeroId=p.numeroId||null;
-  let ncs=[];
-  try{ ncs=await beGet('/exp/auditorias/nc?perguntaId='+p.perguntaId); }catch(e){}
-  auditState.ncOpcoes=ncs;
-  const precisaPrefixo = !prefixoId && p.prefixoOpcoes && p.prefixoOpcoes.length>1;
-  document.getElementById('auditPerguntaEscolhida').innerHTML =
-    '<div class="field"><label>Classificação do item</label><select id="auditClassLinha"><option value="">selecione…</option>'
-    +['Exaustão - estrutural','Exaustão - manutenção','Serviço fora do escopo Exaustech'].map(function(o){return '<option value="'+o+'">'+o+'</option>';}).join('')
-    +'</select></div>'
-    +(precisaPrefixo ? '<div class="field"><label>Prefixo do elemento</label><select id="auditPrefixo"><option value="">selecione…</option>'
-      +p.prefixoOpcoes.map(function(o){return '<option value="'+o.id+'">'+o.nome+'</option>';}).join('')+'</select></div>' : '')
-    +(ncs.length ? '<div class="field"><label>Não conformidade encontrada</label><select id="auditNC"><option value="">selecione…</option>'
-      +ncs.map(function(n){return '<option value="'+n.id+'">'+n.texto+(n.pontuaExp?' ⚠':'')+'</option>';}).join('')+'</select></div>'
-      : '<div class="field"><label>Não conformidade encontrada</label><div style="font-size:12px;color:var(--weaker);padding:6px 0">Nenhuma NC catalogada pra essa pergunta — item será salvo como conforme.</div></div>');
-}
-function auditModoAddLinha(){ auditState.mode='addline'; auditState.pergunta=null; renderAudit(); }
-async function auditPrimaryAction(){
-  const s=auditState;
-  if(s.mode==='header'){
-    s.dataInspecao=document.getElementById('auditData').value;
-    s.classCocao=document.getElementById('auditCocao').value;
-    s.classRisco=document.getElementById('auditRisco').value;
-    if(!s.contaId||!s.dataInspecao||!s.classCocao||!s.classRisco){ toast('Preencha todos os campos'); return; }
-    try{
-      const r=await bePost('/exp/auditorias',{contaId:s.contaId, dataInspecao:s.dataInspecao, classificacaoCocao:s.classCocao, classificacaoRisco:s.classRisco});
-      s.auditoriaId=r.id; s.auditoriaName=r.name; s.mode='lines'; renderAudit();
-    }catch(e){ toast('Erro: '+e.message); }
-  } else if(s.mode==='lines'){
-    if(!s.linhas.length){ toast('Adicione ao menos 1 item'); return; }
-    try{
-      await bePost('/exp/auditorias/'+s.auditoriaId+'/finalizar',{});
-      toast('Auditoria '+s.auditoriaName+' finalizada'); closeAudit(); renderExp();
-    }catch(e){ toast('Erro ao finalizar: '+e.message); }
-  } else if(s.mode==='addline'){
-    const classLinhaEl=document.getElementById('auditClassLinha');
-    const ncEl=document.getElementById('auditNC');
-    const prefixoEl=document.getElementById('auditPrefixo');
-    const classLinha=classLinhaEl && classLinhaEl.value;
-    const ncId=ncEl && ncEl.value;
-    const prefixoElementoId = s.prefixoElementoId || (prefixoEl && prefixoEl.value);
-    const precisaNC = s.ncOpcoes && s.ncOpcoes.length>0; // só exige escolha se existir opção catalogada
-    const precisaPrefixoSel = s.pergunta && s.pergunta.prefixoOpcoes && s.pergunta.prefixoOpcoes.length>0;
-    if(!s.pergunta || !classLinha || (precisaNC && !ncId) || (precisaPrefixoSel && !prefixoElementoId)){ toast('Preencha classificação, prefixo (se pedido) e não conformidade (se catalogada)'); return; }
-    try{
-      await bePost('/exp/auditorias/'+s.auditoriaId+'/linhas',{
-        contaId:s.contaId, classificacaoLinha:classLinha,
-        elementoId:s.pergunta.elementoId, grupoDescricaoId:s.pergunta.grupoId,
-        prefixoElementoId:prefixoElementoId, numeroId:s.numeroId, perguntaId:s.pergunta.perguntaId, naoConformidadeId:ncId
-      });
-      const ncTxt=(s.ncOpcoes.find(function(n){return n.id===ncId;})||{}).texto;
-      s.linhas.push({texto:s.pergunta.texto, ncTexto:ncTxt});
-      s.mode='lines'; renderAudit();
-    }catch(e){ toast('Erro ao salvar item: '+e.message); }
-  }
-}
+/* Nova Auditoria Técnica REMOVIDA do app mobile (04/07/2026, decisão do Raphael): lançar auditoria
+   é um processo à parte via navegador — não pertence à aba EXP nem a nenhuma outra tela mobile.
+   Os endpoints /exp/auditorias/* continuam no backend (não foram removidos), só o fluxo de UI aqui. */
 
 function beInitGoogle(){
   if(!(window.google&&google.accounts&&google.accounts.id)){ if((beInitGoogle._n=(beInitGoogle._n||0)+1)>20)return; setTimeout(beInitGoogle,600); return; }
