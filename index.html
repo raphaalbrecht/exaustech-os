@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- deploy: texto agenda vazia (retry 2) -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -497,7 +496,11 @@
 
     <!-- ESTOQUE (painel do estoquista) -->
     <section class="screen" id="scr-estoque">
-      <div class="sched-top"><div class="sched-title">Estoque</div><div class="subnote" style="padding:0 0 6px">Separações, custódia de ferramentas, bloqueios e calibração.</div></div>
+      <div class="sched-top">
+        <div class="sched-title">Estoque</div>
+        <div class="days" id="estoqDays"></div>
+      </div>
+      <div class="daylabel" id="estoqDayLabel"></div>
       <div id="estoqueList"></div>
     </section>
 
@@ -2200,7 +2203,11 @@ function sepFaltaEmbarcar(s){ return (s.materiais||[]).reduce((t,m)=>t+Math.max(
 function sepPendente(st){ return ['Solicitada','Aguardando aprovação','Em separação'].includes(st); }
 function osHojeAmanha(o){ if(!o._dataISO) return false; const d=new Date(o._dataISO+'T12:00:00'); const t=new Date(); t.setHours(12,0,0,0); const diff=Math.round((d-t)/86400000); return diff===0||diff===1; }
 function osDiaTag(o){ if(!o._dataISO) return ''; const d=new Date(o._dataISO+'T12:00:00'); const t=new Date(); t.setHours(12,0,0,0); const diff=Math.round((d-t)/86400000); return diff===0?'HOJE':(diff===1?'AMANHÃ':fmtDataBR(o._dataISO)); }
+/* chave 'DD/MM' da data da OS, no mesmo formato usado em DAYS (carrossel de dias) */
+function diaKeyOf(o){ if(!o._dataISO) return null; const d=new Date(o._dataISO+'T12:00:00'); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
 let estoqView={mode:'dash', sep:null, os:null, tile:null};
+/* dia selecionado no carrossel do Estoque (independente do selDay da Agenda); null = todos os dias */
+let estoqDia=null;
 function estoqGo(mode,sep,os,tile){ estoqView={mode, sep:sep||null, os:os||null, tile:(tile!==undefined?tile:estoqView.tile)}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0; }
 /* tiles da home do Estoquista: contagem por etapa, com drill-down */
 const ESTOQ_TILES=[
@@ -2212,16 +2219,33 @@ const ESTOQ_TILES=[
   {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>x.s.status==='Retorno'}
 ];
 function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
+/* mesma lista, restrita ao dia escolhido no carrossel (ou todas, se nenhum dia estiver selecionado) */
+function sepListDia(){ const all=sepListAll(); return estoqDia?all.filter(x=>diaKeyOf(x.o)===estoqDia):all; }
+/* carrossel de dias do Estoque — mesma estrutura visual da Agenda (DAYS/DAYLABEL compartilhados) */
+function renderEstoqDays(){
+  const wrap=document.getElementById('estoqDays'); if(!wrap) return; wrap.innerHTML='';
+  const seps=sepListAll();
+  DAYS.forEach(dd=>{
+    const has=seps.some(x=>diaKeyOf(x.o)===dd.key);
+    const el=document.createElement('div'); el.className='day'+(dd.key===estoqDia?' on':'');
+    el.innerHTML=`<div class="wd">${dd.wd}</div><div class="dn">${dd.d}</div><div class="pip ${has?'':'no'}"></div>`;
+    el.onclick=()=>{ estoqDia=(estoqDia===dd.key?null:dd.key); estoqGo('dash'); };
+    wrap.appendChild(el);
+  });
+  const lbl=document.getElementById('estoqDayLabel'); if(lbl) lbl.textContent=estoqDia?(DAYLABEL[estoqDia]||''):'Todos os dias';
+}
 function renderEstoque(){
+  renderEstoqDays();
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
   /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
-  const seps=sepListAll();
+  const seps=sepListAll(), sepsDia=sepListDia();
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 6px';
   ESTOQ_TILES.forEach(t=>{
-    const n=seps.filter(t.f).length;
+    /* "urgente" (hoje/amanhã reais) sempre olha todos os dias; os demais respeitam o dia escolhido no carrossel */
+    const n=(t.destaque?seps:sepsDia).filter(t.f).length;
     const el=document.createElement('div');
     if(t.destaque){
       el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,'+(n?'#C25E0A,#E8730C':'#2e844a,#4bb26e')+')';
@@ -2250,7 +2274,7 @@ function estoqueListPage(wrap){
   const t=ESTOQ_TILES.find(x=>x.key===estoqView.tile)||ESTOQ_TILES[0];
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.icon+' '+t.label; wrap.appendChild(h);
-  const list=sepListAll().filter(t.f)
+  const list=(t.destaque?sepListAll():sepListDia()).filter(t.f)
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada por aqui. 🎉'; wrap.appendChild(e); return; }
   list.forEach(({o,s})=>wrap.appendChild(sepRow(o,s,()=>{
