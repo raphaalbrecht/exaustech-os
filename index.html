@@ -976,14 +976,15 @@ function back(){
 /* ===== agenda ===== */
 /* filtro "minha agenda": técnico vê só as OS em que está alocado; Coordenador+ começa vendo todas */
 let agFiltro=localStorage.getItem('ag_filtro')||null;
-function agModo(){ if(!(SF_LIVE&&myRid())) return 'todas'; return agFiltro || (canAloc(ROLE)?'todas':'minhas'); }
+/* Líder de Equipe só vê as próprias OS na Agenda — sem opção de trocar pra "Todas" */
+function agModo(){ if(!(SF_LIVE&&myRid())) return 'todas'; if(ROLE==='Líder de Equipe') return 'minhas'; return agFiltro || (canAloc(ROLE)?'todas':'minhas'); }
 function setAgFiltro(m){ agFiltro=m; localStorage.setItem('ag_filtro',m); renderSchedule(); }
 function agVisivel(a){ return agModo()==='todas' || !!(a.os&&(a.os.alocacoes||[]).some(x=>x.matricula===myRid())); }
 function renderSchedule(){
   const days=document.getElementById('days'); days.innerHTML='';
   /* alternância Minhas OS · Todas (só no modo ao vivo, com usuário vinculado a um recurso) */
   const fb=document.getElementById('agFiltroBox');
-  if(SF_LIVE&&myRid()){
+  if(SF_LIVE&&myRid()&&ROLE!=='Líder de Equipe'){
     const m=agModo();
     fb.style.display='flex';
     fb.innerHTML=['minhas','todas'].map(k=>`<button onclick="setAgFiltro('${k}')" style="flex:1;height:34px;border-radius:999px;border:1.5px solid ${k===m?'#0B5CAB':'#D7DEE6'};background:${k===m?'#EAF3FC':'#fff'};color:${k===m?'#0B5CAB':'#4A5560'};font:700 13px system-ui;cursor:pointer">${k==='minhas'?'Minhas OS':'Todas'}</button>`).join('');
