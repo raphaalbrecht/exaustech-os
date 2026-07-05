@@ -1,7 +1,8 @@
 /* Exaustech Field Service — Service Worker
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
-   (v70 04/07 — aba EXP adequada ao layout da prévia: hero c/ patente + Início/Extrato) */
+   (v70 04/07 — aba EXP adequada ao layout da prévia: hero c/ patente + Início/Extrato)
+   (republicação: run #98 do Pages falhou no deploy, forçando novo run) */
 const CACHE = 'exaustech-os-v70';
 const SHELL = [
   './',
