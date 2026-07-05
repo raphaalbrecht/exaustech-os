@@ -3,8 +3,9 @@
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
    (v71 04/07 — EXP: ícone 📸 p/ CHECKLIST_100_FOTOS no extrato)
    (republicação: run #100 do Pages falhou no deploy, forçando novo run)
-   (v72 05/07 — cadastro CNPJ: checagem SF antes da API externa, regra de economia) */
-const CACHE = 'exaustech-os-v72';
+   (v72 05/07 — cadastro CNPJ: checagem SF antes da API externa, regra de economia)
+   (v73 05/07 — Cadastrar nova conta: tela alarga em desktop (900px+) + botão vira pílula "Buscar dados") */
+const CACHE = 'exaustech-os-v73';
 const SHELL = [
   './',
   './index.html',

@@ -28,6 +28,11 @@
   html,body{margin:0;padding:0;font-family:'Salesforce Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#E3E8ED;color:var(--txt)}
   .phone{max-width:420px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,.25);overflow:hidden}
   @media(min-width:480px){.phone{margin:18px auto;height:calc(100vh - 36px);border-radius:22px}}
+  /* Telas marcadas .cad-wide (ex.: Cadastrar nova conta) usam mais largura em navegador desktop — resto do app
+     continua no frame de celular de sempre. :has() é suportado nos navegadores atuais (Chrome/Edge/Safari/Firefox). */
+  @media(min-width:900px){.phone:has(.cad-wide){max-width:680px}}
+  .cad-cnpj-pill{background:var(--brand-l);color:var(--brand-d);border:1.5px solid #9fc6f0;border-radius:999px;padding:0 20px;font-weight:700;font-size:13.5px;white-space:nowrap;cursor:pointer}
+  .cad-cnpj-pill:hover{background:#dcebf9}
   .phone.fullbleed{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
   header{background:var(--brand);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0}
   .brandmark{display:flex;align-items:center;gap:8px;min-width:0}
@@ -2881,13 +2886,13 @@ function cadContaChosen(i){ if(i===''||i==null) return; cadPickConta(parseInt(i,
 /* ---- cadastrar nova conta (CNPJ → Receita/Serpro no futuro pré-preenche o nome) ---- */
 function cadNovaConta(){
   const el=document.getElementById('cadBody');
-  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
+  el.innerHTML='<div class="cad-wide" style="padding:14px 14px 90px">'+cadHead('conta')
     +'<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Voltar às contas</button>'
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Cadastrar nova conta</div>'
-    +'<div style="font-size:12.5px;color:#7A8794;line-height:1.4;margin-bottom:12px">Digite o CNPJ — buscamos os dados na Receita Federal e preenchemos o nome pra você conferir.</div>'
+    +'<div style="font-size:12.5px;color:#7A8794;line-height:1.4;margin-bottom:12px">Digite o CNPJ e toque em "Buscar dados" — trazemos as informações da Receita Federal pra você conferir.</div>'
     +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">CNPJ</label>'
     +'<div style="display:flex;gap:8px"><input id="cadCnpj" inputmode="numeric" placeholder="00.000.000/0000-00" style="flex:1;padding:12px;border:1.5px solid #E2E5E9;border-radius:10px;font-size:15px" oninput="cadFmtCnpj(this)">'
-    +'<button onclick="cadBuscarCnpj()" style="background:#0B2239;color:#fff;border:none;border-radius:10px;padding:0 16px;font-weight:700">Buscar</button></div>'
+    +'<button class="cad-cnpj-pill" onclick="cadBuscarCnpj()">Buscar dados</button></div>'
     +'<div id="cadCnpjMsg" style="font-size:11.5px;color:#7A8794;margin-top:6px"></div>'
     +'<div id="cadNovaResult"></div></div>';
 }
