@@ -4,7 +4,8 @@
    (v71 04/07 — EXP: ícone 📸 p/ CHECKLIST_100_FOTOS no extrato)
    (republicação: run #100 do Pages falhou no deploy, forçando novo run)
    (v72 05/07 — cadastro CNPJ: checagem SF antes da API externa, regra de economia)
-   (v73 05/07 — Cadastrar nova conta: tela alarga em desktop (900px+) + botão vira pílula "Buscar dados") */
+   (v73 05/07 — Cadastrar nova conta: tela alarga em desktop (900px+) + botão vira pílula "Buscar dados")
+   (republicação: run #103 do Pages falhou no deploy, forçando novo run) */
 const CACHE = 'exaustech-os-v73';
 const SHELL = [
   './',
