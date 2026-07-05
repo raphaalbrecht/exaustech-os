@@ -433,6 +433,54 @@
   .pad-line{text-align:center;font-size:11px;color:var(--weaker);margin:6px 0 12px;border-top:1px dashed var(--border);padding-top:6px}
   .modal-actions{display:flex;gap:8px}
   .modal-actions .btn{padding:10px;font-size:13px}
+  /* ---- EXP (layout da prévia) ---- */
+  .exp-hero{background:linear-gradient(160deg,#0B5CAB 0%,#1589EE 55%,#54C7EC 100%);color:#fff;padding:18px 18px 0;position:relative}
+  .exp-hero .exp-mtns{display:block;margin:0 -18px -1px}
+  .exp-topbar{display:flex;justify-content:space-between;align-items:center;font-size:12px;opacity:.9;margin-bottom:10px}
+  .exp-brand{font-weight:800;letter-spacing:.5px}
+  .exp-brand span{color:#FFB75D}
+  .exp-profile{display:flex;gap:12px;align-items:center}
+  .exp-avatar{width:58px;height:58px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;border:3px solid #fff;flex-shrink:0}
+  .exp-pname{font-size:17px;font-weight:800}
+  .exp-prole{font-size:11px;background:rgba(255,255,255,.22);border-radius:20px;padding:2px 10px;display:inline-block;margin-top:3px}
+  .exp-rankwrap{margin-left:auto;text-align:center}
+  .exp-hex{width:56px;height:62px;margin:0 auto;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);display:flex;align-items:center;justify-content:center;font-size:24px}
+  .exp-rname{font-size:11px;font-weight:800;margin-top:3px}
+  .exp-xpbar{margin:14px 2px 12px}
+  .exp-xpline{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;opacity:.95}
+  .exp-bar{height:8px;background:rgba(255,255,255,.28);border-radius:8px;overflow:hidden}
+  .exp-bar>i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#FFB75D,var(--accent))}
+  .exp-cards{display:flex;gap:10px;padding:12px 14px 4px}
+  .exp-kcard{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}
+  .exp-kcard .v{font-size:21px;font-weight:800;color:var(--brand-dk)}
+  .exp-kcard .v.pos{color:var(--succ)}
+  .exp-kcard .l{font-size:10.5px;color:var(--weaker);margin-top:2px;line-height:1.3}
+  .exp-sect{padding:14px 14px 4px}
+  .exp-sect h2{font-size:13px;color:var(--brand-dk);text-transform:uppercase;letter-spacing:.6px;display:flex;justify-content:space-between;align-items:center;margin:0}
+  .exp-sect h2 a{font-size:11px;color:var(--brand);text-decoration:none;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer}
+  .exp-txn{background:var(--card);border:1px solid var(--border);border-radius:14px;margin:0 14px 10px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+  .exp-txn.estornado{opacity:.55}
+  .exp-txn .tic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .exp-txn .tic.g{background:#E7F4EC}
+  .exp-txn .tic.r{background:#FBEAE9}
+  .exp-txn .tic.b{background:#EAF3FC}
+  .exp-txn .mid{flex:1}
+  .exp-txn .tt{font-size:13px;font-weight:700;color:var(--txt)}
+  .exp-txn .ts{font-size:11px;color:var(--weaker);margin-top:2px;line-height:1.35}
+  .exp-txn .pts{font-size:15px;font-weight:800;white-space:nowrap}
+  .exp-txn .pts.pos{color:var(--succ)}
+  .exp-txn .pts.neg{color:var(--err)}
+  .exp-chips{display:flex;gap:8px;padding:12px 14px 2px}
+  .exp-chip{font-size:12px;padding:6px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);color:var(--weak);font-weight:600;cursor:pointer}
+  .exp-chip.on{background:var(--brand-dk);color:#fff;border-color:var(--brand-dk)}
+  .exp-saldo-hd{margin:12px 14px;background:linear-gradient(140deg,var(--brand-dk),#173A5E);border-radius:16px;color:#fff;padding:16px;display:flex;justify-content:space-between;align-items:center}
+  .exp-saldo-hd .b1 .l{font-size:11px;opacity:.75}
+  .exp-saldo-hd .b1 .v{font-size:28px;font-weight:800;color:#FFB75D}
+  .exp-saldo-hd .b2{text-align:right;font-size:11px;opacity:.85;line-height:1.5}
+  .exp-daylbl{font-size:11px;color:var(--weaker);margin:14px 16px 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .exp-pagetitle{padding:16px 16px 2px;font-size:19px;font-weight:800;color:var(--brand-dk);display:flex;align-items:center;gap:8px}
+  .exp-pagetitle .exp-back{background:none;border:none;font-size:20px;cursor:pointer;color:var(--brand);padding:0;line-height:1}
+  .exp-pagesub{padding:0 16px;font-size:12px;color:var(--weaker)}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -507,9 +555,8 @@
       <div id="estoqueList"></div>
     </section>
 
-    <!-- EXP (Programa de pontuação) -->
+    <!-- EXP (Programa de pontuação) — layout ref.: previa-exp.html -->
     <section class="screen" id="scr-exp">
-      <div class="sched-top"><div class="sched-title">EXP</div><div class="subnote" style="padding:0 0 6px">Saldo e extrato de pontos.</div></div>
       <div id="expBody"></div>
     </section>
 
@@ -3294,41 +3341,116 @@ function beLogout(){ ['be_tok','be_name','be_rid'].forEach(k=>{ sessionStorage.r
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
-/* ===== PROGRAMA EXP (pontuação) — saldo, extrato e input de Auditoria Técnica ===== */
-let expCiclo='trimestre';
+/* ===== PROGRAMA EXP (pontuação) — layout ref.: previa-exp.html (Início + Extrato) =====
+   Dados 100% reais do backend. Sem dado no F1 (emblemas, banco de horas em horas): oculto.
+   Derivados do real: patente por XP de carreira (tabela do doc do programa) e streak de
+   inspeções limpas (INSPECAO_LIMPA consecutivas no extrato do ano, quebra em NC). */
+let expCiclo='trimestre', expView='home';
+const EXP_RANKS=[
+  {nome:'NOVATO', xp:0,     grad:'linear-gradient(160deg,#CBD3DB,#9AA5B1)', emo:'🌱'},
+  {nome:'BRONZE', xp:2500,  grad:'linear-gradient(160deg,#D9A26C,#B07A45)', emo:'🏅'},
+  {nome:'PRATA',  xp:6000,  grad:'linear-gradient(160deg,#C8D2DC,#9AA5B1)', emo:'🏅'},
+  {nome:'OURO',   xp:12000, grad:'linear-gradient(160deg,#FFD86B,#D4A017)', emo:'🏅'},
+  {nome:'PLATINA',xp:25000, grad:'linear-gradient(160deg,#E8ECF0,#8FA3B0)', emo:'💎'},
+  {nome:'LENDA',  xp:50000, grad:'linear-gradient(160deg,#9B6BE8,#6B46C1)', emo:'👑'}
+];
+const EXP_ICON={
+  INSPECAO_LIMPA:['✅','g'], OS_MPP_CONCLUIDA_PRAZO:['🧰','b'], MODULO_TRILHA_CONCLUIDO:['🎓','b'],
+  TRILHA_COMPLETA:['🎓','b'], MELHOR_FORMACAO_MES:['🏆','g'], TRIMESTRE_SEM_NC:['🛡','g'],
+  BONUS_MENTOR:['🤝','g'], BANCO_HORAS_POSITIVO:['🕐','g'], HE_PRODUTIVA_HORA:['💪','g'],
+  NC_ATRIBUIVEL_MPP:['⚠️','r'], FALTA_NAO_JUSTIFICADA:['🚫','r'], RECLAMACAO_PROCEDENTE:['📣','r'],
+  RETRABALHO:['🔁','r'], CHECK_PREPARO_EPI:['🦺','r'], CHECK_PREPARO_FERRAMENTAS:['🧰','r']
+};
+const EXP_MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const EXP_MESF=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const expFmt=n=>Math.round(Number(n)||0).toLocaleString('pt-BR');
+function expRankIdx(xp){ let i=0; while(i+1<EXP_RANKS.length && xp>=EXP_RANKS[i+1].xp) i++; return i; }
+function expTic(t){ return EXP_ICON[t.eventoCodigo] || (t.pontos>=0?['➕','b']:['⚠️','r']); }
+function expTxnHTML(t){
+  const ic=expTic(t), pos=t.pontos>=0;
+  const d=(t.dataEvento||'').slice(0,10).split('-');
+  const sub=[(d.length===3?d[2]+'/'+d[1]:''), t.osName?'OS '+t.osName:'', t.contaNome||''].filter(Boolean).join(' · ')+(t.estornado?' · ESTORNADO':'');
+  return '<div class="exp-txn'+(t.estornado?' estornado':'')+'"><div class="tic '+ic[1]+'">'+ic[0]+'</div>'
+    +'<div class="mid"><div class="tt">'+(t.descricao||t.eventoCodigo)+'</div><div class="ts">'+sub+'</div></div>'
+    +'<div class="pts '+(pos?'pos':'neg')+'">'+(pos?'+':'−')+expFmt(Math.abs(t.pontos))+'</div></div>';
+}
+function expHeroHTML(xp){
+  const nome=localStorage.getItem('be_name')||'—';
+  const ini=(nome.trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('')||'?').toUpperCase();
+  const ri=expRankIdx(xp), r=EXP_RANKS[ri], nx=EXP_RANKS[ri+1];
+  const pct=nx?Math.max(2,Math.min(100,Math.round((xp-r.xp)/(nx.xp-r.xp)*100))):100;
+  const nxLbl=nx?nx.nome.charAt(0)+nx.nome.slice(1).toLowerCase()+': '+expFmt(nx.xp):'Rank máximo';
+  return '<div class="exp-hero">'
+    +'<div class="exp-topbar"><div class="exp-brand">EXAUS<span>TECH</span> · EXP</div></div>'
+    +'<div class="exp-profile"><div class="exp-avatar">'+ini+'</div>'
+    +'<div><div class="exp-pname">'+nome+'</div><div class="exp-prole">'+ROLE.toUpperCase()+'</div></div>'
+    +'<div class="exp-rankwrap"><div class="exp-hex" style="background:'+r.grad+'">'+r.emo+'</div><div class="exp-rname">'+r.nome+'</div></div></div>'
+    +'<div class="exp-xpbar"><div class="exp-xpline"><span>XP de carreira: <b>'+expFmt(xp)+'</b></span><span>'+nxLbl+'</span></div>'
+    +'<div class="exp-bar"><i style="width:'+pct+'%"></i></div></div>'
+    +'<svg class="exp-mtns" viewBox="0 0 392 46" preserveAspectRatio="none"><path d="M0 46 L60 14 L110 34 L170 6 L235 38 L295 12 L392 42 L392 46 Z" fill="#FAFBFC" opacity=".35"/><path d="M0 46 L80 26 L150 40 L220 18 L300 42 L360 24 L392 34 L392 46 Z" fill="#FAFBFC"/></svg>'
+    +'</div>';
+}
+function expStreak(extAno){
+  const ev=extAno.filter(t=>!t.estornado&&(t.eventoCodigo==='INSPECAO_LIMPA'||t.eventoCodigo==='NC_ATRIBUIVEL_MPP'));
+  if(!ev.length) return null; /* nunca teve inspeção auditada → card oculto */
+  let n=0; for(const t of ev){ if(t.eventoCodigo==='INSPECAO_LIMPA') n++; else break; }
+  return n;
+}
 async function renderExp(){
   const wrap=document.getElementById('expBody'); if(!wrap) return;
   const rid=myRid();
   if(!rid){ wrap.innerHTML='<div style="padding:16px;color:var(--weaker);font-size:13px">Sem recurso vinculado ao seu login — fale com o supervisor.</div>'; return; }
   wrap.innerHTML='<div style="padding:16px;color:var(--weaker);font-size:13px">Carregando…</div>';
   try{
-    const [saldo, extrato] = await Promise.all([
-      beGet('/exp/saldo?recursoId='+encodeURIComponent(rid)),
-      beGet('/exp/extrato?recursoId='+encodeURIComponent(rid)+'&ciclo='+expCiclo)
-    ]);
-    const kcard=(v,l,cor)=>'<div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">'
-      +'<div style="font-size:21px;font-weight:800;color:'+(cor||'var(--brand-dk)')+'">'+v+'</div>'
-      +'<div style="font-size:10.5px;color:var(--weaker);margin-top:2px">'+l+'</div></div>';
-    const ciclos={mes:'Mês',trimestre:'Trimestre',semestre:'Semestre',ano:'Ano'};
-    wrap.innerHTML =
-      '<div style="display:flex;gap:10px;padding:12px 14px 4px">'
-      +kcard(saldo.saldoTotal,'Saldo EXP')+kcard(saldo.saldoTrimestre,'Trimestre')+kcard(saldo.xpCarreira,'XP carreira','var(--accent)')
-      +'</div>'
-      +'<div style="display:flex;gap:8px;padding:12px 14px 2px;flex-wrap:wrap">'
-      +Object.keys(ciclos).map(c=>'<div onclick="expTrocaCiclo(\''+c+'\')" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-weight:600;cursor:pointer;background:'+(expCiclo===c?'var(--brand-dk)':'var(--card)')+';color:'+(expCiclo===c?'#fff':'var(--weak)')+'">'+ciclos[c]+'</div>').join('')
-      +'</div>'
-      +'<div id="expExtratoList" style="padding:12px 14px 20px"></div>';
-    const list=document.getElementById('expExtratoList');
-    list.innerHTML = extrato.length ? extrato.map(function(t){
-      const cor = t.pontos>=0 ? 'var(--succ)' : 'var(--err)';
-      const sinal = t.pontos>=0 ? '+' : '';
-      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;padding:12px;display:flex;gap:10px;align-items:flex-start">'
-        +'<div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--txt)">'+(t.descricao||t.eventoCodigo)+'</div>'
-        +'<div style="font-size:11px;color:var(--weaker);margin-top:2px">'+(t.dataEvento||'').slice(0,10)+(t.osName?' · '+t.osName:'')+(t.estornado?' · ESTORNADO':'')+'</div></div>'
-        +'<div style="font-size:15px;font-weight:800;white-space:nowrap;color:'+cor+'">'+sinal+t.pontos+'</div></div>';
-    }).join('') : '<div style="padding:20px 0;text-align:center;color:var(--weaker);font-size:13px">Nenhum lançamento neste período.</div>';
+    if(expView==='extrato') await renderExpExtrato(wrap,rid); else await renderExpHome(wrap,rid);
   }catch(e){ wrap.innerHTML='<div style="padding:16px;color:var(--err);font-size:13px">Erro ao carregar EXP: '+e.message+'</div>'; }
 }
+async function renderExpHome(wrap,rid){
+  const [saldo,extAno]=await Promise.all([
+    beGet('/exp/saldo?recursoId='+encodeURIComponent(rid)),
+    beGet('/exp/extrato?recursoId='+encodeURIComponent(rid)+'&ciclo=ano')
+  ]);
+  const st=expStreak(extAno);
+  const k=(v,l,cls)=>'<div class="exp-kcard"><div class="v'+(cls||'')+'">'+v+'</div><div class="l">'+l+'</div></div>';
+  const cards=k(expFmt(saldo.saldoTrimestre),'Saldo EXP<br>do trimestre',' pos')
+    +(st===null?k(expFmt(saldo.saldoMes),'Saldo EXP<br>do mês',''):k(st+' 🔥','auditorias limpas<br>seguidas',''))
+    +k(expFmt(saldo.saldoTotal),'Saldo EXP<br>total','');
+  const ult=extAno.filter(t=>!t.estornado).slice(0,3);
+  wrap.innerHTML = expHeroHTML(saldo.xpCarreira)
+    +'<div class="exp-cards">'+cards+'</div>'
+    +'<div class="exp-sect"><h2>Últimos lançamentos <a onclick="expIrExtrato()">extrato →</a></h2></div>'
+    +(ult.length?ult.map(expTxnHTML).join(''):'<div style="padding:20px 14px;text-align:center;color:var(--weaker);font-size:13px">Nenhum lançamento ainda.</div>');
+}
+function expCicloLabel(){
+  const now=new Date(), m=now.getMonth(), y=now.getFullYear();
+  if(expCiclo==='mes') return 'SALDO DO MÊS ('+EXP_MES[m]+')';
+  if(expCiclo==='trimestre'){ const q=Math.floor(m/3)*3; return 'SALDO DO TRIMESTRE ('+EXP_MES[q]+'–'+EXP_MES[q+2]+')'; }
+  if(expCiclo==='semestre') return 'SALDO DO SEMESTRE ('+(m<6?'jan–jun':'jul–dez')+')';
+  return 'SALDO DO ANO ('+y+')';
+}
+async function renderExpExtrato(wrap,rid){
+  const ext=await beGet('/exp/extrato?recursoId='+encodeURIComponent(rid)+'&ciclo='+expCiclo);
+  const ativos=ext.filter(t=>!t.estornado);
+  const cred=ativos.reduce((s,t)=>s+(t.pontos>0?t.pontos:0),0);
+  const deb=ativos.reduce((s,t)=>s+(t.pontos<0?-t.pontos:0),0);
+  const ciclos={mes:'Mês',trimestre:'Trimestre',semestre:'Semestre',ano:'Ano'};
+  let list='', mesAtual='';
+  ext.forEach(t=>{
+    const d=(t.dataEvento||'').slice(0,10).split('-');
+    const lbl=d.length===3?EXP_MESF[Number(d[1])-1]+' '+d[0]:'';
+    if(lbl&&lbl!==mesAtual){ mesAtual=lbl; list+='<div class="exp-daylbl">'+lbl+'</div>'; }
+    list+=expTxnHTML(t);
+  });
+  wrap.innerHTML =
+    '<div class="exp-pagetitle"><button class="exp-back" onclick="expIrHome()">←</button>Extrato EXP</div>'
+    +'<div class="exp-pagesub">Todo ponto tem origem: OS, inspeção, trilha ou ocorrência.</div>'
+    +'<div class="exp-chips">'+Object.keys(ciclos).map(c=>'<div class="exp-chip'+(expCiclo===c?' on':'')+'" onclick="expTrocaCiclo(\''+c+'\')">'+ciclos[c]+'</div>').join('')+'</div>'
+    +'<div class="exp-saldo-hd"><div class="b1"><div class="l">'+expCicloLabel()+'</div><div class="v">'+expFmt(Math.max(0,cred-deb))+' pts</div></div>'
+    +'<div class="b2">créditos +'+expFmt(cred)+'<br>débitos −'+expFmt(deb)+'</div></div>'
+    +(list?'<div style="padding-bottom:20px">'+list+'</div>':'<div style="padding:20px 0;text-align:center;color:var(--weaker);font-size:13px">Nenhum lançamento neste período.</div>');
+}
+function expIrExtrato(){ expView='extrato'; document.querySelector('main').scrollTop=0; renderExp(); }
+function expIrHome(){ expView='home'; document.querySelector('main').scrollTop=0; renderExp(); }
 function expTrocaCiclo(c){ expCiclo=c; renderExp(); }
 
 /* Nova Auditoria Técnica REMOVIDA do app mobile (04/07/2026, decisão do Raphael): lançar auditoria
