@@ -1,7 +1,8 @@
 /* Exaustech Field Service — Service Worker
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
-   (v71 04/07 — EXP: ícone 📸 p/ CHECKLIST_100_FOTOS no extrato) */
+   (v71 04/07 — EXP: ícone 📸 p/ CHECKLIST_100_FOTOS no extrato)
+   (republicação: run #100 do Pages falhou no deploy, forçando novo run) */
 const CACHE = 'exaustech-os-v71';
 const SHELL = [
   './',
