@@ -328,9 +328,7 @@
   .aloc-cancelbox{font-size:12px;color:var(--weak);padding:8px 2px 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .aloc-lane.late{border-color:#f0c34b}
   .late-tag{font-size:9px;font-weight:800;color:#8a6d2b;background:#fff3cd;border-radius:8px;padding:1px 6px;vertical-align:middle;margin-left:5px}
-  .aloc-lane.team-under{border:2px solid #e5484d;box-shadow:0 0 0 3px rgba(229,72,77,.10),0 1px 2px rgba(0,0,0,.04)}
-  .aloc-lane.team-ok{border:2px solid #30a46c;box-shadow:0 0 0 3px rgba(48,164,108,.13),0 1px 2px rgba(0,0,0,.04)}
-  .aloc-lane.team-over{border:2px solid #f5a623;box-shadow:0 0 0 3px rgba(245,166,35,.14),0 1px 2px rgba(0,0,0,.04)}
+  .aloc-lane.team-under,.aloc-lane.team-ok,.aloc-lane.team-over{border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.04)}
   .tcount{font-size:11px;font-weight:800;color:#fff;border-radius:11px;padding:2px 9px;white-space:nowrap;letter-spacing:.02em}
   .tcount-under{background:#e5484d}
   .tcount-ok{background:#30a46c}
@@ -481,6 +479,98 @@
   .exp-pagetitle{padding:16px 16px 2px;font-size:19px;font-weight:800;color:var(--brand-dk);display:flex;align-items:center;gap:8px}
   .exp-pagetitle .exp-back{background:none;border:none;font-size:20px;cursor:pointer;color:var(--brand);padding:0;line-height:1}
   .exp-pagesub{padding:0 16px;font-size:12px;color:var(--weaker)}
+  /* ===== TREINAMENTOS (Trailhead) ===== */
+  .tr-hero{background:linear-gradient(135deg,var(--brand-dk),var(--brand-d));color:#fff;padding:16px 16px 18px;border-radius:0 0 16px 16px}
+  .tr-hero h2{margin:0;font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .tr-hero p{margin:4px 0 12px;font-size:12px;opacity:.85}
+  .tr-hero-stats{display:flex;gap:8px}
+  .tr-stat{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:8px 10px}
+  .tr-stat .n{font-size:20px;font-weight:800;line-height:1}
+  .tr-stat .l{font-size:10px;opacity:.85;margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+  .tr-list{padding:12px 14px 20px}
+  .tr-card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);margin-bottom:12px;overflow:hidden;cursor:pointer;transition:.12s}
+  .tr-card:active{transform:scale(.995)}
+  .tr-card-top{display:flex;gap:12px;padding:13px 13px 11px}
+  .tr-ico{width:44px;height:44px;flex-shrink:0;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--brand-l);color:var(--brand-d)}
+  .tr-ico.g{background:#E7F5EC;color:#2E844A}.tr-ico.o{background:#FFF3E4;color:#B26B00}
+  .tr-card-ti{font-size:14.5px;font-weight:800;color:var(--brand-dk);line-height:1.25}
+  .tr-card-meta{font-size:11.5px;color:var(--weaker);margin-top:3px}
+  .tr-badge{font-size:10px;font-weight:800;border-radius:20px;padding:2px 9px;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
+  .tr-badge.done{background:#E7F5EC;color:#2E844A}.tr-badge.doing{background:var(--brand-l);color:var(--brand-d)}.tr-badge.todo{background:#F1F4F8;color:var(--weaker)}
+  .tr-prog{height:6px;background:#EEF2F6;border-radius:10px;overflow:hidden;margin:0 13px 12px}
+  .tr-prog>i{display:block;height:100%;background:var(--brand);border-radius:10px;transition:width .3s}
+  .tr-prog>i.done{background:#2E844A}
+  /* detalhe da trilha */
+  .tr-d-hero{background:linear-gradient(135deg,var(--brand-dk),var(--brand-d));color:#fff;padding:16px}
+  .tr-d-hero .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;opacity:.8;font-weight:700}
+  .tr-d-hero h2{margin:5px 0 0;font-size:20px;font-weight:800;line-height:1.2}
+  .tr-d-hero .sub{font-size:12px;opacity:.9;margin-top:8px}
+  .tr-body{padding:14px 16px 24px}
+  .tr-unit{margin-bottom:18px}
+  .tr-unit h3{font-size:15px;font-weight:800;color:var(--brand-dk);margin:0 0 7px;display:flex;align-items:center;gap:7px}
+  .tr-unit p{font-size:13.5px;line-height:1.55;color:var(--txt);margin:0 0 9px}
+  .tr-unit ul{margin:0 0 9px;padding-left:18px;font-size:13.5px;line-height:1.55;color:var(--txt)}
+  .tr-fig{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--brand-l)}
+  .tr-fig .ph{height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--brand-d)}
+  .tr-fig .ph .ic{font-size:34px}.tr-fig .cap{font-size:11px;color:var(--weaker);padding:8px 12px;background:#fff;border-top:1px solid var(--border)}
+  .tr-media{border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px;background:#fff}
+  .tr-media .play{width:44px;height:44px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:none;cursor:pointer}
+  .tr-media.audio .play{background:var(--brand-dk)}
+  .tr-media .mt{font-size:13px;font-weight:700;color:var(--brand-dk)}
+  .tr-media .ms{font-size:11px;color:var(--weaker);margin-top:2px}
+  .tr-media .wave{height:5px;background:#EEF2F6;border-radius:10px;margin-top:7px;position:relative;overflow:hidden}
+  .tr-media .wave>i{position:absolute;left:0;top:0;bottom:0;width:34%;background:var(--brand)}
+  /* quiz */
+  .tr-quiz{margin-top:6px}
+  .tr-q{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .tr-q .qn{font-size:11px;font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:.4px}
+  .tr-q .qt{font-size:14.5px;font-weight:700;color:var(--brand-dk);margin:4px 0 11px;line-height:1.35}
+  .tr-opt{display:flex;align-items:center;gap:10px;border:1.5px solid var(--border2);border-radius:10px;padding:11px 12px;margin-bottom:8px;font-size:13.5px;color:var(--txt);cursor:pointer;transition:.1s;background:#fff}
+  .tr-opt .mk{width:20px;height:20px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff}
+  .tr-opt.sel{border-color:var(--brand);background:var(--brand-l)}.tr-opt.sel .mk{border-color:var(--brand);background:var(--brand)}
+  .tr-opt.correct{border-color:#2E844A;background:#E7F5EC}.tr-opt.correct .mk{border-color:#2E844A;background:#2E844A}
+  .tr-opt.wrong{border-color:#C23934;background:#FDECEA}.tr-opt.wrong .mk{border-color:#C23934;background:#C23934}
+  .tr-opt.lock{pointer-events:none;opacity:.9}
+  .tr-fb{font-size:12.5px;font-weight:700;margin-top:2px;padding:8px 10px;border-radius:8px}
+  .tr-fb.ok{background:#E7F5EC;color:#2E844A}.tr-fb.no{background:#FDECEA;color:#C23934}
+  .tr-fb .hint{display:block;font-weight:500;color:var(--weaker);margin-top:3px}
+  .tr-result{text-align:center;padding:22px 16px}
+  .tr-ring{width:120px;height:120px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff;font-weight:800}
+  .tr-ring .pv{font-size:32px;line-height:1}.tr-ring .pl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+  .tr-result h2{font-size:19px;color:var(--brand-dk);margin:2px 0 4px}
+  .tr-result .rsub{font-size:13px;color:var(--weaker);margin-bottom:14px}
+  .tr-xp{display:inline-flex;align-items:center;gap:6px;background:#FFF3E4;color:#B26B00;font-weight:800;border-radius:20px;padding:6px 14px;font-size:13px;margin-bottom:16px}
+  .tr-scorehint{font-size:11.5px;color:var(--weaker);background:#F7F9FB;border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin:0 auto 14px;max-width:320px;line-height:1.5}
+  /* patente (rank) */
+  .tr-rankcard{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px 12px;margin-top:12px}
+  .tr-medal{width:52px;height:52px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:26px;background:radial-gradient(circle at 30% 30%,#FFE08A,#E8A400);box-shadow:0 0 0 3px rgba(255,255,255,.25),0 3px 8px rgba(0,0,0,.25)}
+  .tr-rankinfo{flex:1;min-width:0}
+  .tr-rankinfo .rk{font-size:14px;font-weight:800}
+  .tr-rankinfo .nx{font-size:10.5px;opacity:.85;margin-top:1px}
+  .tr-rankbar{height:6px;background:rgba(255,255,255,.2);border-radius:10px;overflow:hidden;margin-top:6px}
+  .tr-rankbar>i{display:block;height:100%;background:#FFB75D;border-radius:10px;transition:width .4s}
+  /* prateleira de emblemas */
+  .tr-shelf-t{font-size:12px;font-weight:800;color:var(--brand-dk);text-transform:uppercase;letter-spacing:.4px;margin:16px 14px 9px;display:flex;align-items:center;gap:6px}
+  .tr-shelf-t .cnt{font-size:11px;color:var(--weaker);font-weight:700;letter-spacing:0;text-transform:none}
+  .tr-shelf{display:flex;gap:14px;overflow-x:auto;padding:0 14px 4px;scrollbar-width:none}.tr-shelf::-webkit-scrollbar{display:none}
+  .tr-em{flex:0 0 auto;width:88px;text-align:center}
+  .tr-em .disc{width:72px;height:72px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:33px;position:relative;background:radial-gradient(circle at 32% 28%,#fff,#EAF3FC);border:3px solid var(--brand);box-shadow:0 3px 8px rgba(11,92,171,.25)}
+  .tr-em .disc .rib{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font-size:17px}
+  .tr-em.lock .disc{filter:grayscale(1);opacity:.5;border-color:var(--border2);box-shadow:none;background:#F1F4F8}
+  .tr-em .nm{font-size:10.5px;font-weight:700;color:var(--brand-dk);margin-top:11px;line-height:1.2}
+  .tr-em.lock .nm{color:var(--weaker)}
+  /* reveal do emblema no resultado */
+  .tr-emblem{width:150px;height:150px;margin:6px auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative;background:radial-gradient(circle at 32% 28%,#fff,#EAF3FC);border:5px solid var(--brand);box-shadow:0 6px 20px rgba(11,92,171,.35);animation:emb-pop .55s ease}
+  .tr-emblem::before{content:"";position:absolute;inset:-16px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 68%,rgba(255,200,90,.95) 84%,transparent 100%);animation:emb-spin 3.2s linear infinite;z-index:-1}
+  .tr-emblem .rib2{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:32px}
+  @keyframes emb-pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  @keyframes emb-spin{to{transform:rotate(360deg)}}
+  .tr-emname{font-size:15.5px;font-weight:800;color:var(--brand);margin-bottom:2px}
+  .tr-rankup{display:inline-block;background:var(--brand-dk);color:#fff;font-size:11.5px;font-weight:800;border-radius:20px;padding:5px 13px;margin-bottom:12px}
+  /* confete */
+  .tr-confetti{position:absolute;inset:0 0 auto 0;height:340px;overflow:hidden;pointer-events:none}
+  .tr-confetti i{position:absolute;top:-12px;width:8px;height:13px;border-radius:2px;opacity:.95;animation:conf 1.9s linear forwards}
+  @keyframes conf{to{transform:translateY(360px) rotate(340deg);opacity:0}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -488,6 +578,38 @@
 </head>
 <body>
 <div class="phone" id="app">
+
+  <!-- SPLASH DE ABERTURA (usa o diafragma real do logo) -->
+  <div id="splash">
+    <div class="sp-stage">
+      <div class="sp-hero"><img src="fan-mark.png" alt="Exaustech"></div>
+      <div class="sp-wm"><span class="e1">exaus</span><span class="e2">tech</span></div>
+      <div class="sp-anos"><span class="n">2</span><span class="ap"><img src="fan-mark.png" alt="0"></span><span class="lbl">ANOS</span></div>
+    </div>
+  </div>
+  <style>
+    #splash{position:fixed;inset:0;background:#0B2239;z-index:99999;display:flex;align-items:center;justify-content:center;transition:opacity .55s ease}
+    #splash.hide{opacity:0;pointer-events:none}
+    #splash .sp-stage{display:flex;flex-direction:column;align-items:center;gap:22px}
+    #splash .sp-hero img{width:120px;height:120px;display:block;opacity:0;transform:rotate(-160deg) scale(.45);animation:spHero 1s cubic-bezier(.16,.8,.24,1) forwards, spSpin 22s linear 1.1s infinite}
+    @keyframes spHero{to{opacity:1;transform:rotate(0) scale(1)}}
+    @keyframes spSpin{to{transform:rotate(360deg)}}
+    #splash .sp-wm{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:34px;font-weight:400;letter-spacing:.5px;opacity:0;transform:translateY(10px);animation:spUp .6s ease-out .95s forwards}
+    #splash .sp-wm .e1{color:#C7D0D9}
+    #splash .sp-wm .e2{color:#7FB3D9;font-weight:600}
+    #splash .sp-anos{display:flex;align-items:center;gap:3px;opacity:0;transform:scale(.7);animation:spPop .6s cubic-bezier(.2,1.5,.4,1) 2.15s forwards;margin-top:2px}
+    #splash .sp-anos .n{font-size:40px;font-weight:700;color:#7FB3D9;line-height:1}
+    #splash .sp-anos .ap img{width:38px;height:38px;display:block}
+    #splash .sp-anos .lbl{font-size:13px;font-weight:600;letter-spacing:5px;color:#8494A6;align-self:flex-end;margin:0 0 5px 6px}
+    @keyframes spUp{to{opacity:1;transform:translateY(0)}}
+    @keyframes spPop{to{opacity:1;transform:scale(1)}}
+  </style>
+  <script>
+    (function(){ var s=document.getElementById('splash'); if(!s) return;
+      setTimeout(function(){ s.classList.add('hide'); }, 3300);
+      setTimeout(function(){ if(s&&s.parentNode) s.parentNode.removeChild(s); }, 3900);
+    })();
+  </script>
 
   <!-- LOGIN -->
   <section class="login screen" id="scr-login">
@@ -560,6 +682,19 @@
       <div id="expBody"></div>
     </section>
 
+    <!-- TREINAMENTOS (estilo Trailhead) -->
+    <section class="screen" id="scr-treinamentos">
+      <div id="treinoBody"></div>
+    </section>
+    <section class="screen" id="scr-trilha">
+      <div id="trilhaBody"></div>
+    </section>
+
+    <!-- CADASTRO DE ATIVOS (Supervisor pra cima) — conta › sistema › equipamento › formulário -->
+    <section class="screen" id="scr-cadastro">
+      <div id="cadBody"></div>
+    </section>
+
     <!-- ALOCAÇÃO (board do supervisor) -->
     <section class="screen" id="scr-aloc">
       <div class="sched-top"><div class="sched-title">Alocação de Equipe</div>
@@ -624,6 +759,8 @@
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
     <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
     <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque<span class="nbadge" id="estoqueBadge" style="display:none">0</span></button>
+    <button id="nav-cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
+    <button id="nav-trein" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
 
@@ -783,9 +920,9 @@ const NET={online:true, queue:0};
 const STAGES=['Confirmada','Em execução','Concluído'];
 const REP_STAGES=['Rascunho','Supervisão','Coordenação','Aprovado','Cliente'];
 /* ===== perfis / permissões ===== */
-const ROLES=['Líder de Equipe','Estoquista','Supervisor','Coordenador','Gerente','Sócio'];
+const ROLES=['Auxiliar de Manutenção (MPP)','Líder de Equipe','Estoquista','Supervisor','Coordenador','Gerente','Sócio'];
 let ROLE='Líder de Equipe';
-function roleShort(r){ return r==='Líder de Equipe'?'Líder':r; }
+function roleShort(r){ if(r==='Líder de Equipe')return 'Líder'; if(r==='Auxiliar de Manutenção (MPP)')return 'Auxiliar'; return r; }
 function canSend(r){ return r==='Líder de Equipe'||r==='Supervisor'; }
 function canPDF(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
 function canRelease(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
@@ -979,28 +1116,33 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='estoque'||scr==='aloc'||scr==='exp');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
-  document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs')?'block':'none';
+  document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
   document.getElementById('bellBtn').style.display=(scr!=='login')?'flex':'none';
   const tt=document.getElementById('hdrTitle'), ts=document.getElementById('hdrSub');
   if(scr==='appt'){ tt.textContent=curOS.id; ts.textContent=curOS.cli+' · '+curAppt.id; }
   else if(scr==='sub'){ tt.textContent=curSubTitle; ts.textContent=curSubSub; }
+  else if(scr==='cadastro'){ tt.textContent='Cadastro de Ativo'; ts.textContent='Novo equipamento'; }
+  else if(scr==='treinamentos'){ tt.textContent='Treinamentos'; ts.textContent='Sua trilha de aprendizado'; }
+  else if(scr==='trilha'){ tt.textContent=curTrilhaTitle||'Módulo'; ts.textContent='Treinamento'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
   if(scr==='estoque') renderEstoque();
   if(scr==='aloc') renderAloc();
   if(scr==='exp') renderExp();
+  if(scr==='treinamentos') renderTreino();
+  if(scr==='cadastro') renderCadastro();
   if(scr==='notifs') renderNotifs();
   if(scr==='appt') renderAppt();
   renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
-const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
+const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
 function renderRoleChip(){ const c=document.getElementById('roleChip'); if(c) c.innerHTML=svgI('user')+'<span>'+roleShort(ROLE)+'</span>'; }
 function openRole(){
   const list=document.getElementById('roleList'); list.innerHTML='';
@@ -1015,6 +1157,7 @@ function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.q
   if(cur==='scr-appt')renderAppt(); else if(cur==='scr-sub')showSub(); else if(cur==='scr-approvals')renderApprovals(); else if(cur==='scr-schedule')renderSchedule(); else if(cur==='scr-estoque')renderEstoque(); else if(cur==='scr-aloc')renderAloc(); else if(cur==='scr-notifs')renderNotifs();
   updateNavRole(); if(cur==='scr-aloc'&&!canAloc(ROLE)) go('schedule');
   if(cur==='scr-estoque'&&!canEstoque(ROLE)) go('schedule');
+  if(cur==='scr-cadastro'&&!canCadastrar(ROLE)) go('schedule');
   if(r==='Estoquista') go('estoque'); /* casa do Estoquista é o painel de Estoque */
   updateBell(); toast('Perfil: '+r); }
 function logout(){
@@ -2490,8 +2633,486 @@ function canAloc(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].incl
 function canAS(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
 /* módulo Estoque (aba do bottom nav): só Estoquista e Sócio */
 function canEstoque(r){ return ['Estoquista','Sócio'].includes(r); }
+/* módulo Cadastro de Ativos: Supervisor pra cima (Auxiliar/Líder de MPP não cadastram) */
+function canCadastrar(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* Treinamentos: Auxiliar de Manutenção (MPP) e Líder de Equipe */
+function canTreino(r){ return ['Auxiliar de Manutenção (MPP)','Líder de Equipe'].includes(r); }
+/* aba Aprovações: todos menos o Auxiliar (que é só visualização) */
+function canApprovalsTab(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
 function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
-  const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none'; }
+  const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
+  const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
+  const t=document.getElementById('nav-trein'); if(t) t.style.display=canTreino(ROLE)?'flex':'none';
+  const ap=document.getElementById('nav-approvals'); if(ap) ap.style.display=canApprovalsTab(ROLE)?'flex':'none'; }
+
+/* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
+const TREINOS=[
+  { id:'seg-exaustao', icon:'🦺', tone:'', tag:'Segurança', carga:'20 min', xp:150, emblema:{nome:'Escudo da Segurança', icon:'🛡️'},
+    resumo:'Riscos do serviço de exaustão e como se proteger antes de qualquer intervenção.',
+    unidades:[
+      {tipo:'texto', titulo:'Por que exige cuidado', html:'<p>A manutenção de sistemas de exaustão junta três riscos ao mesmo tempo: <b>gordura inflamável</b> acumulada na coifa e nos dutos, <b>trabalho em altura</b> e <b>partes móveis e energizadas</b> (motor do exaustor).</p><ul><li>Nunca abra o painel do exaustor com o equipamento energizado.</li><li>Bloqueie e etiquete a energia (LOTO) antes de tocar em partes móveis.</li><li>Só suba com cinto/talabarte e ponto de ancoragem aprovado.</li></ul>'},
+      {tipo:'figura', titulo:'EPIs obrigatórios', legenda:'Capacete, luvas resistentes a corte, óculos, máscara, cinturão tipo paraquedista e calçado antiderrapante.'},
+      {tipo:'video', titulo:'Bloqueio e etiquetagem (LOTO)', dur:'3:10', desc:'Como desligar, travar e sinalizar a energia com segurança.'},
+      {tipo:'audio', titulo:'Checklist antes de ligar o exaustor', dur:'1:40', desc:'Áudio-resumo do que conferir antes de reenergizar.'},
+    ],
+    quiz:[
+      {q:'Antes de abrir o painel do exaustor para manutenção, a PRIMEIRA ação é:', opts:['Ligar o exaustor para testar o motor','Bloquear e etiquetar a energia (LOTO)','Remover os filtros metálicos'], correta:1, dica:'A energia precisa estar desligada e travada antes de qualquer contato com partes móveis.'},
+      {q:'O acúmulo de gordura na coifa é perigoso principalmente porque:', opts:['É inflamável e pode causar incêndio','Deixa a coifa mais pesada','Atrapalha só a estética'], correta:0, dica:'Gordura + calor = risco de incêndio.'},
+      {q:'Para trabalho em altura na coifa, é obrigatório:', opts:['Apenas luvas','Cinturão/talabarte e ponto de ancoragem','Nenhum EPI se for rápido'], correta:1, dica:'Acima de 2 m com risco de queda, EPI de altura é obrigatório (NR-35).'},
+    ]},
+  { id:'limpeza-coifa', icon:'🧽', tone:'g', tag:'Procedimento', carga:'25 min', xp:180, emblema:{nome:'Mestre da Coifa', icon:'✨'},
+    resumo:'O passo a passo correto da limpeza de coifa, filtros e dutos — e o registro do serviço.',
+    unidades:[
+      {tipo:'texto', titulo:'Etapas da limpeza', html:'<p>Uma limpeza bem feita segue uma ordem:</p><ul><li>Desligar e travar a energia; proteger a área (piso e equipamentos).</li><li>Remover e desengordurar os filtros metálicos.</li><li>Desengordurar estrutura, calhas e dutos acessíveis.</li><li>Verificar calhas de gordura (desobstruir se preciso).</li><li>Registrar <b>foto antes e depois</b> e anotar ocorrências.</li></ul>'},
+      {tipo:'figura', titulo:'Antes e depois', legenda:'O registro fotográfico comprova a qualidade e protege a equipe e o cliente.'},
+      {tipo:'video', titulo:'Técnica de desengorduramento', dur:'4:05', desc:'Produto certo, tempo de ação e enxágue.'},
+    ],
+    quiz:[
+      {q:'Filtros metálicos saturados de gordura devem ser:', opts:['Descartados sempre','Limpos/desengordurados e recolocados','Apenas virados do outro lado'], correta:1, dica:'O filtro metálico é reutilizável após limpeza adequada.'},
+      {q:'O registro fotográfico antes/depois serve para:', opts:['Comprovar o serviço e a qualidade','Enfeitar o relatório','Nada, é opcional'], correta:0, dica:'É a evidência do serviço executado.'},
+      {q:'Encontrando uma calha de gordura entupida, você deve:', opts:['Ignorar e seguir','Desobstruir e registrar a ocorrência','Furar o duto para escoar'], correta:1, dica:'Resolver quando possível e sempre registrar.'},
+    ]},
+  { id:'nr35-altura', icon:'🪜', tone:'o', tag:'NR-35', carga:'30 min', xp:200, emblema:{nome:'Conquistador das Alturas', icon:'🏔️'},
+    resumo:'O essencial da NR-35: quando se aplica e como usar o sistema de proteção contra quedas.',
+    unidades:[
+      {tipo:'texto', titulo:'Quando a NR-35 se aplica', html:'<p>A NR-35 vale para toda atividade executada <b>acima de 2 metros</b> do nível inferior, onde haja <b>risco de queda</b>. Na exaustão, isso aparece o tempo todo: acesso a coifas, dutos no forro e exaustores no telhado.</p><ul><li>Planeje o acesso antes de subir.</li><li>Use escada/plataforma adequada e em bom estado.</li><li>Cinturão paraquedista + talabarte + ponto de ancoragem aprovado.</li></ul>'},
+      {tipo:'figura', titulo:'Sistema de ancoragem', legenda:'O ponto de ancoragem deve ser resistente, aprovado e acima do nível do usuário quando possível.'},
+      {tipo:'audio', titulo:'Inspeção do cinturão', dur:'2:10', desc:'Como checar costuras, fivelas e talabarte antes do uso.'},
+    ],
+    quiz:[
+      {q:'A NR-35 se aplica a trabalhos acima de:', opts:['1 metro','2 metros','5 metros'], correta:1, dica:'Acima de 2 m com risco de queda.'},
+      {q:'Antes de usar o cinturão de segurança, você deve:', opts:['Inspecionar costuras, fivelas e talabarte','Apenas vestir e subir','Lavar com água'], correta:0, dica:'Inspeção visual do EPI é obrigatória antes do uso.'},
+      {q:'Um bom ponto de ancoragem é:', opts:['Qualquer cano próximo','Um ponto resistente e aprovado','O ombro de um colega'], correta:1, dica:'Precisa suportar a carga de uma eventual queda.'},
+    ]},
+];
+const treinoState={};   // id -> {concluido, pct, xp}
+let curTrilha=null, quizState=null, curTrilhaTitle='';
+
+function trTot(){ return TREINOS.length; }
+function trDone(){ return Object.values(treinoState).filter(s=>s.concluido).length; }
+function trXP(){ return Object.values(treinoState).reduce((a,s)=>a+(s.xp||0),0); }
+
+const RANKS=[{min:0,nome:'Novato',icon:'🌱'},{min:1,nome:'Explorador',icon:'🧭'},{min:2,nome:'Aventureiro',icon:'⛰️'},{min:3,nome:'Guardião da Exaustão',icon:'🏆'}];
+function trRank(n){ n=(n===undefined?trDone():n); let r=RANKS[0]; for(const x of RANKS){ if(n>=x.min) r=x; } const idx=RANKS.indexOf(r); return {atual:r, prox:RANKS[idx+1]||null, idx}; }
+function renderTreino(){
+  const done=trDone(), tot=trTot(), xp=trXP();
+  const rk=trRank(done); const barPct=Math.round(done/tot*100);
+  const nxTxt = rk.prox ? `Faltam ${rk.prox.min-done} emblema${(rk.prox.min-done)>1?'s':''} para ${rk.prox.nome}` : 'Patente máxima alcançada! 🏆';
+  const shelf = TREINOS.map(t=>{ const e=treinoState[t.id]&&treinoState[t.id].concluido; return `<div class="tr-em ${e?'':'lock'}"><div class="disc">${t.emblema.icon}${e?'<span class="rib">🎗️</span>':''}</div><div class="nm">${e?t.emblema.nome:'Bloqueado'}</div></div>`; }).join('');
+  let h=`<div class="tr-hero"><h2>🎓 Trilhas de Treinamento</h2><p>Aprenda, responda o quiz e conquiste emblemas. Acertou de primeira vale cheio; na 2ª tentativa vale metade.</p>
+    <div class="tr-hero-stats">
+      <div class="tr-stat"><div class="n">${done}/${tot}</div><div class="l">Concluídas</div></div>
+      <div class="tr-stat"><div class="n">${xp}</div><div class="l">EXP ganho</div></div>
+      <div class="tr-stat"><div class="n">${done}</div><div class="l">Emblemas</div></div>
+    </div>
+    <div class="tr-rankcard"><div class="tr-medal">${rk.atual.icon}</div><div class="tr-rankinfo"><div class="rk">Patente: ${rk.atual.nome}</div><div class="nx">${nxTxt}</div><div class="tr-rankbar"><i style="width:${barPct}%"></i></div></div></div>
+    </div>
+    <div class="tr-shelf-t">🏅 Meus emblemas <span class="cnt">${done} de ${tot}</span></div>
+    <div class="tr-shelf">${shelf}</div>
+    <div class="tr-list">`;
+  TREINOS.forEach(t=>{
+    const st=treinoState[t.id];
+    const pct=st?st.pct:0;
+    const badge = st? (st.concluido?'<span class="tr-badge done">Concluído</span>':'<span class="tr-badge doing">Em andamento</span>') : '<span class="tr-badge todo">Não iniciado</span>';
+    h+=`<div class="tr-card" onclick="openTrilha('${t.id}')">
+      <div class="tr-card-top">
+        <div class="tr-ico ${t.tone}">${t.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div class="tr-card-ti">${t.tag} · ${t.resumo.split('.')[0]}</div>${badge}
+          </div>
+          <div class="tr-card-meta">⏱ ${t.carga} · ${t.unidades.length} unidades · ${t.quiz.length} perguntas · +${t.xp} EXP</div>
+        </div>
+      </div>
+      <div class="tr-prog"><i class="${st&&st.concluido?'done':''}" style="width:${pct}%"></i></div>
+    </div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('treinoBody').innerHTML=h;
+}
+
+function openTrilha(id){ const t=TREINOS.find(x=>x.id===id); if(!t)return; curTrilha=id; curTrilhaTitle=t.tag+' — treinamento'; renderTrilha(id); go('trilha'); }
+
+function renderTrilha(id){
+  const t=TREINOS.find(x=>x.id===id);
+  let h=`<div class="tr-d-hero"><div class="k">${t.tag} · ⏱ ${t.carga} · +${t.xp} EXP</div><h2>${t.icon} ${t.resumo.split('.')[0]}</h2><div class="sub">${t.resumo}</div><div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:7px"><span style="font-size:22px">${t.emblema.icon}</span> Conclua e conquiste o emblema <b>${t.emblema.nome}</b></div></div><div class="tr-body">`;
+  t.unidades.forEach(u=>{
+    if(u.tipo==='texto'){ h+=`<div class="tr-unit"><h3>📖 ${u.titulo}</h3>${u.html}</div>`; }
+    else if(u.tipo==='figura'){ h+=`<div class="tr-unit"><h3>🖼️ ${u.titulo}</h3><div class="tr-fig"><div class="ph"><div class="ic">🖼️</div><div style="font-size:12px;font-weight:700">${u.titulo}</div></div><div class="cap">${u.legenda}</div></div></div>`; }
+    else if(u.tipo==='video'){ h+=`<div class="tr-unit"><h3>🎬 ${u.titulo}</h3><div class="tr-media" onclick="toast('▶️ Vídeo (demo): ${u.titulo}')"><button class="play">▶</button><div style="flex:1"><div class="mt">${u.titulo}</div><div class="ms">Vídeo · ${u.dur} · ${u.desc}</div><div class="wave"><i></i></div></div></div></div>`; }
+    else if(u.tipo==='audio'){ h+=`<div class="tr-unit"><h3>🎧 ${u.titulo}</h3><div class="tr-media audio" onclick="toast('🎧 Áudio (demo): ${u.titulo}')"><button class="play">▶</button><div style="flex:1"><div class="mt">${u.titulo}</div><div class="ms">Áudio · ${u.dur} · ${u.desc}</div><div class="wave"><i></i></div></div></div></div>`; }
+  });
+  h+=`<button class="btn btn-brand" style="width:100%;margin-top:6px" onclick="startQuiz('${id}')">Começar avaliação (${t.quiz.length} perguntas) →</button></div>`;
+  document.getElementById('trilhaBody').innerHTML=h;
+  document.getElementById('main').scrollTop=0;
+}
+
+function startQuiz(id){
+  const t=TREINOS.find(x=>x.id===id); curTrilha=id;
+  quizState={ id, per:t.quiz.map(()=>({tries:0, wrong:[], result:null, pts:0})) };
+  renderQuiz();
+}
+function renderQuiz(){
+  const t=TREINOS.find(x=>x.id===quizState.id);
+  const allDone=quizState.per.every(p=>p.result!==null);
+  let h=`<div class="tr-d-hero"><div class="k">Avaliação · ${t.tag}</div><h2>${t.icon} Responda para concluir</h2><div class="sub">Acertou de primeira: pontuação cheia. Errou e acertou na 2ª: metade. Errou duas vezes: mostramos a resposta.</div></div><div class="tr-body">`;
+  t.quiz.forEach((q,qi)=>{
+    const p=quizState.per[qi];
+    h+=`<div class="tr-q"><div class="qn">Pergunta ${qi+1} de ${t.quiz.length}</div><div class="qt">${q.q}</div>`;
+    q.opts.forEach((o,oi)=>{
+      let cls='tr-opt';
+      if(p.result!==null){ cls+=' lock'; if(oi===q.correta) cls+=' correct'; else if(p.wrong.includes(oi)) cls+=' wrong'; }
+      else if(p.wrong.includes(oi)){ cls+=' wrong lock'; }
+      const mk = (p.result!==null && oi===q.correta) ? '✓' : (p.wrong.includes(oi) ? '✕' : '');
+      h+=`<div class="${cls}" onclick="answerQ(${qi},${oi})"><div class="mk">${mk}</div><div>${o}</div></div>`;
+    });
+    if(p.result==='full') h+=`<div class="tr-fb ok">✓ Correto de primeira — pontuação cheia.</div>`;
+    else if(p.result==='half') h+=`<div class="tr-fb ok">✓ Correto na 2ª tentativa — vale metade.<span class="hint">${q.dica}</span></div>`;
+    else if(p.result==='zero') h+=`<div class="tr-fb no">✕ Não foi dessa vez. A resposta certa está destacada.<span class="hint">${q.dica}</span></div>`;
+    else if(p.wrong.length===1) h+=`<div class="tr-fb no">Quase! Você tem mais 1 tentativa (vale metade).<span class="hint">${q.dica}</span></div>`;
+    h+=`</div>`;
+  });
+  if(allDone){ h+=`<button class="btn btn-brand" style="width:100%" onclick="finishQuiz()">Ver resultado →</button>`; }
+  else { h+=`<div class="tr-scorehint">Responda todas as perguntas para ver seu resultado.</div>`; }
+  h+=`</div>`;
+  document.getElementById('trilhaBody').innerHTML=h;
+}
+function answerQ(qi,oi){
+  const t=TREINOS.find(x=>x.id===quizState.id); const q=t.quiz[qi]; const p=quizState.per[qi];
+  if(p.result!==null || p.wrong.includes(oi)) return;
+  if(oi===q.correta){ p.result = p.tries===0?'full':'half'; p.pts = p.tries===0?100:50; }
+  else { p.tries++; p.wrong.push(oi); if(p.tries>=2){ p.result='zero'; p.pts=0; } }
+  renderQuiz();
+  document.getElementById('main').scrollTop=document.getElementById('main').scrollTop;
+}
+function confettiHTML(){ const cols=['#0B5CAB','#08427D','#FFB75D','#2E844A','#E8A400','#3B9CE8']; let s=''; for(let i=0;i<18;i++){ const l=Math.round(Math.random()*100); const d=(Math.random()*0.7).toFixed(2); s+=`<i style="left:${l}%;background:${cols[i%cols.length]};animation-delay:${d}s"></i>`; } return `<div class="tr-confetti">${s}</div>`; }
+function finishQuiz(){
+  const t=TREINOS.find(x=>x.id===quizState.id);
+  const total=quizState.per.reduce((a,p)=>a+p.pts,0); const max=t.quiz.length*100;
+  const pct=Math.round(total/max*100); const passed=pct>=70;
+  const xp=Math.round(t.xp*pct/100);
+  const prev=treinoState[t.id]; const wasDone=!!(prev&&prev.concluido);
+  const rankBefore=trRank(trDone());
+  treinoState[t.id]={concluido:passed, pct, xp:Math.max(xp, prev?prev.xp:0)};
+  const rankAfter=trRank(trDone()); const rankUp=rankAfter.idx>rankBefore.idx;
+  let h=`<div class="tr-result">`;
+  if(passed){
+    h+=confettiHTML();
+    h+=`<div class="tr-emblem">${t.emblema.icon}<span class="rib2">🎗️</span></div>`;
+    h+=`<div class="tr-emname">${t.emblema.nome}</div>`;
+    h+=`<h2>${wasDone?'Emblema revalidado! 🎉':'Emblema conquistado! 🎉'}</h2>`;
+    if(rankUp) h+=`<div class="tr-rankup">⬆ Nova patente: ${rankAfter.atual.icon} ${rankAfter.atual.nome}</div>`;
+    h+=`<div class="rsub">Aproveitamento de ${pct}% na avaliação.</div>`;
+  } else {
+    h+=`<div class="tr-ring" style="background:linear-gradient(135deg,#B26B00,#8c4b02)"><div class="pv">${pct}%</div><div class="pl">aproveitamento</div></div>`;
+    h+=`<h2>Quase lá!</h2><div class="rsub">Você precisa de 70% para conquistar o emblema. Revise e tente de novo.</div>`;
+  }
+  h+=`<div class="tr-xp">⭐ +${xp} EXP</div>`;
+  h+=`<div class="tr-scorehint">Pontuação: acerto de primeira = 100%, na 2ª tentativa = 50%, erro nas duas = 0%.</div>`;
+  h+=`<button class="btn btn-brand" style="width:100%;margin-bottom:8px" onclick="go('treinamentos')">${passed?'Ver meus emblemas':'Voltar às trilhas'}</button>`;
+  if(!passed) h+=`<button class="btn btn-neutral" style="width:100%" onclick="startQuiz('${t.id}')">Refazer avaliação</button>`;
+  else h+=`<button class="btn btn-neutral" style="width:100%" onclick="renderTrilha('${t.id}')">Rever o conteúdo</button>`;
+  h+=`</div>`;
+  document.getElementById('trilhaBody').innerHTML=h;
+  document.getElementById('main').scrollTop=0;
+}
+
+/* ===================== MÓDULO CADASTRO DE ATIVOS ===================== */
+const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
+let cadSt=null;
+function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false}; }
+function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
+function cadCtx(){
+  if(!cadSt.conta) return '';
+  let h='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:12px">';
+  h+='<div style="font-size:11px;color:#686868">Conta</div><div style="font-size:14px;font-weight:700;color:#0B2239">'+cadEsc(cadSt.conta.nome)+'</div>';
+  if(cadSt.sistema){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
+  return h+'</div>';
+}
+/* breadcrumb dos passos do cadastro (orientação no topo do módulo) */
+function cadHead(step){
+  const S=[['conta','Conta'],['sistema','Sistema'],['equip','Equipamento'],['form','Ficha']];
+  const idx=S.findIndex(s=>s[0]===step);
+  const bc=S.map((s,i)=>`<span style="color:${i===idx?'#3E7EB0':(i<idx?'#0B2239':'#AEB8C2')};font-weight:${i===idx?'700':'500'}">${s[1]}</span>`).join('<span style="color:#C9D2DB;margin:0 5px">›</span>');
+  return `<div style="font-size:11.5px;letter-spacing:.2px;padding:2px 0 12px">${bc}</div>`;
+}
+async function renderCadastro(){
+  if(!cadSt) cadReset();
+  const el=document.getElementById('cadBody');
+  if(!canCadastrar(ROLE)){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Cadastro de ativos é liberado para Supervisor pra cima.</div>'; return; }
+  if(!beTok()){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Entre para cadastrar.</div>'; return; }
+  if(!cadSt.tipos.length){
+    el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Carregando…</div>';
+    try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipo=cadSt.tipos.find(t=>t.nome===CAD_SIS_TIPO)||null; }
+    catch(e){ el.innerHTML='<div style="padding:24px;color:#C4451B">'+cadEsc(e.message)+'</div>'; return; }
+  }
+  if(cadSt.step==='conta') return cadStepConta();
+  if(cadSt.step==='sistema') return cadStepSistema();
+  if(cadSt.step==='equip') return cadStepEquip();
+  if(cadSt.step==='form') return cadStepForm();
+  if(cadSt.step==='done') return cadStepDone();
+}
+async function cadStepConta(){
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
+    +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em qual conta você está?</div>'
+    +'<div id="cadContaWrap" style="color:#686868">Carregando…</div></div>';
+  try{
+    if(!cadSt.contas.length) cadSt.contas=await beGet('/contas');
+    const opts=cadSt.contas.map((c,i)=>`<option value="${i}"${cadSt.conta&&cadSt.conta.id===c.id?' selected':''}>${cadEsc(c.nome)}</option>`).join('');
+    document.getElementById('cadContaWrap').innerHTML=`
+      <label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Conta</label>
+      <div style="position:relative">
+        <select id="cadContaSel" onchange="cadContaChosen(this.value)" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">
+          <option value="" disabled${cadSt.conta?'':' selected'}>Selecione a Conta…</option>
+          ${opts}
+        </select>
+        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span>
+      </div>
+      <button onclick="cadNovaConta()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span style="font-size:16px;line-height:1">＋</span> Cadastrar nova conta
+      </button>
+      <div style="font-size:11.5px;color:#7A8794;margin-top:8px">Não achou o cliente? Cadastre uma nova conta pelo CNPJ.</div>`;
+  }catch(e){ document.getElementById('cadContaWrap').innerHTML='<div style="color:#C4451B">'+cadEsc(e.message)+'</div>'; }
+}
+function cadContaChosen(i){ if(i===''||i==null) return; cadPickConta(parseInt(i,10)); }
+
+/* ---- cadastrar nova conta (CNPJ → Receita/Serpro no futuro pré-preenche o nome) ---- */
+function cadNovaConta(){
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
+    +'<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Voltar às contas</button>'
+    +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Cadastrar nova conta</div>'
+    +'<div style="font-size:12.5px;color:#7A8794;line-height:1.4;margin-bottom:12px">Digite o CNPJ — buscamos os dados na Receita Federal e preenchemos o nome pra você conferir.</div>'
+    +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">CNPJ</label>'
+    +'<div style="display:flex;gap:8px"><input id="cadCnpj" inputmode="numeric" placeholder="00.000.000/0000-00" style="flex:1;padding:12px;border:1.5px solid #E2E5E9;border-radius:10px;font-size:15px" oninput="cadFmtCnpj(this)">'
+    +'<button onclick="cadBuscarCnpj()" style="background:#0B2239;color:#fff;border:none;border-radius:10px;padding:0 16px;font-weight:700">Buscar</button></div>'
+    +'<div id="cadCnpjMsg" style="font-size:11.5px;color:#7A8794;margin-top:6px"></div>'
+    +'<div id="cadNovaResult"></div></div>';
+}
+function cadFmtCnpj(el){ let v=el.value.replace(/\D/g,'').slice(0,14); v=v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2'); el.value=v; }
+function cadCnpjValido(d){ if(d.length!==14||/^(\d)\1+$/.test(d)) return false;
+  const calc=n=>{ const w=n===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];
+    let x=0; for(let i=0;i<w.length;i++) x+=+d[i]*w[i]; const r=x%11; return r<2?0:11-r; };
+  return +d[12]===calc(12)&&+d[13]===calc(13); }
+async function cadFetchJson(url,ms){ const ac=new AbortController(); const t=setTimeout(()=>ac.abort(),ms||8000);
+  try{ const r=await fetch(url,{signal:ac.signal}); if(!r.ok){ const e=new Error('HTTP '+r.status); e.status=r.status; throw e; } return await r.json(); }
+  finally{ clearTimeout(t); } }
+/* consulta CNPJ: OpenCNPJ (principal) → BrasilAPI (fallback) → manual. Dado público da Receita, sem chave.
+   Nome da conta (Account.Name) = Nome Fantasia; sem fantasia, cai na razão social. Sempre editável.
+   Regras de validação ATIVAS no Account (lidas na MOB3 em 05/07/2026):
+   - Nome_da_Conta_sem_cedilha_ou_acentos → Name sem acento/cedilha
+   - Razao_Social_contem_caractere_especial → Razao_Social__c sem acento/cedilha
+   - Informe_de_shopping_relacionado → Tipo_de_localizacao__c="Situado em shopping center" exige Shopping_Center_associado__c
+   (regras de formato do CNPJ existem mas estão INATIVAS; gravar só dígitos mesmo assim) */
+function cadSemAcento(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,''); }
+async function cadBuscarCnpj(){
+  const raw=(document.getElementById('cadCnpj').value||'').replace(/\D/g,'');
+  const msg=document.getElementById('cadCnpjMsg');
+  if(raw.length!==14){ msg.style.color='#C4451B'; msg.textContent='CNPJ incompleto.'; return; }
+  if(!cadCnpjValido(raw)){ msg.style.color='#C4451B'; msg.textContent='CNPJ inválido — confira os dígitos.'; return; }
+  // REGRA DE ECONOMIA: checa a base (Salesforce) ANTES da consulta externa paga.
+  // Se a conta já existe, usa ela e nunca bate na API externa (o backend registra a consulta evitada).
+  msg.style.color='#7A8794'; msg.textContent='Verificando na base…';
+  document.getElementById('cadNovaResult').innerHTML='';
+  try{
+    const jaExiste=await beGet('/contas/por-cnpj?cnpj='+raw);
+    if(jaExiste&&jaExiste.found&&jaExiste.conta){ cadContaEncontrada(jaExiste.conta); return; }
+  }catch(e){ /* backend indisponível: segue pro fluxo normal (não trava o cadastro) */ }
+  msg.style.color='#7A8794'; msg.textContent='Consultando a Receita Federal…';
+  let d=null, naoExiste=false;
+  try{ d=await cadFetchJson('https://api.opencnpj.org/'+raw); }
+  catch(e1){ if(e1.status===404) naoExiste=true;
+    else{ try{ d=await cadFetchJson('https://brasilapi.com.br/api/cnpj/v1/'+raw); }
+      catch(e2){ if(e2.status===404||e2.status===400) naoExiste=true; } } }
+  let nome='', sub='';
+  if(d){
+    const fant=(d.nome_fantasia||'').trim(), razao=(d.razao_social||'').trim();
+    const sit=String(d.situacao_cadastral||d.descricao_situacao_cadastral||'');
+    nome=cadSemAcento(fant||razao); // regra do SF: Name sem acento/cedilha
+    cadSt.novaConta={cnpj:raw, razao:cadSemAcento(razao), daReceita:true}; // payload do futuro POST /contas
+    const alerta=sit&&!/ativa/i.test(sit)?` · <b style="color:#C4451B">situação ${cadEsc(sit)}</b>`:'';
+    msg.style.color='#1B7A3D'; msg.innerHTML='✓ Dados da Receita'+alerta+' — confira o nome antes de criar.';
+    sub=razao&&razao!==nome?`<div style="font-size:11.5px;color:#7A8794;margin-top:4px">Razão social: ${cadEsc(razao)}</div>`:'';
+  } else {
+    cadSt.novaConta={cnpj:raw, razao:'', daReceita:false};
+    msg.style.color='#C4451B';
+    msg.textContent=naoExiste?'CNPJ não encontrado na Receita — confira o número ou informe o nome manualmente.'
+      :'Não consegui consultar agora — informe o nome manualmente.';
+  }
+  document.getElementById('cadNovaResult').innerHTML=`
+    <label style="font-size:12px;color:#686868;font-weight:600;display:block;margin:12px 0 5px">Nome da conta (Nome Fantasia)</label>
+    <input id="cadContaNome" maxlength="255" placeholder="Nome do cliente" value="${cadEsc(nome)}" style="width:100%;padding:12px;border:1.5px solid #E2E5E9;border-radius:10px;font-size:15px">
+    ${sub}
+    <button onclick="cadCriarConta()" style="width:100%;margin-top:12px;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700">Criar conta e continuar</button>`;
+}
+/* conta já existe na base → mostra e deixa usar direto (consulta externa evitada) */
+function cadContaEncontrada(conta){
+  const msg=document.getElementById('cadCnpjMsg');
+  if(msg){ msg.style.color='#1B7A3D'; msg.textContent='✓ Conta já cadastrada na base — sem consulta externa.'; }
+  const res=document.getElementById('cadNovaResult'); if(!res) return;
+  res.innerHTML=`
+    <div style="margin-top:12px;border:1.5px solid #BFE3CC;background:#EEF8F1;border-radius:12px;padding:14px">
+      <div style="font-size:11.5px;color:#1B7A3D;font-weight:700;letter-spacing:.3px">JÁ CADASTRADA</div>
+      <div style="font-size:15px;font-weight:700;color:#0B2239;margin-top:3px">${cadEsc(conta.nome||'Conta')}</div>
+      <div style="font-size:11.5px;color:#7A8794;margin-top:4px">Encontramos essa conta pelo CNPJ — não precisou consultar a Receita.</div>
+    </div>
+    <button onclick='cadUsarEncontrada(${JSON.stringify(conta).replace(/'/g,"&#39;")})' style="width:100%;margin-top:12px;background:#1B7A3D;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700">Usar esta conta</button>`;
+}
+function cadUsarEncontrada(conta){
+  let i=cadSt.contas.findIndex(c=>c.id===conta.id);
+  if(i<0){ cadSt.contas.push({id:conta.id,nome:conta.nome}); i=cadSt.contas.length-1; }
+  cadPickConta(i);
+}
+function cadCriarConta(){
+  const el=document.getElementById('cadContaNome');
+  let nome=(el&&el.value||'').trim();
+  if(!nome){ toast('Informe o nome da conta.'); return; }
+  const limpo=cadSemAcento(nome);
+  if(limpo!==nome){ // pré-validação da regra Nome_da_Conta_sem_cedilha_ou_acentos
+    if(el) el.value=limpo;
+    toast('Acentos/cedilha removidos do nome — regra de validação da Conta no Salesforce.');
+    nome=limpo; return; // usuário confere o nome ajustado e toca de novo
+  }
+  cadSt.novaConta=Object.assign({},cadSt.novaConta,{nome});
+  /* criação real = POST /contas no backend (Name=nome, Razao_Social__c, CNPJ__c só dígitos).
+     Lembrete: se Tipo_de_localizacao__c="Situado em shopping center", SF exige Shopping_Center_associado__c. */
+  toast('Criação da conta no Salesforce entra no próximo passo (endpoint POST /contas).');
+}
+async function cadPickConta(i){
+  cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
+  cadSt.sistemas=[];
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Carregando sistemas…</div>';
+  try{ if(cadSt.sistemaTipo) cadSt.sistemas=await beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+cadSt.sistemaTipo.id); }catch(e){ toast(e.message); }
+  cadStepSistema();
+}
+function cadStepSistema(){
+  const el=document.getElementById('cadBody');
+  let h='<div style="padding:14px 14px 90px">'+cadHead('sistema')+cadCtx();
+  h+='<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar conta</button>';
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
+  if(!cadSt.sistemas.length) h+='<div style="color:#686868;font-size:13px;margin-bottom:8px">Nenhum sistema cadastrado nesta conta ainda.</div>';
+  h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div>${s.nome?('<div style="font-size:11px;color:#686868">Ativo '+cadEsc(s.nome)+'</div>'):''}</button>`).join('');
+  h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
+  if(!cadSt.novoSis){
+    h+='<button onclick="cadToggleNovoSis(true)" style="width:100%;background:#EAF1F7;border:1px solid #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">+ Cadastrar novo sistema</button>';
+  } else {
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px"><div style="font-size:12px;color:#686868;margin-bottom:6px">Identificação do sistema</div>';
+    h+='<input id="cadNovoSisNome" placeholder="Ex.: Sistema de exaustão principal" style="width:100%;padding:11px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;margin-bottom:8px">';
+    h+='<div style="display:flex;gap:8px"><button onclick="cadCriarSistema()" style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e continuar</button>';
+    h+='<button onclick="cadToggleNovoSis(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button></div>';
+    h+='<div style="font-size:11px;color:#686868;margin-top:6px">Você poderá completar o cadastro do sistema depois.</div></div>';
+  }
+  h+='</div>'; el.innerHTML=h;
+}
+function cadToggleNovoSis(v){ cadSt.novoSis=v; cadStepSistema(); }
+function cadPickSistema(i){ const s=cadSt.sistemas[i]; cadSt.sistema={id:s.id,nome:s.descricao||s.nome||'Sistema'}; cadSt.step='equip'; cadStepEquip(); }
+async function cadCriarSistema(){
+  const nome=(document.getElementById('cadNovoSisNome').value||'').trim();
+  if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
+  if(!cadSt.sistemaTipo){ toast('Tipo Sistema não encontrado.'); return; }
+  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:cadSt.sistemaTipo.id,descricao:nome});
+    cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.step='equip'; cadStepEquip();
+  }catch(e){ toast(e.message); }
+}
+function cadStepEquip(){
+  const el=document.getElementById('cadBody');
+  const equip=cadSt.tipos.filter(t=>t.nome!==CAD_SIS_TIPO);
+  let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
+  h+='<button onclick="cadStep(\'sistema\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar sistema</button>';
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Escolha o equipamento</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:10px">';
+  h+=equip.map((t,i)=>`<button onclick="cadPickEquip(${i})" style="width:47%;background:#fff;border:1px solid #E2E5E9;border-radius:14px;padding:16px;min-height:70px;font-size:14px;font-weight:600;color:#0B2239;text-align:left">${cadEsc(t.nome)}</button>`).join('');
+  h+='</div></div>'; el.innerHTML=h;
+  cadSt._equip=equip;
+}
+async function cadPickEquip(i){
+  const t=cadSt._equip[i];
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
+  try{
+    const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:t.id,paiId:cadSt.sistema.id});
+    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={};
+    cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
+    cadSt.step='form'; cadStepForm();
+  }catch(e){ toast(e.message); cadStepEquip(); }
+}
+function cadDepOk(dep){
+  if(!dep||!dep.pergunta) return true;
+  const atual=(cadSt.resp[dep.pergunta]||'').toString().trim().toLowerCase();
+  const alvo=(dep.resposta||'').toString().trim().toLowerCase();
+  const op=(dep.operador||'').toString().toLowerCase();
+  if(op.indexOf('cont')>=0) return atual.indexOf(alvo)>=0;
+  if(op.indexOf('dif')>=0||op.indexOf('!=')>=0) return atual!==alvo;
+  return atual===alvo;
+}
+function cadStepForm(){
+  const el=document.getElementById('cadBody'); const f=cadSt.form;
+  let h='<div style="padding:14px 14px 90px">'+cadHead('form')+cadCtx();
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(f.nome||cadSt.tipoNome)+'</div>';
+  const imgs=[];
+  (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
+    const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia));
+    if(!campos.length) return;
+    h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
+    campos.forEach(c=>{
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+'</div>';
+      const ops=c.opcoes||[];
+      const temImg=ops.some(o=>o.imagemUrl);
+      if(ops.length && temImg){
+        h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+        ops.forEach(o=>{
+          const sel=cadSt.resp[c.id]===o.label;
+          h+=`<button onclick="cadSet('${c.id}',this.getAttribute('data-l'))" data-l="${cadEsc(o.label)}" style="width:31%;border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;overflow:hidden;background:#fff;padding:0">`;
+          if(o.imagemUrl){ h+=`<span style="display:block;aspect-ratio:1;background:#fff"><img id="cadimg-${o.id}" style="width:100%;height:100%;object-fit:contain" alt=""></span>`; imgs.push(o.id); }
+          else h+='<span style="display:block;aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:10px">sem img</span>';
+          h+=`<span style="display:block;font-size:11px;text-align:center;padding:5px;font-weight:${sel?'700':'500'};color:${sel?'#3E7EB0':'#3A4552'}">${cadEsc(o.label)}</span></button>`;
+        });
+        h+='</div>';
+      } else if(ops.length){
+        h+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+        ops.forEach(o=>{ const sel=cadSt.resp[c.id]===o.label;
+          h+=`<button onclick="cadSet('${c.id}',this.getAttribute('data-l'))" data-l="${cadEsc(o.label)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(o.label)}</button>`; });
+        h+='</div>';
+      } else {
+        const num=(c.tipo==='Número');
+        h+=`<input type="${num?'number':'text'}" value="${cadEsc(cadSt.resp[c.id]||'')}" oninput="cadSetText('${c.id}',this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px">`;
+      }
+      h+='</div>';
+    });
+  });
+  h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
+  h+='</div>'; el.innerHTML=h;
+  imgs.forEach(id=>cadLoadImg(id));
+}
+function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadStepForm(); }
+function cadSetText(campoId,v){ cadSt.resp[campoId]=v; }
+async function cadLoadImg(opcaoId){
+  const img=document.getElementById('cadimg-'+opcaoId); if(!img) return;
+  if(cadSt.img[opcaoId]){ img.src=cadSt.img[opcaoId]; return; }
+  try{ const r=await fetch(BACKEND+'/opcoes/'+opcaoId+'/imagem',{headers:{Authorization:'Bearer '+beTok()}}); if(!r.ok) return;
+    const u=URL.createObjectURL(await r.blob()); cadSt.img[opcaoId]=u; const el=document.getElementById('cadimg-'+opcaoId); if(el) el.src=u;
+  }catch(e){}
+}
+async function cadSalvar(){
+  const f=cadSt.form; const respostas=[];
+  (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>(s.campos||[]).filter(c=>cadDepOk(c.dependencia)).forEach(c=>{
+    const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
+  }));
+  if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
+  try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas}); cadSt.step='done'; cadStepDone(); }
+  catch(e){ toast(e.message); }
+}
+function cadStepDone(){
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:32px 18px;text-align:center">'
+    +'<div style="font-size:40px;margin-bottom:8px">✅</div>'
+    +'<div style="font-size:17px;font-weight:700;color:#0B2239">Ativo cadastrado</div>'
+    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>'
+    +'<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
+    +'<button onclick="go(\'schedule\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;color:#3A4552">Voltar à agenda</button></div>';
+}
+function cadStep(s){ cadSt.step=s; renderCadastro(); }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
   {nome:'Pedro Gomes',matricula:'F-1188',cargo:'Auxiliar',cor:'#2e844a',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
@@ -3327,6 +3948,8 @@ async function beDoLogin(payload){
     if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
     const nm=_noDemo(j.name||'');
     localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
+    localStorage.setItem('be_funcao', j.funcao||'');
+    if(j.funcao){ ROLE=j.funcao; try{renderRoleChip();}catch(e){} } /* papel real do Recurso (Funcao__c) dirige os módulos */
     toast('Bem-vindo, '+(nm.split(' ')[0]||'')); beHydrate();
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
@@ -3541,6 +4164,7 @@ async function beUploadMidia(blob, filename, tipo, meta, noQ){
   }
 }
 async function beHydrate(quiet){
+  const _bf=localStorage.getItem('be_funcao'); if(_bf){ ROLE=_bf; try{renderRoleChip();updateNavRole();}catch(e){} } /* papel real persistido */
   if(!quiet) toast('Carregando OS…');
   try{
     let wos, REC={resources:[],habilidades:[]}, _snapT=null;

@@ -2,8 +2,9 @@
    Estratégia: HTML = network-first (atualiza na hora quando online, cai no cache offline);
    demais arquivos = cache-first. Suba o número da versão a cada mudança para forçar atualização.
    (v71 04/07 — EXP: ícone 📸 p/ CHECKLIST_100_FOTOS no extrato)
-   (republicação: run #100 do Pages falhou no deploy, forçando novo run) */
-const CACHE = 'exaustech-os-v71';
+   (republicação: run #100 do Pages falhou no deploy, forçando novo run)
+   (v72 05/07 — cadastro CNPJ: checagem SF antes da API externa, regra de economia) */
+const CACHE = 'exaustech-os-v72';
 const SHELL = [
   './',
   './index.html',
