@@ -7,7 +7,8 @@
    (v73 05/07 — Cadastrar nova conta: tela alarga em desktop (900px+) + botão vira pílula "Buscar dados")
    (republicação: run #103 do Pages falhou no deploy, forçando novo run)
    (v74 06/07 — Cadastrar nova conta: liga POST /contas de verdade — cria a Account no Salesforce)
-   (republicação: run #105 do Pages falhou no deploy, forçando novo run) */
+   (republicação: run #105 do Pages falhou no deploy, forçando novo run)
+   (republicação 2: run #106 ficou preso na fila, novo commit) */
 const CACHE = 'exaustech-os-v74';
 const SHELL = [
   './',
