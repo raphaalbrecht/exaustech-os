@@ -5,8 +5,9 @@
    (republicação: run #100 do Pages falhou no deploy, forçando novo run)
    (v72 05/07 — cadastro CNPJ: checagem SF antes da API externa, regra de economia)
    (v73 05/07 — Cadastrar nova conta: tela alarga em desktop (900px+) + botão vira pílula "Buscar dados")
-   (republicação: run #103 do Pages falhou no deploy, forçando novo run) */
-const CACHE = 'exaustech-os-v73';
+   (republicação: run #103 do Pages falhou no deploy, forçando novo run)
+   (v74 06/07 — Cadastrar nova conta: liga POST /contas de verdade — cria a Account no Salesforce) */
+const CACHE = 'exaustech-os-v74';
 const SHELL = [
   './',
   './index.html',

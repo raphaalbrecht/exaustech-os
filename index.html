@@ -2970,7 +2970,7 @@ function cadUsarEncontrada(conta){
   if(i<0){ cadSt.contas.push({id:conta.id,nome:conta.nome}); i=cadSt.contas.length-1; }
   cadPickConta(i);
 }
-function cadCriarConta(){
+async function cadCriarConta(){
   const el=document.getElementById('cadContaNome');
   let nome=(el&&el.value||'').trim();
   if(!nome){ toast('Informe o nome da conta.'); return; }
@@ -2980,10 +2980,29 @@ function cadCriarConta(){
     toast('Acentos/cedilha removidos do nome — regra de validação da Conta no Salesforce.');
     nome=limpo; return; // usuário confere o nome ajustado e toca de novo
   }
+  const cnpj=(cadSt.novaConta&&cadSt.novaConta.cnpj)||'';
+  if(cnpj.length!==14){ toast('CNPJ não encontrado — busque o CNPJ antes de criar a conta.'); return; }
+  const razao=(cadSt.novaConta&&cadSt.novaConta.razao)||'';
   cadSt.novaConta=Object.assign({},cadSt.novaConta,{nome});
-  /* criação real = POST /contas no backend (Name=nome, Razao_Social__c, CNPJ__c só dígitos).
-     Lembrete: se Tipo_de_localizacao__c="Situado em shopping center", SF exige Shopping_Center_associado__c. */
-  toast('Criação da conta no Salesforce entra no próximo passo (endpoint POST /contas).');
+  /* Lembrete: se Tipo_de_localizacao__c="Situado em shopping center", SF exige Shopping_Center_associado__c
+     (esse campo entra depois, na tela do sistema — não é enviado aqui). */
+  const btn=document.querySelector('#cadNovaResult button');
+  if(btn){ btn.disabled=true; btn.textContent='Criando conta…'; }
+  try{
+    const conta=await bePost('/contas',{nome,razao,cnpj});
+    if(conta&&conta.pending){
+      toast('A conta está sendo criada — toque em "Criar conta e continuar" de novo em alguns segundos.');
+      if(btn){ btn.disabled=false; btn.textContent='Criar conta e continuar'; }
+      return;
+    }
+    let i=cadSt.contas.findIndex(c=>c.id===conta.id);
+    if(i<0){ cadSt.contas.push({id:conta.id,nome:conta.nome}); i=cadSt.contas.length-1; }
+    toast('Conta criada no Salesforce.');
+    cadPickConta(i);
+  }catch(e){
+    toast(e.message||'Não foi possível criar a conta agora — tente de novo.');
+    if(btn){ btn.disabled=false; btn.textContent='Criar conta e continuar'; }
+  }
 }
 async function cadPickConta(i){
   cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
