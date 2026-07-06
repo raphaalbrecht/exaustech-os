@@ -8,8 +8,10 @@
    (republicação: run #103 do Pages falhou no deploy, forçando novo run)
    (v74 06/07 — Cadastrar nova conta: liga POST /contas de verdade — cria a Account no Salesforce)
    (republicação: run #105 do Pages falhou no deploy, forçando novo run)
-   (republicação 2: run #106 ficou preso na fila, novo commit) */
-const CACHE = 'exaustech-os-v74';
+   (republicação 2: run #106 ficou preso na fila, novo commit)
+   (v75 06/07 — Assinatura do cliente: liga CPF (Direct Data, autofill de nome) + OTP WhatsApp (Huggy)
+    antes de liberar "Assinar" — 3 campos novos em Assinatura_OS__c: Telefone__c/Verificado__c/Motivo_Sem_Verificacao__c) */
+const CACHE = 'exaustech-os-v75';
 const SHELL = [
   './',
   './index.html',

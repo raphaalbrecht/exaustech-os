@@ -427,6 +427,9 @@
   .sig-resumo{background:#fff;border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin:0 0 12px;text-align:left;font-size:13.5px}
   .sig-resumo small{display:block;font-weight:400;font-size:11.5px;color:var(--weak);margin-top:2px}
   .sig-resumo a{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:700;color:var(--brand)}
+  .sig-hint{font-size:12.5px;color:var(--weak);margin:6px 0}
+  #sigOtpBox{margin:2px 0 12px}
+  #sigOtpBox a{font-size:12px;font-weight:600;color:var(--brand)}
   .cargo-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .cargo-chip{border:1px solid var(--border2);background:#fff;color:var(--txt);font-size:12px;font-weight:600;padding:7px 11px;border-radius:16px;cursor:pointer}
   .cargo-chip.on{border-color:var(--brand);background:var(--brand-l);color:var(--brand-d)}
@@ -782,10 +785,13 @@
       <div id="sigCliResumo" class="sig-resumo" style="display:none"></div>
       <div class="field" id="sigFNome" style="display:none"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo" oninput="sigCliProg()"></div>
       <div class="field" id="sigFCPF" style="display:none"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this);sigCliProg()"></div>
+      <div id="sigCpfSug" class="sig-resumo" style="display:none"></div>
       <div class="field" id="sigFCargo" style="display:none"><label>Cargo / função na unidade</label>
         <div class="cargo-chips" id="cargoChips"></div>
         <input id="sigCliCargo" placeholder="digite o cargo…" style="display:none">
       </div>
+      <div class="field" id="sigFCel" style="display:none"><label>Celular (WhatsApp) de quem assina</label><input id="sigCliCel" inputmode="tel" placeholder="(21) 90000-0000" maxlength="16" oninput="celMask(this);sigCelInput()"></div>
+      <div id="sigOtpBox"></div>
     </div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
@@ -2160,6 +2166,9 @@ function sigToPad(){
   const cpf=document.getElementById('sigCliCPF').value.trim();
   if(!cpf) return markInvalid('sigCliCPF','Informe o CPF de quem assina');
   if(!validaCPF(cpf)) return markInvalid('sigCliCPF','CPF inválido — confira os dígitos');
+  const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+  if(cel.length<10) return markInvalid('sigCliCel','Informe o celular de quem assina');
+  if(sigOtp.estado!=='validado' && !(sigSemWhats && sigMotivo)){ toast('Confirme o código do WhatsApp, ou informe o motivo se o cliente não tiver WhatsApp'); return; }
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
   document.getElementById('padBtnBack').textContent='Voltar';
@@ -2178,6 +2187,97 @@ function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\
   s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+/* ===== CPF (Direct Data) + OTP WhatsApp (Huggy) na assinatura do cliente — Fase 4 =====
+   CPF: sugere o nome oficial (autofill). OTP: confirma que o celular é da pessoa antes de liberar "Assinar".
+   Falha em qualquer um cai graciosamente (nunca trava); "cliente sem WhatsApp" pede motivo e libera mesmo assim
+   (fica marcado como não-verificado no Salesforce, não é bloqueio). */
+let sigCpfBusca={estado:'',nome:'',situacao:''}; // ''|'buscando'|'sugerido'|'confirmado'|'falha'
+let sigCpfDebounce=null;
+let sigOtp={estado:'',otpId:'',codigo:''}; // ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
+let sigSemWhats=false, sigMotivo='';
+function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
+function sigCpfLookup(cpf){
+  clearTimeout(sigCpfDebounce);
+  if(!SF_LIVE){ sigCpfBusca={estado:'',nome:'',situacao:''}; sigRenderCpfSug(); return; }
+  sigCpfDebounce=setTimeout(async()=>{
+    sigCpfBusca={estado:'buscando',nome:'',situacao:''}; sigRenderCpfSug();
+    try{
+      const d=await bePost('/assinantes/validar-cpf',{cpf});
+      sigCpfBusca=(d&&d.valido&&d.nome)?{estado:'sugerido',nome:d.nome,situacao:d.situacaoCadastral||''}:{estado:'falha',nome:'',situacao:''};
+    }catch(e){ sigCpfBusca={estado:'falha',nome:'',situacao:''}; }
+    sigRenderCpfSug();
+  },500);
+}
+function sigRenderCpfSug(){
+  const el=document.getElementById('sigCpfSug'); if(!el) return;
+  if(sigCpfBusca.estado==='buscando'){ el.style.display=''; el.innerHTML='<small>Consultando CPF na Receita…</small>'; }
+  else if(sigCpfBusca.estado==='sugerido'){ el.style.display=''; el.innerHTML='<b>'+sigCpfBusca.nome+'</b><small>'+(sigCpfBusca.situacao||'')+'</small><a href="#" onclick="sigUsarNomeCPF();return false">usar este nome</a>'; }
+  else { el.style.display='none'; el.innerHTML=''; }
+}
+function sigUsarNomeCPF(){ document.getElementById('sigCliNome').value=sigCpfBusca.nome; sigCpfBusca.estado='confirmado'; sigRenderCpfSug(); }
+function sigCelInput(){ sigGateUpdate(); }
+async function sigEnviarOTP(){
+  const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+  if(cel.length<10){ toast('Informe um celular válido'); return; }
+  sigOtp={estado:'enviando',otpId:'',codigo:''}; sigRenderOtp();
+  try{
+    const d=await bePost('/otp/gerar',{celular:cel});
+    sigOtp=(d&&d.otpId)?{estado:'aguardando',otpId:d.otpId,codigo:''}:{estado:'falha',otpId:'',codigo:''};
+  }catch(e){ sigOtp={estado:'falha',otpId:'',codigo:''}; toast(e.message||'Não foi possível enviar o código'); }
+  sigRenderOtp();
+}
+async function sigValidarOTP(){
+  const codigo=(document.getElementById('sigOtpCodigo')||{}).value||'';
+  if(!codigo){ toast('Digite o código recebido no WhatsApp'); return; }
+  sigOtp.codigo=codigo; sigOtp.estado='validando'; sigRenderOtp();
+  try{
+    const d=await bePost('/otp/validar',{otpId:sigOtp.otpId,codigo});
+    sigOtp.estado=(d&&d.ok)?'validado':'falha';
+    if(!(d&&d.ok)) toast((d&&d.motivo)||'Código incorreto');
+  }catch(e){ sigOtp.estado='falha'; toast(e.message||'Falha ao validar'); }
+  sigRenderOtp(); sigGateUpdate();
+}
+function sigToggleSemWhats(){ sigSemWhats=!sigSemWhats; sigRenderOtp(); sigGateUpdate(); }
+function sigMotivoSel(v){ sigMotivo=v; sigGateUpdate(); }
+const SIG_MOTIVOS=['Cliente sem celular/WhatsApp','Falha técnica no envio/validação do código','Recusou informar'];
+function sigRenderOtp(){
+  const el=document.getElementById('sigOtpBox'); if(!el) return;
+  const celEl=document.getElementById('sigCliCel'); const cel=celEl?celEl.value.replace(/\D/g,''):'';
+  if(cel.length<10){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  if(sigSemWhats){
+    el.innerHTML='<div class="sig-hint">Confirmação por WhatsApp não realizada.</div>'
+      +'<div class="field"><label>Motivo</label><select onchange="sigMotivoSel(this.value)">'
+      +'<option value="">Escolha…</option>'
+      +SIG_MOTIVOS.map(m=>'<option value="'+m+'"'+(sigMotivo===m?' selected':'')+'>'+m+'</option>').join('')
+      +'</select></div>'
+      +'<a href="#" onclick="sigToggleSemWhats();return false">voltar a tentar o código</a>';
+    return;
+  }
+  if(sigOtp.estado===''||sigOtp.estado==='enviando'){
+    el.innerHTML='<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP()"'+(sigOtp.estado==='enviando'?' disabled':'')+'>'+(sigOtp.estado==='enviando'?'Enviando…':'Enviar código por WhatsApp')+'</button>'
+      +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente sem WhatsApp</a></div>';
+    return;
+  }
+  if(sigOtp.estado==='validado'){
+    el.innerHTML='<div class="sig-hint" style="color:#2a7a3b">✓ Identidade confirmada por WhatsApp</div>';
+    return;
+  }
+  el.innerHTML='<div class="field"><label>Código recebido no WhatsApp</label><input id="sigOtpCodigo" inputmode="numeric" maxlength="6" placeholder="000000"></div>'
+    +'<button type="button" class="btn btn-brand" onclick="sigValidarOTP()"'+(sigOtp.estado==='validando'?' disabled':'')+'>'+(sigOtp.estado==='validando'?'Validando…':'Validar código')+'</button> '
+    +'<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP()">Reenviar</button>'
+    +(sigOtp.estado==='falha'?'<div class="sig-hint" style="color:#c0392b">Código incorreto ou expirado — tente de novo.</div>':'')
+    +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente sem WhatsApp</a></div>';
+}
+function sigGateUpdate(){
+  const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
+  const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+  const celOk=cel.length>=10;
+  const verified=sigOtp.estado==='validado';
+  const motivoOk=sigSemWhats && !!sigMotivo;
+  sigRenderOtp();
+  sigSetPad(cpfOk && celOk && (verified || motivoOk));
+}
 function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; }
 let _recAss=[];
 /* cargo: presets de um toque + "Outro…" com texto livre */
@@ -2200,20 +2300,29 @@ function sigCliSelChange(){
   if(v===''){ /* nada escolhido (ou seleção desfeita): o dropdown volta a ser o único elemento */
     resumo.style.display='none'; fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
     document.getElementById('sigCliNome').value=''; document.getElementById('sigCliCPF').value=''; document.getElementById('sigCliCargo').value='';
+    document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
+    sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+    document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
     sigSetPad(false); return;
   }
   if(v==='new'){
     resumo.style.display='none'; fN.style.display='';
+    document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
+    sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+    document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
     sigCliProg(); return;
   }
   const r=_recAss[+v]; if(!r) return;
   document.getElementById('sigCliNome').value=r.nome;
   document.getElementById('sigCliCPF').value=r.cpf;
   document.getElementById('sigCliCargo').value=r.cargo||'';
+  document.getElementById('sigCliCel').value=r.cel||'';
   fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
+  document.getElementById('sigFCel').style.display='';
   resumo.style.display='';
   resumo.innerHTML=`<b>${r.nome}</b><small>CPF ${r.cpf} · ${r.cargo||'—'}</small><a href="#" onclick="sigCliEditar();return false">editar dados</a>`;
-  sigSetPad(true);
+  sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo='';
+  sigGateUpdate();
 }
 function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCliSelChange(); }
 /* remove o aceite por completo: a OS volta a exigir aceite OU justificativa na conclusão */
@@ -2238,11 +2347,14 @@ function removerAssinatura(ai){
 function sigCliProg(){
   if(document.getElementById('sigCliSel').value!=='new') return;
   const nome=document.getElementById('sigCliNome').value.trim();
-  const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
+  const cpfRaw=document.getElementById('sigCliCPF').value;
+  const cpfOk=validaCPF(cpfRaw);
   document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
   document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
-  if(cpfOk) sigCargoRender();
-  sigSetPad(cpfOk);
+  document.getElementById('sigFCel').style.display = cpfOk ? '' : 'none';
+  if(cpfOk){ sigCargoRender(); sigCpfLookup(cpfRaw.replace(/\D/g,'')); }
+  else { sigCpfBusca={estado:'',nome:'',situacao:''}; sigRenderCpfSug(); }
+  sigGateUpdate();
 }
 function openSigCliente(){
   sigTarget='cli'; const cs=curOS.csig||(curOS.csig={nome:'',cargo:'',cpf:'',assinatura:null,assinadoEm:null});
@@ -2251,6 +2363,10 @@ function openSigCliente(){
   document.getElementById('sigCliCPF').value=cs.cpf||'';
   document.getElementById('sigCliCargo').value=cs.cargo||'';
   document.getElementById('sigCliObs').value=cs.obs||'';
+  document.getElementById('sigCliCel').value=cs.telefone||'';
+  document.getElementById('sigFCel').style.display='none';
+  sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+  document.getElementById('sigOtpBox').innerHTML=''; document.getElementById('sigCpfSug').style.display='none';
   _recAss=assinantesDaLoja(curOS.cli||'');
   const sel=document.getElementById('sigCliSel');
   sel.innerHTML='<option value="" selected>Escolha uma opção…</option>'
@@ -2283,12 +2399,16 @@ function saveSig(){
     if(!sigDirty){toast('✍️ Assine antes de confirmar');return;}
     const cs=curOS.csig; cs.nome=nome; cs.cpf=cpf; cs.cargo=document.getElementById('sigCliCargo').value.trim();
     cs.obs=document.getElementById('sigCliObs').value.trim();
+    cs.telefone=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+    cs.verificado = sigOtp.estado==='validado';
+    cs.motivoSemVerificacao = cs.verificado ? '' : (sigMotivo||'');
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
-    salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf});
+    salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf, cel:cs.telefone});
     if(SF_LIVE && curOS._wo){
       bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
+        telefone:cs.telefone, verificado:cs.verificado, motivoSemVerificacao:cs.motivoSemVerificacao,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
         .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;cs._sigDrive=r.driveId||null;toast('✅ Aceite gravado no Salesforce'); } })
         .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
