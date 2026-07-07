@@ -199,6 +199,12 @@
   .mat-qts{font-size:11.5px;color:var(--weak);margin-top:1px}
   .mat-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:12px;color:var(--txt);margin-top:4px}
   .mat-grid .mg-k{color:var(--weaker)}
+  /* linhas com rótulo e quantidade alinhados em colunas próprias (Solicitado/Usado/Retorno):
+     rótulo encostado à direita, quantidade encostada à esquerda — números ficam em fila mesmo
+     com rótulos de tamanhos diferentes */
+  .mat-grid .mg-row{display:grid;grid-template-columns:74px 1fr;column-gap:6px}
+  .mat-grid .mg-row .mg-k{text-align:right;white-space:nowrap}
+  .mat-grid .mg-row span:last-child{text-align:left}
   .mat-baixa-link{color:var(--brand);font-weight:700;cursor:pointer}
   .mat-ctrl{display:flex;align-items:center;gap:4px;flex-shrink:0}
   .stp{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:#fff;font-size:17px;font-weight:800;color:var(--brand);cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -1643,13 +1649,13 @@ function materiaisBody(){
     const r=document.createElement('div'); r.className='mat-row';
     r.innerHTML=`${tile('box',TC.materiais)}<div class="mat-info"><div class="mat-name">${m.nome}</div>
       <div class="mat-grid">
-        <div><span class="mg-k">Solicitado:</span> <b>${m.solicitado}</b> ${m.un}</div>
-        <div><span class="mg-k">Embarcado:</span> <b>${m.embarcado}</b> ${m.un}</div>
-        <div><span class="mg-k">Usado:</span> <b id="mat-used-${mi}">${m.consumido}</b> ${m.un}</div>
-        <div><span class="mg-k">Baixa:</span> <b id="mat-baixa-${mi}">${matBaixaTotal(m)}</b> ${m.un}</div>
-        <div><span class="mg-k">Retorno:</span> <b id="mat-ret-${mi}">${matRetorno(m)}</b> ${m.un}</div>
+        <div class="mg-row"><span class="mg-k">Solicitado:</span> <span><b>${m.solicitado}</b> ${m.un}</span></div>
+        <div class="mg-row"><span class="mg-k">Embarcado:</span> <span><b>${m.embarcado}</b> ${m.un}</span></div>
+        <div class="mg-row"><span class="mg-k">Usado:</span> <span><b id="mat-used-${mi}">${m.consumido}</b> ${m.un}</span></div>
+        <div class="mg-row"><span class="mg-k">Baixa:</span> <span><b id="mat-baixa-${mi}">${matBaixaTotal(m)}</b> ${m.un}</span></div>
+        <div class="mg-row"><span class="mg-k">Retorno:</span> <span><b id="mat-ret-${mi}">${matRetorno(m)}</b> ${m.un}</span></div>
         <div><span class="mat-baixa-link" onclick="pushSub({type:'matBaixa',mi:${mi}})">Registrar baixa ›</span></div>
-        ${(SF_LIVE&&m._sf&&(ROLE==='Estoquista'||canPDF(ROLE))&&!lk)?`<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px"><span class="mg-k">Embarcar (estoque):</span><button class="stp" onclick="matEmbarque(${mi},-1)">–</button><b>${m.embarcado}</b><button class="stp" onclick="matEmbarque(${mi},1)">+</button></div>`:''}
+        ${(SF_LIVE&&m._sf&&(ROLE==='Estoquista'||canPDF(ROLE))&&!lk)?`<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;margin-top:8px"><span class="mg-k">Retornar (estoque):</span><button class="stp" onclick="matEmbarque(${mi},-1)">–</button><b>${m.embarcado}</b><button class="stp" onclick="matEmbarque(${mi},1)">+</button></div>`:''}
       </div></div><div class="mat-ctrl"><button class="stp" ${lk?'disabled':''} onclick="matConsumo(${mi},-1)">–</button><div class="qtd-num" id="mat-cons-${mi}">${m.consumido}</div><button class="stp" ${lk?'disabled':''} onclick="matConsumo(${mi},1)">+</button></div>`;
     wrap.appendChild(r);
   });

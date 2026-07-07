@@ -20,8 +20,10 @@
     proxy por status)
    (v80 07/07 — Frente B custódia: aba "Bipar" (Supervisor/Líder de Equipe) lê QR da etiqueta de
     separação pela câmera e confirma retirada/recebimento sozinho (backend decide pelo status);
-    fallback de etiqueta em PDF (sem Zebra) agora desenha um QR de verdade, não só uma caixa vazia) */
-const CACHE = 'exaustech-os-v80';
+    fallback de etiqueta em PDF (sem Zebra) agora desenha um QR de verdade, não só uma caixa vazia)
+   (v81 07/07 — Produtos Necessários: rótulo à direita/quantidade à esquerda em Solicitado, Embarcado,
+    Usado, Baixa e Retorno; "Embarcar (estoque)" desce um pouco e vira "Retornar (estoque)") */
+const CACHE = 'exaustech-os-v81';
 const SHELL = [
   './',
   './index.html',
