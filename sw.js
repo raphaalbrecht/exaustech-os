@@ -10,8 +10,10 @@
    (republicação: run #105 do Pages falhou no deploy, forçando novo run)
    (republicação 2: run #106 ficou preso na fila, novo commit)
    (v75 06/07 — Assinatura do cliente: liga CPF (Direct Data, autofill de nome) + OTP WhatsApp (Huggy)
-    antes de liberar "Assinar" — 3 campos novos em Assinatura_OS__c: Telefone__c/Verificado__c/Motivo_Sem_Verificacao__c) */
-const CACHE = 'exaustech-os-v75';
+    antes de liberar "Assinar" — 3 campos novos em Assinatura_OS__c: Telefone__c/Verificado__c/Motivo_Sem_Verificacao__c)
+   (v76 06/07 — identidade visual: --brand harmonizado com o azul real do logo #3E7EB0 (era #0B5CAB,
+    aproximação antiga); aba EXP mantém o laranja --accent como está, por pedido do Raphael) */
+const CACHE = 'exaustech-os-v76';
 const SHELL = [
   './',
   './index.html',
