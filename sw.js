@@ -15,8 +15,13 @@
     aproximação antiga); aba EXP mantém o laranja --accent como está, por pedido do Raphael)
    (v77 06/07 — pill "HOJE" da Agenda/Estoque: mais respiro entre "SEG" e "HOJE" (letter-spacing + margem))
    (v78 06/07 — pílula "ao vivo": ponto pulsando suave (esmaece+cresce) nos badges Cancelada/Reprovada
-    e no selo 🚨 URGENTE do Estoque — prepara o visual pro futuro flag de pendência pós-cancelamento) */
-const CACHE = 'exaustech-os-v78';
+    e no selo 🚨 URGENTE do Estoque — prepara o visual pro futuro flag de pendência pós-cancelamento)
+   (v79 07/07 — pílula "ao vivo" passa a usar o campo real Pendencia_Pos_Cancelamento__c, não mais
+    proxy por status)
+   (v80 07/07 — Frente B custódia: aba "Bipar" (Supervisor/Líder de Equipe) lê QR da etiqueta de
+    separação pela câmera e confirma retirada/recebimento sozinho (backend decide pelo status);
+    fallback de etiqueta em PDF (sem Zebra) agora desenha um QR de verdade, não só uma caixa vazia) */
+const CACHE = 'exaustech-os-v80';
 const SHELL = [
   './',
   './index.html',
