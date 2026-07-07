@@ -1647,8 +1647,8 @@ function sepParseBaixa(total,motivo){
 }
 function sepFromSF(wo){
   const sp=(wo.separacoes||[]).slice(-1)[0];
-  if(!sp) return {id:'—', status:'Sem materiais', urgente:false, materiais:[]};
-  return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente,
+  if(!sp) return {id:'—', status:'Sem materiais', urgente:false, pendencia:null, materiais:[]};
+  return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente, pendencia:sp.pendencia||null,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
       embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[] })) };
 }
@@ -1688,7 +1688,7 @@ async function sepEnviar(){
   try{
     const r=await bePost('/separacoes',{osId:curOS._wo, itens, urgente},'Solicitação de separação');
     if(r&&r._queued){ toast('📡 Solicitação salva no aparelho — sincroniza com sinal'); return; }
-    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente,
+    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente, pendencia:null,
       materiais:(r.itens||itens).map(i=>({ _sf:i.id||null, nome:i.material, un:i.un||'un', solicitado:i.solicitada!=null?i.solicitada:i.qtd, embarcado:0, consumido:0, baixa:sepParseBaixa(0,''), retorno:0, fotos:[] })) };
     bigOK('Separação '+(r.name||'')+' solicitada'); if(navStack.length) showSub();
     checkUrgentAlerts();
@@ -2557,9 +2557,10 @@ function sepLozCls(st){
   return 'lz-warn'; /* Solicitada / Aguardando aprovação / Em separação = fila de trabalho */
 }
 /* pulsa a pílula enquanto o cancelamento/reprovação ainda pede uma ação (ciência do estoque, baixa etc.).
-   Provisório: sem o campo de pendência pós-cancelamento (frente do QR/custódia), assume que TODA
-   separação Cancelada/Reprovada ainda pede atenção — trocar por um flag real quando esse campo existir. */
-function sepLozLive(st){ return ['Cancelada','Reprovada'].includes(st) ? ' lz-live' : ''; }
+   Campo real Pendencia_Pos_Cancelamento__c (Frente B, deployado 07/07): pulsa só quando há uma
+   pendência de fato ("Aguardando ciência do estoque" / "Pendente de devolução ao estoque" /
+   "Pendente de baixa na separação"); "Nenhuma"/"Resolvida"/vazio não pulsam. */
+function sepLozLive(s){ const p=s&&s.pendencia; return (p && p!=='Nenhuma' && p!=='Resolvida') ? ' lz-live' : ''; }
 function sepFaltaEmbarcar(s){ return (s.materiais||[]).reduce((t,m)=>t+Math.max(0,(m.solicitado||0)-(m.embarcado||0)),0); }
 /* pendente de separação = ainda não está pronta/embarcada */
 function sepPendente(st){ return ['Solicitada','Aguardando aprovação','Em separação'].includes(st); }
@@ -2634,7 +2635,7 @@ function renderEstoque(){
 function sepRow(o,s,onclick){
   const falta=sepFaltaEmbarcar(s); const tag=osDiaTag(o);
   const row=document.createElement('div'); row.className='rel-row';
-  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">🚨 URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s.status)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">🚨 URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
   row.onclick=onclick; return row;
 }
 /* LISTA do tile selecionado (drill-down) */
@@ -2655,7 +2656,7 @@ function estoqueSepPage(wrap){
   const s=estoqView.sep, o=estoqView.os;
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>estoqGo(estoqView.tile?'list':'dash'); wrap.appendChild(bk);
   const hd=document.createElement('div'); hd.className='subhead';
-  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}${o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s.status)}">${s.status}</span>`;
+  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}${o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}">${s.status}</span>`;
   wrap.appendChild(hd);
   const card=document.createElement('div'); card.className='subcard';
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Itens para separar</div>';
