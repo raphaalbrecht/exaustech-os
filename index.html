@@ -2803,7 +2803,8 @@ function estoqueSepPage(wrap){
    pra fechar a pendência que ficou quando uma separação foi cancelada/reprovada no meio do fluxo. */
 function estoquePendResolver(sep,proximaPendencia){
   const st=proximaPendencia||'Resolvida'; sep.pendencia=st;
-  bePatch('/separacoes/'+sep._sf,{pendencia:st},'Pendência da separação')
+  const corpo={pendencia:st}; if(myRid()) corpo.ciencia=myRid(); /* carimba quem resolveu, pra trilha de auditoria */
+  bePatch('/separacoes/'+sep._sf,corpo,'Pendência da separação')
     .then(r=>toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':'✅ Pendência atualizada'))
     .catch(e=>toast('⚠️ Não gravado: '+e.message));
   estoqGo(st==='Resolvida'?'dash':'list',null,null,'cancelamento');
@@ -2934,12 +2935,18 @@ function biparLoop(){
     if(img){
       const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
       if(code && code.data){
-        const agora=Date.now();
-        if(!(biparUltimo.codigo===code.data && (agora-biparUltimo.ts)<4000)){
-          biparUltimo={codigo:code.data, ts:agora};
-          biparProcessarCodigo(code.data.trim());
+        const codigo=code.data.trim();
+        if(biparUltimo.codigo===codigo){
+          biparUltimo.ts=Date.now(); /* mesma etiqueta ainda no quadro — só renova, não reprocessa
+            (evita reprocessar 2x se a câmera ficar parada em cima do QR por >4s — antes isso
+            avançava sozinho pro próximo checkpoint sem ninguém escanear de novo) */
+        } else {
+          biparUltimo={codigo, ts:Date.now()};
+          biparProcessarCodigo(codigo);
           return; /* pausa o loop enquanto confirma; retoma sozinho ao final (ver biparProcessarCodigo) */
         }
+      } else {
+        biparUltimo={codigo:null, ts:0}; /* etiqueta saiu do quadro — próxima leitura conta como nova (permite re-bipar de propósito depois) */
       }
     }
   }
@@ -2974,7 +2981,8 @@ const BIPAR_EXC_CHIPS=['Cancelamento deve ser revertido','Cliente/coordenador co
 function abrirBiparExc(codigo,r){
   biparExc={codigo,tipo:r.tipo};
   const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
-  document.getElementById('bexTitle').textContent=(r.name||codigo)+' está CANCELADA';
+  const statusTxt=(r.statusAtual||'CANCELADA').toUpperCase();
+  document.getElementById('bexTitle').textContent=(r.name||codigo)+' está '+statusTxt;
   document.getElementById('bexSub').textContent=(retirada?'Retirar':'Entregar')+' mesmo assim? Fica registrado quem decidiu e por quê.';
   const chipsWrap=document.getElementById('bexChips'); chipsWrap.innerHTML='';
   BIPAR_EXC_CHIPS.forEach(c=>{
@@ -2984,16 +2992,32 @@ function abrirBiparExc(codigo,r){
     chipsWrap.appendChild(b);
   });
   document.getElementById('bexReason').value=r.sugerido?(r.justificativaAnterior||''):'';
+  biparExcBotoes(false);
   document.getElementById('biparExcModal').classList.add('show');
 }
+function biparExcBotoes(desabilitado){
+  const modal=document.getElementById('biparExcModal'); if(!modal) return;
+  modal.querySelectorAll('button').forEach(b=>{ b.disabled=desabilitado; b.style.opacity=desabilitado?'.55':''; });
+}
 function closeBiparExc(){ document.getElementById('biparExcModal').classList.remove('show'); biparResumir(); }
+let _biparExcEmVoo=false;
 async function confirmBiparExc(){
+  if(_biparExcEmVoo) return; /* trava contra toque duplo enquanto o POST anterior ainda não voltou */
   const justificativa=document.getElementById('bexReason').value.trim();
   if(!justificativa) return markInvalid('bexReason','Informe o motivo de seguir mesmo assim');
-  const {codigo}=biparExc;
+  if(justificativa.length<5) return markInvalid('bexReason','Justificativa curta demais — descreva melhor o motivo');
+  const {codigo,tipo}=biparExc;
   const st=document.getElementById('biparStatus');
+  _biparExcEmVoo=true; biparExcBotoes(true);
   try{
-    const r=await bePost('/separacoes/scan',{codigo,resourceId:myRid(),confirmarCancelado:true,justificativa},'Bipagem (exceção) '+codigo);
+    const r=await bePost('/separacoes/scan',{codigo,resourceId:myRid(),confirmarCancelado:true,justificativa,tipoConfirmado:tipo},'Bipagem (exceção) '+codigo);
+    if(r&&r.needsConfirm){
+      // a etapa mudou entre abrir o modal e confirmar (ex.: outro aparelho bipou antes) — reabre
+      // com o estado fresco em vez de aplicar a exceção no checkpoint errado.
+      toast('⚠️ A etapa mudou enquanto você decidia — confira de novo');
+      abrirBiparExc(codigo,r);
+      return; /* mantém câmera pausada até o usuário decidir de novo */
+    }
     document.getElementById('biparExcModal').classList.remove('show');
     if(r&&r._queued){ toast('📡 Exceção salva no aparelho — sincroniza com sinal'); }
     else{
@@ -3001,8 +3025,11 @@ async function confirmBiparExc(){
       bigOK((retirada?'Retirada':'Recebimento')+' registrada com exceção — '+(r.name||codigo));
       if(st) st.textContent='Exceção registrada ('+(r.name||codigo)+')';
     }
-  }catch(e){ toast('⚠️ '+e.message); }
-  biparResumir();
+    biparResumir();
+  }catch(e){
+    toast('⚠️ '+e.message);
+    biparExcBotoes(false); /* mantém modal aberto e câmera pausada — dá pra tentar de novo ou cancelar */
+  }finally{ _biparExcEmVoo=false; }
 }
 /* Caso 5: o material já tinha sido entregue quando o cancelamento chegou — não há mais checkpoint
    de bipagem a carimbar; o líder só sinaliza ciência (fecha o ciclo o Estoquista, no painel dele). */

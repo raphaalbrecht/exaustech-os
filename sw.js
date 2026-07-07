@@ -32,8 +32,14 @@
    (v84 07/07 — home do Estoque ganha campo de busca em destaque (OS/cliente/Name da separação),
     pensado pros coletores de dados Android (leitor de código de barras/QR embutido funciona como
     teclado): bate exato com 1 resultado abre direto, Enter abre o 1º resultado, senão lista até 8
-    embaixo do campo) */
-const CACHE = 'exaustech-os-v84';
+    embaixo do campo)
+   (v85 07/07 — correções de precisão no Bipar/cancelamento por etapa, achadas em revisão antes do
+    teste físico: câmera parada em cima do QR por >4s não avança mais 2 checkpoints sozinha; toque
+    duplo em "Confirmar mesmo assim" trava enquanto o POST anterior não volta; erro no confirmar não
+    deixa mais a câmera escaneando por trás do modal aberto; backend recusa aplicar exceção se o
+    checkpoint mudou entre abrir o modal e confirmar; ciência do líder (caso 5) não rebaixa mais uma
+    pendência já resolvida pelo estoque; ciência do estoque (caso 1) agora carimba quem resolveu) */
+const CACHE = 'exaustech-os-v85';
 const SHELL = [
   './',
   './index.html',
