@@ -54,8 +54,11 @@
     pro cliente, gate de Autorização de Serviço em /alocacoes, dono da OS checado antes de gravar/
     apagar (mídia/assinatura/apontamento/desfecho/alocação) e antes de baixar arquivo do Drive,
     esc() corrigido (contrabarra podia escapar da query SOQL), remoção de ~285 linhas de código
-    morto (fluxo antigo de OAuth direto Salesforce+Google Drive do navegador, superado pelo backend) */
-const CACHE = 'exaustech-os-v87';
+    morto (fluxo antigo de OAuth direto Salesforce+Google Drive do navegador, superado pelo backend)
+   (v88 07/07 — troca do ícone do rank NOVATO (EXP + Trilhas): 🌱 dava impressão tímida/perdida →
+    foguete gradiente (SVG próprio, ICON_NOVATO_FOGUETE) decolando, compartilhado entre EXP_RANKS.emo
+    e RANKS.icon) */
+const CACHE = 'exaustech-os-v88';
 const SHELL = [
   './',
   './index.html',

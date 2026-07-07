@@ -3296,7 +3296,8 @@ function trTot(){ return TREINOS.length; }
 function trDone(){ return Object.values(treinoState).filter(s=>s.concluido).length; }
 function trXP(){ return Object.values(treinoState).reduce((a,s)=>a+(s.xp||0),0); }
 
-const RANKS=[{min:0,nome:'Novato',icon:'🌱'},{min:1,nome:'Explorador',icon:'🧭'},{min:2,nome:'Aventureiro',icon:'⛰️'},{min:3,nome:'Guardião da Exaustão',icon:'🏆'}];
+const ICON_NOVATO_FOGUETE='<svg width="28" height="28" viewBox="-40 -38 80 90" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block"><defs><linearGradient id="novRktGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#12B4E0"/><stop offset="0.55" stop-color="#2E8FF0"/><stop offset="1" stop-color="#5B54E8"/></linearGradient></defs><path d="M0,-32 C9,-24 11,-10 11,4 C11,14 8,22 3,28 L-9,28 C-9,18 -9,4 -9,-6 C-9,-18 -5,-27 0,-32 Z" fill="url(#novRktGrad)"/><path d="M-15,10 C-19,14 -23,20 -22,28 C-16,27 -10,24 -7,19 Z" fill="#17B4E8"/><path d="M-8,22 C-12,25 -15,29 -14,34 C-10,33 -6,31 -4,28 Z" fill="#17B4E8"/><circle cx="1" cy="-6" r="7.2" fill="#fff"/><circle cx="1" cy="-6" r="3.6" fill="url(#novRktGrad)"/><rect x="-30" y="30" width="10" height="4.4" rx="2.2" fill="#17B4E8" transform="rotate(-38 -25 32)"/><rect x="-24" y="38" width="7" height="3.6" rx="1.8" fill="#17B4E8" transform="rotate(-38 -20 40)"/></svg>';
+const RANKS=[{min:0,nome:'Novato',icon:ICON_NOVATO_FOGUETE},{min:1,nome:'Explorador',icon:'🧭'},{min:2,nome:'Aventureiro',icon:'⛰️'},{min:3,nome:'Guardião da Exaustão',icon:'🏆'}];
 function trRank(n){ n=(n===undefined?trDone():n); let r=RANKS[0]; for(const x of RANKS){ if(n>=x.min) r=x; } const idx=RANKS.indexOf(r); return {atual:r, prox:RANKS[idx+1]||null, idx}; }
 function renderTreino(){
   const done=trDone(), tot=trTot(), xp=trXP();
@@ -4322,7 +4323,7 @@ function myRid(){ return localStorage.getItem('be_rid')||''; }
    inspeções limpas (INSPECAO_LIMPA consecutivas no extrato do ano, quebra em NC). */
 let expCiclo='trimestre', expView='home';
 const EXP_RANKS=[
-  {nome:'NOVATO', xp:0,     grad:'linear-gradient(160deg,#CBD3DB,#9AA5B1)', emo:'🌱'},
+  {nome:'NOVATO', xp:0,     grad:'linear-gradient(160deg,#CBD3DB,#9AA5B1)', emo:ICON_NOVATO_FOGUETE},
   {nome:'BRONZE', xp:2500,  grad:'linear-gradient(160deg,#D9A26C,#B07A45)', emo:'🏅'},
   {nome:'PRATA',  xp:6000,  grad:'linear-gradient(160deg,#C8D2DC,#9AA5B1)', emo:'🏅'},
   {nome:'OURO',   xp:12000, grad:'linear-gradient(160deg,#FFD86B,#D4A017)', emo:'🏅'},
