@@ -697,6 +697,13 @@
         <div class="sched-title">Estoque</div>
         <div class="days" id="estoqDays"></div>
       </div>
+      <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
+        <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar OS ou cliente…"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          style="width:100%;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
+          oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+        <div id="estoqBuscaResults"></div>
+      </div>
       <div class="daylabel" id="estoqDayLabel"></div>
       <div id="estoqueList"></div>
     </section>
@@ -2630,6 +2637,57 @@ const ESTOQ_TILES=[
 function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
 /* mesma lista, restrita ao dia escolhido no carrossel (ou todas, se nenhum dia estiver selecionado) */
 function sepListDia(){ const all=sepListAll(); return estoqDia?all.filter(x=>diaKeyOf(x.o)===estoqDia):all; }
+/* abre o registro certo pra uma separação — usado tanto pela busca/bipagem por texto quanto (via
+   estoqAbrirSepGenerico) por qualquer outro ponto de entrada que não seja tile-específico.
+   Prioridade: pendência de pós-cancelamento (precisa de ação) > ainda em separação (abre a página
+   de separar) > já resolvida/em campo (abre Produtos Necessários na OS). */
+function estoqAbrirSep(o,s){
+  if(s.pendencia && !['Nenhuma','Resolvida'].includes(s.pendencia)) estoqGo('pend',s,o);
+  else if(sepPendente(s.status)) estoqGo('sep',s,o);
+  else { const a=apptForOS(o); if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} }
+}
+/* Busca/bipagem por texto na home do Estoque — pensada pros coletores de dados Android (leitor de
+   código de barras/QR embutido, funciona como teclado: "digita" o texto lido e manda Enter).
+   Casa por Name da separação (SEP-xxxx, o mesmo texto do QR da etiqueta), nº da OS e cliente. */
+function estoqBuscaNorm(s){ return cadSemAcento(String(s||'')).toLowerCase().trim(); }
+function estoqBuscaFiltrar(q){
+  const nq=estoqBuscaNorm(q); if(!nq) return [];
+  return sepListAll().filter(({o,s})=>
+    estoqBuscaNorm(s.id).includes(nq) || estoqBuscaNorm(o.id).includes(nq) || estoqBuscaNorm(o.cli).includes(nq)
+  );
+}
+function estoqBuscaLimpar(){
+  const inp=document.getElementById('estoqBusca'); if(inp) inp.value='';
+  const res=document.getElementById('estoqBuscaResults'); if(res) res.innerHTML='';
+}
+function estoqBuscaAbrir(o,s){ estoqBuscaLimpar(); estoqAbrirSep(o,s); }
+function estoqBuscaRenderResultados(lista,q){
+  const res=document.getElementById('estoqBuscaResults'); if(!res) return;
+  res.innerHTML='';
+  if(!q){ return; }
+  if(!lista.length){ res.innerHTML='<div class="subnote" style="padding:8px 2px">Nada encontrado pra "'+q+'".</div>'; return; }
+  const box=document.createElement('div'); box.style.cssText='margin-top:6px;border:1px solid #e5e8ec;border-radius:12px;overflow:hidden;background:#fff';
+  lista.slice(0,8).forEach(({o,s})=>{ const row=sepRow(o,s,()=>estoqBuscaAbrir(o,s)); box.appendChild(row); });
+  res.appendChild(box);
+}
+function estoqBuscaInput(){
+  const inp=document.getElementById('estoqBusca'); if(!inp) return;
+  const q=inp.value; const lista=estoqBuscaFiltrar(q);
+  // bipagem por scanner: quando o texto lido bate EXATO com o Name de 1 única separação, abre
+  // direto sem esperar Enter (alguns leitores não mandam Enter automaticamente).
+  const nq=estoqBuscaNorm(q);
+  const exato=nq?lista.filter(({s})=>estoqBuscaNorm(s.id)===nq):[];
+  if(exato.length===1){ estoqBuscaAbrir(exato[0].o,exato[0].s); return; }
+  estoqBuscaRenderResultados(lista,q);
+}
+function estoqBuscaKey(e){
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  const inp=document.getElementById('estoqBusca'); const q=inp?inp.value:'';
+  const lista=estoqBuscaFiltrar(q);
+  if(!lista.length){ toast('Nenhuma separação encontrada pra "'+q+'"'); return; }
+  estoqBuscaAbrir(lista[0].o,lista[0].s);
+}
 /* carrossel de dias do Estoque — mesma estrutura visual da Agenda (DAYS/DAYLABEL compartilhados) */
 function renderEstoqDays(){
   const wrap=document.getElementById('estoqDays'); if(!wrap) return; wrap.innerHTML='';
@@ -2646,6 +2704,10 @@ function renderEstoqDays(){
 }
 function renderEstoque(){
   renderEstoqDays();
+  const buscaWrap=document.getElementById('estoqBuscaWrap');
+  const naHome=(estoqView.mode==='dash');
+  if(buscaWrap) buscaWrap.style.display=naHome?'block':'none';
+  if(!naHome) estoqBuscaLimpar();
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }

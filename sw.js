@@ -28,8 +28,12 @@
    (v83 07/07 — cancelamento por etapa (Bipar): scan numa separação Cancelada/Reprovada agora
     oferece "seguir mesmo assim + justificar" (casos 3/4) em vez de só rejeitar, com carimbo de quem
     decidiu; card de alerta quando o material já tinha sido entregue (caso 5); novo tile
-    "Pós-cancelamento" no painel do Estoquista fecha os casos 1/2/4/5 (ciência, devolução, baixa)) */
-const CACHE = 'exaustech-os-v83';
+    "Pós-cancelamento" no painel do Estoquista fecha os casos 1/2/4/5 (ciência, devolução, baixa))
+   (v84 07/07 — home do Estoque ganha campo de busca em destaque (OS/cliente/Name da separação),
+    pensado pros coletores de dados Android (leitor de código de barras/QR embutido funciona como
+    teclado): bate exato com 1 resultado abre direto, Enter abre o 1º resultado, senão lista até 8
+    embaixo do campo) */
+const CACHE = 'exaustech-os-v84';
 const SHELL = [
   './',
   './index.html',
