@@ -42,8 +42,20 @@
    (v86 07/07 — busca do Estoque ganha botão de câmera (scan one-shot, pra quem não tem coletor com
     leitor físico) e botão de NFC (Web NFC — só existe no Chrome Android; precisa 1 toque pra armar
     a leitura, some sozinho se o aparelho não suportar); campo agora foca sozinho ao entrar na aba
-    de propósito, sem interferir no refresh silencioso de fundo) */
-const CACHE = 'exaustech-os-v86';
+    de propósito, sem interferir no refresh silencioso de fundo)
+   (v87 07/07 — 2 rodadas de revisão ampla (Fable) em cima do projeto inteiro + remediação: watermark
+    quebrado (3 fotos), logout incompleto, fila offline descartava trabalho em erro 5xx passageiro
+    (bePatch/bePost/beDelete/beGet/uploads), toque duplo vazava câmera (Bipar+busca) e travava NFC,
+    câmera do Bipar ficava órfã ao reentrar na aba, aviso de fila pendente antes de sair, confirmação
+    antes de status destrutivo da separação, corrida em sepEnviar()/reabrir(), modal órfão ao navegar,
+    cancelar OS agora apaga as alocações de verdade no Salesforce, fila "trava pra sempre" num job
+    ruim agora só pula ele (não bloqueia os outros), escape de aspas/XSS em vários pontos (busca,
+    textos livres, atributos), backend: validação de resourceId ativo, mensagens de erro genéricas
+    pro cliente, gate de Autorização de Serviço em /alocacoes, dono da OS checado antes de gravar/
+    apagar (mídia/assinatura/apontamento/desfecho/alocação) e antes de baixar arquivo do Drive,
+    esc() corrigido (contrabarra podia escapar da query SOQL), remoção de ~285 linhas de código
+    morto (fluxo antigo de OAuth direto Salesforce+Google Drive do navegador, superado pelo backend) */
+const CACHE = 'exaustech-os-v87';
 const SHELL = [
   './',
   './index.html',

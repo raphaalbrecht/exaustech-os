@@ -1192,6 +1192,8 @@ function go(scr){
     if(typeof estoqScanCamFechar==='function') estoqScanCamFechar();
     if(typeof estoqNfcDesativar==='function') estoqNfcDesativar();
   }
+  /* navegar (troca de aba/tela) fecha qualquer modal aberto — evita modal órfão flutuando sobre uma tela que não é mais a dele */
+  document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
   if(scr==='estoque') _estoqAutoFoco=true; /* navegação de propósito pra aba — foca o campo pro leitor físico funcionar sem tocar em nada */
   document.querySelectorAll('main .screen, #scr-login').forEach(s=>s.classList.remove('active'));
   document.getElementById('scr-'+scr).classList.add('active');
@@ -1247,10 +1249,10 @@ function setRole(r){ ROLE=r; closeRole(); renderRoleChip(); const cur=document.q
   if(cur==='scr-bipar'&&!canBipar(ROLE)){ if(typeof biparParar==='function') biparParar(); go('schedule'); }
   if(r==='Estoquista') go('estoque'); /* casa do Estoquista é o painel de Estoque */
   updateBell(); toast('Perfil: '+r); }
-function logout(){
-  ['be_tok','be_name','sf_tok','sf_inst','sf_v','sf_st'].forEach(k=>sessionStorage.removeItem(k));
-  SF_LIVE=false; document.body.classList.remove('sf-live');
-  go('login'); toast('Você saiu.');
+async function logout(){
+  const n=await offCount().catch(()=>0);
+  if(n>0 && !window.confirm(n+' pendência'+(n>1?'s':'')+' ainda não sincronizada'+(n>1?'s':'')+' neste aparelho. Sair mesmo assim? Elas só sincronizam quando alguém entrar de novo neste aparelho com sinal — e a sincronização usa a sessão de quem estiver logado na hora, não a sua.')) return;
+  beLogout();
 }
 function back(){
   const cur=document.querySelector('.screen.active').id;
@@ -1294,8 +1296,8 @@ function renderSchedule(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
         <div style="font-size:18px;font-weight:800;color:#0B5CAB;letter-spacing:.3px">${a.os.id||'OS'}</div>
         <span class="lz ${al.cls}">${al.txt}</span></div>
-      <div class="appt-wt" style="font-size:13.5px">${a.os.plano}${a.tipo==='Revisita'?' · Revisita':''}</div>
-      <div class="appt-acc">${a.os.cli}</div>
+      <div class="appt-wt" style="font-size:13.5px">${_esc(a.os.plano)}${a.tipo==='Revisita'?' · Revisita':''}</div>
+      <div class="appt-acc">${_esc(a.os.cli)}</div>
       <div class="appt-meta">${inI('asset')} ${a.os._itens.length} equipamento(s)${temJanela?' · '+a.janela:''} · ${a.id}</div>`;
     list.appendChild(el);
   });
@@ -1378,7 +1380,7 @@ function completeAppt(){
   document.getElementById('doneMsg').innerHTML='Compromisso concluído. <b>Relatório gerado como Rascunho</b> — segue para revisão antes de ir ao cliente.'+(totRet>0?` ${totRet} material(is) na guia de retorno.`:'');
   go('done');
 }
-function reabrir(){ curAppt.outcome=null; renderAppt(); toast('Compromisso reaberto'); }
+function reabrir(){ curAppt.outcome=null; curAppt._desfSF=false; /* permite que o desfecho corrigido seja regravado no Salesforce */ renderAppt(); toast('Compromisso reaberto'); }
 /* concluir SEM aceite do cliente exige justificativa (fica no registro e no PDF) */
 function openCsigJust(){ document.getElementById('csigJustText').value=(curOS.csig&&curOS.csig.justificativa)||''; document.getElementById('csigJustModal').classList.add('show'); }
 function closeCsigJust(){ document.getElementById('csigJustModal').classList.remove('show'); }
@@ -1531,7 +1533,7 @@ function equipHistPage(ii){
   const ap=document.createElement('div'); ap.className='subcard'; ap.innerHTML='<div class="sec-title2">Apontamentos</div>';
   const list=apontamentos.filter(a=>a.eqRef===eq);
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.style.padding='0'; e.textContent='Nenhum apontamento para este equipamento.'; ap.appendChild(e); }
-  else list.forEach(a=>{ const r=document.createElement('div'); r.className='hist-row'; r.style.cursor='pointer'; r.innerHTML=`<div><div class="hist-t">${a.id} · ${a.item}</div><div class="hist-s">${(a.problemas.join(', ')||a.obs||'—')}</div></div><span class="lz ${aptLozCls(a.status)}" style="font-size:10px;padding:1px 7px">${a.status}</span>`; r.onclick=()=>pushSub({type:'apt', aptId:a.id}); ap.appendChild(r); });
+  else list.forEach(a=>{ const r=document.createElement('div'); r.className='hist-row'; r.style.cursor='pointer'; r.innerHTML=`<div><div class="hist-t">${a.id} · ${_esc(a.item)}</div><div class="hist-s">${_esc(a.problemas.join(', ')||a.obs||'—')}</div></div><span class="lz ${aptLozCls(a.status)}" style="font-size:10px;padding:1px 7px">${a.status}</span>`; r.onclick=()=>pushSub({type:'apt', aptId:a.id}); ap.appendChild(r); });
   wrap.appendChild(ap);
   return wrap;
 }
@@ -1555,7 +1557,7 @@ function itemForm(eq,ii){
     <div class="chk-hint">Marque cada item: OK · Não conforme · N/E (não executado)</div>
     <div id="chk-${ii}"></div>
     <div class="label">Observações gerais do equipamento</div>
-    <textarea rows="2" placeholder="Anotações deste equipamento…" ${lk?'disabled':''} oninput="curOS._itens[${ii}].obs=this.value">${eq.obs}</textarea>`;
+    <textarea rows="2" placeholder="Anotações deste equipamento…" ${lk?'disabled':''} oninput="curOS._itens[${ii}].obs=this.value">${_esc(eq.obs)}</textarea>`;
   const chk=c.querySelector('#chk-'+ii);
   eq.checklist.forEach(item=> chk.appendChild(chkItem(eq,item)));
   return c;
@@ -1652,7 +1654,7 @@ function capturarApt(id){
   const cv=document.createElement('canvas'); cv.width=400; cv.height=300; const ctx=cv.getContext('2d');
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#6b7a8a'); g.addColorStop(1,'#46586a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(a.id+' · '+a.equipTag,18,150);
-  watermark(ctx,400,300,{tag:a.equipTag});
+  drawWatermark(ctx,400,300,{tag:a.equipTag},_lastGeo,new Date());
   a.fotos.push(cv.toDataURL('image/png')); showSub(); toast('✅ Foto adicionada');
 }
 function neDetail(eq,item,lk){
@@ -1671,7 +1673,7 @@ function materiaisBody(){
   /* estoquista/coordenação movem o status da separação real */
   if(SF_LIVE && sep._sf && (ROLE==='Estoquista'||canPDF(ROLE)) && !lk){
     const stBox=document.createElement('div'); stBox.className='field'; stBox.style.cssText='margin:8px 0';
-    stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value,this)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="sepUrgenteToggle" ${sep.urgente?'checked':''} onchange="sepSetUrgente(this.checked)"> <span>Marcar como urgente (avisa o Estoquista)</span></label>`;
     wrap.appendChild(stBox);
   }
@@ -1687,7 +1689,7 @@ function materiaisBody(){
   }
   sep.materiais.forEach((m,mi)=>{
     const r=document.createElement('div'); r.className='mat-row';
-    r.innerHTML=`${tile('box',TC.materiais)}<div class="mat-info"><div class="mat-name">${m.nome}</div>
+    r.innerHTML=`${tile('box',TC.materiais)}<div class="mat-info"><div class="mat-name">${_esc(m.nome)}</div>
       <div class="mat-grid">
         <div class="mg-row"><span class="mg-k">Solicitado:</span> <span><b>${m.solicitado}</b> ${m.un}</span></div>
         <div class="mg-row"><span class="mg-k">Embarcado:</span> <span><b>${m.embarcado}</b> ${m.un}</span></div>
@@ -1727,7 +1729,12 @@ function sfPushSepItem(m,campos,label){
 }
 function matBaixaMotivoStr(m){ const b=m.baixa; let s=`Danificado:${b.danificado||0}; Extraviado:${b.extraviado||0}; Inutilizado:${b.inutilizado||0}`; if(b.resp)s+='; Resp:'+b.resp; return s; }
 const SEP_STATUS_APP=['Solicitada','Aguardando aprovação','Em separação','Pronta para embarque','Embarcada','Recebida pelo usuário','Em uso','Retorno','Encerrada','Reprovada','Cancelada'];
-function sepSetStatus(v){ const sep=curOS.separacao; if(!sep._sf||!v) return; sep.status=v;
+const SEP_STATUS_DESTRUTIVO=['Cancelada','Reprovada','Encerrada'];
+function sepSetStatus(v,el){ const sep=curOS.separacao; if(!sep._sf||!v) return;
+  if(SEP_STATUS_DESTRUTIVO.includes(v) && !window.confirm('Mudar o status da separação '+sep.id+' para "'+v+'"? Essa ação pode disparar cancelamento/pendências e não é trivial de reverter.')){
+    if(el) el.value=sep.status; return;
+  }
+  sep.status=v;
   bePatch('/separacoes/'+sep._sf,{status:v},'Status da separação')
     .then(r=>toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v))
     .catch(e=>toast('⚠️ Status não gravado: '+e.message));
@@ -1752,12 +1759,13 @@ async function sepEnviar(){
     .filter(i=>i.material && i.qtd>0);
   if(!itens.length){ const f=document.querySelector('#sepRows .sep-row input[type=text]'); return markInvalid(f,'Informe ao menos um material com quantidade'); }
   const _su=document.getElementById('sepUrgente'); const urgente=!!(_su&&_su.checked);
+  const osAlvo=curOS; /* trava a OS-alvo antes do await — se o usuário navegar pra outra OS enquanto o POST está em voo, a resposta ainda vai pra OS certa, não pra curOS (que pode ter mudado) */
   try{
-    const r=await bePost('/separacoes',{osId:curOS._wo, itens, urgente},'Solicitação de separação');
+    const r=await bePost('/separacoes',{osId:osAlvo._wo, itens, urgente},'Solicitação de separação');
     if(r&&r._queued){ toast('📡 Solicitação salva no aparelho — sincroniza com sinal'); return; }
-    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente, pendencia:null, retirado:false, justificativaExcecao:null, cienciaPor:null, cienciaEm:null,
+    osAlvo.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente, pendencia:null, retirado:false, justificativaExcecao:null, cienciaPor:null, cienciaEm:null,
       materiais:(r.itens||itens).map(i=>({ _sf:i.id||null, nome:i.material, un:i.un||'un', solicitado:i.solicitada!=null?i.solicitada:i.qtd, embarcado:0, consumido:0, baixa:sepParseBaixa(0,''), retorno:0, fotos:[] })) };
-    bigOK('Separação '+(r.name||'')+' solicitada'); if(navStack.length) showSub();
+    bigOK('Separação '+(r.name||'')+' solicitada'); if(curOS===osAlvo && navStack.length) showSub();
     checkUrgentAlerts();
   }catch(e){ toast('⚠️ Solicitação não enviada: '+e.message); }
 }
@@ -1792,12 +1800,12 @@ function capturarBaixa(mi){
   const cv=document.createElement('canvas'); cv.width=400; cv.height=300; const ctx=cv.getContext('2d');
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#7a6a6a'); g.addColorStop(1,'#5a4a4a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText('BAIXA · '+m.nome,18,150);
-  watermark(ctx,400,300,{tag:m.nome});
+  drawWatermark(ctx,400,300,{tag:m.nome},_lastGeo,new Date());
   m.baixa.fotos.push(cv.toDataURL('image/png')); showSub(); toast('✅ Foto adicionada');
 }
 function matBaixaPage(mi){
   const o=curOS, m=o.separacao.materiais[mi], lk=repLocked(), wrap=document.createElement('div');
-  const hd=document.createElement('div'); hd.className='subhead'; hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${m.nome}</div><div class="eq-sub">Baixa de material · ${o.separacao.id}</div></div>${m.baixa.bxId?`<span class="lz lz-warn">${m.baixa.bxId}</span>`:''}`; wrap.appendChild(hd);
+  const hd=document.createElement('div'); hd.className='subhead'; hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${_esc(m.nome)}</div><div class="eq-sub">Baixa de material · ${o.separacao.id}</div></div>${m.baixa.bxId?`<span class="lz lz-warn">${m.baixa.bxId}</span>`:''}`; wrap.appendChild(hd);
   if(lk) wrap.appendChild(lockBanner());
   const ctx=document.createElement('div'); ctx.className='subcard';
   ctx.innerHTML=`<div class="mat-grid"><div><span class="mg-k">Embarcado:</span> <b>${m.embarcado}</b> ${m.un}</div><div><span class="mg-k">Usado:</span> <b>${m.consumido}</b> ${m.un}</div><div><span class="mg-k">Baixa total:</span> <b>${matBaixaTotal(m)}</b> ${m.un}</div><div><span class="mg-k">Retorno:</span> <b>${matRetorno(m)}</b> ${m.un}</div></div>`;
@@ -1952,7 +1960,7 @@ function capturarFerr(idx,key,nome){
   const cv=document.createElement('canvas'); cv.width=400; cv.height=300; const ctx=cv.getContext('2d');
   const g=ctx.createLinearGradient(0,0,400,300); g.addColorStop(0,'#6a6a7a'); g.addColorStop(1,'#4a4a5a'); ctx.fillStyle=g; ctx.fillRect(0,0,400,300);
   ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 15px sans-serif'; ctx.fillText(nome,18,150);
-  watermark(ctx,400,300,{tag:it.patrimonio||nome});
+  drawWatermark(ctx,400,300,{tag:it.patrimonio||nome},_lastGeo,new Date());
   it[key]=cv.toDataURL('image/png'); showSub(); toast('✅ Foto registrada');
 }
 function ferrNaoDev(idx){ const it=curOS.ferramentas.itens[idx]; it.naoDevolvida=true; it.responsavel=it.responsavel||(curOS.alocacoes[0]?curOS.alocacoes[0].nome:''); showSub(); toast('⚠️ Não devolvida — responsabilidade registrada'); }
@@ -2034,8 +2042,8 @@ function assinBody(){
   const cs=o.csig, cc=document.createElement('div'); cc.className='sig-card';
   const cav=`<div class="sig-av" style="background:var(--brand-l);color:var(--brand-d)">${cs.nome?iniName(cs.nome):'CL'}</div>`;
   cc.innerHTML=(cs.assinatura||cs._sigRec)
-    ? cav+`<div class="sig-info"><div class="sig-name">${cs.nome||'Cliente'}</div><div class="sig-role">${cs.cargo||'Responsável da unidade'}${cs.cpf?' · CPF '+cs.cpf:''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm||'—'}</div>${cs.obs?`<div class="sig-just">🗒 “${cs.obs}”</div>`:''}</div>${cs.assinatura?`<img class="sig-thumb" src="${cs.assinatura}">`:(cs._sigDrive?`<button class="sig-btn re" onclick="verImagem('${cs._sigDrive}','Aceite — ${_esc(cs.nome||'Cliente').replace(/'/g,'’')}')">📄 ver</button>`:(cs._sigUrl?`<a class="sig-btn re" href="${cs._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
-    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+cs.justificadoPor+')':''}</div><div class="sig-just">“${cs.justificativa}”</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
+    ? cav+`<div class="sig-info"><div class="sig-name">${_esc(cs.nome)||'Cliente'}</div><div class="sig-role">${_esc(cs.cargo)||'Responsável da unidade'}${cs.cpf?' · CPF '+_esc(cs.cpf):''}</div><div class="sig-status ok">✓ Assinado às ${cs.assinadoEm||'—'}</div>${cs.obs?`<div class="sig-just">🗒 "${_esc(cs.obs)}"</div>`:''}</div>${cs.assinatura?`<img class="sig-thumb" src="${cs.assinatura}">`:(cs._sigDrive?`<button class="sig-btn re" onclick="verImagem('${cs._sigDrive}','Aceite — ${_esc(cs.nome||'Cliente').split("'").join("’")}')">📄 ver</button>`:(cs._sigUrl?`<a class="sig-btn re" href="${cs._sigUrl}" target="_blank">📄 ver</a>`:''))}${lk?'':`<span class="sig-btn-col"><button class="sig-btn re" onclick="openSigCliente()">Refazer</button><button class="sig-btn del" onclick="removerAceite()">Remover</button></span>`}`
+    : cav+`<div class="sig-info"><div class="sig-name">Cliente</div><div class="sig-role">Responsável da unidade · aceite do serviço</div>${cs.justificativa?`<div class="sig-status warn">⚠ Sem aceite — justificado${cs.justificadoPor?' ('+_esc(cs.justificadoPor)+')':''}</div><div class="sig-just">"${_esc(cs.justificativa)}"</div>`:'<div class="sig-status pend">● Pendente</div>'}</div>${lk?'':`<button class="sig-btn" onclick="openSigCliente()">Assinar</button>`}`;
   wrap.appendChild(cc);
   const n=document.createElement('div'); n.className='audit-note'; n.innerHTML='🔒 Assinatura eletrônica simples · nome, matrícula, data/hora, geolocalização e dispositivo (trilha de auditoria).'; wrap.appendChild(n);
   return wrap;
@@ -2687,7 +2695,7 @@ function estoqBuscaRenderResultados(lista,q){
   const res=document.getElementById('estoqBuscaResults'); if(!res) return;
   res.innerHTML='';
   if(!q){ return; }
-  if(!lista.length){ res.innerHTML='<div class="subnote" style="padding:8px 2px">Nada encontrado pra "'+q+'".</div>'; return; }
+  if(!lista.length){ res.innerHTML='<div class="subnote" style="padding:8px 2px">Nada encontrado pra "'+_esc(q)+'".</div>'; return; }
   const box=document.createElement('div'); box.style.cssText='margin-top:6px;border:1px solid #e5e8ec;border-radius:12px;overflow:hidden;background:#fff';
   lista.slice(0,8).forEach(({o,s})=>{ const row=sepRow(o,s,()=>estoqBuscaAbrir(o,s)); box.appendChild(row); });
   res.appendChild(box);
@@ -2725,14 +2733,18 @@ function estoqProcessarCodigoLido(texto){
 /* Scan por câmera embutido na busca (pra quem não tem coletor com leitor físico) — reaproveita o
    mesmo motor jsQR do Bipar, mas em modo "one-shot": lê 1 código e fecha o overlay sozinho, sem
    ficar preso numa tela de custódia. */
-let estoqScanStream=null, estoqScanRAF=null;
+let estoqScanStream=null, estoqScanRAF=null, estoqScanAbrindo=false;
 async function estoqScanCamAbrir(){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste navegador'); return; }
-  try{ estoqScanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
-  catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
-  const video=document.getElementById('estoqScanVideo'); video.srcObject=estoqScanStream; await video.play().catch(()=>{});
-  document.getElementById('estoqScanOverlay').style.display='block';
-  estoqScanLoop();
+  if(estoqScanAbrindo||estoqScanStream) return; /* trava contra toque duplo — evita 2 getUserMedia concorrentes vazando MediaStream */
+  estoqScanAbrindo=true;
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste navegador'); return; }
+    try{ estoqScanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
+    catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
+    const video=document.getElementById('estoqScanVideo'); video.srcObject=estoqScanStream; await video.play().catch(()=>{});
+    document.getElementById('estoqScanOverlay').style.display='block';
+    estoqScanLoop();
+  }finally{ estoqScanAbrindo=false; }
 }
 function estoqScanCamFechar(){
   if(estoqScanRAF) cancelAnimationFrame(estoqScanRAF); estoqScanRAF=null;
@@ -2764,12 +2776,14 @@ function estoqScanLoop(){
    leitura; fica ativa até o usuário desligar ou sair da aba Estoque (mesmo padrão da câmera do
    Bipar). Tag deve trazer um registro de texto com o mesmo código do QR (Name da separação, ou o
    código do EnderecoEstoque__c.TagNFC__c pra caixa/bin — mesma função resolve os dois). */
-let estoqNfcController=null;
+let estoqNfcController=null, estoqNfcAtivando=false;
 function estoqNfcSuportado(){ return (typeof NDEFReader!=='undefined'); }
 async function estoqNfcToggle(){
   const btn=document.getElementById('estoqBtnNfc');
   if(estoqNfcController){ estoqNfcDesativar(); return; }
+  if(estoqNfcAtivando) return; /* trava contra toque duplo — evita 2 leitores concorrentes (1 fica órfão, sem controller pra abortar) */
   if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho/navegador não suporta leitura NFC'); return; }
+  estoqNfcAtivando=true;
   try{
     const reader=new NDEFReader();
     const ctrl=new AbortController();
@@ -2785,6 +2799,7 @@ async function estoqNfcToggle(){
     if(btn){ btn.style.background='#e8f4ff'; btn.style.borderColor='#0B5CAB'; btn.title='NFC ativo — toque pra desligar'; }
     toast('📶 NFC ativo — aproxime a tag');
   }catch(e){ toast('⚠️ Não consegui ativar o NFC: '+e.message); estoqNfcController=null; }
+  finally{ estoqNfcAtivando=false; }
 }
 function estoqNfcDesativar(){
   if(estoqNfcController){ try{ estoqNfcController.abort(); }catch(e){} estoqNfcController=null; }
@@ -2846,7 +2861,7 @@ function renderEstoque(){
 function sepRow(o,s,onclick){
   const falta=sepFaltaEmbarcar(s); const tag=osDiaTag(o);
   const row=document.createElement('div'); row.className='rel-row';
-  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${_esc(o.cli)} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
   row.onclick=onclick; return row;
 }
 /* LISTA do tile selecionado (drill-down) */
@@ -2875,7 +2890,7 @@ function estoqueSepPage(wrap){
   (s.materiais||[]).forEach((m,mi)=>{
     const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
-    row.innerHTML=`<div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${m.nome}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · <span style="color:#2e844a">separado ✓</span>':''}</div></div>
+    row.innerHTML=`<div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${_esc(m.nome)}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · <span style="color:#2e844a">separado ✓</span>':''}</div></div>
       <button class="btn ${ok?'btn-neutral':'btn-brand'}" style="width:auto;flex:0 0 auto;min-width:104px;height:40px;padding:0 12px;margin:0;font-size:13px" onclick="sepToggleItem(${mi})">${ok?'Desfazer':'Separar ✓'}</button>`;
     card.appendChild(row);
   });
@@ -2909,10 +2924,12 @@ function estoqueSepPage(wrap){
    pra fechar a pendência que ficou quando uma separação foi cancelada/reprovada no meio do fluxo. */
 function estoquePendResolver(sep,proximaPendencia){
   const st=proximaPendencia||'Resolvida'; sep.pendencia=st;
-  const corpo={pendencia:st}; if(myRid()) corpo.ciencia=myRid(); /* carimba quem resolveu, pra trilha de auditoria */
-  bePatch('/separacoes/'+sep._sf,corpo,'Pendência da separação')
-    .then(r=>toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':'✅ Pendência atualizada'))
-    .catch(e=>toast('⚠️ Não gravado: '+e.message));
+  if(SF_LIVE && sep._sf){
+    const corpo={pendencia:st}; if(myRid()) corpo.ciencia=myRid(); /* carimba quem resolveu, pra trilha de auditoria */
+    bePatch('/separacoes/'+sep._sf,corpo,'Pendência da separação')
+      .then(r=>toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':'✅ Pendência atualizada'))
+      .catch(e=>toast('⚠️ Não gravado: '+e.message));
+  }
   estoqGo(st==='Resolvida'?'dash':'list',null,null,'cancelamento');
 }
 function estoquePendPage(wrap){
@@ -2999,6 +3016,7 @@ function etqPDF(s,o,n){ /* fallback: PDF com 1 etiqueta 100×50mm por página, i
    separação, ex. "SEP-3001", mesmo valor codificado na etiqueta Zebra/PDF) e mandar pro backend. ===== */
 let biparStream=null, biparRAF=null, biparUltimo={codigo:null,ts:0};
 function renderBipar(){
+  if(biparStream && typeof biparParar==='function') biparParar(); /* reentrar na aba reconstrói o DOM (perde o <video> antigo); sem isso o stream ficava vivo e órfão, e o guard de duplo-toque travava o botão "Ativar câmera" */
   const wrap=document.getElementById('biparBody'); wrap.innerHTML='';
   if(!myRid()){
     wrap.innerHTML='<div class="empty"><span class="tile">'+svgI('user')+'</span><div>Seu login não está vinculado a um Recurso — fale com o Coordenador antes de bipar (precisamos saber quem confirmou).</div></div>';
@@ -3018,17 +3036,22 @@ function renderBipar(){
     <div id="biparStatus" style="margin-top:10px;font-size:13px;color:var(--weak)"></div>`;
   wrap.appendChild(card);
 }
+let biparAbrindo=false;
 async function biparIniciar(){
+  if(biparAbrindo||biparStream) return; /* trava contra toque duplo — evita 2 getUserMedia concorrentes vazando MediaStream */
+  biparAbrindo=true;
   const st=document.getElementById('biparStatus');
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste navegador'); return; }
-  try{ biparStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
-  catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
-  const video=document.getElementById('biparVideo'); video.srcObject=biparStream; await video.play().catch(()=>{});
-  document.getElementById('biparCamWrap').style.display='block';
-  document.getElementById('biparBtnIniciar').style.display='none';
-  document.getElementById('biparBtnParar').style.display='block';
-  if(st) st.textContent='Procurando QR…';
-  biparLoop();
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste navegador'); return; }
+    try{ biparStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
+    catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
+    const video=document.getElementById('biparVideo'); video.srcObject=biparStream; await video.play().catch(()=>{});
+    document.getElementById('biparCamWrap').style.display='block';
+    document.getElementById('biparBtnIniciar').style.display='none';
+    document.getElementById('biparBtnParar').style.display='block';
+    if(st) st.textContent='Procurando QR…';
+    biparLoop();
+  }finally{ biparAbrindo=false; }
 }
 function biparLoop(){
   const video=document.getElementById('biparVideo'); if(!video||!biparStream) return;
@@ -3746,7 +3769,7 @@ function allocConflict(mat,targetOS){
 function chipAvail(o,f){
   const cf=allocConflict(f.matricula,o);
   if(cf){ const hh=cf.oa.janela.split('–')[0].trim();
-    return `<div class="fch busy" title="Já alocado em ${cf.os.id} (${cf.os.cli}) ${cf.oa.dia} ${cf.oa.janela}">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>ocupado · ${cf.os.id} ${hh}</small></span></div>`; }
+    return `<div class="fch busy" title="Já alocado em ${_esc(cf.os.id)} (${_esc(cf.os.cli)}) ${_esc(cf.oa.dia)} ${_esc(cf.oa.janela)}">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>ocupado · ${cf.os.id} ${hh}</small></span></div>`; }
   return `<div class="fch" data-mat="${f.matricula}" data-osid="${o.id}" data-src="avail">${avatarHTML(f.nome,f.cor)}<span class="fnm">${firstName(f.nome)}<small>${f.cargo}</small></span></div>`;
 }
 function chipAlloc(o,a){ const f=funcByNome(a.nome); const cor=f?f.cor:'#75818D'; const pend=!a.confirmada;
@@ -3756,6 +3779,8 @@ function hhmm2min(t){ const x=t.split(':').map(Number); return x[0]*60+(x[1]||0)
 function isLateOS(o){ const ap=apptForOS(o); if(!ap)return false; const d1=parseDia(ap.dia), d2=parseDia(AGORANOW.dia); if(!d1||!d2)return false; if(d1.getTime()!==d2.getTime()) return d1.getTime()<d2.getTime(); return janelaMin(ap.janela)[0] < hhmm2min(AGORANOW.hora); }
 function countPendentes(){ let n=0; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada)n++; }); }); return n; }
 async function confirmAloc(){
+  if(confirmAloc._emVoo) return; confirmAloc._emVoo=true;
+  try{
   const semLider=ordens.filter(o=>!o.cancelada && o.alocacoes.length>0 && !o.alocacoes.some(a=>isLider(a.nome)));
   if(semLider.length){ toast('⛔ Toda OS precisa de ao menos 1 líder. Sem líder em: '+semLider.map(o=>o.id).join(', ')); return; }
   const pend=[]; ordens.forEach(o=>{ if(o.cancelada)return; o.alocacoes.forEach(a=>{ if(!a.confirmada) pend.push({o,a}); }); });
@@ -3774,8 +3799,11 @@ async function confirmAloc(){
   } else { pend.forEach(it=>it.a.confirmada=true); }
   const n=pend.filter(it=>it.a.confirmada).length;
   renderAloc(); toast('✅ '+n+' alocação(ões) '+(SF_LIVE?'gravada(s)':'criada(s)'));
+  }finally{ confirmAloc._emVoo=false; }
 }
-function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length; o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
+function cancelOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=true; const n=o.alocacoes.length;
+  if(SF_LIVE){ o.alocacoes.forEach(a=>{ if(a._ar) beDelete('/alocacoes/'+a._ar,'Cancelar OS: remover '+firstName(a.nome)).catch(e=>toast('⚠️ Alocação de '+firstName(a.nome)+' pode não ter sido removida no Salesforce: '+e.message)); }); }
+  o.alocacoes=[]; renderAloc(); toast('OS '+osid+' cancelada — '+n+' recurso(s) liberado(s) para realocação.'); }
 function reopenOS(osid){ const o=ordens.find(x=>x.id===osid); if(!o)return; o.cancelada=false; renderAloc(); toast('OS '+osid+' reaberta.'); }
 function renderAloc(){
   const wrap=document.getElementById('alocList'); if(!wrap)return; wrap.innerHTML='';
@@ -3936,7 +3964,7 @@ function removeAloc(osid,mat){
   const o=ordens.find(x=>x.id===osid); if(!o) return;
   const i=o.alocacoes.findIndex(a=>a.matricula===mat); if(i<0) return;
   const a=o.alocacoes[i], nm=firstName(a.nome);
-  if(SF_LIVE && a._ar){ fetch(BACKEND+'/alocacoes/'+a._ar,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}).then(()=>{}).catch(()=>{}); }
+  if(SF_LIVE && a._ar){ beDelete('/alocacoes/'+a._ar,'Remover alocação: '+nm).catch(e=>toast('⚠️ Alocação pode não ter sido removida no Salesforce: '+e.message)); }
   o.alocacoes.splice(i,1); renderAloc(); toast('✅ Alocação removida');
 }
 
@@ -4096,130 +4124,9 @@ async function submitConfirmarAS(){
 
 go('login');
 
-/* ===== Conexão Salesforce (OAuth PKCE) — teste de integração mob3 ===== */
-const SF = {
-  instance: 'https://exaustech--mob3.sandbox.my.salesforce.com',
-  clientId: '3MVG9jaVFD0NWW.8pa.WuSCcbku5bds90YNCmZJU9NKfSC61jMQhE_khQqr49O0jrskohGK3iug==',
-  redirect: 'https://raphaalbrecht.github.io/exaustech-os/',
-  scope:    'api refresh_token openid'
-};
-function _b64url(buf){ let s=btoa(String.fromCharCode.apply(null,new Uint8Array(buf))); return s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function _rand(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return _b64url(a.buffer); }
-async function _sha256(s){ return await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); }
-async function sfConnect(){
-  const v=_rand(48); sessionStorage.setItem('sf_v',v);
-  const c=_b64url(await _sha256(v)); const st=_rand(8); sessionStorage.setItem('sf_st',st);
-  location.href = SF.instance + '/services/oauth2/authorize?response_type=code'
-    + '&client_id=' + encodeURIComponent(SF.clientId)
-    + '&redirect_uri=' + encodeURIComponent(SF.redirect)
-    + '&scope=' + encodeURIComponent(SF.scope)
-    + '&code_challenge=' + c + '&code_challenge_method=S256&state=' + st;
-}
-async function sfApi(q){
-  const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/query?q=' + encodeURIComponent(q),
-                        { cache:'no-store', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok') } });
-  return r.json();
-}
-function _esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-async function sfSetStatus(woId, st){
-  toast('Salvando status no Salesforce…');
-  try{
-    const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/sobjects/WorkOrder__c/' + woId, {
-      method:'PATCH', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok'), 'Content-Type':'application/json' },
-      body: JSON.stringify({ Status__c: st }) });
-    if(r.ok){ toast('✅ Status "' + st + '" gravado no Salesforce'); sfLoadOS(); }
-    else { let m=r.status; try{ const t=await r.json(); if(t && t[0]) m=t[0].message; }catch(e){} toast('Erro ao salvar: ' + m); }
-  }catch(e){ toast('Erro ao salvar: ' + e.message); }
-}
-function _stsBtns(wo){
-  return ['New','In Progress','On Hold','Completed'].map(s=>{ const on = wo.Status__c===s;
-    return '<button onclick="sfSetStatus(\''+wo.Id+'\',\''+s+'\')" style="border:1px solid '+(on?'#0B5CAB':'#D7DEE6')+';background:'+(on?'#0B5CAB':'#fff')+';color:'+(on?'#fff':'#4A5560')+';border-radius:14px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer">'+s+'</button>';
-  }).join('');
-}
-async function sfSetItemStatus(woliId){
-  toast('Concluindo item no Salesforce…');
-  try{
-    const r = await fetch(sessionStorage.getItem('sf_inst') + '/services/data/v61.0/sobjects/WorkOrderLineItem__c/' + woliId, {
-      method:'PATCH', headers:{ Authorization:'Bearer ' + sessionStorage.getItem('sf_tok'), 'Content-Type':'application/json' },
-      body: JSON.stringify({ Status__c: 'Completed' }) });
-    if(r.ok){ toast('✅ Item concluído — gravado no Salesforce'); sfLoadOS(); }
-    else { let m=r.status; try{ const t=await r.json(); if(t && t[0]) m=t[0].message; }catch(e){} toast('Erro ao concluir: ' + m); }
-  }catch(e){ toast('Erro ao concluir: ' + e.message); }
-}
-async function sfLoadOS(){
-  toast('Carregando OS do Salesforce…');
-  try{
-    const wos = ((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 20")).records) || [];
-    let cards='';
-    for(const wo of wos){
-      const items = ((await sfApi("SELECT Id, AssetId__c, Description__c, Status__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records) || [];
-      const aids = items.map(i=>i.AssetId__c).filter(Boolean);
-      let amap={};
-      if(aids.length){ (((await sfApi("SELECT Id, Name, SerialNumber__c FROM Asset__c WHERE Id IN ('"+aids.join("','")+"')")).records)||[]).forEach(a=>amap[a.Id]=a); }
-      let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0]) acc=r[0].Name; }
-      let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0]) loc=r[0].Name; }
-      const its = items.map(i=>{ const a=amap[i.AssetId__c]; const done=i.Status__c==='Completed';
-        const ctrl = done
-          ? '<span style="color:#2e844a;font-weight:700;font-size:11.5px;white-space:nowrap">✓ Concluído</span>'
-          : '<button onclick="sfSetItemStatus(\''+i.Id+'\')" style="border:1px solid #0B5CAB;background:#fff;color:#0B5CAB;border-radius:12px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Concluir</button>';
-        return '<div style="padding:7px 12px;border-top:1px solid #eee;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>'+_esc(a?a.Name:'(equip.)')+'</b> <span style="color:#999">'+_esc(a&&a.SerialNumber__c?a.SerialNumber__c:'')+'</span><br><span style="color:#666">'+_esc(i.Description__c||'')+'</span></div>'+ctrl+'</div>'; }).join('');
-      // separação de materiais da OS (ProductRequest)
-      let matsHtml='';
-      const prs = ((await sfApi("SELECT Id FROM ProductRequest__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
-      if(prs.length){
-        const prIds = prs.map(p=>p.Id);
-        const lines = ((await sfApi("SELECT Suprimento__c, QuantityRequested__c FROM ProductRequestLineItem__c WHERE ParentId__c IN ('"+prIds.join("','")+"')")).records)||[];
-        const supIds = lines.map(l=>l.Suprimento__c).filter(Boolean);
-        let supMap={};
-        if(supIds.length){ (((await sfApi("SELECT Id, Name FROM Suprimento__c WHERE Id IN ('"+supIds.join("','")+"')")).records)||[]).forEach(s=>supMap[s.Id]=s.Name); }
-        if(lines.length){
-          matsHtml = '<div style="font-size:12px;color:#2e844a;font-weight:700;padding:8px 12px 2px;border-top:1px solid #eee">Separação de materiais:</div>'
-            + lines.map(l=>'<div style="padding:5px 12px;font-size:13px;display:flex;justify-content:space-between"><span>'+_esc(supMap[l.Suprimento__c]||'material')+'</span><b>'+(l.QuantityRequested__c!=null?l.QuantityRequested__c:0)+'</b></div>').join('');
-        }
-      }
-      cards += '<div style="background:#fff;border:1px solid #ECEFF3;border-radius:12px;margin:10px 0;overflow:hidden">'
-        + '<div style="background:#0B5CAB;color:#fff;padding:10px 12px"><div style="font-weight:700">'+_esc(wo.Name||'(OS)')+' · '+_esc(wo.Status__c||'sem status')+'</div><div style="font-size:12px;opacity:.92">'+_esc(wo.Subject__c||'')+'</div></div>'
-        + '<div style="padding:8px 12px;font-size:12.5px;color:#4A5560"><b>Conta:</b> '+_esc(acc)+' &nbsp;·&nbsp; <b>Local:</b> '+_esc(loc)+'</div>'
-        + '<div style="padding:2px 12px 8px;display:flex;gap:6px;flex-wrap:wrap">'+_stsBtns(wo)+'</div>'
-        + '<div style="font-size:12px;color:#0B5CAB;font-weight:700;padding:2px 12px 4px">'+items.length+' item(s) · equipamentos:</div>'
-        + its + matsHtml + '</div>';
-    }
-    if(!wos.length) cards='<p style="text-align:center;color:#888;padding:30px">Nenhuma OS no Salesforce.</p>';
-    let ov=document.getElementById('sfOverlay'); if(ov) ov.remove();
-    ov=document.createElement('div'); ov.id='sfOverlay';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px';
-    ov.innerHTML='<div style="background:#FAFBFC;max-width:460px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 12px 44px rgba(0,0,0,.45)">'
-      + '<div style="background:#0B2239;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">Ordens de Serviço · ao vivo</div><div style="font-size:11px;opacity:.85">Salesforce mob3 · '+wos.length+' OS</div></div><button onclick="document.getElementById(\'sfOverlay\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:17px;cursor:pointer">×</button></div>'
-      + '<div style="padding:10px 14px 20px">'+cards+'</div></div>';
-    document.body.appendChild(ov);
-    toast('✅ '+wos.length+' OS lida(s) do Salesforce real');
-  }catch(e){ toast('Erro ao carregar OS: '+e.message); console.log(e); }
-}
-async function _sfRedirect(){
-  const p = new URLSearchParams(location.search); const code = p.get('code');
-  if(!code) return;
-  const v = sessionStorage.getItem('sf_v');
-  const body = new URLSearchParams({ grant_type:'authorization_code', code:code, client_id:SF.clientId, redirect_uri:SF.redirect, code_verifier:v });
-  try{
-    const r = await fetch(SF.instance + '/services/oauth2/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body });
-    const t = await r.json();
-    if(!r.ok){ toast('Erro OAuth: ' + (t.error_description||t.error||r.status)); console.log('OAuth error', t); return; }
-    sessionStorage.setItem('sf_tok', t.access_token);
-    sessionStorage.setItem('sf_inst', t.instance_url || SF.instance);
-    history.replaceState({}, '', SF.redirect);
-    sfHydrate();
-  }catch(e){ toast('Falha na troca de token (CORS?): ' + e.message); console.log(e); }
-}
+function _esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 /* ===== MODO AO VIVO: hidrata as telas nativas (agenda/detalhe/board) com dados reais do Salesforce ===== */
 /* mapeia o tipo do equipamento (pelo nome do Asset) para grupo + checklist do app */
-function _sfClassify(name){
-  const n=(name||'').toLowerCase();
-  if(n.includes('coifa'))    return {nome:'Coifas',            tarefa:'Limpeza de coifa',      chk:'coifa'};
-  if(n.includes('filtro')||n.includes('caixa')) return {nome:'Caixa de filtros', tarefa:'Troca de filtros', chk:'filtros'};
-  if(n.includes('exaustor')||n.includes('motor')) return {nome:'Exaustores',    tarefa:'Inspeção de exaustor',  chk:'exaustor'};
-  if(n.includes('duto'))     return {nome:'Duto (Site)',       tarefa:'Limpeza de dutos',      chk:'duto', site:true};
-  return {nome:'Equipamentos', tarefa:'Manutenção preventiva', chk:'coifa'};
-}
 /* Status__c da OS real (Ordem_de_Servico__c) -> estágio do compromisso (0..2). Aceita também os antigos da réplica FSL. */
 function _sfStatusToStage(st){
   if(!st) return 0;
@@ -4256,96 +4163,6 @@ async function sfMaybePushItem(eq){
   try{ const r=await bePatch('/itens/'+eq._woli+'/concluir',{},'Concluir '+eq.tag); toast(r&&r._queued?'📡 Conclusão salva no aparelho':'✅ '+eq.tag+' concluído'); }
   catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
 }
-async function sfHydrate(){
-  toast('Carregando OS do Salesforce…');
-  try{
-    const wos=((await sfApi("SELECT Id, Name, Subject__c, Status__c, StartDate__c, AccountId__c, Location__c, ServiceTerritory__c FROM WorkOrder__c ORDER BY CreatedDate DESC LIMIT 30")).records)||[];
-    if(!wos.length){ toast('Nenhuma OS no Salesforce.'); return; }
-    const novasOrdens=[], novosAppts=[]; const diasSet=new Set(); let saSeq=8000;
-    /* ---- recursos / territórios / autorização (board de Alocação ao vivo) ---- */
-    const _pal=['#0B5CAB','#2e844a','#7a5cc8','#E8730C','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
-    const resById={}, terrById={};
-    ((await sfApi("SELECT Id, Name FROM ServiceResource__c")).records||[]).forEach(r=>resById[r.Id]=r.Name);
-    ((await sfApi("SELECT Id, Name FROM ServiceTerritory__c")).records||[]).forEach(t=>terrById[t.Id]=t.Name);
-    const memByRes={}; /* resourceId -> [territoryName] */
-    ((await sfApi("SELECT ServiceResource__c, ServiceTerritory__c FROM ServiceTerritoryMember__c")).records||[]).forEach(m=>{
-      const tn=terrById[m.ServiceTerritory__c]; if(!tn) return; (memByRes[m.ServiceResource__c]=memByRes[m.ServiceResource__c]||[]).push(tn);
-    });
-    /* monta a lista viva de funcionários; herda cargo/cor do mock quando o nome bate */
-    const mockByName={}; FUNCIONARIOS.forEach(f=>mockByName[f.nome]=f);
-    const funcLive=Object.keys(resById).map((rid,i)=>{ const nm=resById[rid]; const mk=mockByName[nm]||{};
-      return { nome:nm, matricula:rid, cargo:mk.cargo||'Técnico', cor:mk.cor||_pal[i%_pal.length], lojas:(memByRes[rid]||[]) }; });
-    if(funcLive.length){ FUNCIONARIOS.length=0; funcLive.forEach(f=>FUNCIONARIOS.push(f)); }
-    for(const wo of wos){
-      const items=((await sfApi("SELECT Id, AssetId__c, Description__c, Status__c FROM WorkOrderLineItem__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
-      const aids=items.map(i=>i.AssetId__c).filter(Boolean);
-      let amap={};
-      if(aids.length){ (((await sfApi("SELECT Id, Name, SerialNumber__c FROM Asset__c WHERE Id IN ('"+aids.join("','")+"')")).records)||[]).forEach(a=>amap[a.Id]=a); }
-      let acc='—'; if(wo.AccountId__c){ const r=((await sfApi("SELECT Name FROM Account WHERE Id='"+wo.AccountId__c+"'")).records)||[]; if(r[0])acc=r[0].Name; }
-      let loc='—'; if(wo.Location__c){ const r=((await sfApi("SELECT Name FROM Location__c WHERE Id='"+wo.Location__c+"'")).records)||[]; if(r[0])loc=r[0].Name; }
-      /* agrupa itens por tipo de equipamento */
-      const gmap={};
-      items.forEach(i=>{ const a=amap[i.AssetId__c]; const nm=a?a.Name:'Equipamento'; const cls=_sfClassify(nm);
-        if(!gmap[cls.nome]) gmap[cls.nome]={nome:cls.nome,tarefa:cls.tarefa,chk:cls.chk,site:cls.site||false,equipamentos:[]};
-        gmap[cls.nome].equipamentos.push({ tag:(a&&a.SerialNumber__c)?a.SerialNumber__c:(a?a.Name:'—'), nome:nm, site:cls.site||false, _woli:i.Id, _sfDone:i.Status__c==='Completed' });
-      });
-      const grupos=Object.values(gmap);
-      if(!grupos.length) grupos.push({nome:'Equipamentos',tarefa:'Manutenção preventiva',chk:'coifa',site:false,equipamentos:[{tag:'—',nome:'Equipamento'}]});
-      /* materiais (ProductRequest -> linhas) */
-      const materiais=[];
-      const prs=((await sfApi("SELECT Id FROM ProductRequest__c WHERE WorkOrder__c='"+wo.Id+"'")).records)||[];
-      if(prs.length){
-        const prIds=prs.map(p=>p.Id);
-        const lines=((await sfApi("SELECT Suprimento__c, QuantityRequested__c FROM ProductRequestLineItem__c WHERE ParentId__c IN ('"+prIds.join("','")+"')")).records)||[];
-        const supIds=lines.map(l=>l.Suprimento__c).filter(Boolean); let supMap={};
-        if(supIds.length){ (((await sfApi("SELECT Id, Name FROM Suprimento__c WHERE Id IN ('"+supIds.join("','")+"')")).records)||[]).forEach(s=>supMap[s.Id]=s.Name); }
-        lines.forEach(l=>materiais.push({nome:supMap[l.Suprimento__c]||'material',un:'un',solicitado:l.QuantityRequested__c!=null?l.QuantityRequested__c:0,embarcado:0,base:'template'}));
-      }
-      /* compromisso (ServiceAppointment) */
-      const sas=((await sfApi("SELECT Id, Name, SchedStartTime__c, Status__c FROM ServiceAppointment__c WHERE ParentRecordWorkOrder__c='"+wo.Id+"' ORDER BY CreatedDate LIMIT 1")).records)||[];
-      let dia, janela='—';
-      const dt = wo.StartDate__c ? new Date(wo.StartDate__c) : ((sas[0]&&sas[0].SchedStartTime__c)?new Date(sas[0].SchedStartTime__c):new Date());
-      dia=String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0');
-      diasSet.add(dia+'|'+dt.getFullYear());
-      const o={ id:_esc(wo.Name||'OS'), _wo:wo.Id, _sfName:wo.Name, _sfStatus:wo.Status__c, _sa:(sas[0]?sas[0].Id:null), _territoryId:wo.ServiceTerritory__c||null, _territoryName:(wo.ServiceTerritory__c?terrById[wo.ServiceTerritory__c]:'')||'', equipePadrao:Math.max(1,grupos.reduce((s,g)=>s+g.equipamentos.length,0)>4?3:2),
-        cli:acc, contrato:'—', local:loc, modelo:wo.Subject__c||'Manutenção preventiva', plano:wo.Subject__c||'Exaustão · MPP', alocacoes:[], grupos:grupos,
-        separacao:{id:'SEP-'+(wo.Name||''),status:materiais.length?'Pronta para embarque':'Sem materiais',materiais:materiais} };
-      buildItems(o);
-      /* marca itens já concluídos no Salesforce (checklist auto-ok + fotos p/ refletir estado real) */
-      o._itens.forEach(eq=>{ if(eq._sfDone){ eq.fotoAntes=true; eq.fotoDepois=true; eq.checklist.forEach(c=>eq.checks[c]='ok'); } });
-      o.alocacoes.forEach(a=>{a.assinatura=null;a.assinadoEm=null;});
-      o.separacao.materiais.forEach(m=>{m.consumido=0;m.retorno=0;m.baixa={danificado:0,extraviado:0,inutilizado:0,obs:'',fotos:[],responsavel:'',bxId:null};});
-      o.relatorio={stage:-1,ajustes:false,historico:[],obsAjuste:'',versao:1};
-      o.ferramentas={id:'OF-'+pad5(ferrSeq++),itens:[]};
-      o.notas=[];
-      novasOrdens.push(o);
-      novosAppts.push({ id:(sas[0]&&sas[0].Name)?sas[0].Name:('SA-'+(saSeq++)), os:o, dia:dia, janela:janela, tipo:'Principal', stage:_sfStatusToStage(wo.Status__c), outcome:null, tempos:{} });
-    }
-    /* alocações já existentes (AssignedResource) por compromisso */
-    const saIds=novasOrdens.map(o=>o._sa).filter(Boolean);
-    if(saIds.length){
-      const ars=((await sfApi("SELECT Id, ServiceResource__c, ServiceAppointment__c FROM AssignedResource__c WHERE ServiceAppointment__c IN ('"+saIds.join("','")+"')")).records)||[];
-      const bySa={}; ars.forEach(ar=>{ (bySa[ar.ServiceAppointment__c]=bySa[ar.ServiceAppointment__c]||[]).push(ar); });
-      novasOrdens.forEach(o=>{ const list=bySa[o._sa]||[]; o.alocacoes=list.map(ar=>{ const nm=resById[ar.ServiceResource__c]||'(recurso)'; const mk=FUNCIONARIOS.find(f=>f.matricula===ar.ServiceResource__c);
-        return { nome:nm, papel:mk?mk.cargo:'Técnico', matricula:ar.ServiceResource__c, _ar:ar.Id, confirmada:true, assinatura:null, assinadoEm:null }; }); });
-    }
-    /* substitui os dados mock pelos reais */
-    ordens.length=0; novasOrdens.forEach(o=>ordens.push(o));
-    appts.length=0; novosAppts.forEach(a=>appts.push(a));
-    /* reconstrói a barra de dias a partir dos compromissos reais */
-    const WD=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'], MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-    DAYS.length=0;
-    Array.from(diasSet).sort().forEach(k=>{ const [dm,y]=k.split('|'); const [d,m]=dm.split('/').map(Number); const dt=new Date(Number(y),m-1,d);
-      DAYS.push({key:dm,wd:WD[dt.getDay()],d:d}); DAYLABEL[dm]=WD[dt.getDay()]+', '+d+' de '+MES[m-1]; });
-    if(DAYS.length) selDay=DAYS[0].key;
-    SF_LIVE=true;
-    document.body.classList.add('sf-live');
-    const lb=document.getElementById('sfLiveBtn'); if(lb) lb.textContent='🔄 Atualizar (ao vivo)';
-    let ov=document.getElementById('sfOverlay'); if(ov) ov.remove();
-    go('schedule');
-    toast('✅ '+ordens.length+' OS carregadas do Salesforce (modo ao vivo)');
-  }catch(e){ toast('Erro ao carregar: '+e.message); console.log(e); }
-}
 (function(){
   const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔄 Atualizar';
   b.onclick=function(){ beTok() ? beHydrate() : go('login'); };
@@ -4357,79 +4174,7 @@ async function sfHydrate(){
 })();
 
 /* ===== Google Drive: sobe foto/vídeo/assinatura e registra Mídia da OS no Salesforce ===== */
-const GOOGLE = {
-  clientId: '1039787065614-kv5qov1eib8j5km89bt35eq0sad8j9aj.apps.googleusercontent.com',
-  scope: 'https://www.googleapis.com/auth/drive.file',
-  folderName: 'Exaustech — Mídias de OS'
-};
-let gToken=null, gTokenExp=0, gTokenClient=null, gFolderId=localStorage.getItem('g_folder')||null, _gWait=0;
-function _gReady(){ return typeof google!=='undefined' && google.accounts && google.accounts.oauth2; }
 function dataURLtoBlob(d){ const c=d.split(','), mime=(c[0].match(/:(.*?);/)||[])[1]||'application/octet-stream', bin=atob(c[1]), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new Blob([u],{type:mime}); }
-function gConnect(){
-  return new Promise((resolve,reject)=>{
-    if(gToken && Date.now()<gTokenExp-60000) return resolve(gToken);
-    if(!_gReady()){ if(_gWait++>15) return reject(new Error('Google não carregou')); toast('Carregando Google…'); return setTimeout(()=>gConnect().then(resolve,reject),700); }
-    _gWait=0;
-    if(!gTokenClient) gTokenClient=google.accounts.oauth2.initTokenClient({client_id:GOOGLE.clientId, scope:GOOGLE.scope, callback:()=>{}});
-    let forcou=false;
-    const pedir=(p)=>{
-      gTokenClient.callback=(r)=>{
-        if(r && r.access_token){ gToken=r.access_token; gTokenExp=Date.now()+((r.expires_in||3500)*1000); resolve(gToken); }
-        else if(!forcou){ forcou=true; pedir('consent'); }   /* só força consentimento se o silencioso falhar */
-        else reject(new Error((r&&r.error)||'Login Google cancelado'));
-      };
-      try{ gTokenClient.requestAccessToken({prompt:p}); }catch(e){ reject(e); }
-    };
-    pedir('');  /* 1ª tentativa silenciosa: pede consentimento só quando é realmente necessário (1ª vez / após revogar) */
-  });
-}
-async function gFolder(){
-  if(gFolderId){
-    try{ const r=await fetch('https://www.googleapis.com/drive/v3/files/'+gFolderId+'?fields=id,trashed',{headers:{Authorization:'Bearer '+gToken}}); if(r.ok){ const j=await r.json(); if(!j.trashed) return gFolderId; } }catch(e){}
-    gFolderId=null; localStorage.removeItem('g_folder');
-  }
-  const q="name='"+GOOGLE.folderName.replace(/'/g,"\\'")+"' and mimeType='application/vnd.google-apps.folder' and trashed=false";
-  let r=await fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id)',{headers:{Authorization:'Bearer '+gToken}});
-  let j=await r.json(); if(j.files&&j.files[0]){ gFolderId=j.files[0].id; localStorage.setItem('g_folder',gFolderId); return gFolderId; }
-  r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},body:JSON.stringify({name:GOOGLE.folderName,mimeType:'application/vnd.google-apps.folder'})});
-  j=await r.json(); gFolderId=j.id; localStorage.setItem('g_folder',gFolderId); return gFolderId;
-}
-function _blobToB64(blob){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]); fr.onerror=rej; fr.readAsDataURL(blob); }); }
-async function _gUploadMultipart(blob, filename, mime, folder){
-  const b=await _blobToB64(blob);
-  const bd='exaustech'+Date.now();
-  const body="--"+bd+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify({name:filename,parents:[folder]})
-    +"\r\n--"+bd+"\r\nContent-Type: "+mime+"\r\nContent-Transfer-Encoding: base64\r\n\r\n"+b+"\r\n--"+bd+"--";
-  const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',{
-    method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'multipart/related; boundary='+bd}, body});
-  const j=await r.json(); if(!r.ok) throw new Error('Drive '+(j&&j.error?j.error.message:r.status)); return j;
-}
-async function gUploadBlob(blob, filename, mime){
-  await gConnect();
-  const folder=await gFolder();
-  let init;
-  try{
-    init=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink',{
-      method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime},
-      body:JSON.stringify({name:filename, parents:[folder]})});
-  }catch(e){ init=null; }
-  const loc=init&&init.ok?init.headers.get('Location'):null;
-  if(loc){
-    const put=await fetch(loc,{method:'PUT',headers:{'Content-Type':mime},body:blob});
-    const j=await put.json(); if(!put.ok) throw new Error('Drive upload '+(j&&j.error?j.error.message:put.status));
-    return j;
-  }
-  /* fallback: multipart/related (Location indisponível por CORS) */
-  return _gUploadMultipart(blob, filename, mime, folder);
-}
-async function sfCreateMidia(rec){
-  const body={ Tipo__c:rec.tipo, URL__c:rec.url, Drive_File_Id__c:rec.driveId, Data__c:new Date().toISOString() };
-  if(rec.woId) body.WorkOrder__c=rec.woId;
-  if(rec.woliId) body.WorkOrderLineItem__c=rec.woliId;
-  if(rec.equip) body.Equipamento__c=(rec.equip||'').slice(0,120);
-  const r=await fetch(sessionStorage.getItem('sf_inst')+'/services/data/v61.0/sobjects/Midia_OS__c',{method:'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('sf_tok'),'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const j=await r.json(); if(!r.ok) throw new Error((j&&j[0]&&j[0].message)||('SF '+r.status)); return j;
-}
 async function gMaybeUploadFoto(eq,tipo){
   if(!SF_LIVE || !curOS || !curOS._wo || !eq) return;
   const img = tipo==='antes'?eq.fotoAntesImg:eq.fotoDepoisImg; if(!img) return;
@@ -4440,15 +4185,6 @@ async function gMaybeUploadFoto(eq,tipo){
     if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
     else { if(tipo==='antes') eq._fotoAntesDrive=r.driveId||null; else eq._fotoDepoisDrive=r.driveId||null; bigOK('Foto salva na OS'); }
   }catch(e){ toast('Falha ao enviar foto: '+e.message); }
-}
-async function gMaybeUploadSig(a){
-  if(!SF_LIVE || !curOS || !curOS._wo || !a || !a.assinatura) return;
-  const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const fn=(curOS.id||'OS')+'_ASSINATURA_'+((a.nome||'').replace(/\s+/g,'_'))+'_'+stamp+'.png';
-  try{ toast('☁️ Enviando assinatura…');
-    await beUploadMidia(dataURLtoBlob(a.assinatura), fn, 'Assinatura', {woId:curOS._wo, equip:a.nome});
-    bigOK('Assinatura salva na OS');
-  }catch(e){ toast('Falha ao enviar assinatura: '+e.message); }
 }
 function capturarVideo(ii){
   const eq=curOS&&curOS._itens?curOS._itens[ii]:null; if(!eq) return;
@@ -4469,13 +4205,19 @@ function capturarVideo(ii){
 /* ===== BACKEND (identidade única): login + dados + escrita via Cloud Run ===== */
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok')||sessionStorage.getItem('be_tok'); }
-async function beGet(path){ const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}}); if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); } return r.json(); }
+async function beGet(path){
+  const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}});
+  if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); }
+  let j=null; try{ j=await r.json(); }catch(_){}
+  if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
+  return j;
+}
 
 /* ===== OFFLINE-FIRST: fila de sincronização + snapshot do hydrate (IndexedDB; fallback em memória) =====
    Escritas de CAMPO (checklist, status, conclusão de item, assinaturas, fotos/vídeos, assinantes) que
    falharem por falta de rede entram na fila local e sincronizam sozinhas quando a conexão volta.
    Fluxos de coordenação (alocar, solicitar/confirmar AS) continuam exigindo conexão. */
-function netFail(e){ return (e instanceof TypeError) || /failed to fetch|networkerror|load failed|network request failed|erro de conex/i.test((e&&e.message)||''); }
+function netFail(e){ return (e instanceof TypeError) || (e&&e.status>=500) || /failed to fetch|networkerror|load failed|network request failed|erro de conex/i.test((e&&e.message)||''); }
 const OFF={mem:{fila:[],kv:{}},seq:1,db:null};
 function offOpen(){ return new Promise(res=>{ if(OFF.db) return res(OFF.db);
   if(!window.indexedDB) return res(null);
@@ -4498,6 +4240,10 @@ async function offPut(key,val){ const db=await offOpen(); if(!db){ OFF.mem.kv[ke
   return new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(val,key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }
 async function offGet(key){ const db=await offOpen(); if(!db) return OFF.mem.kv[key];
   return new Promise((res,rej)=>{ const rq=db.transaction('kv','readonly').objectStore('kv').get(key); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+/* regrava o job na fila (ex.: depois de incrementar .tentativas) — no fallback em memória o objeto já
+   é o mesmo por referência, então só precisa persistir de fato quando tem IndexedDB. */
+async function offBump(job){ const db=await offOpen(); if(!db) return;
+  return new Promise(res=>{ try{ const tx=db.transaction('fila','readwrite'); tx.objectStore('fila').put(job); tx.oncomplete=()=>res(); tx.onerror=()=>res(); }catch(e){ res(); } }); }
 async function offBadge(){
   let el=document.getElementById('offBadge');
   if(!el){ el=document.createElement('div'); el.id='offBadge';
@@ -4510,11 +4256,12 @@ async function offBadge(){
   el.textContent = off ? ('📡 Offline — trabalho salvo no aparelho'+(n?(' · '+n+' pendente'+(n>1?'s':'')):''))
                        : ('⏳ '+n+' pendente'+(n>1?'s':'')+' — sincronizando…');
 }
+const OFF_CAP_TENTATIVAS=15; /* depois disso, o job "trancado" não bloqueia mais os outros atrás dele na fila (mas também não é descartado) */
 async function offDrain(){
   if(offDrain._run) return; offDrain._run=true;
   try{
     if(!beTok()) return;
-    const jobs=await offAll(); let n=0;
+    const jobs=await offAll(); let n=0, travados=0;
     for(const j of jobs){
       try{
         if(j.kind==='patch') await bePatch(j.path,j.body);
@@ -4524,28 +4271,33 @@ async function offDrain(){
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
         await offDel(j._id); n++;
       }catch(e){
-        if(netFail(e)) break; /* continua sem rede: para e tenta na próxima */
+        if(netFail(e)){
+          j.tentativas=(j.tentativas||0)+1; await offBump(j);
+          if(j.tentativas>=OFF_CAP_TENTATIVAS){ travados++; continue; } /* já tentou muito — pula, não trava os que vêm depois */
+          break; /* continua sem rede/erro passageiro: para por aqui e tenta de novo na próxima rodada */
+        }
         await offDel(j._id); toast('⚠️ Não sincronizado (descartado): '+(j.label||j.kind)+' — '+e.message);
       }
     }
     if(n) toast('✅ '+n+' pendência'+(n>1?'s':'')+' sincronizada'+(n>1?'s':''));
+    if(travados) toast('⚠️ '+travados+' pendência'+(travados>1?'s':'')+' falhando há muitas tentativas — verifique conexão/fale com o suporte');
   }finally{ offDrain._run=false; offBadge(); }
 }
 window.addEventListener('online', ()=>{ offBadge(); offDrain(); });
 window.addEventListener('offline', ()=>offBadge());
 setInterval(()=>{ if(navigator.onLine && beTok()) offCount().then(n=>{ if(n) offDrain(); }).catch(()=>{}); }, 60000);
 
-async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
-async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
-async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
 /* registros de teste levam "[DEMO AS]" no nome no Salesforce; na exibição o marcador é ocultado */
 function _noDemo(s){ return (s==null)?s:String(s).replace(/\s*\[DEMO AS\]/gi,''); }
 async function beDoLogin(payload){
   const m=document.getElementById('loginMsg'); if(m)m.textContent='Entrando…';
   try{
     const r=await fetch(BACKEND+'/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const j=await r.json();
-    if(!r.ok){ if(m)m.textContent=j.error||'Falha no login'; toast(j.error||'Falha no login'); return; }
+    let j={}; try{ j=await r.json(); }catch(_){}
+    if(!r.ok){ const msg=j.error||'Falha no login'; if(m)m.textContent=msg; toast(msg); return; }
     const nm=_noDemo(j.name||'');
     localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
     localStorage.setItem('be_funcao', j.funcao||'');
@@ -4594,7 +4346,7 @@ function expTxnHTML(t){
   const d=(t.dataEvento||'').slice(0,10).split('-');
   const sub=[(d.length===3?d[2]+'/'+d[1]:''), t.osName?'OS '+t.osName:'', t.contaNome||''].filter(Boolean).join(' · ')+(t.estornado?' · ESTORNADO':'');
   return '<div class="exp-txn'+(t.estornado?' estornado':'')+'"><div class="tic '+ic[1]+'">'+ic[0]+'</div>'
-    +'<div class="mid"><div class="tt">'+(t.descricao||t.eventoCodigo)+'</div><div class="ts">'+sub+'</div></div>'
+    +'<div class="mid"><div class="tt">'+_esc(t.descricao||t.eventoCodigo)+'</div><div class="ts">'+_esc(sub)+'</div></div>'
     +'<div class="pts '+(pos?'pos':'neg')+'">'+(pos?'+':'−')+expFmt(Math.abs(t.pontos))+'</div></div>';
 }
 function expHeroHTML(xp){
@@ -4704,7 +4456,9 @@ async function beUploadAssinatura(blob, campos, noQ){
     const fd=new FormData(); if(blob) fd.append('file', blob, 'assinatura.png');
     Object.keys(campos).forEach(k=>{ const v=campos[k]; if(v!=null && v!=='') fd.append(k, v); });
     const r=await fetch(BACKEND+'/assinaturas',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
-    const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
+    return j;
   }catch(e){
     if(!noQ && netFail(e)){ await offAdd({kind:'assinatura',blob:blob||null,campos,label:'Assinatura ('+(campos.tipo||'')+')'}); return {ok:true,_queued:true}; }
     throw e;
@@ -4757,7 +4511,9 @@ async function beUploadMidia(blob, filename, tipo, meta, noQ){
     const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
     if(meta.osId)fd.append('osId',meta.osId); if(meta.woId)fd.append('woId',meta.woId); if(meta.woliId)fd.append('woliId',meta.woliId); if(meta.equip)fd.append('equip',meta.equip);
     const r=await fetch(BACKEND+'/midias',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
-    const j=await r.json(); if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status)); return j;
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
+    return j;
   }catch(e){
     if(!noQ && netFail(e)){ await offAdd({kind:'midia',blob,filename,tipo,meta,label:tipo+' '+filename}); return {ok:true,_queued:true}; }
     throw e;
@@ -4858,7 +4614,7 @@ async function beHydrate(quiet){
     if(DAYS.length) selDay=DAYS[0].key;
     SF_LIVE=true; document.body.classList.add('sf-live');
     if(!quiet){
-      const stayAloc=(typeof cur!=='undefined' && cur==='scr-aloc' && canAloc(ROLE));
+      const stayAloc=(curTab==='aloc' && canAloc(ROLE));
       go(stayAloc?'aloc':(ROLE==='Estoquista'?'estoque':'schedule'));
       toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
     }
