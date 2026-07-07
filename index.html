@@ -1277,7 +1277,7 @@ function checkUrgentAlerts(){
   const vistos=new Set();
   urgentesPendentes().forEach(({o,s})=>{
     const key=s._sf||s.id; vistos.add(key);
-    if(!_urgSeen.has(key)){ _urgSeen.add(key); if(canEstoque(ROLE)) toast('🚨 Separação urgente: '+s.id+' · '+o.cli); }
+    if(!_urgSeen.has(key)){ _urgSeen.add(key); if(canEstoque(ROLE)) toast('Separação urgente: '+s.id+' · '+o.cli); }
   });
   /* esquece as que saíram da fila (voltaram a ficar pendente depois avisa de novo) */
   Array.from(_urgSeen).forEach(k=>{ if(!vistos.has(k)) _urgSeen.delete(k); });
@@ -1632,7 +1632,7 @@ function materiaisBody(){
   if(SF_LIVE && sep._sf && (ROLE==='Estoquista'||canPDF(ROLE)) && !lk){
     const stBox=document.createElement('div'); stBox.className='field'; stBox.style.cssText='margin:8px 0';
     stBox.innerHTML=`<label>Status da separação (Estoquista/Coordenação)</label><select onchange="sepSetStatus(this.value)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;background:#fff">${SEP_STATUS_APP.map(s=>`<option ${sep.status===s?'selected':''}>${s}</option>`).join('')}</select>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="sepUrgenteToggle" ${sep.urgente?'checked':''} onchange="sepSetUrgente(this.checked)"> <span>🚨 Marcar como urgente (avisa o Estoquista)</span></label>`;
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="sepUrgenteToggle" ${sep.urgente?'checked':''} onchange="sepSetUrgente(this.checked)"> <span>Marcar como urgente (avisa o Estoquista)</span></label>`;
     wrap.appendChild(stBox);
   }
   /* sem separação real ainda: solicitar ao estoque */
@@ -1640,7 +1640,7 @@ function materiaisBody(){
     const nf=document.createElement('div'); nf.className='subcard';
     nf.innerHTML=`<div class="sec-title2">Solicitar separação de materiais</div><div id="sepRows"></div>
       <button class="btn btn-neutral" style="width:100%;margin:8px 0" onclick="sepAddRow()">＋ adicionar material</button>
-      <label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;cursor:pointer"><input type="checkbox" id="sepUrgente"> <span>🚨 Urgente</span></label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;cursor:pointer"><input type="checkbox" id="sepUrgente"> <span>Urgente</span></label>
       <button class="btn btn-brand" style="width:100%" onclick="sepEnviar()">📦 Enviar solicitação ao estoque</button>`;
     wrap.appendChild(nf);
     setTimeout(()=>{ const box=document.getElementById('sepRows'); if(box && !box.children.length) sepAddRow(); },0);
@@ -1694,7 +1694,7 @@ function sepSetStatus(v){ const sep=curOS.separacao; if(!sep._sf||!v) return; se
 /* escalar/rebaixar urgência de uma separação já existente (dispara o alerta pro Estoquista) */
 function sepSetUrgente(v){ const sep=curOS.separacao; if(!sep._sf) return; sep.urgente=!!v;
   bePatch('/separacoes/'+sep._sf,{urgente:!!v},'Urgência da separação')
-    .then(r=>{ toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':(v?'🚨 Separação marcada como urgente':'Urgência removida')); checkUrgentAlerts(); })
+    .then(r=>{ toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':(v?'Separação marcada como urgente':'Urgência removida')); checkUrgentAlerts(); })
     .catch(e=>toast('⚠️ Não gravado: '+e.message)); }
 function sepAddRow(){
   const box=document.getElementById('sepRows'); if(!box) return;
@@ -2560,7 +2560,7 @@ function buildNotifs(){
     list.push({ico:'asset',color:'#8c4b02',tit:'Calibração vencida: '+c.patrimonio,sub:'vencida desde '+c.calibracao,roles:['Estoquista','Gerente','Sócio'],go:()=>go('estoque')});
   });
   urgentesPendentes().forEach(({o,s})=>{
-    list.push({ico:'box',color:'#E8730C',tit:'🚨 Separação urgente: '+s.id,sub:o.id+' · '+o.cli,roles:['Estoquista','Gerente','Sócio'],go:()=>{ estoqView={mode:'sep',sep:s,os:o,tile:estoqView.tile}; go('estoque'); }});
+    list.push({ico:'box',color:'#E8730C',tit:'Separação urgente: '+s.id,sub:o.id+' · '+o.cli,roles:['Estoquista','Gerente','Sócio'],go:()=>{ estoqView={mode:'sep',sep:s,os:o,tile:estoqView.tile}; go('estoque'); }});
   });
   return list;
 }
@@ -2603,7 +2603,7 @@ const ESTOQ_TILES=[
   /* banner de emergência: só existe/aparece quando há separação real marcada como urgente (Urgente__c).
      sem nenhuma, o tile nem entra na grade — se ficasse sempre laranja (ex: dedução por "hoje e amanhã")
      viraria paisagem e não chamaria atenção quando surgisse uma de verdade */
-  {key:'urgente', label:'Separação urgente', icon:'🚨', cor:'#ba0517', destaque:true,
+  {key:'urgente', label:'Separação urgente', icon:'', cor:'#ba0517', destaque:true,
     f:x=>x.s.urgente&&sepPendente(x.s.status)},
   {key:'separar', label:'A separar — total',         icon:'🗂️', cor:'#C25E0A', f:x=>['Solicitada','Aguardando aprovação'].includes(x.s.status)},
   {key:'emsep',   label:'Em separação',              icon:'⏳', cor:'#0B5CAB', f:x=>x.s.status==='Em separação'},
@@ -2644,7 +2644,7 @@ function renderEstoque(){
     const el=document.createElement('div');
     if(t.destaque){
       el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,#ba0517,#E8322C)';
-      el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">🚨 ${n>1?'Separações urgentes':'Separação urgente'}</div><div style="font-size:12px;opacity:.9;margin-top:2px">Marcada${n>1?'s':''} como urgente${n>1?'s':''} — toque para separar agora ›</div></div></div>`;
+      el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">${n>1?'Separações urgentes':'Separação urgente'}</div><div style="font-size:12px;opacity:.9;margin-top:2px">Marcada${n>1?'s':''} como urgente${n>1?'s':''} — toque para separar agora ›</div></div></div>`;
     } else {
       el.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:10px;min-height:118px';
       el.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:${t.cor}1a;display:flex;align-items:center;justify-content:center;font-size:18px">${t.icon}</div>
@@ -2661,14 +2661,14 @@ function renderEstoque(){
 function sepRow(o,s,onclick){
   const falta=sepFaltaEmbarcar(s); const tag=osDiaTag(o);
   const row=document.createElement('div'); row.className='rel-row';
-  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">🚨 URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${o.cli} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
   row.onclick=onclick; return row;
 }
 /* LISTA do tile selecionado (drill-down) */
 function estoqueListPage(wrap){
   const t=ESTOQ_TILES.find(x=>x.key===estoqView.tile)||ESTOQ_TILES[0];
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
-  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.destaque?'🚨 Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.destaque?'Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
   const list=(t.destaque?sepListAll():sepListDia()).filter(t.f)
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada por aqui. 🎉'; wrap.appendChild(e); return; }

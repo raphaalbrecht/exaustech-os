@@ -22,8 +22,10 @@
     separação pela câmera e confirma retirada/recebimento sozinho (backend decide pelo status);
     fallback de etiqueta em PDF (sem Zebra) agora desenha um QR de verdade, não só uma caixa vazia)
    (v81 07/07 — Produtos Necessários: rótulo à direita/quantidade à esquerda em Solicitado, Embarcado,
-    Usado, Baixa e Retorno; "Embarcar (estoque)" desce um pouco e vira "Retornar (estoque)") */
-const CACHE = 'exaustech-os-v81';
+    Usado, Baixa e Retorno; "Embarcar (estoque)" desce um pouco e vira "Retornar (estoque)")
+   (v82 07/07 — remove o emoji de sirene 🚨 do app inteiro (toasts, checkbox de urgência, tile e
+    notificação de separação urgente)) */
+const CACHE = 'exaustech-os-v82';
 const SHELL = [
   './',
   './index.html',
