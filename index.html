@@ -847,6 +847,17 @@
       <button class="btn btn-brand" onclick="confirmOutcome()">Confirmar</button>
     </div></div></div>
 
+  <!-- MODAL EXCEÇÃO DE CANCELAMENTO (Bipar — casos 3/4 do design de cancelamento por etapa) -->
+  <div class="modal" id="biparExcModal"><div class="modal-card">
+    <div class="modal-title" id="bexTitle"></div>
+    <div class="modal-sub" id="bexSub"></div>
+    <div id="bexChips" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"></div>
+    <textarea id="bexReason" rows="3" placeholder="Motivo de seguir mesmo assim…"></textarea>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeBiparExc()">Não seguir</button>
+      <button class="btn btn-brand" onclick="confirmBiparExc()">Confirmar mesmo assim</button>
+    </div></div></div>
+
   <!-- MODAL NOTA -->
   <div class="modal" id="notaModal"><div class="modal-card">
     <div class="modal-title">Adicionar nota</div><div class="modal-sub">Nota interna do compromisso.</div>
@@ -1673,8 +1684,9 @@ function sepParseBaixa(total,motivo){
 }
 function sepFromSF(wo){
   const sp=(wo.separacoes||[]).slice(-1)[0];
-  if(!sp) return {id:'—', status:'Sem materiais', urgente:false, pendencia:null, materiais:[]};
+  if(!sp) return {id:'—', status:'Sem materiais', urgente:false, pendencia:null, retirado:false, justificativaExcecao:null, cienciaPor:null, cienciaEm:null, materiais:[]};
   return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente, pendencia:sp.pendencia||null,
+    retirado:!!sp.retirado, justificativaExcecao:sp.justificativaExcecao||null, cienciaPor:sp.cienciaPor||null, cienciaEm:sp.cienciaEm||null,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
       embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[] })) };
 }
@@ -1714,7 +1726,7 @@ async function sepEnviar(){
   try{
     const r=await bePost('/separacoes',{osId:curOS._wo, itens, urgente},'Solicitação de separação');
     if(r&&r._queued){ toast('📡 Solicitação salva no aparelho — sincroniza com sinal'); return; }
-    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente, pendencia:null,
+    curOS.separacao={ id:r.name||'SEP', _sf:r.id, status:'Solicitada', urgente:!!r.urgente, pendencia:null, retirado:false, justificativaExcecao:null, cienciaPor:null, cienciaEm:null,
       materiais:(r.itens||itens).map(i=>({ _sf:i.id||null, nome:i.material, un:i.un||'un', solicitado:i.solicitada!=null?i.solicitada:i.qtd, embarcado:0, consumido:0, baixa:sepParseBaixa(0,''), retorno:0, fotos:[] })) };
     bigOK('Separação '+(r.name||'')+' solicitada'); if(navStack.length) showSub();
     checkUrgentAlerts();
@@ -2609,7 +2621,11 @@ const ESTOQ_TILES=[
   {key:'emsep',   label:'Em separação',              icon:'⏳', cor:'#0B5CAB', f:x=>x.s.status==='Em separação'},
   {key:'pronta',  label:'Prontas p/ embarque',       icon:'🚚', cor:'#0b827c', f:x=>x.s.status==='Pronta para embarque'},
   {key:'campo',   label:'Em campo',                  icon:'🛠️', cor:'#7a5cc8', f:x=>['Embarcada','Recebida pelo usuário','Em uso'].includes(x.s.status)},
-  {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>x.s.status==='Retorno'}
+  {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>x.s.status==='Retorno'},
+  /* Pós-cancelamento (casos 1/2/4/5 do design "cancelamento por etapa"): separação cancelada que
+     ainda precisa de alguma ação do estoque (ciência, devolução ou baixa). Some sozinho quando
+     Pendencia_Pos_Cancelamento__c volta a 'Nenhuma'/'Resolvida'. */
+  {key:'cancelamento', label:'Pós-cancelamento',      icon:'🛑', cor:'#ba0517', f:x=>x.s.pendencia&&!['Nenhuma','Resolvida'].includes(x.s.pendencia)}
 ];
 function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
 /* mesma lista, restrita ao dia escolhido no carrossel (ou todas, se nenhum dia estiver selecionado) */
@@ -2632,6 +2648,7 @@ function renderEstoque(){
   renderEstoqDays();
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
+  if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
   if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
   /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
   const seps=sepListAll(), sepsDia=sepListDia();
@@ -2673,7 +2690,8 @@ function estoqueListPage(wrap){
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada por aqui. 🎉'; wrap.appendChild(e); return; }
   list.forEach(({o,s})=>wrap.appendChild(sepRow(o,s,()=>{
-    if(sepPendente(s.status)) estoqGo('sep',s,o); /* abre a página de separação p/ começar */
+    if(t.key==='cancelamento') estoqGo('pend',s,o);
+    else if(sepPendente(s.status)) estoqGo('sep',s,o); /* abre a página de separação p/ começar */
     else { const a=apptForOS(o); if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} }
   })));
 }
@@ -2718,6 +2736,49 @@ function estoqueSepPage(wrap){
     estoqGo('dash');
   };
   wrap.appendChild(done);
+}
+/* PÁGINA DE PÓS-CANCELAMENTO (casos 1/2/4/5 do design "cancelamento por etapa"): ação do Estoquista
+   pra fechar a pendência que ficou quando uma separação foi cancelada/reprovada no meio do fluxo. */
+function estoquePendResolver(sep,proximaPendencia){
+  const st=proximaPendencia||'Resolvida'; sep.pendencia=st;
+  bePatch('/separacoes/'+sep._sf,{pendencia:st},'Pendência da separação')
+    .then(r=>toast(r&&r._queued?'📡 Salvo no aparelho — sincroniza com sinal':'✅ Pendência atualizada'))
+    .catch(e=>toast('⚠️ Não gravado: '+e.message));
+  estoqGo(st==='Resolvida'?'dash':'list',null,null,'cancelamento');
+}
+function estoquePendPage(wrap){
+  const s=estoqView.sep, o=estoqView.os;
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>estoqGo('list',null,null,'cancelamento'); wrap.appendChild(bk);
+  const hd=document.createElement('div'); hd.className='subhead';
+  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}</div></div><span class="lz ${sepLozCls(s.status)}">${s.status}</span>`;
+  wrap.appendChild(hd);
+  const card=document.createElement('div'); card.className='subcard';
+  let ctx='';
+  if(s.retirado) ctx+=`<div class="subnote" style="padding:4px 0">Alguém seguiu com retirada/entrega mesmo cancelada. Justificativa: <i>${s.justificativaExcecao||'—'}</i></div>`;
+  if(s.cienciaPor) ctx+=`<div class="subnote" style="padding:4px 0">Ciência dada por <b>${s.cienciaPor}</b>${s.cienciaEm?(' em '+fmtDataBR(String(s.cienciaEm).slice(0,10))):''}.</div>`;
+  card.innerHTML=`<div class="sec-title2" style="margin-top:0">🛑 ${s.pendencia}</div>${ctx}`;
+  const acoes=document.createElement('div'); acoes.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:10px';
+  if(s.pendencia==='Aguardando ciência do estoque'){
+    acoes.innerHTML=`<div class="subnote" style="padding:0 0 4px">Esta separação foi cancelada antes de ser separada — nada físico a devolver, só dar ciência.</div>`;
+    const b=document.createElement('button'); b.className='btn btn-brand'; b.style.cssText='height:48px'; b.textContent='Dar ciência — sem ação necessária';
+    b.onclick=()=>estoquePendResolver(s,'Resolvida'); acoes.appendChild(b);
+  } else if(s.pendencia==='Pendente de devolução ao estoque'){
+    acoes.innerHTML=`<div class="subnote" style="padding:0 0 4px">Material já separado/retirado — confira a devolução em Produtos Necessários antes de resolver.</div>`;
+    const b1=document.createElement('button'); b1.className='btn btn-neutral'; b1.style.cssText='height:48px'; b1.textContent='Ir para Produtos Necessários';
+    b1.onclick=()=>{ const a=apptForOS(o); if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} };
+    const b2=document.createElement('button'); b2.className='btn btn-brand'; b2.style.cssText='height:48px'; b2.textContent='Marcar devolução como concluída';
+    b2.onclick=()=>estoquePendResolver(s,'Resolvida');
+    acoes.appendChild(b1); acoes.appendChild(b2);
+  } else if(s.pendencia==='Pendente de baixa na separação'){
+    acoes.innerHTML=`<div class="subnote" style="padding:0 0 4px">Registre a baixa do material em Produtos Necessários antes de resolver.</div>`;
+    const b1=document.createElement('button'); b1.className='btn btn-neutral'; b1.style.cssText='height:48px'; b1.textContent='Ir para Produtos Necessários';
+    b1.onclick=()=>{ const a=apptForOS(o); if(a){curAppt=a;curOS=o;navStack=[];go('appt');pushSub({type:'materiais'});} };
+    const b2=document.createElement('button'); b2.className='btn btn-brand'; b2.style.cssText='height:48px'; b2.textContent='Marcar baixa como concluída';
+    b2.onclick=()=>estoquePendResolver(s,'Resolvida');
+    acoes.appendChild(b1); acoes.appendChild(b2);
+  }
+  card.appendChild(acoes);
+  wrap.appendChild(card);
 }
 /* ===== ETIQUETAS DE SEPARAÇÃO (Zebra via Browser Print no PC do estoque; fallback = PDF p/ imprimir onde estiver) ===== */
 function etqZPL(s,o,i,n){ /* etiqueta 100×50mm @203dpi (800×400 dots), QR com o nº da SEP */
@@ -2822,18 +2883,82 @@ function biparLoop(){
   }
   biparRAF=requestAnimationFrame(biparLoop);
 }
+function biparResumir(){ if(biparStream) biparRAF=requestAnimationFrame(biparLoop); }
 async function biparProcessarCodigo(codigo){
   const st=document.getElementById('biparStatus'); if(st) st.textContent='Lido: '+codigo+' — confirmando…';
   try{
     const r=await bePost('/separacoes/scan',{codigo,resourceId:myRid()},'Bipagem '+codigo);
-    if(r&&r._queued){ toast('📡 Bipagem salva no aparelho — sincroniza com sinal'); if(st) st.textContent='Salvo offline — sincroniza quando houver sinal.'; }
-    else{
-      const acao=r.tipo==='embarque'?'Retirada confirmada':'Recebimento confirmado';
-      bigOK(acao+' — '+(r.name||codigo));
-      if(st) st.textContent=acao+' ('+(r.name||codigo)+' → '+r.status+')';
+    if(r&&r._queued){
+      toast('📡 Bipagem salva no aparelho — sincroniza com sinal');
+      if(st) st.textContent='Salvo offline — sincroniza quando houver sinal. Se estiver cancelada, a decisão de exceção fica pendente até sincronizar — confira depois.';
+      biparResumir(); return;
     }
+    if(r.needsConfirm){ abrirBiparExc(codigo,r); return; } /* não resume o loop — só ao fechar/confirmar */
+    if(r.jaEntregue){ mostrarBiparJaEntregue(codigo,r); return; }
+    if(r.ok){
+      const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
+      const acao=(retirada?'Retirada confirmada':'Recebimento confirmado')+(r.excecao?' (exceção — cancelada)':'');
+      bigOK(acao+' — '+(r.name||codigo));
+      if(st) st.textContent=acao+' ('+(r.name||codigo)+(r.status?(' → '+r.status):'')+')';
+    } else { toast('⚠️ Resposta inesperada do servidor'); }
   }catch(e){ toast('⚠️ '+e.message); if(st) st.textContent='⚠️ '+e.message; }
-  if(biparStream) biparRAF=requestAnimationFrame(biparLoop); /* segue bipando — pode ter várias etiquetas seguidas */
+  biparResumir(); /* segue bipando — pode ter várias etiquetas seguidas */
+}
+/* Casos 3/4 do design "cancelamento por etapa": a separação está Cancelada/Reprovada mas alguém
+   quer seguir com a retirada/entrega mesmo assim (ex.: acha que o cancelamento será revertido).
+   O backend NÃO muda Status__c nesse caminho — só carimba quem seguiu, quando e por quê. */
+let biparExc={codigo:null,tipo:null};
+const BIPAR_EXC_CHIPS=['Cancelamento deve ser revertido','Cliente/coordenador confirmou verbalmente','Material já embarcado/perecível','Orientação do coordenador'];
+function abrirBiparExc(codigo,r){
+  biparExc={codigo,tipo:r.tipo};
+  const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
+  document.getElementById('bexTitle').textContent=(r.name||codigo)+' está CANCELADA';
+  document.getElementById('bexSub').textContent=(retirada?'Retirar':'Entregar')+' mesmo assim? Fica registrado quem decidiu e por quê.';
+  const chipsWrap=document.getElementById('bexChips'); chipsWrap.innerHTML='';
+  BIPAR_EXC_CHIPS.forEach(c=>{
+    const b=document.createElement('button'); b.className='btn btn-neutral'; b.type='button';
+    b.style.cssText='width:auto;height:auto;padding:6px 10px;font-size:12px';
+    b.textContent=c; b.onclick=()=>{ document.getElementById('bexReason').value=c; };
+    chipsWrap.appendChild(b);
+  });
+  document.getElementById('bexReason').value=r.sugerido?(r.justificativaAnterior||''):'';
+  document.getElementById('biparExcModal').classList.add('show');
+}
+function closeBiparExc(){ document.getElementById('biparExcModal').classList.remove('show'); biparResumir(); }
+async function confirmBiparExc(){
+  const justificativa=document.getElementById('bexReason').value.trim();
+  if(!justificativa) return markInvalid('bexReason','Informe o motivo de seguir mesmo assim');
+  const {codigo}=biparExc;
+  const st=document.getElementById('biparStatus');
+  try{
+    const r=await bePost('/separacoes/scan',{codigo,resourceId:myRid(),confirmarCancelado:true,justificativa},'Bipagem (exceção) '+codigo);
+    document.getElementById('biparExcModal').classList.remove('show');
+    if(r&&r._queued){ toast('📡 Exceção salva no aparelho — sincroniza com sinal'); }
+    else{
+      const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
+      bigOK((retirada?'Retirada':'Recebimento')+' registrada com exceção — '+(r.name||codigo));
+      if(st) st.textContent='Exceção registrada ('+(r.name||codigo)+')';
+    }
+  }catch(e){ toast('⚠️ '+e.message); }
+  biparResumir();
+}
+/* Caso 5: o material já tinha sido entregue quando o cancelamento chegou — não há mais checkpoint
+   de bipagem a carimbar; o líder só sinaliza ciência (fecha o ciclo o Estoquista, no painel dele). */
+function mostrarBiparJaEntregue(codigo,r){
+  const st=document.getElementById('biparStatus'); if(!st) return;
+  st.innerHTML=`<div class="subcard" style="margin-top:8px;border-left:3px solid var(--danger,#c0392b)">
+    <b>${r.name||codigo} foi CANCELADA depois que o material já tinha sido recebido.</b><br>
+    Não utilize o material — combine a devolução com o estoque.
+    <button class="btn btn-brand" style="width:100%;height:40px;margin-top:8px" onclick="biparRegistrarRetorno('${(r.name||codigo).replace(/'/g,"\\'")}')">Registrar ciência / retorno</button>
+  </div>`;
+  biparResumir();
+}
+async function biparRegistrarRetorno(codigo){
+  try{
+    await bePost('/separacoes/ciencia-cancelamento',{codigo,resourceId:myRid()},'Ciência cancelamento '+codigo);
+    toast('✅ Ciência registrada — estoque vai fechar a devolução');
+    const st=document.getElementById('biparStatus'); if(st) st.textContent='Ciência registrada ('+codigo+').';
+  }catch(e){ toast('⚠️ '+e.message); }
 }
 function biparParar(){
   if(biparRAF) cancelAnimationFrame(biparRAF); biparRAF=null;
@@ -2842,6 +2967,7 @@ function biparParar(){
   const bi=document.getElementById('biparBtnIniciar'); if(bi) bi.style.display='block';
   const bp=document.getElementById('biparBtnParar'); if(bp) bp.style.display='none';
   const st=document.getElementById('biparStatus'); if(st) st.textContent='';
+  const em=document.getElementById('biparExcModal'); if(em) em.classList.remove('show');
 }
 async function imprimirEtiquetas(){
   const s=estoqView.sep, o=estoqView.os; if(!s||!o) return;

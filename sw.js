@@ -24,8 +24,12 @@
    (v81 07/07 — Produtos Necessários: rótulo à direita/quantidade à esquerda em Solicitado, Embarcado,
     Usado, Baixa e Retorno; "Embarcar (estoque)" desce um pouco e vira "Retornar (estoque)")
    (v82 07/07 — remove o emoji de sirene 🚨 do app inteiro (toasts, checkbox de urgência, tile e
-    notificação de separação urgente)) */
-const CACHE = 'exaustech-os-v82';
+    notificação de separação urgente))
+   (v83 07/07 — cancelamento por etapa (Bipar): scan numa separação Cancelada/Reprovada agora
+    oferece "seguir mesmo assim + justificar" (casos 3/4) em vez de só rejeitar, com carimbo de quem
+    decidiu; card de alerta quando o material já tinha sido entregue (caso 5); novo tile
+    "Pós-cancelamento" no painel do Estoquista fecha os casos 1/2/4/5 (ciência, devolução, baixa)) */
+const CACHE = 'exaustech-os-v83';
 const SHELL = [
   './',
   './index.html',
