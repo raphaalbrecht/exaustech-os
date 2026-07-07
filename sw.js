@@ -38,8 +38,12 @@
     duplo em "Confirmar mesmo assim" trava enquanto o POST anterior não volta; erro no confirmar não
     deixa mais a câmera escaneando por trás do modal aberto; backend recusa aplicar exceção se o
     checkpoint mudou entre abrir o modal e confirmar; ciência do líder (caso 5) não rebaixa mais uma
-    pendência já resolvida pelo estoque; ciência do estoque (caso 1) agora carimba quem resolveu) */
-const CACHE = 'exaustech-os-v85';
+    pendência já resolvida pelo estoque; ciência do estoque (caso 1) agora carimba quem resolveu)
+   (v86 07/07 — busca do Estoque ganha botão de câmera (scan one-shot, pra quem não tem coletor com
+    leitor físico) e botão de NFC (Web NFC — só existe no Chrome Android; precisa 1 toque pra armar
+    a leitura, some sozinho se o aparelho não suportar); campo agora foca sozinho ao entrar na aba
+    de propósito, sem interferir no refresh silencioso de fundo) */
+const CACHE = 'exaustech-os-v86';
 const SHELL = [
   './',
   './index.html',

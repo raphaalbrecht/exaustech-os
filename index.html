@@ -698,15 +698,30 @@
         <div class="days" id="estoqDays"></div>
       </div>
       <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
-        <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar OS ou cliente…"
-          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          style="width:100%;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
-          oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+        <div style="display:flex;gap:8px">
+          <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar OS ou cliente…"
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            style="flex:1;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
+            oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+          <button type="button" id="estoqBtnCam" onclick="estoqScanCamAbrir()" title="Bipar com a câmera"
+            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0">📷</button>
+          <button type="button" id="estoqBtnNfc" onclick="estoqNfcToggle()" title="Ativar leitura NFC"
+            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0;display:none">📶</button>
+        </div>
         <div id="estoqBuscaResults"></div>
       </div>
       <div class="daylabel" id="estoqDayLabel"></div>
       <div id="estoqueList"></div>
     </section>
+
+    <!-- overlay de scan rápido pra busca do Estoque (câmera one-shot: lê 1 código e fecha sozinho) -->
+    <div id="estoqScanOverlay" style="display:none;position:fixed;inset:0;background:#000;z-index:9999">
+      <video id="estoqScanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <canvas id="estoqScanCanvas" style="display:none"></canvas>
+      <div style="position:absolute;inset:14%;border:3px solid rgba(255,255,255,.55);border-radius:14px;pointer-events:none"></div>
+      <div style="position:absolute;top:16px;left:16px;right:16px;color:#fff;text-align:center;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.6)">Aponte pro QR da etiqueta</div>
+      <button class="btn btn-neutral" onclick="estoqScanCamFechar()" style="position:absolute;bottom:24px;left:16px;right:16px;height:48px">Cancelar</button>
+    </div>
 
     <!-- BIPAR (custódia física — Frente B): Supervisor bipa retirada na base, Líder de Equipe bipa
          recebimento na loja. Mesma tela pros dois papéis — o backend decide qual ação fazer pelo
@@ -1167,10 +1182,17 @@ let curAppt=null, curOS=null, curTab='schedule';
 let navStack=[]; let curSubTitle='', curSubSub='';
 
 /* ===== navegação ===== */
+let _estoqAutoFoco=false;
 function go(scr){
   /* sair da tela de Bipar sempre desliga a câmera (não deixar ligada em background) */
   const _prevScr=document.querySelector('main .screen.active');
   if(_prevScr && _prevScr.id==='scr-bipar' && scr!=='bipar' && typeof biparParar==='function') biparParar();
+  /* idem pro scan/NFC embutidos na busca do Estoque */
+  if(_prevScr && _prevScr.id==='scr-estoque' && scr!=='estoque'){
+    if(typeof estoqScanCamFechar==='function') estoqScanCamFechar();
+    if(typeof estoqNfcDesativar==='function') estoqNfcDesativar();
+  }
+  if(scr==='estoque') _estoqAutoFoco=true; /* navegação de propósito pra aba — foca o campo pro leitor físico funcionar sem tocar em nada */
   document.querySelectorAll('main .screen, #scr-login').forEach(s=>s.classList.remove('active'));
   document.getElementById('scr-'+scr).classList.add('active');
   document.getElementById('app').classList.toggle('fullbleed', scr==='login');
@@ -2688,6 +2710,86 @@ function estoqBuscaKey(e){
   if(!lista.length){ toast('Nenhuma separação encontrada pra "'+q+'"'); return; }
   estoqBuscaAbrir(lista[0].o,lista[0].s);
 }
+/* processa um código lido por QUALQUER canal fora da digitação (câmera one-shot ou NFC) — mesma
+   regra de match exato único da busca; sem match único, joga o texto no campo pra listar opções. */
+function estoqProcessarCodigoLido(texto){
+  const lista=estoqBuscaFiltrar(texto);
+  const nq=estoqBuscaNorm(texto);
+  const exato=lista.filter(({s})=>estoqBuscaNorm(s.id)===nq);
+  if(exato.length===1){ estoqBuscaAbrir(exato[0].o,exato[0].s); return; }
+  if(lista.length===1){ estoqBuscaAbrir(lista[0].o,lista[0].s); return; }
+  const inp=document.getElementById('estoqBusca'); if(inp) inp.value=texto;
+  estoqBuscaRenderResultados(lista,texto);
+  if(!lista.length) toast('Nenhuma separação encontrada pra "'+texto+'"');
+}
+/* Scan por câmera embutido na busca (pra quem não tem coletor com leitor físico) — reaproveita o
+   mesmo motor jsQR do Bipar, mas em modo "one-shot": lê 1 código e fecha o overlay sozinho, sem
+   ficar preso numa tela de custódia. */
+let estoqScanStream=null, estoqScanRAF=null;
+async function estoqScanCamAbrir(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste navegador'); return; }
+  try{ estoqScanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
+  catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
+  const video=document.getElementById('estoqScanVideo'); video.srcObject=estoqScanStream; await video.play().catch(()=>{});
+  document.getElementById('estoqScanOverlay').style.display='block';
+  estoqScanLoop();
+}
+function estoqScanCamFechar(){
+  if(estoqScanRAF) cancelAnimationFrame(estoqScanRAF); estoqScanRAF=null;
+  if(estoqScanStream){ estoqScanStream.getTracks().forEach(t=>t.stop()); estoqScanStream=null; }
+  const ov=document.getElementById('estoqScanOverlay'); if(ov) ov.style.display='none';
+}
+function estoqScanLoop(){
+  const video=document.getElementById('estoqScanVideo'); if(!video||!estoqScanStream) return;
+  const canvas=document.getElementById('estoqScanCanvas');
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    let img; try{ img=ctx.getImageData(0,0,canvas.width,canvas.height); }catch(e){ img=null; }
+    if(img){
+      const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+      if(code && code.data){
+        const texto=code.data.trim();
+        estoqScanCamFechar();
+        estoqProcessarCodigoLido(texto);
+        return;
+      }
+    }
+  }
+  estoqScanRAF=requestAnimationFrame(estoqScanLoop);
+}
+/* NFC (Web NFC / NDEFReader) — só existe no Chrome Android, exatamente o coletor de dados alvo.
+   Por segurança do navegador não dá pra "escutar" passivamente sem 1 toque do usuário armando a
+   leitura; fica ativa até o usuário desligar ou sair da aba Estoque (mesmo padrão da câmera do
+   Bipar). Tag deve trazer um registro de texto com o mesmo código do QR (Name da separação, ou o
+   código do EnderecoEstoque__c.TagNFC__c pra caixa/bin — mesma função resolve os dois). */
+let estoqNfcController=null;
+function estoqNfcSuportado(){ return (typeof NDEFReader!=='undefined'); }
+async function estoqNfcToggle(){
+  const btn=document.getElementById('estoqBtnNfc');
+  if(estoqNfcController){ estoqNfcDesativar(); return; }
+  if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho/navegador não suporta leitura NFC'); return; }
+  try{
+    const reader=new NDEFReader();
+    const ctrl=new AbortController();
+    await reader.scan({signal:ctrl.signal});
+    estoqNfcController=ctrl;
+    reader.onreading=(e)=>{
+      let texto='';
+      for(const rec of e.message.records){
+        if(rec.recordType==='text'){ try{ texto=new TextDecoder(rec.encoding||'utf-8').decode(rec.data); }catch(err){} break; }
+      }
+      if(texto) estoqProcessarCodigoLido(texto.trim());
+    };
+    if(btn){ btn.style.background='#e8f4ff'; btn.style.borderColor='#0B5CAB'; btn.title='NFC ativo — toque pra desligar'; }
+    toast('📶 NFC ativo — aproxime a tag');
+  }catch(e){ toast('⚠️ Não consegui ativar o NFC: '+e.message); estoqNfcController=null; }
+}
+function estoqNfcDesativar(){
+  if(estoqNfcController){ try{ estoqNfcController.abort(); }catch(e){} estoqNfcController=null; }
+  const btn=document.getElementById('estoqBtnNfc'); if(btn){ btn.style.background='#fff'; btn.style.borderColor='#D7DEE6'; btn.title='Ativar leitura NFC'; }
+}
 /* carrossel de dias do Estoque — mesma estrutura visual da Agenda (DAYS/DAYLABEL compartilhados) */
 function renderEstoqDays(){
   const wrap=document.getElementById('estoqDays'); if(!wrap) return; wrap.innerHTML='';
@@ -2707,7 +2809,11 @@ function renderEstoque(){
   const buscaWrap=document.getElementById('estoqBuscaWrap');
   const naHome=(estoqView.mode==='dash');
   if(buscaWrap) buscaWrap.style.display=naHome?'block':'none';
-  if(!naHome) estoqBuscaLimpar();
+  if(!naHome){ estoqBuscaLimpar(); estoqScanCamFechar(); }
+  else {
+    const btnNfc=document.getElementById('estoqBtnNfc'); if(btnNfc) btnNfc.style.display=estoqNfcSuportado()?'block':'none';
+    if(_estoqAutoFoco){ _estoqAutoFoco=false; const inp=document.getElementById('estoqBusca'); if(inp) setTimeout(()=>inp.focus(),50); }
+  }
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
