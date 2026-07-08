@@ -691,6 +691,14 @@
       <div id="apprList"></div>
     </section>
 
+    <!-- PRODUÇÃO (fabricação própria: aprovar/iniciar/finalizar OP) -->
+    <section class="screen" id="scr-producao">
+      <div class="sched-top"><div class="sched-title">Produção</div>
+        <div class="subnote" style="padding:0 0 8px">Ordens de Produção da fabricação própria. <b>Aprovação técnica: Coordenador para cima. Iniciar/finalizar: função Produção.</b></div>
+      </div>
+      <div id="producaoList"></div>
+    </section>
+
     <!-- ESTOQUE (painel do estoquista) -->
     <section class="screen" id="scr-estoque">
       <div class="sched-top">
@@ -810,6 +818,7 @@
   <nav class="botnav" id="botnav" style="display:none">
     <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
+    <button id="nav-producao" onclick="go('producao')" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg>Produção</button>
     <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
     <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque<span class="nbadge" id="estoqueBadge" style="display:none">0</span></button>
     <button id="nav-bipar" onclick="go('bipar')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h3v3M20 14v3M14 20h3M20 17.5V20h-2.5"/></svg>Bipar</button>
@@ -1202,7 +1211,7 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
   document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
@@ -1214,11 +1223,13 @@ function go(scr){
   else if(scr==='treinamentos'){ tt.textContent='Treinamentos'; ts.textContent='Sua trilha de aprendizado'; }
   else if(scr==='trilha'){ tt.textContent=curTrilhaTitle||'Módulo'; ts.textContent='Treinamento'; }
   else if(scr==='bipar'){ tt.textContent='Bipar'; ts.textContent='Retirada/recebimento por QR'; }
+  else if(scr==='producao'){ tt.textContent='Produção'; ts.textContent='Fabricação própria'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
+  if(scr==='producao') renderProducao();
   if(scr==='estoque') renderEstoque();
   if(scr==='aloc') renderAloc();
   if(scr==='exp') renderExp();
@@ -1336,6 +1347,57 @@ function renderApprovals(){
       <div class="appr-meta">${o.relatorio.ajustes?'Devolvido para ajustes':(o.relatorio.stage===3?'Aprovado — aguardando liberação':'Aguarda revisão · '+REP_STAGES[o.relatorio.stage])}</div>`;
     list.appendChild(el);
   });
+}
+
+/* ===== Produção (Ordem_de_Producao__c — task #49/#50) =====
+   Não existe "listar tudo" no backend (só por osId/oportunidadeId/status), então a tela busca por
+   status conforme o papel do usuário: aprovador vê "Aguardando Aprovação Técnica"; quem tem
+   Funcao__c='Produção' vê "Liberada para Produção" + "Em Produção". */
+const PRODUCAO_LZ={'Aguardando Aprovação Técnica':'lz-warn','Liberada para Produção':'lz-info','Em Produção':'lz-warn','Finalizada':'lz-succ'};
+async function fetchProducaoList(){
+  const statuses=[];
+  if(canProducaoAprovar(ROLE)) statuses.push('Aguardando Aprovação Técnica');
+  if(canProducaoOperar(ROLE)) statuses.push('Liberada para Produção','Em Produção');
+  if(!statuses.length) return [];
+  const results=await Promise.all(statuses.map(s=>beGet('/ordens-producao?status='+encodeURIComponent(s)).catch(e=>({ops:[],_err:e}))));
+  const byId=new Map();
+  results.forEach(r=>{ (r&&r.ops||[]).forEach(op=>byId.set(op.id,op)); });
+  return Array.from(byId.values()).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+}
+function producaoAcao(op){
+  if(op.status==='Aguardando Aprovação Técnica' && canProducaoAprovar(ROLE)) return {label:'Aprovar', path:'/ordens-producao/'+op.id+'/aprovar'};
+  if(op.status==='Liberada para Produção' && canProducaoOperar(ROLE)) return {label:'Iniciar produção', path:'/ordens-producao/'+op.id+'/iniciar'};
+  if(op.status==='Em Produção' && canProducaoOperar(ROLE)) return {label:'Finalizar produção', path:'/ordens-producao/'+op.id+'/finalizar'};
+  return null;
+}
+async function producaoExecutar(op,acao,btn){
+  btn.disabled=true; const orig=btn.textContent; btn.textContent='Aguarde…';
+  try{ await bePost(acao.path,{}); toast(op.name+': '+acao.label.toLowerCase()+' com sucesso'); renderProducao(); }
+  catch(e){ toast('Erro: '+e.message); btn.disabled=false; btn.textContent=orig; }
+}
+function producaoCard(op){
+  const el=document.createElement('div'); el.className='appr-item'; el.style.cursor='default';
+  const lz=PRODUCAO_LZ[op.status]||'lz-neu';
+  el.innerHTML=`<div class="appr-top"><div class="appr-cli">${op.name}</div><span class="lz ${lz}">${op.status}</span></div>
+    <div class="appr-meta">${op.produtoNome||'Produto não informado'}</div>
+    ${op.detalhesFabricacao?`<div class="appr-meta">${op.detalhesFabricacao}</div>`:''}
+    ${op.localInstalacao?`<div class="appr-meta">Local: ${op.localInstalacao}</div>`:''}`;
+  const acao=producaoAcao(op);
+  if(acao){ const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.marginTop='10px'; btn.textContent=acao.label;
+    btn.onclick=()=>producaoExecutar(op,acao,btn); el.appendChild(btn); }
+  return el;
+}
+let _producaoLoading=false;
+async function renderProducao(){
+  const list=document.getElementById('producaoList'); if(!list) return;
+  if(_producaoLoading) return; _producaoLoading=true;
+  list.innerHTML='<div class="empty">Carregando…</div>';
+  try{
+    const ops=await fetchProducaoList();
+    if(!ops.length){ list.innerHTML=`<div class="empty"><span class="tile" style="background:var(--neu-bg)"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg></span><div>Nenhuma Ordem de Produção pendente de você.</div></div>`; }
+    else{ list.innerHTML=''; ops.forEach(op=>list.appendChild(producaoCard(op))); }
+  }catch(e){ list.innerHTML='<div class="empty">Erro ao carregar: '+e.message+'</div>'; }
+  finally{ _producaoLoading=false; }
 }
 
 /* ===== compromisso ===== */
@@ -3242,12 +3304,19 @@ function canBipar(r){ return ['Supervisor','Líder de Equipe','Sócio'].includes
 function canTreino(r){ return ['Auxiliar de Manutenção (MPP)','Líder de Equipe'].includes(r); }
 /* aba Aprovações: todos menos o Auxiliar (que é só visualização) */
 function canApprovalsTab(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
+/* módulo Produção (Ordem_de_Producao__c, task #49/#50): aprovação técnica = mesma função
+   elevada usada em toda a app (Coordenador/Gerente/Sócio); iniciar/finalizar = Funcao__c='Produção'
+   (quem realmente fabrica, ex.: Gabriel) — os 2 gates batem com o que o backend já exige. */
+function canProducaoAprovar(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
+function canProducaoOperar(r){ return r==='Produção'; }
+function canProducaoTab(r){ return canProducaoAprovar(r)||canProducaoOperar(r); }
 function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
   const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
   const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
   const t=document.getElementById('nav-trein'); if(t) t.style.display=canTreino(ROLE)?'flex':'none';
   const ap=document.getElementById('nav-approvals'); if(ap) ap.style.display=canApprovalsTab(ROLE)?'flex':'none';
-  const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none'; }
+  const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none';
+  const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none'; }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
 const TREINOS=[
