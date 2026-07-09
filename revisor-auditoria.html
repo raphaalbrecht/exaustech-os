@@ -92,11 +92,12 @@
   .pdf-hint{font-size:11px;color:var(--weaker);font-weight:400}
   .link-btn{background:none;border:none;color:var(--brand);font-size:12.5px;cursor:pointer;padding:9px 4px;text-decoration:underline;font-weight:600}
   .link-btn:hover{color:var(--brand-d)}
-  .cm-panel{margin-top:12px;padding:12px;border:1px dashed var(--border2);border-radius:8px;background:var(--bg)}
-  .cm-pergunta-sel{font-size:12px;padding:8px 10px;background:var(--brand-l);border-radius:6px;margin-bottom:8px;color:var(--brand-d)}
-  .cm-nc-item{padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-top:6px;cursor:pointer;font-size:12.5px;background:#fff}
-  .cm-nc-item:hover{border-color:var(--brand)}
-  .cm-nc-item.sel{border-color:var(--brand);background:var(--brand-l)}
+  .kv-select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:12.5px;background:#fff;color:var(--txt)}
+  .kv-select:disabled{background:var(--neu-bg);color:var(--weak)}
+  .kv-select.dirty{border-color:var(--warn);background:var(--warn-bg)}
+  .edit-panel{margin-top:12px;padding:12px;border:1px dashed var(--border2);border-radius:8px;background:var(--bg)}
+  .edit-panel textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+  .edit-panel select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px}
   .item-num{font-size:13.5px;font-weight:600;margin-bottom:8px}
   .item-texto{font-size:13px;line-height:1.55;color:var(--txt);margin-bottom:10px;white-space:pre-wrap}
   .nota{font-size:12.5px;font-style:italic;color:var(--weak);background:#fff;border-left:2px solid var(--border2);padding:8px 10px;border-radius:0 6px 6px 0}
@@ -221,12 +222,33 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
-// ---- corrigir vínculo (pedido do Raphael 10/07): quando o match automático aponta pra NC
-// errada, o revisor busca a pergunta/NC certa no catálogo (reusa os mesmos endpoints do fluxo
-// mobile de lançamento manual: /exp/auditorias/perguntas?q= e /exp/auditorias/nc?perguntaId=) e
-// reaponta a Linha antes de confirmar — o backend já aceitava esse override há sessões
-// (naoConformidadeId/perguntaId/etc no POST /confirmar), só faltava a UI.
-let CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
+// ---- edição campo a campo da hierarquia (pedido do Raphael 10/07, v2 — a v1 era um painel
+// lateral de busca textual de Pergunta que ele testou e rejeitou: "a edição deve ser campo a
+// campo", com Grupo/Elemento/Pergunta/Não-conformidade cada um virando picklist na própria
+// tabela "Registro no Salesforce", puxando a base real, mais a opção de cadastrar NC nova quando
+// não há correspondência ou quando o risco diverge). Catálogo INTEIRO (33 grupos+37 elementos+
+// 144 perguntas+227 NCs+32 prefixos, ~100-200KB) é buscado 1x em /exp/auditorias/catalogo e
+// cacheado em CAT; a cascata Grupo→Elemento→Pergunta→NC é filtrada 100% no client. ED guarda o
+// rascunho de edição da Linha aberta no momento (se algum campo diverge do valor gravado em
+// ST.linhas, a linha está "suja" e precisa salvar antes de trocar de item).
+let CAT = null;
+let ED = null; // { linhaId, grupoId, elementoId, perguntaId, prefixoId, ncId, novoNcAberto, novoNc:{texto,classificacao,risco,pontuaExp} }
+
+async function carregarCatalogoSeNecessario(){
+  if (CAT) return CAT;
+  const r = await fetch(BACKEND + '/exp/auditorias/catalogo', { headers: { Authorization: 'Bearer ' + beTok() } });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  const grupoPorId = {}, elementoPorId = {}, perguntaPorId = {}, ncPorId = {};
+  const elementosPorGrupo = {}, perguntasPorElemento = {}, ncsPorPergunta = {}, prefixosPorPar = {};
+  for (const g of j.grupos) grupoPorId[g.id] = g;
+  for (const e of j.elementos) { elementoPorId[e.id] = e; (elementosPorGrupo[e.grupoId] || (elementosPorGrupo[e.grupoId] = [])).push(e); }
+  for (const p of j.perguntas) { perguntaPorId[p.id] = p; (perguntasPorElemento[p.elementoId] || (perguntasPorElemento[p.elementoId] = [])).push(p); }
+  for (const n of j.ncs) { ncPorId[n.id] = n; (ncsPorPergunta[n.perguntaId] || (ncsPorPergunta[n.perguntaId] = [])).push(n); }
+  for (const x of j.prefixos) { const chave = (x.elementoId || '') + '|' + (x.grupoId || ''); (prefixosPorPar[chave] || (prefixosPorPar[chave] = [])).push(x); }
+  CAT = Object.assign({}, j, { grupoPorId, elementoPorId, perguntaPorId, ncPorId, elementosPorGrupo, perguntasPorElemento, ncsPorPergunta, prefixosPorPar });
+  return CAT;
+}
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
@@ -403,6 +425,7 @@ async function carregar(){
   const loteId = document.getElementById('inLote').value.trim();
   if (!auditoriaId || !loteId) { msg('Preencha o Id da Auditoria e do Lote.', 'err'); return; }
   msg('Carregando…', 'info');
+  carregarCatalogoSeNecessario().catch((e) => console.warn('[catálogo] falhou, edição campo a campo fica desativada:', e.message)); // best-effort, não bloqueia o resto da tela
   try {
     const r = await fetch(BACKEND + '/exp/auditorias/' + auditoriaId + '/lote/' + loteId, {
       headers: { Authorization: 'Bearer ' + beTok() }
@@ -774,27 +797,11 @@ async function renderDetalhe(){
     + '</div>'
     + '<div class="col">'
     + '<h3>Registro no Salesforce</h3>'
-    + '<table class="kv">'
-    + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
-    + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
-    + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
-    + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
-    + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
-    + '</table>'
+    + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
     + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
     + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
     + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
-    + '<div class="actionbar">'
-    + (l.status === 'Pendente proposta'
-        ? '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
-          + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>'
-        : '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>')
-    + ((CM.ativo && CM.linhaId === l.id)
-        ? ''
-        : '<button class="link-btn" onclick="cmAbrir(\'' + l.id + '\')">🔍 Corrigir vínculo (buscar outra não conformidade)</button>')
-    + '</div>'
-    + ((CM.ativo && CM.linhaId === l.id) ? cmPanelHtml(l) : '')
-    + (l.faixa === 'Sem match' ? '<div class="msg info" style="margin-top:14px">Itens "Sem match" que precisam virar item novo de catálogo ainda não têm tela própria aqui — isso é o wizard de cadastro (em construção, Sócio-only). Por ora, ajuste direto no Salesforce se precisar.</div>' : '')
+    + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>'
     + '</div>';
 
   if (pdfUrl) {
@@ -872,143 +879,391 @@ async function reverterLinha(linhaId){
   }
 }
 
-// ---- corrigir vínculo: busca pergunta -> lista NCs da pergunta -> confirma com override ----
-function cmPanelHtml(l){
-  const pergunta = CM.pergunta;
-  const prefixoOpcoes = pergunta && pergunta.prefixoOpcoes || [];
-  return '<div class="cm-panel">'
-    + '<div style="font-size:12px;color:var(--weak);margin-bottom:6px">Busque por um trecho do texto da pergunta do catálogo (Elemento/Grupo) pra achar o vínculo correto.</div>'
-    + '<div style="position:relative">'
-    + '<input class="busca-input" id="cmBusca" placeholder="Digite pra buscar a pergunta certa…" autocomplete="off" oninput="cmBuscarPergunta(this.value)">'
-    + '<div class="na-conta-lista" id="cmPerguntaLista" style="display:none"></div>'
-    + '</div>'
-    + (pergunta
-        ? '<div class="cm-pergunta-sel"><b>' + escapeHtml(pergunta.elementoNome || '—') + ' · ' + escapeHtml(pergunta.grupoNome || '—') + '</b><br>' + escapeHtml(pergunta.texto || '') + '</div>'
-        : '')
-    + (pergunta && prefixoOpcoes.length > 1
-        ? '<div style="margin-bottom:8px"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Prefixo/numeração (mais de uma opção pra esse Elemento/Grupo — escolha)</label>'
-          + '<select id="cmPrefixoSelect" onchange="cmEscolherPrefixo(this.value)">'
-          + '<option value="">— selecione —</option>'
-          + prefixoOpcoes.map((o) => '<option value="' + o.id + '">' + escapeHtml(o.nome || o.codigo || o.id) + '</option>').join('')
-          + '</select></div>'
-        : '')
-    + '<div id="cmNcLista">' + (pergunta ? '' : '<span style="font-size:12px;color:var(--weaker)">selecione uma pergunta acima pra ver as não conformidades relacionadas a ela</span>') + '</div>'
-    + '<div style="margin-top:10px;display:flex;gap:8px;align-items:center">'
-    + '<button class="btn" id="cmConfirmarBtn" disabled onclick="cmConfirmar(\'' + l.id + '\')">Confirmar este vínculo</button>'
-    + '<button class="btn sec" onclick="cmFechar()">Cancelar</button>'
-    + '</div>'
-    + '</div>';
+// ================= editor campo a campo (Grupo/Elemento/Pergunta/Não-conformidade) =================
+// Substitui o painel de busca textual v1 (rejeitado pelo Raphael 10/07: "a edição deve ser campo
+// a campo"). Cada nível vira <select> na própria tabela "Registro no Salesforce". Regra de
+// cascata: trocar um nível de cima FILTRA o de baixo (mas não obriga navegar por ele: qualquer
+// select, se o pai ainda não foi escolhido, mostra a lista cheia daquele nível); trocar um nível
+// escolhendo direto (ex. Pergunta sem ter escolhido Elemento antes) AUTOPREENCHE os pais pra cima
+// — nunca precisa navegar a hierarquia inteira só pra corrigir a Pergunta ou a NC.
+
+function edGarantirEstado(l){
+  if (ED && ED.linhaId === l.id) return;
+  ED = {
+    linhaId: l.id,
+    grupoId: l.grupoId || null,
+    elementoId: l.elementoId || null,
+    perguntaId: l.perguntaId || null,
+    prefixoId: l.prefixoElementoId || null,
+    ncId: l.naoConformidadeId || null,
+    novoNcAberto: false,
+    novoNc: { texto: l.textoOriginal || '', classificacao: '', risco: '', pontuaExp: false }
+  };
 }
 
-function cmAbrir(linhaId){
-  CM = { ativo:true, linhaId, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
-  renderDetalhe();
+function edSujo(l){
+  if (!ED || ED.linhaId !== l.id) return false;
+  if (ED.novoNcAberto) return true;
+  return ED.grupoId !== (l.grupoId || null) || ED.elementoId !== (l.elementoId || null) ||
+    ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null);
 }
 
-function cmFechar(){
-  CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
-  renderDetalhe();
+// prefixo só é OBRIGATÓRIO escolher quando Elemento OU Grupo mudaram (o prefixo antigo pode não
+// valer mais pro par novo — mesma regra de validação do Salesforce, que o /confirmar não força
+// sozinho, então o front garante aqui) — se nada mudou nesses 2 níveis, manda o que já tava.
+function edPrefixoNecessario(l){
+  return ED.elementoId !== (l.elementoId || null) || ED.grupoId !== (l.grupoId || null);
 }
 
-function cmBuscarPergunta(valor){
-  clearTimeout(CM.buscaTimer);
-  const termo = valor.trim();
-  const lista = document.getElementById('cmPerguntaLista');
-  if (!lista) return;
-  if (termo.length < 3) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
-  CM.buscaTimer = setTimeout(async () => {
-    try {
-      const r = await fetch(BACKEND + '/exp/auditorias/perguntas?q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
-      const perguntas = await r.json();
-      if (!r.ok || !Array.isArray(perguntas) || !perguntas.length) {
-        lista.innerHTML = '<div class="na-conta-item" style="cursor:default;color:var(--weaker)">nenhuma pergunta encontrada com esse texto</div>';
-        lista.style.display = 'block';
-        return;
-      }
-      CM.resultados = perguntas;
-      lista.innerHTML = perguntas.map((p, i) => '<div class="na-conta-item" onclick="cmSelecionarPergunta(' + i + ')">'
-        + '<div style="font-weight:600">' + escapeHtml(p.elementoNome || '—') + ' · ' + escapeHtml(p.grupoNome || '—') + '</div>'
-        + '<div style="color:var(--weak)">' + escapeHtml(p.texto || '') + '</div>'
-        + '</div>').join('');
-      lista.style.display = 'block';
-    } catch (e) { /* best-effort: busca de pergunta não trava o resto da tela */ }
-  }, 300);
-}
-
-async function cmSelecionarPergunta(i){
-  const p = CM.resultados[i];
-  CM.pergunta = p; CM.ncEscolhida = null;
-  CM.prefixoEscolhido = (p.prefixoOpcoes && p.prefixoOpcoes.length === 1) ? p.prefixoOpcoes[0].id : null;
-  renderDetalhe(); // repinta o painel já com a pergunta escolhida (some a lista de busca)
-
-  const wrap = document.getElementById('cmNcLista');
-  if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--weaker)">carregando não conformidades…</span>';
-  try {
-    const r = await fetch(BACKEND + '/exp/auditorias/nc?perguntaId=' + encodeURIComponent(p.perguntaId), { headers: { Authorization: 'Bearer ' + beTok() } });
-    const ncs = await r.json();
-    if (!CM.ativo || !CM.pergunta || CM.pergunta.perguntaId !== p.perguntaId) return; // usuário já trocou de pergunta ou fechou o painel
-    if (!r.ok || !Array.isArray(ncs) || !ncs.length) {
-      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">nenhuma não conformidade cadastrada pra essa pergunta no catálogo.</span>';
-      return;
-    }
-    CM.ncs = ncs;
-    if (wrap) wrap.innerHTML = ncs.map((n, i) => '<div class="cm-nc-item" id="cmNc' + i + '" onclick="cmSelecionarNc(' + i + ')">'
-      + escapeHtml(n.texto || '') + ' <span style="color:var(--weaker)">· ' + escapeHtml(n.classificacao || '') + (n.risco ? ' · ' + escapeHtml(n.risco) : '') + '</span></div>').join('');
-  } catch (e) {
-    if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao buscar não conformidades: ' + escapeHtml(e.message) + '</span>';
+function edPodeSalvar(l){
+  if (!CAT) return false;
+  if (ED.novoNcAberto) {
+    const opcoes = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
+    const prefixoOk = opcoes.length === 1 ? true : (opcoes.length > 1 ? !!ED.prefixoId : false);
+    return !!(ED.perguntaId && ED.elementoId && ED.grupoId && prefixoOk &&
+      ED.novoNc.texto && ED.novoNc.texto.trim() && ED.novoNc.classificacao && ED.novoNc.risco !== '' && ED.novoNc.risco != null);
   }
-}
-
-function cmEscolherPrefixo(id){
-  CM.prefixoEscolhido = id || null;
-  const btn = document.getElementById('cmConfirmarBtn');
-  if (btn) btn.disabled = !cmPodeConfirmar();
-}
-
-function cmSelecionarNc(i){
-  CM.ncEscolhida = CM.ncs[i];
-  document.querySelectorAll('.cm-nc-item').forEach((el) => el.classList.remove('sel'));
-  const el = document.getElementById('cmNc' + i);
-  if (el) el.classList.add('sel');
-  const btn = document.getElementById('cmConfirmarBtn');
-  if (btn) btn.disabled = !cmPodeConfirmar();
-}
-
-function cmPodeConfirmar(){
-  if (!CM.pergunta || !CM.ncEscolhida) return false;
-  // Elemento/Grupo com mais de 1 prefixo cadastrado -> obrigatório escolher qual (mesma trava do Salesforce)
-  if (CM.pergunta.prefixoOpcoes && CM.pergunta.prefixoOpcoes.length > 1 && !CM.prefixoEscolhido) return false;
+  if (!(ED.grupoId && ED.elementoId && ED.perguntaId && ED.ncId)) return false;
+  if (edPrefixoNecessario(l)) {
+    const opcoes = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
+    if (opcoes.length > 1 && !ED.prefixoId) return false;
+    if (opcoes.length === 0) return false; // par sem prefixo cadastrado — precisa cadastrar no Salesforce antes
+  }
   return true;
 }
 
-async function cmConfirmar(linhaId){
-  if (!cmPodeConfirmar()) return;
-  const btn = document.getElementById('cmConfirmarBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Confirmando…'; }
-  const payload = {
-    naoConformidadeId: CM.ncEscolhida.id,
-    perguntaId: CM.pergunta.perguntaId,
-    elementoId: CM.pergunta.elementoId,
-    grupoDescricaoId: CM.pergunta.grupoId,
-    numeroId: CM.pergunta.numeroId,
-    classificacaoLinha: CM.ncEscolhida.classificacao
-  };
-  const prefixoOpcoes = CM.pergunta.prefixoOpcoes || [];
-  if (CM.prefixoEscolhido) payload.prefixoElementoId = CM.prefixoEscolhido;
-  else if (prefixoOpcoes.length === 1) payload.prefixoElementoId = prefixoOpcoes[0].id;
-  try {
-    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(payload)
+// -------- construção das <option> de cada nível --------
+function edOptGrupos(selecionado){
+  const arr = CAT.grupos.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  let html = '<option value="">— selecione —</option>';
+  for (const g of arr) html += '<option value="' + g.id + '"' + (g.id === selecionado ? ' selected' : '') + '>' + escapeHtml(g.nome || g.id) + '</option>';
+  return html;
+}
+
+function edOptElementos(grupoId, selecionado){
+  let arr = CAT.elementos;
+  if (grupoId) arr = arr.filter((e) => e.grupoId === grupoId);
+  arr = arr.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+  let html = '<option value="">' + (grupoId ? '— selecione —' : '— selecione (ou escolha um Grupo acima primeiro) —') + '</option>';
+  for (const e of arr) html += '<option value="' + e.id + '"' + (e.id === selecionado ? ' selected' : '') + '>' + escapeHtml(e.nome || e.id) + '</option>';
+  return html;
+}
+
+function edOptPerguntas(elementoId, selecionado){
+  if (elementoId) {
+    const arr = (CAT.perguntasPorElemento[elementoId] || []).slice().sort((a, b) => (a.prefixo || '').localeCompare(b.prefixo || ''));
+    let html = '<option value="">— selecione —</option>';
+    for (const p of arr) {
+      html += '<option value="' + p.id + '"' + (p.id === selecionado ? ' selected' : '') + ' title="' + escapeHtml(p.texto || '') + '">'
+        + escapeHtml((p.prefixo ? p.prefixo + ' · ' : '') + (p.texto || '')) + '</option>';
+    }
+    return html;
+  }
+  // sem Elemento escolhido: lista as 144 perguntas agrupadas por Grupo › Elemento
+  const porElemento = {};
+  for (const p of CAT.perguntas) (porElemento[p.elementoId] || (porElemento[p.elementoId] = [])).push(p);
+  const elementosComPergunta = Object.keys(porElemento).map((eid) => CAT.elementoPorId[eid]).filter(Boolean)
+    .sort((a, b) => {
+      const ga = (CAT.grupoPorId[a.grupoId] || {}).nome || '', gb = (CAT.grupoPorId[b.grupoId] || {}).nome || '';
+      return ga.localeCompare(gb, 'pt-BR') || (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
     });
-    const j = await r.json();
-    if (!r.ok) { msg('Erro ao corrigir vínculo: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar este vínculo'; } return; }
-    CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
-    await carregar(); // recarrega o lote pra refletir o novo vínculo/contadores
+  let html = '<option value="">— selecione —</option>';
+  for (const el of elementosComPergunta) {
+    const grupoNome = (CAT.grupoPorId[el.grupoId] || {}).nome || '—';
+    html += '<optgroup label="' + escapeHtml(grupoNome + ' › ' + (el.nome || '')) + '">';
+    const perguntasDoElemento = (porElemento[el.id] || []).slice().sort((a, b) => (a.prefixo || '').localeCompare(b.prefixo || ''));
+    for (const p of perguntasDoElemento) {
+      html += '<option value="' + p.id + '"' + (p.id === selecionado ? ' selected' : '') + ' title="' + escapeHtml(p.texto || '') + '">'
+        + escapeHtml((p.prefixo ? p.prefixo + ' · ' : '') + (p.texto || '')) + '</option>';
+    }
+    html += '</optgroup>';
+  }
+  return html;
+}
+
+function edOptPrefixos(opcoes, selecionado){
+  let html = '<option value="">— selecione —</option>';
+  for (const o of opcoes) html += '<option value="' + o.id + '"' + (o.id === selecionado ? ' selected' : '') + '>' + escapeHtml(o.nome || o.codigo || o.id) + '</option>';
+  return html;
+}
+
+function edOptNc(perguntaId, selecionado){
+  if (!perguntaId) return '<option value="">— escolha a Pergunta primeiro —</option>';
+  const lista = (CAT.ncsPorPergunta[perguntaId] || []).slice().sort((a, b) => (b.risco || 0) - (a.risco || 0));
+  let html = '<option value="">— selecione —</option>';
+  for (const n of lista) {
+    const txt = 'R' + (n.risco != null ? n.risco : '?') + ' · ' + (n.texto || '');
+    html += '<option value="' + n.id + '"' + (n.id === selecionado ? ' selected' : '') + ' title="' + escapeHtml(n.texto || '') + '">' + escapeHtml(txt) + '</option>';
+  }
+  html += '<option value="__novo__"' + (selecionado === '__novo__' ? ' selected' : '') + '>+ Cadastrar nova não conformidade…</option>';
+  return html;
+}
+
+// -------- onchange dos selects --------
+function edOnGrupo(v){
+  ED.grupoId = v || null;
+  if (ED.elementoId && (!CAT.elementoPorId[ED.elementoId] || CAT.elementoPorId[ED.elementoId].grupoId !== ED.grupoId)) {
+    ED.elementoId = null; ED.perguntaId = null; ED.ncId = null; ED.novoNcAberto = false;
+  }
+  ED.prefixoId = null;
+  edRerenderTabela();
+}
+
+function edOnElemento(v){
+  ED.elementoId = v || null;
+  if (ED.elementoId && CAT.elementoPorId[ED.elementoId]) ED.grupoId = CAT.elementoPorId[ED.elementoId].grupoId || ED.grupoId;
+  if (ED.perguntaId && (!CAT.perguntaPorId[ED.perguntaId] || CAT.perguntaPorId[ED.perguntaId].elementoId !== ED.elementoId)) {
+    ED.perguntaId = null; ED.ncId = null; ED.novoNcAberto = false;
+  }
+  ED.prefixoId = null;
+  edRerenderTabela();
+}
+
+function edOnPergunta(v){
+  ED.perguntaId = v || null;
+  if (ED.perguntaId && CAT.perguntaPorId[ED.perguntaId]) {
+    const p = CAT.perguntaPorId[ED.perguntaId];
+    ED.elementoId = p.elementoId || ED.elementoId;
+    if (ED.elementoId && CAT.elementoPorId[ED.elementoId]) ED.grupoId = CAT.elementoPorId[ED.elementoId].grupoId || ED.grupoId;
+  }
+  if (ED.ncId && ED.ncId !== '__novo__' && (!CAT.ncPorId[ED.ncId] || CAT.ncPorId[ED.ncId].perguntaId !== ED.perguntaId)) ED.ncId = null;
+  ED.novoNcAberto = false;
+  edRerenderTabela();
+}
+
+function edOnPrefixo(v){ ED.prefixoId = v || null; edRerenderTabela(); }
+
+function edOnNc(v){
+  if (v === '__novo__') {
+    ED.ncId = null; ED.novoNcAberto = true;
+    if (!ED.novoNc.texto) {
+      const l = ST.linhas.find((x) => x.id === ED.linhaId);
+      ED.novoNc = { texto: l ? (l.textoOriginal || '') : '', classificacao: '', risco: '', pontuaExp: false };
+    }
+  } else {
+    ED.ncId = v || null; ED.novoNcAberto = false;
+  }
+  edRerenderTabela();
+}
+
+// abre o cadastro de NC nova já pré-preenchido com a NC atualmente selecionada, só trocando o
+// Risco — pedido explícito do Raphael 10/07: "mesma não conformidade porém com risco diferente
+// da que está cadastrada"
+function edAbrirVariacaoRisco(){
+  const nc = CAT.ncPorId[ED.ncId];
+  if (!nc) return;
+  ED.ncId = null; ED.novoNcAberto = true;
+  ED.novoNc = { texto: nc.texto, classificacao: nc.classificacao, risco: '', pontuaExp: nc.pontuaExp };
+  edRerenderTabela();
+}
+
+function edCancelarNovoNc(){
+  ED.novoNcAberto = false; ED.ncId = null;
+  edRerenderTabela();
+}
+
+function edUsarNcExistente(ncId){
+  ED.ncId = ncId; ED.novoNcAberto = false;
+  edRerenderTabela();
+}
+
+function edRerenderTabela(){
+  const l = ST.linhas.find((x) => x.id === ED.linhaId);
+  if (!l) return;
+  const tabelaWrap = document.getElementById('regSf');
+  const acaoWrap = document.getElementById('regAcao');
+  if (tabelaWrap) tabelaWrap.innerHTML = edHtmlTabela(l);
+  if (acaoWrap) acaoWrap.innerHTML = edHtmlAcao(l);
+}
+
+// -------- similaridade client-side (Dice/bigrama), pra avisar "já existe NC parecida" --------
+function edNormalizar(s){
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function edBigramas(s){
+  const t = edNormalizar(s), arr = [];
+  for (let i = 0; i < t.length - 1; i++) arr.push(t.substring(i, i + 2));
+  return arr;
+}
+function edSimilaridade(a, b){
+  const A = edBigramas(a), B = edBigramas(b).slice();
+  if (!A.length || !B.length) return 0;
+  let inter = 0;
+  for (const g of A) { const idx = B.indexOf(g); if (idx > -1) { inter++; B.splice(idx, 1); } }
+  return (2 * inter) / (A.length + B.length);
+}
+function edAvaliarDuplicata(){
+  if (!ED.perguntaId || !ED.novoNc.texto) return null;
+  const candidatos = CAT.ncsPorPergunta[ED.perguntaId] || [];
+  let melhor = null, melhorSim = 0;
+  for (const n of candidatos) {
+    const s = edSimilaridade(ED.novoNc.texto, n.texto);
+    if (s > melhorSim) { melhorSim = s; melhor = n; }
+  }
+  if (melhor && melhorSim >= 0.5) return { nc: melhor, sim: melhorSim, mesmoRisco: String(melhor.risco) === String(ED.novoNc.risco) };
+  return null;
+}
+
+function edOnNovoNcCampo(campo, valor){
+  ED.novoNc[campo] = valor;
+  const dupWrap = document.getElementById('edDupWarning');
+  if (dupWrap) dupWrap.innerHTML = edHtmlDupWarning();
+  const btn = document.getElementById('btnSalvarEd');
+  if (btn) { const l = ST.linhas.find((x) => x.id === ED.linhaId); if (l) btn.disabled = !edPodeSalvar(l); }
+}
+
+function edHtmlDupWarning(){
+  const dup = edAvaliarDuplicata();
+  if (!dup) return '';
+  return '<div class="msg ' + (dup.mesmoRisco ? 'info' : 'err') + '" style="margin:8px 0">'
+    + (dup.mesmoRisco
+        ? 'Já existe uma não conformidade praticamente idêntica cadastrada (Risco ' + dup.nc.risco + '). '
+        : 'Já existe uma não conformidade parecida cadastrada com Risco ' + dup.nc.risco + ', diferente do risco que você está prestes a cadastrar. ')
+    + '<button class="btn sec" style="margin-left:6px;padding:4px 10px;font-size:12px" onclick="edUsarNcExistente(\'' + dup.nc.id + '\')">usar a existente (Risco ' + dup.nc.risco + ')</button>'
+    + '</div>';
+}
+
+// -------- montagem do HTML --------
+function edHtmlTabela(l){
+  edGarantirEstado(l);
+  const confirmado = l.status === 'Pendente proposta';
+
+  if (confirmado) {
+    return '<table class="kv">'
+      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
+      + '<tr><td>Grupo</td><td>' + escapeHtml((CAT && CAT.grupoPorId[l.grupoId] && CAT.grupoPorId[l.grupoId].nome) || '—') + '</td></tr>'
+      + '<tr><td>Elemento</td><td>' + escapeHtml((CAT && CAT.elementoPorId[l.elementoId] && CAT.elementoPorId[l.elementoId].nome) || '—') + '</td></tr>'
+      + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
+      + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + (l.risco != null ? ' <span class="badge neu">R' + l.risco + '</span>' : '') + '</td></tr>'
+      + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
+      + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
+      + '</table>';
+  }
+
+  if (!CAT) {
+    return '<table class="kv">'
+      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
+      + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
+      + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
+      + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
+      + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
+      + '</table>'
+      + '<div class="msg err" style="margin-top:10px">Catálogo do checklist não carregou — edição de campo desativada. '
+      + '<a href="#" onclick="carregarCatalogoSeNecessario().then(renderDetalhe); return false">tentar de novo</a></div>';
+  }
+
+  const opcoesPrefixo = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
+  if (opcoesPrefixo.length === 1 && ED.prefixoId !== opcoesPrefixo[0].id) ED.prefixoId = opcoesPrefixo[0].id;
+
+  let html = '<table class="kv">';
+  html += '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>';
+  html += '<tr><td>Grupo</td><td><select class="kv-select' + (ED.grupoId !== (l.grupoId || null) ? ' dirty' : '') + '" onchange="edOnGrupo(this.value)">' + edOptGrupos(ED.grupoId) + '</select></td></tr>';
+  html += '<tr><td>Elemento</td><td><select class="kv-select' + (ED.elementoId !== (l.elementoId || null) ? ' dirty' : '') + '" onchange="edOnElemento(this.value)">' + edOptElementos(ED.grupoId, ED.elementoId) + '</select></td></tr>';
+  html += '<tr><td>Pergunta</td><td><select class="kv-select' + (ED.perguntaId !== (l.perguntaId || null) ? ' dirty' : '') + '" onchange="edOnPergunta(this.value)">' + edOptPerguntas(ED.elementoId, ED.perguntaId) + '</select></td></tr>';
+  if (opcoesPrefixo.length > 1) {
+    html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="edOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, ED.prefixoId) + '</select></td></tr>';
+  }
+  html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
+    + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">cadastrar variação com outro risco</button></div>' : '')
+    + '</td></tr>';
+  html += '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>';
+  html += '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>';
+  html += '</table>';
+
+  if (ED.novoNcAberto) html += edHtmlNovoNc();
+
+  return html;
+}
+
+function edHtmlNovoNc(){
+  return '<div class="edit-panel">'
+    + '<div style="font-size:12px;color:var(--weak);margin-bottom:8px">Cadastrar nova não conformidade no catálogo (pra esta Pergunta) e apontar esta Linha pra ela.</div>'
+    + '<label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Texto da não conformidade</label>'
+    + '<textarea rows="3" oninput="edOnNovoNcCampo(\'texto\', this.value)">' + escapeHtml(ED.novoNc.texto || '') + '</textarea>'
+    + '<div id="edDupWarning">' + edHtmlDupWarning() + '</div>'
+    + '<div style="display:flex;gap:10px;margin:8px 0">'
+    + '<div style="flex:1"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Classificação</label>'
+    + '<select onchange="edOnNovoNcCampo(\'classificacao\', this.value)">'
+    + '<option value="">— selecione —</option>'
+    + ['Exaustão - estrutural', 'Exaustão - manutenção', 'Serviço fora do escopo Exaustech'].map((c) =>
+        '<option value="' + escapeHtml(c) + '"' + (ED.novoNc.classificacao === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('')
+    + '</select></div>'
+    + '<div style="flex:1"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Risco</label>'
+    + '<select onchange="edOnNovoNcCampo(\'risco\', this.value)">'
+    + '<option value="">— selecione —</option>'
+    + [0, 1, 2, 3, 4, 5].map((r) => '<option value="' + r + '"' + (String(ED.novoNc.risco) === String(r) ? ' selected' : '') + '>' + r + '</option>').join('')
+    + '</select></div>'
+    + '</div>'
+    + '<label style="font-size:12px;display:flex;align-items:center;gap:6px;margin-bottom:4px">'
+    + '<input type="checkbox"' + (ED.novoNc.pontuaExp ? ' checked' : '') + ' onchange="edOnNovoNcCampo(\'pontuaExp\', this.checked)"> Pontua equipe MPP Exaustech'
+    + '</label>'
+    + '<button class="link-btn" style="padding:2px 0" onclick="edCancelarNovoNc()">cancelar cadastro</button>'
+    + '</div>';
+}
+
+function edHtmlAcao(l){
+  if (l.status === 'Pendente proposta') {
+    return '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
+      + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>';
+  }
+  if (!CAT) {
+    return '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>';
+  }
+  edGarantirEstado(l);
+  const sujo = edSujo(l);
+  const podeSalvar = edPodeSalvar(l);
+  return '<button class="btn" id="btnSalvarEd"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
+    + (sujo ? 'Salvar correções e confirmar' : 'Confirmar match') + '</button>'
+    + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
+}
+
+function edDescartar(){
+  ED = null;
+  renderDetalhe();
+}
+
+async function edSalvar(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId);
+  if (!l || !ED || ED.linhaId !== linhaId || !edPodeSalvar(l)) return;
+  const btn = document.getElementById('btnSalvarEd');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    if (ED.novoNcAberto) {
+      const body = {
+        perguntaId: ED.perguntaId, elementoId: ED.elementoId, grupoDescricaoId: ED.grupoId,
+        prefixoElementoId: ED.prefixoId, textoNovo: ED.novoNc.texto.trim(),
+        classificacaoNC: ED.novoNc.classificacao, riscoNC: ED.novoNc.risco, pontuaExp: !!ED.novoNc.pontuaExp
+      };
+      const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/novo-item-catalogo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(body)
+      });
+      const j = await r.json();
+      if (!r.ok) { msg('Erro ao cadastrar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar'; } return; }
+      if (CAT && j.naoConformidadeId) {
+        const novaNc = { id: j.naoConformidadeId, texto: body.textoNovo, classificacao: body.classificacaoNC, risco: Number(body.riscoNC), pontuaExp: body.pontuaExp, perguntaId: body.perguntaId };
+        CAT.ncs.push(novaNc); CAT.ncPorId[novaNc.id] = novaNc;
+        (CAT.ncsPorPergunta[body.perguntaId] || (CAT.ncsPorPergunta[body.perguntaId] = [])).push(novaNc);
+      }
+    } else {
+      const overrides = {};
+      if (ED.ncId !== l.naoConformidadeId) overrides.naoConformidadeId = ED.ncId;
+      if (ED.perguntaId !== l.perguntaId) overrides.perguntaId = ED.perguntaId;
+      if (ED.elementoId !== l.elementoId) overrides.elementoId = ED.elementoId;
+      if (ED.grupoId !== l.grupoId) overrides.grupoDescricaoId = ED.grupoId;
+      if (edPrefixoNecessario(l) && ED.prefixoId) overrides.prefixoElementoId = ED.prefixoId;
+      const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(overrides)
+      });
+      const j = await r.json();
+      if (!r.ok) { msg('Erro ao confirmar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar'; } return; }
+    }
+    ED = null;
+    await carregar();
     ST.selecionadaId = linhaId; renderTudo();
-    msg('Vínculo corrigido e confirmado.', 'info');
+    msg('Alterações salvas e item confirmado.', 'info');
   } catch (e) {
-    msg('Falha de rede ao corrigir vínculo: ' + e.message, 'err');
-    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar este vínculo'; }
+    msg('Falha de rede ao salvar: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar'; }
   }
 }
 
