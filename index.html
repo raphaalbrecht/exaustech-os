@@ -3459,6 +3459,9 @@ function renderRecpFluxo(wrap){
 }
 /* ---- passo 1: lista de recebimentos pendentes (toque avança) ---- */
 async function recpCarregarLista(){
+  recpSt.erro=null; /* bug achado 10/07: erro de uma tela anterior (ex: abrir recebimento e falhar)
+    ficava "grudado" aqui pra sempre — recpRenderLista mostra recpSt.erro sem essa função nunca
+    limpar em caso de sucesso. Limpa sempre no início de toda tentativa. */
   try{ const d=await beGet('/estoque/recebimentos'); recpSt.recebimentos=d.recebimentos||[]; recpSt._listaCarregada=true; renderEstoque(); }
   catch(e){ recpSt._listaCarregada=true; recpSt.erro='Erro ao carregar entradas: '+e.message; renderEstoque(); }
 }
@@ -3486,7 +3489,7 @@ function recpRenderLocal(card){
   if(!recpSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
   if(!recpSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
   estoqLocaisAgrupados(card, recpSt.locais, recpEscolherLocal);
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; recpSt._listaCarregada=false; renderEstoque(); recpCarregarLista(); }; card.appendChild(bk);
 }
 async function recpEscolherLocal(l){
   recpSt.localDestinoId=l.id; recpSt.localNome=l.nome; recpSt.erro=null; renderEstoque();

@@ -84,7 +84,12 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v95'; // v95 10/07: Locais de estoque — Tipo__c ganha "Veículo"; picker
+const CACHE = 'exaustech-os-v96'; // v96 10/07: fix — recpCarregarLista() nunca limpava recpSt.erro;
+// um erro de tela anterior (ex: abrir recebimento e falhar) ficava grudado na lista de Entradas
+// Pendentes pra sempre, mesmo com a lista carregando certinho por baixo (achado pelo Raphael no
+// teste físico). Corrigido: erro limpo no início de toda tentativa de recpCarregarLista(), e o
+// "Voltar" de recpRenderLocal agora recarrega a lista em vez de só trocar o step.
+// v95 10/07: Locais de estoque — Tipo__c ganha "Veículo"; picker
 // agrupado (Galpão solto/🚐 Veículos com header) via estoqLocaisAgrupados, compartilhado por
 // endr*/recp*; Trânsito filtrado do backend nesses 2 pickers; Endereco__c reaproveitado como
 // legenda discreta (placa/modelo) sob o nome do veículo. Desenhado com o agente Fable
