@@ -772,8 +772,9 @@ function renderTudo(){
   // pedido do Raphael (10/07, rodada 8): "coluna direita pode afastar um pouco em direção à
   // direita" — margin-left só na coluna de registro (não no gap do grid inteiro, que também
   // empurraria a coluna do PDF) pra abrir mais respiro entre PDF e registro sem mexer no resto.
+  // Rodada 9: 10px ficou "muito colado" ainda — sobe pra 32px, respiro bem mais perceptível.
   h += ST.selecionadaId
-    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:10px"></div>'
+    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:32px"></div>'
     : '<div class="placeholder-col">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>';
   h += '</div>';
 
