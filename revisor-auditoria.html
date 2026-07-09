@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exaustech · Revisor de Auditoria</title>
+<style>
+  /* mesma paleta do app principal (index.html) — decisão 04/07: azul do logo #3E7EB0 + cinza/navy.
+     Esta tela roda SÓ no navegador (decisão do Raphael de 04/07: "Nova Auditoria Técnica" e tudo
+     que gira em torno de importação/revisão é processo à parte, não entra no app mobile). */
+  :root{
+    --brand:#3E7EB0; --brand-d:#2B5A7E; --brand-dk:#0B2239; --brand-l:#E9F1F8;
+    --bg:#FAFBFC; --card:#ffffff; --border:#ECEFF3; --border2:#D7DEE6;
+    --txt:#3A4552; --weak:#5F6B77; --weaker:#75818D;
+    --succ:#2e844a; --succ-bg:#ebf7ed; --succ-bd:#91db8b;
+    --warn:#fe9339; --warn-tx:#8c4b02; --warn-bg:#fef5e8; --warn-bd:#f9c77f;
+    --err:#ea001e; --err-tx:#ba0517; --err-bg:#fef1f1; --err-bd:#f5b5b8;
+    --neu-bg:#F0F2F5; --neu-tx:#4A5560;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;font-family:'Salesforce Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  header{background:var(--brand);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;font-weight:600;margin:0}
+  header .sub{font-size:12px;opacity:.85}
+  header .spacer{flex:1}
+  .chip{background:rgba(255,255,255,.18);border-radius:999px;padding:4px 12px;font-size:12px}
+  .wrap{max-width:1400px;margin:0 auto;padding:18px 20px 60px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
+  .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
+  .loadbar input{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
+  .btn{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--brand-d)}
+  .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  .btn.sec:hover{background:var(--brand-l)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px}
+  .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
+  .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
+  .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;min-width:110px}
+  .stat .n{font-size:20px;font-weight:600}
+  .stat .l{font-size:11.5px;color:var(--weak)}
+  .filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
+  .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  .lista{border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:78vh;overflow-y:auto}
+  .litem{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
+  .litem:hover{background:var(--brand-l)}
+  .litem.sel{background:var(--brand-l);border-left:3px solid var(--brand)}
+  .litem .num{font-size:12.5px;font-weight:600;color:var(--brand-d)}
+  .litem .txt{font-size:12px;color:var(--weak);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap}
+  .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-block}
+  .badge.forte{background:var(--succ-bg);color:var(--succ)}
+  .badge.fraco{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.semmatch{background:var(--err-bg);color:var(--err-tx)}
+  .badge.neu{background:var(--neu-bg);color:var(--neu-tx)}
+  .badge.confirmada{background:var(--succ-bg);color:var(--succ)}
+  .detalhe{border:1px solid var(--border);border-radius:10px;overflow:hidden;display:none}
+  .detalhe.show{display:grid;grid-template-columns:1fr 1fr}
+  .col{padding:18px}
+  .col.left{border-right:1px solid var(--border);background:var(--bg)}
+  .col h3{font-size:12.5px;color:var(--weak);margin:0 0 10px;display:flex;align-items:center;gap:6px;font-weight:600}
+  .foto-wrap{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px}
+  .foto-wrap img{width:100%;border-radius:6px;display:block}
+  .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-bottom:12px}
+  .item-num{font-size:13.5px;font-weight:600;margin-bottom:8px}
+  .item-texto{font-size:13px;line-height:1.55;color:var(--txt);margin-bottom:10px;white-space:pre-wrap}
+  .nota{font-size:12.5px;font-style:italic;color:var(--weak);background:#fff;border-left:2px solid var(--border2);padding:8px 10px;border-radius:0 6px 6px 0}
+  .kv{width:100%;font-size:13px;border-collapse:collapse}
+  .kv td{padding:6px 0;vertical-align:top}
+  .kv td:first-child{color:var(--weak);width:42%}
+  .kv td:last-child{text-align:right}
+  .actionbar{margin-top:16px;display:flex;gap:10px}
+  .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Exaustech · Revisor de Auditoria</h1>
+  <div class="spacer"></div>
+  <div class="chip" id="userchip">carregando sessão…</div>
+</header>
+<div class="wrap">
+  <div id="msgArea"></div>
+
+  <div class="card loadbar">
+    <div>
+      <label>Auditoria (Id)</label>
+      <input id="inAuditoria" placeholder="a7Ybe000000R9OzEAK">
+    </div>
+    <div>
+      <label>Lote (Id)</label>
+      <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
+    </div>
+    <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
+  </div>
+
+  <div id="conteudo"></div>
+</div>
+<script>
+const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
+function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getItem('be_tok'); }
+
+let ST = { auditoriaId:null, loteId:null, lote:null, linhas:[], selecionadaId:null, filtro:'todas' };
+const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
+
+function msg(texto, tipo){
+  document.getElementById('msgArea').innerHTML = texto ? '<div class="msg '+(tipo||'info')+'">'+texto+'</div>' : '';
+}
+
+function initSessao(){
+  const tok = beTok();
+  const nome = localStorage.getItem('be_name') || '';
+  const funcao = localStorage.getItem('be_funcao') || '';
+  const chip = document.getElementById('userchip');
+  if (!tok) {
+    chip.textContent = 'sem sessão';
+    msg('Você precisa estar logado no app principal (mesma sessão do navegador). Abra o app, faça login, e recarregue esta página.', 'err');
+    document.getElementById('btnCarregar').disabled = true;
+    return false;
+  }
+  chip.textContent = nome + (funcao ? ' · ' + funcao : '');
+  const last = JSON.parse(localStorage.getItem('revisor_last') || 'null');
+  if (last) { document.getElementById('inAuditoria').value = last.auditoriaId || ''; document.getElementById('inLote').value = last.loteId || ''; }
+  return true;
+}
+
+async function carregar(){
+  const auditoriaId = document.getElementById('inAuditoria').value.trim();
+  const loteId = document.getElementById('inLote').value.trim();
+  if (!auditoriaId || !loteId) { msg('Preencha o Id da Auditoria e do Lote.', 'err'); return; }
+  msg('Carregando…', 'info');
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + auditoriaId + '/lote/' + loteId, {
+      headers: { Authorization: 'Bearer ' + beTok() }
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
+    ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas;
+    ST.selecionadaId = null; ST.filtro = 'todas';
+    localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
+    msg('');
+    renderTudo();
+  } catch (e) {
+    msg('Falha de rede: ' + e.message, 'err');
+  }
+}
+
+function badgeFaixa(faixa){
+  const cls = faixa === 'Forte' ? 'forte' : faixa === 'Fraco' ? 'fraco' : 'semmatch';
+  return '<span class="badge ' + cls + '">' + faixa + '</span>';
+}
+
+function contagem(faixaOrTag){
+  if (faixaOrTag === 'foto') return ST.linhas.filter(l => l.possuiFoto).length;
+  if (faixaOrTag === 'nota') return ST.linhas.filter(l => l.possuiTextoComplementar).length;
+  if (faixaOrTag === 'todas') return ST.linhas.length;
+  return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
+}
+
+function linhasFiltradas(){
+  switch (ST.filtro) {
+    case 'Forte': case 'Fraco': case 'Sem match': return ST.linhas.filter(l => l.faixa === ST.filtro);
+    case 'foto': return ST.linhas.filter(l => l.possuiFoto);
+    case 'nota': return ST.linhas.filter(l => l.possuiTextoComplementar);
+    default: return ST.linhas;
+  }
+}
+
+function renderTudo(){
+  const l = ST.lote;
+  let h = '';
+  h += '<div class="summary">'
+    + '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
+    + '<div class="stat"><div class="n">' + (l.itensConfirmados ?? 0) + '</div><div class="l">confirmados</div></div>'
+    + '<div class="stat"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
+    + '<div class="stat"><div class="n">' + (l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
+    + '</div>';
+
+  const filtros = [
+    ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
+    ['foto', 'Com foto'], ['nota', 'Com nota']
+  ];
+  h += '<div class="filtros">' + filtros.map(([k, label]) =>
+    '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
+  ).join('') + '</div>';
+
+  h += '<div class="grid">';
+  h += '<div class="lista" id="listaLinhas"></div>';
+  h += '<div>' + (ST.selecionadaId ? '<div class="detalhe show" id="detalhe"></div>' : '<div class="card placeholder">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>') + '</div>';
+  h += '</div>';
+
+  document.getElementById('conteudo').innerHTML = h;
+  renderLista();
+  if (ST.selecionadaId) renderDetalhe();
+}
+
+function setFiltro(f){ ST.filtro = f; renderTudo(); }
+
+function renderLista(){
+  const el = document.getElementById('listaLinhas');
+  if (!el) return;
+  const linhas = linhasFiltradas();
+  if (!linhas.length) { el.innerHTML = '<div class="placeholder">Nenhum item nesse filtro.</div>'; return; }
+  el.innerHTML = linhas.map(l => {
+    const tags = [];
+    if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
+    if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
+    if (l.status === 'Pendente proposta') tags.push('<span class="badge confirmada">confirmado</span>');
+    return '<div class="litem ' + (l.id === ST.selecionadaId ? 'sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
+      + '<div class="num">' + (l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</div>'
+      + '<div class="txt">' + escapeHtml(l.textoOriginal || '') + '</div>'
+      + '<div class="tags">' + tags.join('') + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selecionar(id){ ST.selecionadaId = id; renderTudo(); }
+
+function escapeHtml(s){ return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+async function fotoBlobUrl(fotoUrl){
+  if (fotoCache[fotoUrl]) return fotoCache[fotoUrl];
+  const r = await fetch(BACKEND + fotoUrl, { headers: { Authorization: 'Bearer ' + beTok() } });
+  if (!r.ok) throw new Error('foto indisponível');
+  const bl = await r.blob();
+  const url = URL.createObjectURL(bl);
+  fotoCache[fotoUrl] = url;
+  return url;
+}
+
+async function renderDetalhe(){
+  const l = ST.linhas.find(x => x.id === ST.selecionadaId);
+  const el = document.getElementById('detalhe');
+  if (!l || !el) return;
+
+  el.innerHTML =
+    '<div class="col left">'
+    + '<h3>Recorte do PDF · item ' + (l.numeroRelatorio || '—') + '</h3>'
+    + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
+    + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
+    + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
+    + '</div>'
+    + '<div class="col">'
+    + '<h3>Registro no Salesforce</h3>'
+    + '<table class="kv">'
+    + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
+    + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
+    + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
+    + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
+    + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
+    + '</table>'
+    + '<div class="actionbar">'
+    + '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')" ' + (l.status === 'Pendente proposta' ? 'disabled' : '') + '>'
+    + (l.status === 'Pendente proposta' ? 'Já confirmado' : 'Confirmar match') + '</button>'
+    + '</div>'
+    + (l.faixa === 'Sem match' ? '<div class="msg info" style="margin-top:14px">Itens "Sem match" que precisam virar item novo de catálogo ainda não têm tela própria aqui — isso é o wizard de cadastro (em construção, Sócio-only). Por ora, ajuste direto no Salesforce se precisar.</div>' : '')
+    + '</div>';
+
+  if (l.possuiFoto) {
+    try {
+      const url = await fotoBlobUrl(l.fotoUrl);
+      const wrap = document.getElementById('fotoWrap');
+      if (wrap) wrap.innerHTML = '<img src="' + url + '" alt="foto da não conformidade">';
+    } catch (e) {
+      const wrap = document.getElementById('fotoWrap');
+      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar a foto: ' + e.message + '</span>';
+    }
+  }
+}
+
+async function confirmarLinha(linhaId){
+  const btn = document.getElementById('btnConfirmar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Confirmando…'; }
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: '{}'
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao confirmar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; } return; }
+    await carregar(); // recarrega o lote pra refletir o novo status/contadores
+    ST.selecionadaId = linhaId; renderTudo();
+  } catch (e) {
+    msg('Falha de rede ao confirmar: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; }
+  }
+}
+
+initSessao();
+</script>
+</body>
+</html>
