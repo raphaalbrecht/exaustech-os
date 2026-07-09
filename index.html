@@ -949,6 +949,15 @@
       <button class="btn btn-brand" onclick="confirmCsigJust()">Concluir mesmo assim</button>
     </div></div></div>
 
+  <!-- MODAL LOCAL DE INSTALAÇÃO · exigir antes de fechar a OS (task #52) -->
+  <div class="modal" id="liModal"><div class="modal-card">
+    <div class="modal-title">📍 Local de instalação</div>
+    <div class="modal-sub">A unidade fabricada nesta OS precisa de um <b>local de instalação</b> antes de fechar. Toque em um local para selecionar, ou cadastre um novo.</div>
+    <div id="liBody"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeLiModal()">Cancelar</button>
+    </div></div></div>
+
   <!-- MODAL DETALHES DA ALOCAÇÃO -->
   <div class="modal" id="alocDetModal"><div class="modal-card">
     <div class="modal-title">Detalhes da Alocação</div>
@@ -1188,6 +1197,8 @@ ordens[1].relatorio={stage:1, ajustes:false, versao:1, obsAjuste:'', historico:[
 
 let selDay='29/06';
 let curAppt=null, curOS=null, curTab='schedule';
+/* task #52 — exigir Local de Instalação ao fechar a OS quando há Ordem_de_Producao__c vinculada */
+let LI={ops:[],locais:[],novo:false,busy:false};
 let navStack=[]; let curSubTitle='', curSubSub='';
 
 /* ===== navegação ===== */
@@ -1427,7 +1438,7 @@ function renderStatusBtn(){
   alt.innerHTML='<button class="ab warn" onclick="openOutcome(\'Não Concluído\')">Não foi possível concluir</button><button class="ab danger" onclick="openOutcome(\'Cancelado\')">Cancelar compromisso</button>';
 }
 function advanceStatus(){ const a=curAppt; if(a.stage+1===STAGES.length-1){completeAppt();return;} a.stage++; stamp(a); renderAppt(); toast('Status: '+STAGES[a.stage]); sfMaybePush(a); }
-function completeAppt(){
+async function completeAppt(){
   const a=curAppt, o=curOS; let faltas=[]; o._itens.forEach(eq=>{ if(!itemComplete(eq))faltas.push(eq.tag); });
   if(faltas.length){ toast('⚠️ Itens incompletos: '+faltas[0]+(faltas.length>1?` (+${faltas.length-1})`:'')); pushSub({type:'itens'}); return; }
   let semApt=[]; o._itens.forEach(eq=>eq.checklist.forEach(it=>{ if(eq.checks[it]==='nok' && !eq.det[it].apt) semApt.push(eq.tag+' · '+it); }));
@@ -1435,6 +1446,9 @@ function completeAppt(){
   const semAssin=o.alocacoes.filter(x=>!(x.assinatura||x._sigRec));
   if(semAssin.length){ toast('✍️ Falta assinatura de '+semAssin[0].nome.split(' ')[0]); pushSub({type:'assin'}); return; }
   if(!(o.csig&&(o.csig.assinatura||o.csig._sigRec)) && !(o.csig&&o.csig.justificativa)){ openCsigJust(); return; }
+  // task #52 — só bloqueia quando há Ordem_de_Producao__c vinculada à OS sem Local de Instalação;
+  // abre o liModal e ele mesmo re-chama completeAppt() quando o técnico resolver.
+  if(!(await checkLocalInstalacao())) return;
   a.stage=STAGES.length-1; stamp(a); sfMaybePush(a); sfPushDesfecho('Concluída','');
   if(o.relatorio.stage<0){ o.relatorio.stage=0; repLog(o,'Relatório gerado como Rascunho (técnico)'); }
   const totRet=o.separacao.materiais.reduce((s,m)=>s+(m.retorno||0),0);
@@ -1457,6 +1471,63 @@ function confirmCsigJust(){
       .then(r=>toast(r&&r._queued?'📡 Justificativa salva no aparelho — sincroniza com sinal':'✅ Justificativa gravada no Salesforce')).catch(()=>{});
   }
   closeCsigJust(); toast('⚠️ Sem aceite do cliente — justificado'); completeAppt();
+}
+/* task #52 — exigir Local de Instalação (Local__c) ao fechar a OS, só quando há Ordem_de_Producao__c
+   vinculada (fabricação própria). Sem integração viva não há OP pra checar, então libera direto —
+   e se a própria checagem falhar por rede, também libera (fail-open: gate de qualidade de dado,
+   não trava o fechamento por falta de sinal — mesmo espírito do "IA nunca trava o cadastro"). */
+async function checkLocalInstalacao(){
+  if(!(SF_LIVE && curOS._wo)) return true;
+  let ops=[];
+  try{ const r=await beGet('/ordens-producao?osId='+encodeURIComponent(curOS._wo)); ops=(r&&r.ops)||[]; }
+  catch(e){ toast('⚠️ Não deu pra checar o Local de Instalação agora — seguindo assim mesmo'); return true; }
+  LI.ops=ops.filter(op=>!op.localInstalacao);
+  if(!LI.ops.length) return true;
+  LI.busy=false;
+  try{ const r=await beGet('/locais?osId='+encodeURIComponent(curOS._wo)); LI.locais=(r&&r.locais)||[]; }
+  catch(e){ LI.locais=[]; }
+  LI.novo=!LI.locais.length;
+  renderLiModal();
+  document.getElementById('liModal').classList.add('show');
+  return false;
+}
+function liEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderLiModal(){
+  const el=document.getElementById('liBody'); let h='';
+  if(LI.locais.length){
+    h+=LI.locais.map(l=>`<button onclick="liEscolher('${l.id}')" ${LI.busy?'disabled':''} style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${liEsc(l.descricao||l.nome)}</div>${l.endereco?('<div style="font-size:11px;color:#686868">'+liEsc(l.endereco)+'</div>'):''}</button>`).join('');
+    h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
+  }
+  if(!LI.novo){
+    h+='<button onclick="liToggleNovo(true)" '+(LI.busy?'disabled':'')+' style="width:100%;background:#EAF1F7;border:1px solid #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">+ Cadastrar novo local</button>';
+  } else {
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px">';
+    h+='<div class="field"><label>Descrição do local (obrigatório)</label><input id="liDescInput" placeholder="ex.: Cobertura — casa de máquinas"></div>';
+    h+='<div class="field"><label>Endereço (opcional)</label><input id="liEndInput" placeholder="ex.: Rua X, 123"></div>';
+    h+='<div style="display:flex;gap:8px"><button onclick="liCriar()" '+(LI.busy?'disabled':'')+' style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e usar este local</button>';
+    if(LI.locais.length) h+='<button onclick="liToggleNovo(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button>';
+    h+='</div></div>';
+  }
+  el.innerHTML=h;
+}
+function liToggleNovo(v){ LI.novo=v; renderLiModal(); }
+function closeLiModal(){ document.getElementById('liModal').classList.remove('show'); }
+async function liCriar(){
+  const descricao=(document.getElementById('liDescInput').value||'').trim();
+  if(!descricao){ toast('Descreva o local.'); return; }
+  const endereco=(document.getElementById('liEndInput').value||'').trim();
+  LI.busy=true; renderLiModal();
+  try{ const r=await bePost('/locais',{osId:curOS._wo,descricao,endereco}); await liAplicar(r.local.id); }
+  catch(e){ LI.busy=false; renderLiModal(); toast('Erro ao criar local: '+e.message); }
+}
+async function liEscolher(localId){
+  LI.busy=true; renderLiModal();
+  try{ await liAplicar(localId); }
+  catch(e){ LI.busy=false; renderLiModal(); toast('Erro ao gravar local: '+e.message); }
+}
+async function liAplicar(localId){
+  for(const op of LI.ops){ await bePost('/ordens-producao/'+op.id+'/local',{localId}); }
+  LI.busy=false; closeLiModal(); toast('✅ Local de instalação gravado'); completeAppt();
 }
 function stamp(a){ a.tempos[STAGES[a.stage]]=agora(); }
 function openApptReport(){ go('appt'); pushSub({type:'relatorio'}); }
@@ -4371,7 +4442,7 @@ async function beDoLogin(payload){
     const nm=_noDemo(j.name||'');
     localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
     localStorage.setItem('be_funcao', j.funcao||'');
-    if(j.funcao){ ROLE=j.funcao; try{renderRoleChip();}catch(e){} } /* papel real do Recurso (Funcao__c) dirige os módulos */
+    ROLE=j.funcao||'Líder de Equipe'; try{renderRoleChip();}catch(e){} /* papel real do Recurso (Funcao__c) dirige os módulos; sem match, volta ao padrão (nunca herda papel da sessão anterior) */
     toast('Bem-vindo, '+(nm.split(' ')[0]||'')); beHydrate();
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
@@ -4382,7 +4453,7 @@ function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).valu
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name','be_rid'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name','be_rid','be_funcao'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
