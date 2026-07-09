@@ -28,7 +28,14 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
   .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
-  .loadbar input{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
+  .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
+  .nova-aud{margin-bottom:14px;padding:0}
+  .nova-aud-head{padding:12px 16px;font-size:13px;font-weight:600;color:var(--brand-d);cursor:pointer;user-select:none}
+  .nova-aud-head:hover{background:var(--brand-l)}
+  #novaAudBody{padding:0 16px 16px}
+  .na-conta-lista{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:220px;overflow-y:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .na-conta-item{padding:8px 10px;font-size:13px;cursor:pointer}
+  .na-conta-item:hover{background:var(--brand-l)}
   .btn{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
   .btn:hover{background:var(--brand-d)}
   .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
@@ -118,6 +125,58 @@
 <div class="wrap">
   <div id="msgArea"></div>
 
+  <div class="card nova-aud" id="novaAudCard">
+    <div class="nova-aud-head" onclick="toggleNovaAuditoria()">
+      <span id="novaAudToggleTxt">+ Nova auditoria (cadastrar e importar PDF)</span>
+    </div>
+    <div id="novaAudBody" style="display:none">
+      <div id="naPasso1">
+        <div class="loadbar" style="margin-bottom:10px">
+          <div style="position:relative">
+            <label>Conta (shopping/cliente)</label>
+            <input id="naConta" placeholder="Digite pra buscar…" autocomplete="off" oninput="naBuscarConta(this.value)">
+            <div id="naContaLista" class="na-conta-lista" style="display:none"></div>
+          </div>
+          <div>
+            <label>Tipo</label>
+            <select id="naTipo"><option value="FTR">FTR</option><option value="ARPLAC">ARPLAC</option></select>
+          </div>
+          <div>
+            <label>Data da vistoria</label>
+            <input id="naData" type="date">
+          </div>
+          <div>
+            <label>Classificação da cocção</label>
+            <select id="naCocao">
+              <option value="Leve">Leve</option>
+              <option value="Moderado / Severo">Moderado / Severo</option>
+              <option value="Combustível sólido">Combustível sólido</option>
+            </select>
+          </div>
+          <div>
+            <label>Classificação de risco</label>
+            <select id="naRisco">
+              <option value="Risco 0">Risco 0</option><option value="Risco 1">Risco 1</option>
+              <option value="Risco 2">Risco 2</option><option value="Risco 3">Risco 3</option>
+              <option value="Risco 4">Risco 4</option><option value="Risco 5">Risco 5</option>
+            </select>
+          </div>
+          <button class="btn" id="btnCriarAuditoria" onclick="naCriarAuditoria()">Criar auditoria</button>
+        </div>
+      </div>
+      <div id="naPasso2" style="display:none">
+        <div class="loadbar" style="margin-bottom:4px">
+          <div>
+            <label>PDF do relatório</label>
+            <input id="naArquivo" type="file" accept="application/pdf">
+          </div>
+          <button class="btn" id="btnImportarPdf" onclick="naImportarPdf()">Importar PDF</button>
+          <button class="btn sec" onclick="toggleNovaAuditoria()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card loadbar">
     <div>
       <label>Auditoria (Id)</label>
@@ -138,6 +197,106 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 
 let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
+
+// ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
+// só faltava a tela — antes só dava pra criar via curl/Postman) ----
+let NA = { contaId:null, contaNome:'', buscaTimer:null, auditoriaId:null };
+
+function toggleNovaAuditoria(){
+  const body = document.getElementById('novaAudBody');
+  const abrindo = body.style.display === 'none';
+  body.style.display = abrindo ? 'block' : 'none';
+  document.getElementById('novaAudToggleTxt').textContent = abrindo ? '− Nova auditoria (cadastrar e importar PDF)' : '+ Nova auditoria (cadastrar e importar PDF)';
+  if (!abrindo) {
+    // fechar reseta o mini-fluxo, pra não deixar o passo 2 "preso" numa auditoria antiga
+    NA = { contaId:null, contaNome:'', buscaTimer:null, auditoriaId:null };
+    document.getElementById('naPasso1').style.display = 'block';
+    document.getElementById('naPasso2').style.display = 'none';
+  }
+}
+
+function naBuscarConta(valor){
+  NA.contaId = null; // qualquer edição no texto invalida a seleção anterior
+  clearTimeout(NA.buscaTimer);
+  const termo = valor.trim();
+  const lista = document.getElementById('naContaLista');
+  if (termo.length < 2) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  NA.buscaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND + '/exp/contas?q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const contas = await r.json();
+      if (!r.ok || !Array.isArray(contas) || !contas.length) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+      lista.innerHTML = contas.map((c) => '<div class="na-conta-item" onclick="naSelecionarConta(\'' + c.id + '\',\'' + escapeHtml(c.nome).replace(/'/g, "\\'") + '\')">' + escapeHtml(c.nome) + '</div>').join('');
+      lista.style.display = 'block';
+    } catch (e) { /* best-effort: busca de conta não trava o resto do form */ }
+  }, 300);
+}
+
+function naSelecionarConta(id, nome){
+  NA.contaId = id; NA.contaNome = nome;
+  document.getElementById('naConta').value = nome;
+  const lista = document.getElementById('naContaLista');
+  lista.style.display = 'none'; lista.innerHTML = '';
+}
+
+async function naCriarAuditoria(){
+  if (!NA.contaId) { msg('Escolha uma conta na lista (busque pelo nome e clique numa opção).', 'err'); return; }
+  const dataInspecao = document.getElementById('naData').value;
+  if (!dataInspecao) { msg('Informe a data da vistoria.', 'err'); return; }
+  const btn = document.getElementById('btnCriarAuditoria');
+  btn.disabled = true; btn.textContent = 'Criando…';
+  msg('');
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({
+        contaId: NA.contaId, dataInspecao,
+        recordType: document.getElementById('naTipo').value,
+        classificacaoCocao: document.getElementById('naCocao').value,
+        classificacaoRisco: document.getElementById('naRisco').value
+      })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao criar auditoria: ' + (j.error || r.status), 'err'); return; }
+    NA.auditoriaId = j.id;
+    msg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Agora importe o PDF do relatório.', 'info');
+    document.getElementById('naPasso1').style.display = 'none';
+    document.getElementById('naPasso2').style.display = 'block';
+  } catch (e) {
+    msg('Falha de rede ao criar auditoria: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Criar auditoria';
+  }
+}
+
+async function naImportarPdf(){
+  const arquivo = document.getElementById('naArquivo').files[0];
+  if (!arquivo) { msg('Selecione o PDF do relatório antes de importar.', 'err'); return; }
+  if (!NA.auditoriaId) { msg('Crie a auditoria antes de importar o PDF.', 'err'); return; }
+  const btn = document.getElementById('btnImportarPdf');
+  btn.disabled = true; btn.textContent = 'Importando… (pode levar até 1 min)';
+  msg('Importando PDF — extraindo texto, casando com o catálogo…', 'info');
+  try {
+    const fd = new FormData();
+    fd.append('arquivo', arquivo);
+    const r = await fetch(BACKEND + '/exp/auditorias/' + NA.auditoriaId + '/importar-pdf', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
+    });
+    const j = await r.json();
+    if (!r.ok || j.ok === false) { msg('Erro ao importar PDF: ' + (j.mensagem || j.error || r.status), 'err'); return; }
+    // sucesso: preenche os campos de "Carregar lote" e já abre a revisão direto, sem o usuário
+    // ter que copiar/colar os Ids na mão
+    document.getElementById('inAuditoria').value = NA.auditoriaId;
+    document.getElementById('inLote').value = j.loteId;
+    toggleNovaAuditoria();
+    await carregar(); // carregar() controla o msgArea sozinho — só define a mensagem final DEPOIS dele, senão ele sobrescreve
+    msg(j.totalItens + ' item(ns) identificado(s) no PDF, ' + j.semMatch + ' sem match — revise abaixo.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao importar PDF: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Importar PDF';
+  }
+}
 
 function msg(texto, tipo){
   document.getElementById('msgArea').innerHTML = texto ? '<div class="msg '+(tipo||'info')+'">'+escapeHtml(texto)+'</div>' : '';
