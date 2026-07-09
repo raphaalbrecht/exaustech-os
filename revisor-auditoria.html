@@ -116,16 +116,16 @@
   .filtros-linha .tratamento-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
-     de botões — pouco escaneável e sem noção de proporção entre os níveis. Substituídas por uma
-     barra única segmentada (largura de cada trecho = proporção do total) + legenda compacta
-     abaixo (quadradinho de cor + "Rn · contagem"). Clique no trecho da barra OU na legenda aplica
-     o mesmo filtro de sempre (setFiltro('risco:N')) — mesma mecânica, só a representação mudou. */
-  .risco-chart{display:flex;flex-direction:column;gap:5px;min-width:220px;max-width:380px}
-  .risco-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--neu-bg);width:100%}
-  .risco-seg{cursor:pointer;transition:filter .12s;min-width:3px}
-  .risco-seg:hover{filter:brightness(0.9)}
-  .risco-seg.ativo{box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
-  .risco-legenda{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+     de botões — pouco escaneável e sem noção de proporção entre os níveis. Rodada 12b: a 1ª versão
+     (barra única horizontal segmentada) não era o pedido — o certo é um gráfico de BARRAS
+     VERTICAIS (altura proporcional à quantidade de cada risco) + legenda compacta abaixo. Clique
+     na barra OU na legenda aplica o mesmo filtro de sempre (setFiltro('risco:N')). */
+  .risco-chart{display:flex;flex-direction:column;gap:6px;min-width:170px;align-items:center}
+  .risco-bars{display:flex;align-items:flex-end;gap:5px;height:32px}
+  .risco-col{width:16px;border-radius:3px 3px 1px 1px;cursor:pointer;transition:filter .12s;min-height:3px}
+  .risco-col:hover{filter:brightness(0.9)}
+  .risco-col.ativo{box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
+  .risco-legenda{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center}
   .risco-legenda .ritem{display:flex;align-items:center;gap:4px;cursor:pointer;padding:1px 5px;border-radius:5px;font-size:11px;color:var(--weak);border:1px solid transparent}
   .risco-legenda .ritem:hover{border-color:var(--border2)}
   .risco-legenda .ritem.ativo{background:var(--bg);border-color:var(--border2);font-weight:600;color:var(--txt)}
@@ -775,22 +775,21 @@ function renderTudo(){
     : '') + '</div>';
   h += '</div>';
 
-  // pedido do Raphael (10/07, rodada 12): "as pílulas de risco não estão legais do ponto de vista
-  // de UX — melhor um gráfico de barras + legenda compacta". Vira 1 barra única segmentada
-  // (largura de cada trecho = % do total de itens com risco) + legenda de chips abaixo. Mesma
-  // mecânica de clique-pra-filtrar de antes (setFiltro('risco:N')), só a representação visual.
+  // pedido do Raphael (10/07, rodada 12b): correção — não era barra horizontal segmentada, era
+  // gráfico de barras VERTICAIS (altura de cada barra proporcional à quantidade daquele risco,
+  // maior contagem = barra cheia) + legenda compacta abaixo. Mesma mecânica de clique de sempre.
   const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagem('risco:' + n) > 0);
   const riscoWrap = document.getElementById('riscoInline');
   if (riscoWrap) {
-    const totalRisco = niveisRisco.reduce((soma, n) => soma + contagem('risco:' + n), 0);
+    const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagem('risco:' + n)));
     riscoWrap.innerHTML = niveisRisco.length
       ? '<div class="risco-chart">'
-        + '<div class="risco-bar">' + niveisRisco.map((n) => {
+        + '<div class="risco-bars">' + niveisRisco.map((n) => {
             const c = riscoCor(n);
             const cnt = contagem('risco:' + n);
-            const pct = totalRisco > 0 ? (cnt / totalRisco * 100) : 0;
+            const alturaPct = Math.max(8, Math.round(cnt / maxRisco * 100));
             const on = ST.filtro === ('risco:' + n);
-            return '<div class="risco-seg' + (on ? ' ativo' : '') + '" style="width:' + pct + '%;background:' + c.tx + '" title="R' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')"></div>';
+            return '<div class="risco-col' + (on ? ' ativo' : '') + '" style="height:' + alturaPct + '%;background:' + c.tx + '" title="R' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')"></div>';
           }).join('') + '</div>'
         + '<div class="risco-legenda">' + niveisRisco.map((n) => {
             const c = riscoCor(n);
