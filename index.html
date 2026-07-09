@@ -958,6 +958,16 @@
       <button class="btn btn-neutral" onclick="closeLiModal()">Cancelar</button>
     </div></div></div>
 
+  <!-- MODAL DETALHE DO ATIVO (Cadastro de Ativos) -->
+  <div class="modal" id="ativoDetModal"><div class="modal-card" style="max-width:420px">
+    <div class="modal-title" id="ativoDetTitulo">Ativo</div>
+    <div class="modal-sub" id="ativoDetSub"></div>
+    <div id="ativoDetBody" style="max-height:50vh;overflow:auto"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeAtivoDet()">Fechar</button>
+      <button class="btn btn-brand" onclick="ativoDetEditar()">✏️ Editar cadastro</button>
+    </div></div></div>
+
   <!-- MODAL DETALHES DA ALOCAÇÃO -->
   <div class="modal" id="alocDetModal"><div class="modal-card">
     <div class="modal-title">Detalhes da Alocação</div>
@@ -3568,7 +3578,7 @@ function finishQuiz(){
 const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'}}; }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
@@ -3924,8 +3934,9 @@ function cadStepDone(){
   const et=cadSt.etiqueta||{status:'idle'};
   let h='<div style="padding:32px 18px 90px;text-align:center">'
     +'<div style="font-size:40px;margin-bottom:8px">✅</div>'
-    +'<div style="font-size:17px;font-weight:700;color:#0B2239">Ativo cadastrado</div>'
-    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>';
+    +'<div style="font-size:17px;font-weight:700;color:#0B2239">'+(cadSt.modoEdicao?'Cadastro atualizado':'Ativo cadastrado')+'</div>'
+    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>'
+    +'<button onclick="verAtivo(\''+cadSt.ativoId+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:12px;color:#3A4552;font-size:13px;font-weight:600;margin-bottom:14px">🔍 Ver / editar este ativo</button>';
 
   h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
   h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
@@ -4010,6 +4021,49 @@ async function cadProvisionarEtiqueta(){
 }
 function cadNfcCancelar(){ cadNfcDesativar(); cadSt.etiqueta={status:'idle'}; cadStepDone(); }
 function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} cadNfcCtrl=null; } }
+/* Tela de detalhe do Ativo — GET /ativos/:id já devolvia respostas+etiquetas prontos, órfão no front
+   (cadStepDone() só levava pro "Cadastrar outro"/agenda, sem link de volta pro ativo criado). */
+let ativoDetSt=null;
+async function verAtivo(ativoId){
+  if(!ativoId) return;
+  try{
+    const d=await beGet('/ativos/'+ativoId);
+    ativoDetSt=d;
+    document.getElementById('ativoDetTitulo').textContent=d.nome||'Ativo';
+    document.getElementById('ativoDetSub').textContent=[d.tipo,d.conta,d.local].filter(Boolean).join(' · ');
+    let h='';
+    const porSessao={};
+    (d.respostas||[]).forEach(r=>{ const s=r.sessao||'Outros'; (porSessao[s]=porSessao[s]||[]).push(r); });
+    Object.keys(porSessao).forEach(s=>{
+      h+='<div style="font-size:12px;font-weight:700;color:#3E7EB0;margin:10px 0 4px">'+cadEsc(s)+'</div>';
+      porSessao[s].forEach(r=>{
+        h+='<div class="det-row"><span class="det-k">'+cadEsc(r.campo||'')+'</span><span class="det-v">'+cadEsc(r.resposta||'')+'</span></div>';
+      });
+    });
+    if(!(d.respostas||[]).length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
+    const etAtiva=(d.etiquetas||[]).find(e=>e.ativa);
+    if(etAtiva) h+='<div style="font-size:12px;color:#1D9E75;margin-top:10px">🏷️ Etiqueta ativa — versão '+etAtiva.versao+'</div>';
+    document.getElementById('ativoDetBody').innerHTML=h;
+    document.getElementById('ativoDetModal').classList.add('show');
+  }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
+}
+function closeAtivoDet(){ document.getElementById('ativoDetModal').classList.remove('show'); }
+/* reabre o wizard direto na Ficha (pula conta/sistema/equipamento, já resolvidos) pré-preenchida com
+   as respostas existentes — upsert por (Ativo,Campo) em POST /respostas já suporta editar no lugar.
+   Limitação conhecida: campos tipo Foto não trazem preview da foto já salva (mapResposta não devolve
+   fotoUrl) — reeditar um desses pede recapturar a foto; não é regressão, cadastro editável nem existia antes. */
+async function ativoDetEditar(){
+  if(!ativoDetSt) return;
+  const d=ativoDetSt;
+  closeAtivoDet();
+  cadReset();
+  cadSt.ativoId=d.id; cadSt.tipoNome=d.tipo||''; cadSt.conta={id:null,nome:d.conta||''}; cadSt.modoEdicao=true;
+  try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+d.id); }
+  catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
+  (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
+  cadSt.step='form';
+  go('cadastro');
+}
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
   {nome:'Pedro Gomes',matricula:'F-1188',cargo:'Auxiliar',cor:'#2e844a',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
