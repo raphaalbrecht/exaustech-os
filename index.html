@@ -3566,7 +3566,7 @@ function finishQuiz(){
 const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false}; }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
@@ -3820,27 +3820,43 @@ function cadStepForm(){
     if(!campos.length) return;
     h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
     campos.forEach(c=>{
-      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+'</div>';
-      const ops=c.opcoes||[];
-      const temImg=ops.some(o=>o.imagemUrl);
-      if(ops.length && temImg){
-        h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
-        ops.forEach(o=>{
-          const sel=cadSt.resp[c.id]===o.label;
-          h+=`<button onclick="cadSet('${c.id}',this.getAttribute('data-l'))" data-l="${cadEsc(o.label)}" style="width:31%;border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;overflow:hidden;background:#fff;padding:0">`;
-          if(o.imagemUrl){ h+=`<span style="display:block;aspect-ratio:1;background:#fff"><img id="cadimg-${o.id}" style="width:100%;height:100%;object-fit:contain" alt=""></span>`; imgs.push(o.id); }
-          else h+='<span style="display:block;aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:10px">sem img</span>';
-          h+=`<span style="display:block;font-size:11px;text-align:center;padding:5px;font-weight:${sel?'700':'500'};color:${sel?'#3E7EB0':'#3A4552'}">${cadEsc(o.label)}</span></button>`;
-        });
-        h+='</div>';
-      } else if(ops.length){
-        h+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-        ops.forEach(o=>{ const sel=cadSt.resp[c.id]===o.label;
-          h+=`<button onclick="cadSet('${c.id}',this.getAttribute('data-l'))" data-l="${cadEsc(o.label)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(o.label)}</button>`; });
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')+'</div>';
+      if(c.tipo==='Foto'){
+        /* tipo Foto: sobe pro Drive via /midias-ativo, grava Foto_Drive_Id__c/Foto_URL__c em RespostaAtivo__c (campos já existiam, órfãos até aqui) */
+        const foto=cadSt.fotos[c.id];
+        const busy=foto&&foto.status==='uploading';
+        const erro=foto&&foto.status==='error';
+        const ok=foto&&foto.status==='ok';
+        h+='<div style="display:flex;align-items:center;gap:10px">';
+        if(foto&&foto.previewUrl) h+=`<img src="${foto.previewUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #E2E5E9;flex-shrink:0">`;
+        h+=`<label style="flex:1;text-align:center;background:${ok?'#EAF1F7':(erro?'#FCEBEB':'#3E7EB0')};color:${ok?'#2B5A7E':(erro?'#8e1b1b':'#fff')};border-radius:10px;padding:11px;font-size:13px;font-weight:700;${busy?'opacity:.6;pointer-events:none':'cursor:pointer'}">${busy?'Enviando…':(erro?'⚠️ Falha — tocar pra tentar de novo':(ok?'Trocar foto':'📷 Tirar/escolher foto'))}<input type="file" accept="image/*" capture="environment" style="display:none" ${busy?'disabled':''} onchange="cadFotoEscolhida('${c.id}',this)"></label>`;
         h+='</div>';
       } else {
-        const num=(c.tipo==='Número');
-        h+=`<input type="${num?'number':'text'}" value="${cadEsc(cadSt.resp[c.id]||'')}" oninput="cadSetText('${c.id}',this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px">`;
+        const ops=c.opcoes||[];
+        const multi=c.tipo==='Multi-Picklist';
+        const temImg=ops.some(o=>o.imagemUrl);
+        const selecionados=multi?String(cadSt.resp[c.id]||'').split(';').filter(Boolean):null;
+        if(ops.length && temImg){
+          h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+          ops.forEach(o=>{
+            const sel=multi?selecionados.includes(o.label):(cadSt.resp[c.id]===o.label);
+            const fn=multi?`cadToggleMulti('${c.id}',this.getAttribute('data-l'))`:`cadSet('${c.id}',this.getAttribute('data-l'))`;
+            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="width:31%;border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;overflow:hidden;background:#fff;padding:0">`;
+            if(o.imagemUrl){ h+=`<span style="display:block;aspect-ratio:1;background:#fff"><img id="cadimg-${o.id}" style="width:100%;height:100%;object-fit:contain" alt=""></span>`; imgs.push(o.id); }
+            else h+='<span style="display:block;aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:10px">sem img</span>';
+            h+=`<span style="display:block;font-size:11px;text-align:center;padding:5px;font-weight:${sel?'700':'500'};color:${sel?'#3E7EB0':'#3A4552'}">${cadEsc(o.label)}</span></button>`;
+          });
+          h+='</div>';
+        } else if(ops.length){
+          h+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+          ops.forEach(o=>{ const sel=multi?selecionados.includes(o.label):(cadSt.resp[c.id]===o.label);
+            const fn=multi?`cadToggleMulti('${c.id}',this.getAttribute('data-l'))`:`cadSet('${c.id}',this.getAttribute('data-l'))`;
+            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(o.label)}</button>`; });
+          h+='</div>';
+        } else {
+          const num=(c.tipo==='Número');
+          h+=`<input type="${num?'number':'text'}" value="${cadEsc(cadSt.resp[c.id]||'')}" oninput="cadSetText('${c.id}',this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px">`;
+        }
       }
       h+='</div>';
     });
@@ -3851,6 +3867,33 @@ function cadStepForm(){
 }
 function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadStepForm(); }
 function cadSetText(campoId,v){ cadSt.resp[campoId]=v; }
+/* Multi-Picklist: alterna item no conjunto separado por ';' (mesmo formato que o backend/E2E já esperam) */
+function cadToggleMulti(campoId,label){
+  const cur=String(cadSt.resp[campoId]||'').split(';').filter(Boolean);
+  const i=cur.indexOf(label);
+  if(i>=0) cur.splice(i,1); else cur.push(label);
+  cadSt.resp[campoId]=cur.join(';');
+  cadStepForm();
+}
+/* tipo Foto: preview local instantâneo (sem depender da rede) + upload em segundo plano pro /midias-ativo;
+   falha não trava o campo — reabre o mesmo seletor de arquivo pra tentar de novo (padrão "IA: fallback em bloqueio"). */
+async function cadFotoEscolhida(campoId,input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const previewUrl=URL.createObjectURL(file);
+  cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'uploading'};
+  cadStepForm();
+  try{
+    const fd=new FormData(); fd.append('file',file,file.name||'foto.jpg'); fd.append('campoId',campoId);
+    const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
+    cadSt.fotos[campoId]={file,previewUrl,driveId:j.driveId,url:j.url,status:'ok'};
+  }catch(e){
+    cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'error'};
+    toast('Erro ao enviar foto: '+e.message);
+  }
+  cadStepForm();
+}
 async function cadLoadImg(opcaoId){
   const img=document.getElementById('cadimg-'+opcaoId); if(!img) return;
   if(cadSt.img[opcaoId]){ img.src=cadSt.img[opcaoId]; return; }
@@ -3859,10 +3902,17 @@ async function cadLoadImg(opcaoId){
   }catch(e){}
 }
 async function cadSalvar(){
-  const f=cadSt.form; const respostas=[];
+  const f=cadSt.form; const respostas=[]; const faltamFoto=[];
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>(s.campos||[]).filter(c=>cadDepOk(c.dependencia)).forEach(c=>{
+    if(c.tipo==='Foto'){
+      const foto=cadSt.fotos[c.id];
+      if(foto&&foto.status==='ok') respostas.push({campoId:c.id,resposta:'Foto anexada',fotoDriveId:foto.driveId,fotoUrl:foto.url});
+      else if(c.fotoObrigatoria) faltamFoto.push(c.nome);
+      return;
+    }
     const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
   }));
+  if(faltamFoto.length){ toast('📷 Falta a foto de: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
   if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
   try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas}); cadSt.step='done'; cadStepDone(); }
   catch(e){ toast(e.message); }
