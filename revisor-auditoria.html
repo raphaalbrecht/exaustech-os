@@ -146,7 +146,6 @@
   .foto-wrap img{width:100%;border-radius:6px;display:block}
   .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-bottom:12px}
   .pdf-viewer{width:100%;height:74vh;border:1px solid var(--border);border-radius:8px;background:#fff;display:block}
-  .pdf-hint{font-size:11px;color:var(--weaker);font-weight:400}
   .link-btn{background:none;border:none;color:var(--brand);font-size:12.5px;cursor:pointer;padding:9px 4px;text-decoration:underline;font-weight:600}
   .link-btn:hover{color:var(--brand-d)}
   .kv-select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:12.5px;background:#fff;color:var(--txt)}
@@ -910,11 +909,10 @@ async function renderDetalhe(){
   // (que continua sticky no fundo da coluna — antes stickava na página, agora gruda no fundo do
   // scroll interno da própria coluna, o que é ainda melhor: fica sempre visível ao rolar).
   colPdf.innerHTML =
-    '<h3>PDF original' + (pdfUrl
-        ? ' <span class="pdf-hint">' + (l.paginaPdf
-            ? '· já aberto na página ' + l.paginaPdf + ' — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho exato'
-            : '· página não identificada automaticamente — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho') + '</span>'
-        : '') + '</h3>'
+    // pedido do Raphael (10/07, rodada 2): removida a dica "já aberto na página N — use Ctrl+F..."
+    // ao lado do título — o pulo de página já acontece sozinho (ver srcPdf abaixo), a dica só
+    // repetia informação óbvia/redundante pra quem já está olhando o documento aberto na página certa.
+    '<h3>PDF original</h3>'
     + (pdfUrl
         ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
         : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>');
