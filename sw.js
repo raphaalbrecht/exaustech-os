@@ -57,8 +57,16 @@
     morto (fluxo antigo de OAuth direto Salesforce+Google Drive do navegador, superado pelo backend)
    (v88 07/07 — troca do ícone do rank NOVATO (EXP + Trilhas): 🌱 dava impressão tímida/perdida →
     foguete gradiente (SVG próprio, ICON_NOVATO_FOGUETE) decolando, compartilhado entre EXP_RANKS.emo
-    e RANKS.icon) */
-const CACHE = 'exaustech-os-v88';
+    e RANKS.icon)
+   (v89 08/07 — higiene do papel (ROLE/be_funcao): beLogout agora limpa be_funcao e reseta ROLE pro
+    padrão; beDoLogin sempre grava o papel fresco da resposta (sem match = volta ao padrão, nunca
+    herda o papel da sessão anterior). Obs.: causa raiz do "Sócio" fantasma era o DADO na MOB3
+    (Funcao__c do recurso de teste), não o front — estas correções fecham o vetor de estado velho.)
+   (v90 09/07 — Cadastro de Ativos: campo tipo Foto (upload real pro Drive via /midias-ativo) +
+    Multi-Picklist (seleção múltipla, antes sobrescrevia) + provisionar etiqueta NFC ao final do
+    cadastro (lê UID físico, grava App Link do Portal na tag, QR companion pra impressão))
+   (republicação: run #127 do Pages ficou preso na fila, novo commit pra destravar) */
+const CACHE = 'exaustech-os-v90';
 const SHELL = [
   './',
   './index.html',
