@@ -1143,8 +1143,8 @@ function edHtmlTabela(l){
   if (!CAT) {
     return '<table class="kv">'
       + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
-      + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
+      + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
       + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
       + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
       + '</table>'
