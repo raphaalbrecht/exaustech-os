@@ -320,11 +320,12 @@
 
 <div class="wrap">
   <div id="msgArea"></div>
-  <!-- pedido do Raphael (10/07, rodada 10): conta+data ganham destaque de volta — fonte azul
-       grande, canto esquerdo do corpo (ver renderTudo() pro preenchimento e comentário no CSS). -->
-  <div class="conta-destaque" id="contaDestaque" style="display:none"></div>
 
   <div class="card loadbar">
+    <!-- pedido do Raphael (10/07, rodada 11): "entra pra dentro do retângulo branco" — o destaque
+         de conta+data (fonte azul grande) sai de fora do card e vira a 1ª linha do próprio card
+         branco (largura cheia, antes do resto do conteúdo do loadbar). -->
+    <div class="conta-destaque" id="contaDestaque" style="display:none;width:100%"></div>
     <!-- pedido do Raphael (10/07, rodada 4): os campos de Id são via de acesso manual/secundária —
          o caminho normal é "+ Nova auditoria" (upload) ou o auto-carregamento do último lote (ver
          initSessao()). Ficam escondidos por padrão atrás do link "Acessar por Id", em vez de serem
