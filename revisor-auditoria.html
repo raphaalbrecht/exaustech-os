@@ -37,6 +37,9 @@
   .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px}
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
+  .conta-header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .conta-header .conta-nome{font-size:19px;font-weight:700;color:var(--brand-dk)}
+  .conta-header .conta-data{font-size:13px;color:var(--weak)}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
   .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;min-width:110px}
   .stat .n{font-size:20px;font-weight:600}
@@ -45,6 +48,8 @@
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px}
+  .busca-input:focus{outline:none;border-color:var(--brand)}
   .lista{border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:78vh;overflow-y:auto}
   .litem{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
   .litem:hover{background:var(--brand-l)}
@@ -131,7 +136,7 @@
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getItem('be_tok'); }
 
-let ST = { auditoriaId:null, loteId:null, lote:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null };
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
 function msg(texto, tipo){
@@ -166,8 +171,8 @@ async function carregar(){
     });
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
-    ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas;
-    ST.selecionadaId = null; ST.filtro = 'todas'; ST.comparativo = null;
+    ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas; ST.auditoria = j.auditoria || null;
+    ST.selecionadaId = null; ST.filtro = 'todas'; ST.comparativo = null; ST.busca = '';
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
     renderTudo();
@@ -201,18 +206,40 @@ function contagem(faixaOrTag){
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
 
+function normalizarBusca(s){
+  // minúsculas + sem acento, pra "duto" achar "Duto"/"dúto" igual (mesmo espírito do removerConectivos do backend)
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 function linhasFiltradas(){
+  let base;
   switch (ST.filtro) {
-    case 'Forte': case 'Fraco': case 'Sem match': return ST.linhas.filter(l => l.faixa === ST.filtro);
-    case 'foto': return ST.linhas.filter(l => l.possuiFoto);
-    case 'nota': return ST.linhas.filter(l => l.possuiTextoComplementar);
-    default: return ST.linhas;
+    case 'Forte': case 'Fraco': case 'Sem match': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
+    case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
+    case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
+    default: base = ST.linhas;
   }
+  if (!ST.busca.trim()) return base;
+  const termo = normalizarBusca(ST.busca);
+  return base.filter(l => [l.numeroRelatorio, l.textoOriginal, l.naoConformidadeTexto, l.perguntaTexto]
+    .some(campo => campo && normalizarBusca(campo).includes(termo)));
+}
+
+function buscarDigitando(valor){
+  ST.busca = valor;
+  renderLista(); // só a lista — nunca renderTudo() aqui, senão o campo perde o foco a cada tecla
 }
 
 function renderTudo(){
   const l = ST.lote;
+  const a = ST.auditoria;
   let h = '';
+  if (a && (a.contaNome || a.dataInspecao)) {
+    h += '<div class="conta-header">'
+      + '<span class="conta-nome">' + escapeHtml(a.contaNome || 'Conta não identificada') + '</span>'
+      + '<span class="conta-data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>'
+      + '</div>';
+  }
   h += '<div class="summary">'
     + '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
     + '<div class="stat"><div class="n">' + (l.itensConfirmados ?? 0) + '</div><div class="l">confirmados</div></div>'
@@ -231,7 +258,11 @@ function renderTudo(){
   ).join('') + '</div>';
 
   h += '<div class="grid">';
-  h += '<div class="lista" id="listaLinhas"></div>';
+  h += '<div>'
+    + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
+    + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
+    + '<div class="lista" id="listaLinhas"></div>'
+    + '</div>';
   h += '<div>' + (ST.selecionadaId
     ? '<div class="detalhe show" id="detalhe"></div><div class="card hist" id="historico" style="margin-top:12px;padding:0"></div>'
     : '<div class="card placeholder">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>') + '</div>';
@@ -381,7 +412,10 @@ function renderLista(){
   const el = document.getElementById('listaLinhas');
   if (!el) return;
   const linhas = linhasFiltradas();
-  if (!linhas.length) { el.innerHTML = '<div class="placeholder">Nenhum item nesse filtro.</div>'; return; }
+  if (!linhas.length) {
+    el.innerHTML = '<div class="placeholder">Nenhum item encontrado' + (ST.busca.trim() ? ' para "' + escapeHtml(ST.busca) + '"' : ' nesse filtro') + '.</div>';
+    return;
+  }
   el.innerHTML = linhas.map(l => {
     const tags = [];
     if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
