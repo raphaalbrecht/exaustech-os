@@ -64,7 +64,11 @@
   .conta-header .conta-nome{font-size:19px;font-weight:700;color:var(--brand-dk)}
   .conta-header .conta-data{font-size:13px;color:var(--weak)}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
-  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;min-width:110px}
+  /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
+     depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
+     .stat virar flex-column centralizado faz todas ficarem com a MESMA altura (a da mais alta),
+     com o conteúdo das mais curtas centralizado em vez de grudado no topo. */
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;min-width:110px;display:flex;flex-direction:column;justify-content:center}
   .stat .n{font-size:20px;font-weight:600}
   /* sugestão Fable 10/07: nome do arquivo reusava a fonte de "métrica" (20px bold) e brigava com
      os números de verdade — reduz peso/tamanho e trunca com ellipsis pra não alargar o card */
@@ -278,7 +282,7 @@
       <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
     </div>
     <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
-    <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
 
   <div id="conteudo"></div>
