@@ -979,7 +979,14 @@ async function renderDetalhe(){
         : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>');
 
   colReg.innerHTML =
-    '<h3>Registro no Salesforce</h3>'
+    // pedido do Raphael (10/07, rodada 4): Status sai da última linha da tabela (onde ficava fácil
+    // de passar batido, lá embaixo) e vira o destaque do canto superior direito, ao lado do título
+    // da seção — é o dado mais "de estado" do item, faz sentido estar junto do h3, não enterrado
+    // no meio de Grupo/Elemento/Pergunta.
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      + '<h3 style="margin:0">Registro no Salesforce</h3>'
+      + badgeStatus(l.status)
+    + '</div>'
     + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
     + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
     + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
@@ -1323,7 +1330,6 @@ function edHtmlTabela(l){
       + '<tr><td>Elemento</td><td>' + escapeHtml((CAT && CAT.elementoPorId[l.elementoId] && CAT.elementoPorId[l.elementoId].nome) || '—') + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
       + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + (l.risco != null ? ' <span class="badge neu">R' + l.risco + '</span>' : '') + '</td></tr>'
-      + '<tr><td>Status</td><td>' + badgeStatus(l.status) + '</td></tr>'
       + '</table>';
   }
 
@@ -1333,7 +1339,6 @@ function edHtmlTabela(l){
       + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
       + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
-      + '<tr><td>Status</td><td>' + badgeStatus(l.status) + '</td></tr>'
       + '</table>'
       + '<div class="msg err" style="margin-top:10px">Catálogo do checklist não carregou — edição de campo desativada. '
       + '<a href="#" onclick="carregarCatalogoSeNecessario().then(renderDetalhe); return false">tentar de novo</a></div>';
@@ -1354,7 +1359,6 @@ function edHtmlTabela(l){
   html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
     + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
-  html += '<tr><td>Status</td><td>' + badgeStatus(l.status) + '</td></tr>';
   html += '</table>';
 
   if (ED.novoNcAberto) html += edHtmlNovoNc();
