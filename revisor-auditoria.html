@@ -617,7 +617,7 @@ function renderTudo(){
     const confirmados = l.itensConfirmados || 0;
     const completo = total > 0 && confirmados >= total;
     const pct = total > 0 ? Math.min(100, Math.round((confirmados / total) * 100)) : 0;
-    summaryWrap.innerHTML = '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
+    summaryWrap.innerHTML = '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
       + '<div class="stat' + (completo ? ' stat-completo' : '') + '">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
