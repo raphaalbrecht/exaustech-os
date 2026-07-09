@@ -53,6 +53,13 @@
   .stat .n{font-size:20px;font-weight:600}
   .stat .l{font-size:11.5px;color:var(--weak)}
   .filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  /* pedido do Raphael (10/07): o cabeçalho da lista ficava alto demais — Filtros numa linha e
+     Tratamento em outra, cada uma com seu próprio espaço vertical. Junta as duas na MESMA linha
+     (Filtros à esquerda, Tratamento empurrado pro canto direito via margin-left:auto), reduzindo
+     a altura do cabeçalho e "arejando" o centro da linha em vez de deixar tudo grudado à esquerda. */
+  .filtros-linha{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px}
+  .filtros-linha .filtros{margin-bottom:0}
+  .filtros-linha .tratamento-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
@@ -544,17 +551,21 @@ function renderTudo(){
     ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
     ['foto', 'Com foto'], ['nota', 'Com nota']
   ];
+  // status de tratamento (2º eixo, separado da revisão de match) + NC recorrente neste lote
+  const filtrosTratativa = [['nao_tratada', 'Não tratada'], ['em_tratativa', 'Em tratativa'], ['tratada', 'Tratada']];
+
+  // Filtros e Tratamento na mesma linha (Filtros à esquerda, Tratamento alinhado à direita) pra
+  // encurtar o cabeçalho — ver comentário da classe .filtros-linha no CSS.
+  h += '<div class="filtros-linha">';
   h += '<div class="filtros">' + filtros.map(([k, label]) =>
     '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
   ).join('') + '</div>';
-
-  // status de tratamento (2º eixo, separado da revisão de match) + NC recorrente neste lote
-  const filtrosTratativa = [['nao_tratada', 'Não tratada'], ['em_tratativa', 'Em tratativa'], ['tratada', 'Tratada']];
-  h += '<div class="filtros-sub"><span class="rotulo">Tratamento:</span>' + filtrosTratativa.map(([k, label]) =>
+  h += '<div class="tratamento-inline"><span class="rotulo">Tratamento:</span>' + filtrosTratativa.map(([k, label]) =>
     '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
   ).join('') + (contagem('recorrente')
     ? '<button class="fbtn ' + (ST.filtro === 'recorrente' ? 'on' : '') + '" onclick="setFiltro(\'recorrente\')">Recorrentes (' + contagem('recorrente') + ')</button>'
     : '') + '</div>';
+  h += '</div>';
 
   // por nível de risco (0-5) — só mostra os níveis que de fato aparecem neste lote
   const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagem('risco:' + n) > 0);
