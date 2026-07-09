@@ -756,8 +756,10 @@ async function renderDetalhe(){
     + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
     + '</table>'
     + '<div class="actionbar">'
-    + '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')" ' + (l.status === 'Pendente proposta' ? 'disabled' : '') + '>'
-    + (l.status === 'Pendente proposta' ? 'Já confirmado' : 'Confirmar match') + '</button>'
+    + (l.status === 'Pendente proposta'
+        ? '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
+          + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>'
+        : '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>')
     + '</div>'
     + (l.faixa === 'Sem match' ? '<div class="msg info" style="margin-top:14px">Itens "Sem match" que precisam virar item novo de catálogo ainda não têm tela própria aqui — isso é o wizard de cadastro (em construção, Sócio-only). Por ora, ajuste direto no Salesforce se precisar.</div>' : '')
     + '</div>';
@@ -790,6 +792,25 @@ async function confirmarLinha(linhaId){
   } catch (e) {
     msg('Falha de rede ao confirmar: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; }
+  }
+}
+
+async function reverterLinha(linhaId){
+  if (!confirm('Reverter a confirmação deste item? Ele volta pra "Pendente de revisão".')) return;
+  const btn = document.getElementById('btnReverter');
+  if (btn) { btn.disabled = true; btn.textContent = 'Revertendo…'; }
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/reverter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: '{}'
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao reverter: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Reverter confirmação'; } return; }
+    await carregar(); // recarrega o lote pra refletir o novo status/contadores
+    ST.selecionadaId = linhaId; renderTudo();
+    msg('Confirmação revertida — item voltou pra revisão.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao reverter: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Reverter confirmação'; }
   }
 }
 
