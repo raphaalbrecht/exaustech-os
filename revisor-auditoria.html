@@ -111,8 +111,10 @@
      agora crescem em fr (a lista também), redistribuindo a largura ganha: mais pra lista e pro PDF,
      menos pro registro, que não precisa de tanto espaço pros seus valores curtos.
      Rodada 4: lista devolve 30% do que tinha ganho (1.15fr → 0.8fr) — foi longe demais na rodada
-     3; o espaço liberado vai pro PDF e pro registro, mantendo a proporção entre os dois (1.65:1). */
-  .grid.grid-3{grid-template-columns:0.8fr 1.85fr 1.15fr}
+     3; o espaço liberado vai pro PDF e pro registro, mantendo a proporção entre os dois (1.65:1).
+     Rodada 5: PDF reduz mais 15% (1.85fr → 1.57fr) — espaço liberado vai todo pro registro (fica
+     mais espaço pra tabela+foto+ações), lista fica como estava. */
+  .grid.grid-3{grid-template-columns:0.8fr 1.57fr 1.43fr}
   .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
   .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
@@ -1003,7 +1005,12 @@ async function renderDetalhe(){
       + badgeStatus(l.status)
     + '</div>'
     + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
-    + '<div class="item-texto">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
+    // pedido do Raphael (10/07, rodada 5): "o texto em azul não precisa existir pois ele já
+    // aparece no campo acima da Pergunta" — depois do corte na tag [Rn] (rodada anterior),
+    // item-texto ficou 100% redundante com Pergunta+Não-conformidade pra matches Fortes. Removido.
+    // Nota: em itens com correção manual (Pergunta/NC trocada via os selects), o texto bruto do PDF
+    // deixa de estar visível em lugar nenhum — se fizer falta como evidência nesses casos, dá pra
+    // trazer de volta só condicionalmente (quando divergir dos campos estruturados).
     + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
     + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
     + '<div class="hist" id="historico"></div>'
