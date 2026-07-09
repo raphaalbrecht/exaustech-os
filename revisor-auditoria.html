@@ -70,6 +70,13 @@
      os números de verdade — reduz peso/tamanho e trunca com ellipsis pra não alargar o card */
   .stat .n.arquivo{font-size:12.5px;font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .stat .l{font-size:11.5px;color:var(--weak)}
+  /* pedido do Raphael (10/07, rodada 2): progresso visual de "quanto já foi confirmado" — barrinha
+     fina embaixo do número, e a pílula inteira vira verde quando bate 100% (sinal de "terminou"). */
+  .stat-barra{margin-top:7px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:90px}
+  .stat-barra-fill{height:100%;background:var(--brand);border-radius:999px}
+  .stat.stat-completo{background:var(--succ-bg);border-color:var(--succ-bd)}
+  .stat.stat-completo .n{color:var(--succ)}
+  .stat.stat-completo .stat-barra-fill{background:var(--succ)}
   .filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
   /* pedido do Raphael (10/07): o cabeçalho da lista ficava alto demais — Filtros numa linha e
      Tratamento em outra, cada uma com seu próprio espaço vertical. Junta as duas na MESMA linha
@@ -598,10 +605,22 @@ function renderTudo(){
   // só o resumo migra pra dentro do card via #summaryInline (fora do innerHTML de #conteudo).
   const summaryWrap = document.getElementById('summaryInline');
   if (summaryWrap) {
+    // pedido do Raphael (10/07, rodada 2): "confirmados" era só um número solto, sem noção de
+    // progresso nem de "terminou" — vira X/Y com barrinha, e quando bate 100% a pílula inteira
+    // fica verde + aparece um selo "Revisão completa" (o Status_do_Lote__c='Concluído' que o
+    // backend já calcula em recalcularLote() e devolvia sem nenhum uso na tela até agora).
+    const total = l.totalItens || 0;
+    const confirmados = l.itensConfirmados || 0;
+    const completo = total > 0 && confirmados >= total;
+    const pct = total > 0 ? Math.min(100, Math.round((confirmados / total) * 100)) : 0;
     summaryWrap.innerHTML = '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
-      + '<div class="stat"><div class="n">' + (l.itensConfirmados ?? 0) + '</div><div class="l">confirmados</div></div>'
+      + '<div class="stat' + (completo ? ' stat-completo' : '') + '">'
+        + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
+        + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
+      + '</div>'
       + '<div class="stat"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
-      + '<div class="stat"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>';
+      + '<div class="stat"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
+      + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
 
   h += '<div id="comparativoWrap"></div>';
