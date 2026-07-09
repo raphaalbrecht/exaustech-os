@@ -195,9 +195,13 @@
   /* sugestão Fable 10/07: 42% pro rótulo sobrava pouco espaço pros <select> com textos longos de
      Pergunta/NC; rótulo fixo e mais estreito + valor alinhado à esquerda (antes ficava misto:
      select preenche a célula mas texto solto ia pra direita) */
-  .kv td:first-child{color:var(--weak);width:110px}
+  /* pedido do Raphael (10/07, rodada 9): "o nome do campo quase encosta no conteúdo do campo" —
+     não era o espaço entre as 3 colunas da tela, era DENTRO da linha do kv: rótulo (largura fixa
+     110px) e valor ficavam colados quando o texto do rótulo (ex. "Nota do vistoriador") quase
+     preenchia os 110px inteiros. padding-right cria um respiro mínimo garantido, sempre. */
+  .kv td:first-child{color:var(--weak);width:110px;padding-right:16px}
   /* pedido do Raphael (10/07, rodada 8): dúvida de UX resolvida a favor do VALOR — rótulo fica
-     regular/claro (já é, via --weak acima), valor ganha peso 500 pra puxar o olho pra dado em si,
+     regular/claro (já é, via --weak acima), valor ganha peso 600 pra puxar o olho pra dado em si,
      que é o que o revisor está de fato escaneando linha a linha (o rótulo já é fixo/conhecido). */
   .kv td:last-child{text-align:left;font-weight:600;color:var(--txt)}
   /* sugestão Fable 10/07: "Confirmar match" ficava abaixo da dobra quando a foto era alta,
@@ -772,9 +776,10 @@ function renderTudo(){
   // pedido do Raphael (10/07, rodada 8): "coluna direita pode afastar um pouco em direção à
   // direita" — margin-left só na coluna de registro (não no gap do grid inteiro, que também
   // empurraria a coluna do PDF) pra abrir mais respiro entre PDF e registro sem mexer no resto.
-  // Rodada 9: 10px ficou "muito colado" ainda — sobe pra 32px, respiro bem mais perceptível.
+  // Rodada 9: voltou pra 10px — o "colado" que o Raphael via não era o espaço ENTRE as colunas,
+  // era dentro de cada linha do kv (rótulo quase encostando no valor). Ver .kv td:first-child.
   h += ST.selecionadaId
-    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:32px"></div>'
+    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:10px"></div>'
     : '<div class="placeholder-col">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>';
   h += '</div>';
 
