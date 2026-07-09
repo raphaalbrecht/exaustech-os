@@ -294,20 +294,32 @@
   <div id="msgArea"></div>
 
   <div class="card loadbar">
-    <div>
-      <label>Auditoria (Id)</label>
-      <input id="inAuditoria" placeholder="a7Ybe000000R9OzEAK">
+    <!-- pedido do Raphael (10/07, rodada 4): os campos de Id são via de acesso manual/secundária —
+         o caminho normal é "+ Nova auditoria" (upload) ou o auto-carregamento do último lote (ver
+         initSessao()). Ficam escondidos por padrão atrás do link "Acessar por Id", em vez de serem
+         a primeira coisa que a tela mostra. -->
+    <div id="idsManual" style="display:none;gap:10px;align-items:flex-end">
+      <div>
+        <label>Auditoria (Id)</label>
+        <input id="inAuditoria" placeholder="a7Ybe000000R9OzEAK">
+      </div>
+      <div>
+        <label>Lote (Id)</label>
+        <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
+      </div>
+      <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
     </div>
-    <div>
-      <label>Lote (Id)</label>
-      <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
-    </div>
-    <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
+    <button class="link-btn" id="btnToggleIds" onclick="toggleIdsManual()" style="padding:9px 0">Acessar por Id</button>
     <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, centralizadas
          no mesmo card — eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava
          vazia à direita depois que a página passou a ocupar a largura toda. -->
     <div id="riscoInline" style="margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
     <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
+  </div>
+  <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
+       ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
+  <div id="estadoVazio" class="placeholder-col" style="display:none;margin-top:14px;flex:1 1 auto">
+    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="toggleIdsManual();return false" style="color:var(--brand);font-weight:600">acesse por Id</a> um lote já existente.
   </div>
 
   <div id="conteudo"></div>
@@ -345,6 +357,17 @@ async function carregarCatalogoSeNecessario(){
   for (const x of j.prefixos) { const chave = (x.elementoId || '') + '|' + (x.grupoId || ''); (prefixosPorPar[chave] || (prefixosPorPar[chave] = [])).push(x); }
   CAT = Object.assign({}, j, { grupoPorId, elementoPorId, perguntaPorId, ncPorId, elementosPorGrupo, perguntasPorElemento, ncsPorPergunta, prefixosPorPar });
   return CAT;
+}
+
+// pedido do Raphael (10/07, rodada 4): campos de Id escondidos por padrão atrás deste toggle —
+// ver comentário no HTML de #idsManual.
+function toggleIdsManual(){
+  const el = document.getElementById('idsManual');
+  const btn = document.getElementById('btnToggleIds');
+  const mostrando = el.style.display !== 'none';
+  el.style.display = mostrando ? 'none' : 'flex';
+  btn.textContent = mostrando ? 'Acessar por Id' : 'Ocultar';
+  if (!mostrando) document.getElementById('inAuditoria').focus();
 }
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
@@ -512,7 +535,18 @@ function initSessao(){
   }
   chip.textContent = nome + (funcao ? ' · ' + funcao : '');
   const last = JSON.parse(localStorage.getItem('revisor_last') || 'null');
-  if (last) { document.getElementById('inAuditoria').value = last.auditoriaId || ''; document.getElementById('inLote').value = last.loteId || ''; }
+  if (last && last.auditoriaId && last.loteId) {
+    // pedido do Raphael (10/07, rodada 4): último lote carrega sozinho ao abrir a página — os
+    // campos de Id ficam preenchidos mas escondidos (ver #idsManual), só aparecem se o revisor
+    // clicar em "Acessar por Id" pra trocar de lote.
+    document.getElementById('inAuditoria').value = last.auditoriaId;
+    document.getElementById('inLote').value = last.loteId;
+    carregar();
+  } else {
+    // primeira visita (ou localStorage limpo): nenhum lote pra carregar sozinho — mostra o
+    // estado vazio orientando pro "+ Nova auditoria" ou pro acesso manual por Id.
+    document.getElementById('estadoVazio').style.display = 'flex';
+  }
   return true;
 }
 
@@ -532,6 +566,7 @@ async function carregar(){
     ST.selecionadaId = null; ST.filtro = 'todas'; ST.comparativo = null; ST.busca = '';
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
+    document.getElementById('estadoVazio').style.display = 'none';
     renderTudo();
     carregarComparativo(auditoriaId); // best-effort, não bloqueia o resto da tela
   } catch (e) {
