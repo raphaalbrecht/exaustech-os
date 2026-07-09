@@ -37,6 +37,12 @@
      título — separador sutil (borda esquerda translúcida) só pra diferenciar do título, sem virar
      um bloco chamativo. */
   .header-conta{font-size:12.5px;opacity:.92;margin-left:14px;padding-left:14px;border-left:1px solid rgba(255,255,255,.32);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
+  /* pedido do Raphael (10/07, rodada 10): "dar destaque ao nome da conta e a data" — de volta pro
+     canto esquerdo do corpo (branco), fonte azul grande e em negrito, como era antes da rodada 3
+     ter mudado pra um chip pequeno dentro da barra azul do header (lá o azul do texto brigava com
+     o azul do fundo — por isso tinha virado texto branco pequeno). Substitui o #headerConta. */
+  .conta-destaque{font-size:21px;font-weight:700;color:var(--brand);margin:2px 0 12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;flex:0 0 auto}
+  .conta-destaque .data{font-size:13.5px;font-weight:500;color:var(--weak)}
   /* pedido do Raphael (10/07, rodada 2): "ocupar toda a largura da página" — tira o teto de
      1400px que sobrava como margem morta nas laterais em telas grandes; padding vira % da
      largura (min 20px) em vez de fixo, então a régua ainda respira em telas muito largas sem
@@ -251,10 +257,6 @@
 <body>
 <header>
   <h1>Exaustech · Revisor de Auditoria</h1>
-  <!-- pedido do Raphael (10/07, rodada 3): "ganhar espaço vertical" — a conta+data tinha fileira
-       própria (.conta-header) só pra ela; sobe pro header azul, ao lado do título, e elimina essa
-       fileira inteira do fluxo (sugestão Fable). -->
-  <span class="header-conta" id="headerConta"></span>
   <div class="spacer"></div>
   <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
   <div class="chip" id="userchip">carregando sessão…</div>
@@ -318,6 +320,9 @@
 
 <div class="wrap">
   <div id="msgArea"></div>
+  <!-- pedido do Raphael (10/07, rodada 10): conta+data ganham destaque de volta — fonte azul
+       grande, canto esquerdo do corpo (ver renderTudo() pro preenchimento e comentário no CSS). -->
+  <div class="conta-destaque" id="contaDestaque" style="display:none"></div>
 
   <div class="card loadbar">
     <!-- pedido do Raphael (10/07, rodada 4): os campos de Id são via de acesso manual/secundária —
@@ -685,13 +690,18 @@ function renderTudo(){
   const l = ST.lote;
   const a = ST.auditoria;
   let h = '';
-  // pedido do Raphael (10/07, rodada 3): conta+data saem do corpo (não ocupam mais uma fileira
-  // própria) e vão pro header azul, ao lado do título — ver #headerConta no HTML/CSS.
-  const headerConta = document.getElementById('headerConta');
-  if (headerConta) {
-    headerConta.textContent = (a && (a.contaNome || a.dataInspecao))
-      ? (a.contaNome || 'Conta não identificada') + ' · Vistoria em ' + formatarData(a.dataInspecao)
-      : '';
+  // pedido do Raphael (10/07, rodada 10): conta+data voltam a ter destaque — fonte azul grande,
+  // canto esquerdo do corpo (ver .conta-destaque no CSS). Tinha ido pro header pequeno na rodada 3
+  // pra ganhar espaço vertical; volta maior agora por pedido explícito, mas continua 1 linha só.
+  const contaDestaque = document.getElementById('contaDestaque');
+  if (contaDestaque) {
+    if (a && (a.contaNome || a.dataInspecao)) {
+      contaDestaque.style.display = 'flex';
+      contaDestaque.innerHTML = escapeHtml(a.contaNome || 'Conta não identificada')
+        + '<span class="data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>';
+    } else {
+      contaDestaque.style.display = 'none';
+    }
   }
   // pedido do Raphael (10/07): as pílulas de resumo (itens/confirmados/sem match/arquivo) saem
   // do corpo da página e vão pro canto direito do MESMO retângulo branco onde ficam os campos
