@@ -167,9 +167,12 @@
      uppercase + letter-spacing dá um rótulo de seção mais claro sem mudar layout/estrutura */
   .col h3{font-size:11px;color:var(--weak);margin:0 0 10px;display:flex;align-items:center;gap:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
   .hist-head{text-transform:uppercase;letter-spacing:.4px}
-  .foto-wrap{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px}
+  /* pedido do Raphael (10/07, rodada 8): "arejar" o espaço entre o fim da tabela de registro
+     (kv, inclui a nota do vistoriador na última linha) e a foto logo abaixo — estavam quase
+     coladas. margin-top aqui em vez de margin-bottom no #regSf pra não afetar o caso sem foto. */
+  .foto-wrap{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:18px;margin-bottom:12px}
   .foto-wrap img{width:100%;border-radius:6px;display:block}
-  .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-bottom:12px}
+  .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-top:18px;margin-bottom:12px}
   .pdf-viewer{width:100%;height:74vh;border:1px solid var(--border);border-radius:8px;background:#fff;display:block}
   .link-btn{background:none;border:none;color:var(--brand);font-size:12.5px;cursor:pointer;padding:9px 4px;text-decoration:underline;font-weight:600}
   .link-btn:hover{color:var(--brand-d)}
@@ -193,7 +196,10 @@
      Pergunta/NC; rótulo fixo e mais estreito + valor alinhado à esquerda (antes ficava misto:
      select preenche a célula mas texto solto ia pra direita) */
   .kv td:first-child{color:var(--weak);width:110px}
-  .kv td:last-child{text-align:left}
+  /* pedido do Raphael (10/07, rodada 8): dúvida de UX resolvida a favor do VALOR — rótulo fica
+     regular/claro (já é, via --weak acima), valor ganha peso 500 pra puxar o olho pra dado em si,
+     que é o que o revisor está de fato escaneando linha a linha (o rótulo já é fixo/conhecido). */
+  .kv td:last-child{text-align:left;font-weight:500;color:var(--txt)}
   /* sugestão Fable 10/07: "Confirmar match" ficava abaixo da dobra quando a foto era alta,
      enquanto o PDF (74vh) ainda estava visível — sticky acompanha o scroll sem mudar a estrutura */
   .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0}
@@ -763,8 +769,11 @@ function renderTudo(){
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
     + '</div>';
+  // pedido do Raphael (10/07, rodada 8): "coluna direita pode afastar um pouco em direção à
+  // direita" — margin-left só na coluna de registro (não no gap do grid inteiro, que também
+  // empurraria a coluna do PDF) pra abrir mais respiro entre PDF e registro sem mexer no resto.
   h += ST.selecionadaId
-    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro"></div>'
+    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:10px"></div>'
     : '<div class="placeholder-col">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>';
   h += '</div>';
 
