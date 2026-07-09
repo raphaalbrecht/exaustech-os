@@ -968,6 +968,18 @@
       <button class="btn btn-brand" onclick="ativoDetEditar()">✏️ Editar cadastro</button>
     </div></div></div>
 
+  <!-- MODAL ASSINATURA · campo tipo Assinatura no Cadastro de Ativos (canvas próprio, isolado do
+       sigPad/padModal da OS — aquele tem estado global de outro fluxo, legal/CPF/OTP) -->
+  <div class="modal" id="cadSigModal"><div class="modal-card">
+    <div class="modal-title">✍️ Assinatura</div>
+    <div class="modal-sub">Toque e arraste pra assinar.</div>
+    <canvas id="cadSigPad" width="320" height="170" style="width:100%;height:170px;border:1px solid #E2E5E9;border-radius:8px;background:#fff;touch-action:none"></canvas>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="cadSigLimpar()">Limpar</button>
+      <button class="btn btn-neutral" onclick="cadSigCancelar()">Cancelar</button>
+      <button class="btn btn-brand" onclick="cadSigSalvar()">Usar assinatura</button>
+    </div></div></div>
+
   <!-- MODAL DETALHES DA ALOCAÇÃO -->
   <div class="modal" id="alocDetModal"><div class="modal-card">
     <div class="modal-title">Detalhes da Alocação</div>
@@ -1224,6 +1236,7 @@ function go(scr){
   }
   /* idem pro NFC de provisionamento de etiqueta no Cadastro de Ativos */
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadNfcDesativar==='function') cadNfcDesativar();
+  if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadSigCancelar==='function') cadSigCancelar();
   /* navegar (troca de aba/tela) fecha qualquer modal aberto — evita modal órfão flutuando sobre uma tela que não é mais a dele */
   document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
   if(scr==='estoque') _estoqAutoFoco=true; /* navegação de propósito pra aba — foca o campo pro leitor físico funcionar sem tocar em nada */
@@ -3843,6 +3856,19 @@ function cadStepForm(){
         if(foto&&foto.previewUrl) h+=`<img src="${foto.previewUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #E2E5E9;flex-shrink:0">`;
         h+=`<label style="flex:1;text-align:center;background:${ok?'#EAF1F7':(erro?'#FCEBEB':'#3E7EB0')};color:${ok?'#2B5A7E':(erro?'#8e1b1b':'#fff')};border-radius:10px;padding:11px;font-size:13px;font-weight:700;${busy?'opacity:.6;pointer-events:none':'cursor:pointer'}">${busy?'Enviando…':(erro?'⚠️ Falha — tocar pra tentar de novo':(ok?'Trocar foto':'📷 Tirar/escolher foto'))}<input type="file" accept="image/*" capture="environment" style="display:none" ${busy?'disabled':''} onchange="cadFotoEscolhida('${c.id}',this)"></label>`;
         h+='</div>';
+      } else if(c.tipo==='Assinatura'){
+        /* tipo Assinatura: canvas próprio (cadSigModal), isolado do sigPad/padModal da OS de propósito
+           (evita colidir com o estado global sigTarget/sigCtx daquele fluxo, que é distinto e mais
+           complexo — legal/CPF/OTP). Sobe como PNG pro mesmo /midias-ativo do tipo Foto (mesma
+           estrutura de estado cadSt.fotos[]). Sem uso real em campo nenhum hoje — feature nova. */
+        const ass=cadSt.fotos[c.id];
+        const busyA=ass&&ass.status==='uploading';
+        const erroA=ass&&ass.status==='error';
+        const okA=ass&&ass.status==='ok';
+        h+='<div style="display:flex;align-items:center;gap:10px">';
+        if(ass&&ass.previewUrl) h+=`<img src="${ass.previewUrl}" style="width:80px;height:44px;object-fit:contain;border:1px solid #E2E5E9;border-radius:8px;background:#fff;flex-shrink:0">`;
+        h+=`<button type="button" onclick="cadAbrirAssinatura('${c.id}')" ${busyA?'disabled':''} style="flex:1;background:${okA?'#EAF1F7':(erroA?'#FCEBEB':'#3E7EB0')};color:${okA?'#2B5A7E':(erroA?'#8e1b1b':'#fff')};border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;${busyA?'opacity:.6':''}">${busyA?'Enviando…':(erroA?'⚠️ Falha — tentar de novo':(okA?'Assinar novamente':'✍️ Assinar'))}</button>`;
+        h+='</div>';
       } else {
         const ops=c.opcoes||[];
         const multi=c.tipo==='Multi-Picklist';
@@ -3916,15 +3942,15 @@ async function cadLoadImg(opcaoId){
 async function cadSalvar(){
   const f=cadSt.form; const respostas=[]; const faltamFoto=[];
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>(s.campos||[]).filter(c=>cadDepOk(c.dependencia)).forEach(c=>{
-    if(c.tipo==='Foto'){
-      const foto=cadSt.fotos[c.id];
-      if(foto&&foto.status==='ok') respostas.push({campoId:c.id,resposta:'Foto anexada',fotoDriveId:foto.driveId,fotoUrl:foto.url});
-      else if(c.fotoObrigatoria) faltamFoto.push(c.nome);
+    if(c.tipo==='Foto'||c.tipo==='Assinatura'){
+      const up=cadSt.fotos[c.id];
+      if(up&&up.status==='ok') respostas.push({campoId:c.id,resposta:(c.tipo==='Assinatura'?'Assinado':'Foto anexada'),fotoDriveId:up.driveId,fotoUrl:up.url});
+      else if(c.fotoObrigatoria||(c.tipo==='Assinatura'&&c.obrigatorio)) faltamFoto.push(c.nome);
       return;
     }
     const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
   }));
-  if(faltamFoto.length){ toast('📷 Falta a foto de: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
+  if(faltamFoto.length){ toast('📷 Falta preencher: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
   if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
   try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas}); cadSt.step='done'; cadStepDone(); }
   catch(e){ toast(e.message); }
@@ -4063,6 +4089,50 @@ async function ativoDetEditar(){
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
   cadSt.step='form';
   go('cadastro');
+}
+/* tipo Assinatura — canvas próprio (nomes cadSig*, estado isolado do sigPad/padModal da OS de
+   propósito). Vira PNG e sobe pro MESMO /midias-ativo do tipo Foto — reaproveita cadSt.fotos[] como
+   estrutura de estado (é só uma imagem, mesma gravação em Foto_Drive_Id__c/Foto_URL__c). */
+let cadSigCampoId=null, cadSigCtx=null, cadSigDrawing=false, cadSigDirty=false;
+function cadSigPos(cv,e){ const r=cv.getBoundingClientRect(); const t=(e.touches&&e.touches[0])||e; return {x:t.clientX-r.left,y:t.clientY-r.top}; }
+function cadSigBind(cv){
+  const start=e=>{ e.preventDefault(); cadSigDrawing=true; const p=cadSigPos(cv,e); cadSigCtx.beginPath(); cadSigCtx.moveTo(p.x,p.y); };
+  const move=e=>{ if(!cadSigDrawing) return; e.preventDefault(); const p=cadSigPos(cv,e); cadSigCtx.lineTo(p.x,p.y); cadSigCtx.stroke(); cadSigDirty=true; };
+  const end=()=>{ cadSigDrawing=false; };
+  cv.onmousedown=start; cv.onmousemove=move; cv.onmouseup=end; cv.onmouseleave=end;
+  cv.ontouchstart=start; cv.ontouchmove=move; cv.ontouchend=end;
+}
+function cadAbrirAssinatura(campoId){
+  cadSigCampoId=campoId; cadSigDirty=false;
+  document.getElementById('cadSigModal').classList.add('show');
+  const cv=document.getElementById('cadSigPad'); const r=cv.getBoundingClientRect();
+  cv.width=Math.max(320,r.width||320); cv.height=170;
+  cadSigCtx=cv.getContext('2d'); cadSigCtx.lineWidth=2.4; cadSigCtx.lineCap='round'; cadSigCtx.strokeStyle='#0B2239';
+  cadSigCtx.clearRect(0,0,cv.width,cv.height);
+  cadSigBind(cv);
+}
+function cadSigLimpar(){ const cv=document.getElementById('cadSigPad'); if(cadSigCtx) cadSigCtx.clearRect(0,0,cv.width,cv.height); cadSigDirty=false; }
+function cadSigCancelar(){ document.getElementById('cadSigModal').classList.remove('show'); cadSigCampoId=null; }
+async function cadSigSalvar(){
+  if(!cadSigDirty){ toast('Assine antes de confirmar'); return; }
+  const campoId=cadSigCampoId; if(!campoId) return;
+  const cv=document.getElementById('cadSigPad');
+  const dataUrl=cv.toDataURL('image/png');
+  document.getElementById('cadSigModal').classList.remove('show');
+  cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'uploading'};
+  cadStepForm();
+  try{
+    const blob=await (await fetch(dataUrl)).blob();
+    const fd=new FormData(); fd.append('file',blob,'assinatura.png'); fd.append('campoId',campoId);
+    const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
+    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:j.driveId,url:j.url,status:'ok'};
+  }catch(e){
+    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'error'};
+    toast('Erro ao enviar assinatura: '+e.message);
+  }
+  cadStepForm();
 }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
