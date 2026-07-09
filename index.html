@@ -1234,6 +1234,7 @@ function go(scr){
     if(typeof estoqScanCamFechar==='function') estoqScanCamFechar();
     if(typeof estoqNfcDesativar==='function') estoqNfcDesativar();
     if(typeof endrNfcDesativar==='function') endrNfcDesativar();
+    if(typeof recpNfcDesativar==='function') recpNfcDesativar();
   }
   /* idem pro NFC de provisionamento de etiqueta no Cadastro de Ativos */
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadNfcDesativar==='function') cadNfcDesativar();
@@ -2807,6 +2808,7 @@ let estoqView={mode:'dash', sep:null, os:null, tile:null};
 let estoqDia=null;
 function estoqGo(mode,sep,os,tile){
   if(estoqView.mode==='enderecos' && mode!=='enderecos' && typeof endrNfcDesativar==='function') endrNfcDesativar();
+  if(estoqView.mode==='recebimentos' && mode!=='recebimentos' && typeof recpNfcDesativar==='function') recpNfcDesativar();
   estoqView={mode, sep:sep||null, os:os||null, tile:(tile!==undefined?tile:estoqView.tile)}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0;
 }
 /* tiles da home do Estoquista: contagem por etapa, com drill-down */
@@ -2896,7 +2898,10 @@ function estoqProcessarCodigoLido(texto){
    mesmo motor jsQR do Bipar, mas em modo "one-shot": lê 1 código e fecha o overlay sozinho, sem
    ficar preso numa tela de custódia. */
 let estoqScanStream=null, estoqScanRAF=null, estoqScanAbrindo=false;
-async function estoqScanCamAbrir(){
+/* onResult opcional (Fase 4, recp*): por padrão o resultado cai na busca/bipagem do Estoque
+   (estoqProcessarCodigoLido); passando uma função, o texto lido vai pra ela em vez disso —
+   permite reusar a mesma câmera one-shot pro scan-to-confirm de endereço sem duplicar o motor. */
+async function estoqScanCamAbrir(onResult){
   if(estoqScanAbrindo||estoqScanStream) return; /* trava contra toque duplo — evita 2 getUserMedia concorrentes vazando MediaStream */
   estoqScanAbrindo=true;
   try{
@@ -2905,7 +2910,7 @@ async function estoqScanCamAbrir(){
     catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
     const video=document.getElementById('estoqScanVideo'); video.srcObject=estoqScanStream; await video.play().catch(()=>{});
     document.getElementById('estoqScanOverlay').style.display='block';
-    estoqScanLoop();
+    estoqScanLoop(onResult);
   }finally{ estoqScanAbrindo=false; }
 }
 function estoqScanCamFechar(){
@@ -2913,7 +2918,7 @@ function estoqScanCamFechar(){
   if(estoqScanStream){ estoqScanStream.getTracks().forEach(t=>t.stop()); estoqScanStream=null; }
   const ov=document.getElementById('estoqScanOverlay'); if(ov) ov.style.display='none';
 }
-function estoqScanLoop(){
+function estoqScanLoop(onResult){
   const video=document.getElementById('estoqScanVideo'); if(!video||!estoqScanStream) return;
   const canvas=document.getElementById('estoqScanCanvas');
   if(video.readyState===video.HAVE_ENOUGH_DATA){
@@ -2926,12 +2931,12 @@ function estoqScanLoop(){
       if(code && code.data){
         const texto=code.data.trim();
         estoqScanCamFechar();
-        estoqProcessarCodigoLido(texto);
+        (onResult||estoqProcessarCodigoLido)(texto);
         return;
       }
     }
   }
-  estoqScanRAF=requestAnimationFrame(estoqScanLoop);
+  estoqScanRAF=requestAnimationFrame(()=>estoqScanLoop(onResult));
 }
 /* NFC (Web NFC / NDEFReader) — só existe no Chrome Android, exatamente o coletor de dados alvo.
    Por segurança do navegador não dá pra "escutar" passivamente sem 1 toque do usuário armando a
@@ -2996,6 +3001,7 @@ function renderEstoque(){
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
   if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
   if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); return; }
+  if(estoqView.mode==='recebimentos'){ renderRecpFluxo(wrap); return; }
   /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
   const seps=sepListAll(), sepsDia=sepListDia();
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
@@ -3028,6 +3034,15 @@ function renderEstoque(){
     <span style="color:#999;font-size:18px">›</span>`;
   endrBtn.onclick=()=>{ endrReset(); estoqGo('enderecos'); endrCarregarLocais(); };
   wrap.appendChild(endrBtn);
+  /* entrada do fluxo de Entradas pendentes (Fase 4, 10/07/2026) — conferência + orientação de
+     endereço na recepção de mercadoria. Mesmo gate implícito (canEstoque) da home. */
+  const recpBtn=document.createElement('div');
+  recpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+  recpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📥</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Entradas pendentes</div><div style="font-size:12px;color:#4A5560">Conferir NF e guardar material · sugestão de endereço</div></div>
+    <span style="color:#999;font-size:18px">›</span>`;
+  recpBtn.onclick=()=>{ recpReset(); estoqGo('recebimentos'); recpCarregarLista(); };
+  wrap.appendChild(recpBtn);
 }
 /* ===== ENDEREÇO DE ESTOQUE (wizard endr* — Fase 3, 09/07/2026): criação guiada
    (local→lista→tipo→nome→capacidade→revisão→criação) + provisionamento de etiqueta NFC
@@ -3045,9 +3060,22 @@ function endrReset(){
     enderecosDoLocal:[], _listaCarregada:false,
     areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, rua:'',
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
-    enderecoId:null, enderecoDetalhe:null, etiqueta:{status:'idle'},
-    criando:false, erro:null,
+    enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
+    criando:false, erro:null, retorno:null,
   };
+}
+/* ---- modo complementar (chamado pelo recp*, Fase 4): entra direto no passo 'nome', com
+   local/área/rua/tipo/capacidade herdados do endereço cheio e código sugerido com sufixo -C1/-C2…
+   Retorno: recpVoltarDoWizard(endereco|null) no lugar dos botões normais do passo 'detalhe'. ---- */
+function endrAbrirComplementar(pre){
+  endrReset();
+  endrSt.localId=pre.localId; endrSt.localNome=pre.localNome||'';
+  endrSt.areaId=pre.areaId||null; endrSt.areaNome=pre.areaNome||''; endrSt.rua=pre.rua||'';
+  endrSt.tipo=pre.tipo||'Bin'; endrSt.codigo=pre.codigo||''; endrSt.codigoSugerido=!!pre.codigo;
+  endrSt.capacidade=(pre.capacidade!=null?String(pre.capacidade):'');
+  endrSt.retorno='recp';
+  endrSt.step='nome';
+  renderEstoque();
 }
 function renderEndrWizard(wrap){
   if(!endrSt) endrReset();
@@ -3170,7 +3198,10 @@ function endrRenderTipo(card){
   });
   card.appendChild(grid);
   const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar';
-  bkb.onclick=()=>{ endrSt.step=endrSt.areaRequerRua?'rua':(endrSt.areas.length?'area':'lista'); renderEstoque(); };
+  bkb.onclick=()=>{
+    if(endrSt.retorno==='recp'){ recpVoltarDoWizard(null); return; } /* cancela o handoff do recp* */
+    endrSt.step=endrSt.areaRequerRua?'rua':(endrSt.areas.length?'area':'lista'); renderEstoque();
+  };
   card.appendChild(bkb);
 }
 /* ---- passo 4: nomenclatura (nome amigável + código sugerido, editável) ---- */
@@ -3235,6 +3266,9 @@ async function endrCriar(){
     if(endrSt.rua) body.rua=endrSt.rua;
     const r=await bePost('/estoque/enderecos',body);
     endrSt.criando=false;
+    /* fallback pro botão de retorno do modo complementar (recp*) se o GET de detalhe falhar
+       logo em seguida (rede) — o endereço já existe, só falta o app confirmar */
+    endrSt.enderecoCriado={ id:r.id, codigo:r.codigo, nome:r.nome, tipo:r.tipo, capacidade:r.capacidade, ocupacao:0, areaId:r.areaId, area:r.area, rua:r.rua };
     toast('✅ Endereço '+(r.codigo||'')+' criado');
     endrAbrirDetalhe(r.id);
   }catch(e){ endrSt.criando=false; endrSt.erro='Erro ao criar: '+e.message; renderEstoque(); }
@@ -3250,7 +3284,7 @@ async function endrAbrirDetalhe(id){
   }catch(e){ endrSt.erro='Erro ao carregar endereço: '+e.message; renderEstoque(); }
 }
 function endrRenderDetalhe(card){
-  const d=endrSt.enderecoDetalhe;
+  const d=endrSt.enderecoDetalhe || (endrSt.retorno==='recp' ? endrSt.enderecoCriado : null);
   if(!d){ card.innerHTML='<div class="subnote">'+(endrSt.erro?_esc(endrSt.erro):'Carregando…')+'</div>'; return; }
   const ocupTxt=d.capacidade!=null?(d.ocupacao+' / '+d.capacidade):(''+d.ocupacao);
   const dloc=[d.area,d.rua].filter(Boolean).join(' ');
@@ -3279,11 +3313,19 @@ function endrRenderDetalhe(card){
   }
   box.innerHTML=h; card.appendChild(box);
   if(et.status==='ok') endrDesenharQrPreview(et.url);
-  const outro=document.createElement('button'); outro.className='btn btn-brand'; outro.style.cssText='width:100%;height:48px'; outro.textContent='+ Criar outro endereço neste local';
-  outro.onclick=endrNovoEndereco; card.appendChild(outro);
-  const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Ver lista do local';
-  fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
-  card.appendChild(fim);
+  if(endrSt.retorno==='recp'){
+    /* handoff do recp* (Fase 4): NFC/impressão continuam funcionando normalmente acima; aqui só
+       trocamos a navegação final — devolve o endereço criado pra conferência de onde saiu. */
+    const usar=document.createElement('button'); usar.className='btn btn-brand'; usar.style.cssText='width:100%;height:48px'; usar.textContent='✅ Usar este endereço e voltar à conferência';
+    usar.onclick=()=>recpVoltarDoWizard(d);
+    card.appendChild(usar);
+  } else {
+    const outro=document.createElement('button'); outro.className='btn btn-brand'; outro.style.cssText='width:100%;height:48px'; outro.textContent='+ Criar outro endereço neste local';
+    outro.onclick=endrNovoEndereco; card.appendChild(outro);
+    const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Ver lista do local';
+    fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
+    card.appendChild(fim);
+  }
 }
 /* NFC (token+versão, decisão D3) — mesmo padrão de cadProvisionarEtiqueta, endpoint/objeto próprios */
 async function endrProvisionarEtiqueta(){
@@ -3352,6 +3394,599 @@ async function endrImprimirEtiqueta(){
   const dev=await zebraAchar();
   if(dev){ try{ await zebraEnviar(dev, endrEtqZPL(d, et.url)); toast('🖨️ Enviado pra Zebra'); return; }catch(e){ toast('⚠️ Zebra falhou, gerando PDF: '+e.message); } }
   endrEtqPDF(d, et.url);
+}
+/* ===== ENTRADAS PENDENTES (recp* — Fase 4, 10/07/2026): conferência item a item do
+   RecebimentoCompra__c + orientação de endereço (sugestão habitual/última entrada/vago) + alerta
+   de excedente (dividir / criar ponto complementar via wizard endr* / forçar) + scan-to-confirm
+   NFC/QR na prateleira + confirmação final atômica via Apex. Desenho completo modelado com o
+   agente Fable em proposta-fase4-entradas-pendentes.md. Backend 100% pronto desde a Fase 2 —
+   zero endpoint novo nesta fase. */
+let recpSt=null, recpScanCtrl=null;
+const STATUS_ITEM_RECP=['Pendente','Conferido OK','Quantidade Divergente','Avariado','Item Não Chegou','Item Não Pedido'];
+function recpReset(){
+  recpSt={
+    step:'lista', erro:null,
+    recebimentos:[], _listaCarregada:false,
+    recId:null, rec:null, _recCarregado:false, localNome:'',
+    localDestinoId:null, locais:[], _locaisCarregados:false,
+    conf:{}, aloc:{},
+    itemId:null, itemAloc:[], outrosAbertos:false, excedente:null, _divergencia:null,
+    wizard:null,
+    nfc:{status:'idle',msg:null}, scanAlvo:null,
+    confirmando:false,
+  };
+}
+function renderRecpFluxo(wrap){
+  if(!recpSt) recpReset();
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
+  bk.onclick=()=>{ recpNfcDesativar(); estoqGo('dash'); };
+  wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📥 Entradas pendentes'; wrap.appendChild(h);
+  const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
+  if(recpSt.step==='lista') recpRenderLista(card);
+  else if(recpSt.step==='local') recpRenderLocal(card);
+  else if(recpSt.step==='recebimento') recpRenderRecebimento(card);
+  else if(recpSt.step==='item'){
+    recpRenderItem(card);
+    if(recpSt.excedente) recpRenderExcedente(wrap);
+    if(recpSt._divergencia) recpRenderDivergencia(wrap);
+  }
+  else if(recpSt.step==='revisao') recpRenderRevisao(card);
+  else if(recpSt.step==='sucesso') recpRenderSucesso(card);
+}
+/* ---- passo 1: lista de recebimentos pendentes (toque avança) ---- */
+async function recpCarregarLista(){
+  try{ const d=await beGet('/estoque/recebimentos'); recpSt.recebimentos=d.recebimentos||[]; recpSt._listaCarregada=true; renderEstoque(); }
+  catch(e){ recpSt._listaCarregada=true; recpSt.erro='Erro ao carregar entradas: '+e.message; renderEstoque(); }
+}
+function recpRenderLista(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Entradas aguardando conferência</div>';
+  if(recpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>';
+  if(!recpSt._listaCarregada){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!recpSt.recebimentos.length){ card.innerHTML+='<div class="subnote">Nenhuma entrada aguardando conferência. 🎉</div>'; return; }
+  recpSt.recebimentos.forEach(r=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
+    const lzCls=r.status==='Em Conferência'?'lz-info':'lz-neu';
+    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(r.fornecedor||r.name)+'</div><div style="font-size:12px;color:var(--weak)">NF '+_esc(r.numeroNF||'—')+' · '+_esc(r.empresaFiscal||'')+' · '+_esc(fmtDataBR(r.dataEmissao))+'</div></div><span class="lz '+lzCls+'">'+_esc(r.status)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+    row.onclick=()=>recpAbrirRecebimento(r.id);
+    card.appendChild(row);
+  });
+}
+/* ---- passo 1b: escolher local de destino (caso raro — empresa fiscal sem LocalPadrao__c) ---- */
+async function recpCarregarLocais(){
+  try{ const d=await beGet('/estoque/locais'); recpSt.locais=d.locais||[]; recpSt._locaisCarregados=true; renderEstoque(); }
+  catch(e){ recpSt._locaisCarregados=true; recpSt.erro='Erro ao carregar locais: '+e.message; renderEstoque(); }
+}
+function recpRenderLocal(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Este recebimento não tem local padrão — escolha onde vai guardar</div>';
+  if(recpSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>'; return; }
+  if(!recpSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!recpSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
+  recpSt.locais.forEach(l=>{
+    const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+    b.textContent=l.nome; b.onclick=()=>recpEscolherLocal(l); card.appendChild(b);
+  });
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
+}
+async function recpEscolherLocal(l){
+  recpSt.localDestinoId=l.id; recpSt.localNome=l.nome; recpSt.erro=null; renderEstoque();
+  try{
+    const d=await beGet('/estoque/enderecos?localId='+encodeURIComponent(l.id));
+    recpSt.rec.candidatos=d.enderecos||[]; recpSt.rec.localId=l.id;
+    recpSt.step='recebimento'; renderEstoque();
+  }catch(e){ recpSt.erro='Erro ao carregar endereços do local: '+e.message; renderEstoque(); }
+}
+/* ---- passo 2: visão geral dos itens do recebimento ---- */
+async function recpAbrirRecebimento(id){
+  recpSt.recId=id; recpSt.step='recebimento'; recpSt.rec=null; recpSt._recCarregado=false; recpSt.erro=null;
+  recpSt.conf={}; recpSt.aloc={}; recpSt.localNome='';
+  renderEstoque();
+  try{
+    const d=await beGet('/estoque/recebimentos/'+id);
+    recpSt.rec=d; recpSt._recCarregado=true;
+    /* re-hidrata conf{} a partir do que já veio conferido do Salesforce — cobre reabertura após
+       abandono no meio do fluxo (§5.5 da proposta): só a conferência persiste incrementalmente,
+       as alocações locais (aloc{}) se perdem e precisam ser refeitas. */
+    (d.itens||[]).forEach(it=>{
+      if(it.status && it.status!=='Pendente'){
+        recpSt.conf[it.id]={ status:it.status, quantidade:it.quantidade, observacao:'', salvo:true, _salvando:false };
+      }
+    });
+    if(d.localId){
+      try{ const dl=await beGet('/estoque/locais'); const l=(dl.locais||[]).find(x=>x.id===d.localId); recpSt.localNome=l?l.nome:''; }catch(e){}
+    }
+    if(d.semLocalPadrao){ recpSt.step='local'; recpSt.locais=[]; recpSt._locaisCarregados=false; renderEstoque(); recpCarregarLocais(); return; }
+    renderEstoque();
+  }catch(e){ recpSt.erro='Erro ao carregar recebimento: '+e.message; renderEstoque(); }
+}
+function recpCandidato(id){ return (recpSt.rec&&recpSt.rec.candidatos||[]).find(c=>c.id===id); }
+/* normaliza um endereço vindo do wizard endr* (mapEndereco completo ou o fallback do POST) pro
+   mesmo shape usado em rec.candidatos — protege o resto do código de checar campo por campo. */
+function recpNormalizarCandidato(e){
+  return { id:e.id, name:e.name||e.codigo, codigo:e.codigo, nome:e.nome||e.codigo, tipo:e.tipo||null,
+    localId:e.localId||(recpSt.rec&&recpSt.rec.localId)||null, capacidade:e.capacidade!=null?e.capacidade:null,
+    ocupacao:e.ocupacao||0,
+    espacoLivre: e.espacoLivre!=null?e.espacoLivre:(e.capacidade!=null?Math.max(0,e.capacidade-(e.ocupacao||0)):null),
+    areaId:e.areaId||null, area:e.area||null, rua:e.rua||null };
+}
+function recpStatusComposto(item){
+  const c=recpSt.conf[item.id];
+  if(!c || !c.salvo) return {label:'Pendente', cls:'lz-neu'};
+  if(c.status==='Item Não Chegou') return {label:c.status, cls:'lz-err'};
+  const alocs=recpSt.aloc[item.id]||[];
+  const soma=alocs.reduce((s,a)=>s+(Number(a.quantidade)||0),0);
+  if(!alocs.length || soma < (c.quantidade||0)-0.001) return {label:'Conferido · falta endereço', cls:'lz-warn'};
+  return {label:'Pronto', cls:'lz-succ'};
+}
+function recpRenderRecebimento(card){
+  const r=recpSt.rec;
+  if(!r){ card.innerHTML='<div class="subnote">'+(recpSt.erro?_esc(recpSt.erro):'Carregando…')+'</div>'; return; }
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(r.name)+'</div>'
+    +'<div class="subnote" style="padding:0 0 8px">'+_esc(r.status||'')+' · '+_esc(recpSt.localNome||'local não definido')+'</div>';
+  if(recpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>';
+  (r.itens||[]).forEach(item=>{
+    const st=recpStatusComposto(item);
+    const alocs=recpSt.aloc[item.id]||[];
+    let resumo='';
+    if(st.label==='Pronto'){
+      resumo = alocs.length===1 ? ('→ '+(recpCandidato(alocs[0].enderecoId)?recpCandidato(alocs[0].enderecoId).codigo:'?')) : ('→ '+alocs.length+' endereços');
+    }
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
+    const desc=item.produto||item.descricaoNF||'(sem descrição)';
+    const semProduto=!item.produtoId?' <span style="font-size:10px;color:#999;background:#f2f2f2;padding:1px 6px;border-radius:6px">sem produto vinculado</span>':'';
+    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(desc)+semProduto+'</div><div style="font-size:12px;color:var(--weak)">NF: '+_esc(item.quantidadeNF)+(resumo?(' · '+_esc(resumo)):'')+'</div></div><span class="lz '+st.cls+'">'+_esc(st.label)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+    row.onclick=()=>recpAbrirItem(item.id);
+    card.appendChild(row);
+  });
+  const pronto=(item)=>{ const st=recpStatusComposto(item); return st.label==='Pronto' || (recpSt.conf[item.id]&&recpSt.conf[item.id].salvo&&recpSt.conf[item.id].status==='Item Não Chegou'); };
+  const todosProntos=(r.itens||[]).every(pronto);
+  const faltam=(r.itens||[]).filter(i=>!pronto(i)).length;
+  const rev=document.createElement('button'); rev.className='btn btn-brand'; rev.style.cssText='width:100%;height:48px;margin-top:12px'; rev.textContent='Revisar e confirmar ›'; rev.disabled=!todosProntos;
+  if(!todosProntos) rev.style.opacity='.5';
+  rev.onclick=()=>{ if(!todosProntos) return; recpSt.step='revisao'; renderEstoque(); };
+  card.appendChild(rev);
+  if(!todosProntos){ const sub=document.createElement('div'); sub.className='subnote'; sub.textContent='Faltam '+faltam+' item(ns)'; card.appendChild(sub); }
+  const verLote=document.createElement('button'); verLote.className='btn btn-neutral'; verLote.style.cssText='width:100%;height:44px;margin-top:8px'; verLote.textContent='📶 Verificar na prateleira (em lote)';
+  verLote.onclick=()=>recpVerificarLote();
+  card.appendChild(verLote);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; recpSt._listaCarregada=false; renderEstoque(); recpCarregarLista(); }; card.appendChild(bk);
+}
+/* ---- passo 3: item — conferência + "pra onde vai" ---- */
+function recpAbrirItem(itemId){
+  recpSt.itemId=itemId; recpSt.outrosAbertos=false; recpSt.erro=null; recpSt.excedente=null; recpSt._divergencia=null;
+  const item=(recpSt.rec.itens||[]).find(i=>i.id===itemId);
+  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:item.quantidade, observacao:'', salvo:false, _salvando:false };
+  const existente=recpSt.aloc[itemId];
+  if(existente && existente.length) recpSt.itemAloc=existente.map(a=>({...a}));
+  else if(item.sugestao) recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:recpSt.conf[itemId].quantidade||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
+  else recpSt.itemAloc=[];
+  recpSt.step='item'; renderEstoque();
+}
+function recpSetStatusItem(v){
+  const c=recpSt.conf[recpSt.itemId]; const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  const eraNaoChegou=c.status==='Item Não Chegou';
+  c.status=v;
+  if(v==='Conferido OK') c.quantidade=item.quantidadeNF;
+  if(v==='Item Não Chegou'){ c.quantidade=0; recpSt.itemAloc=[]; }
+  else if(eraNaoChegou && !recpSt.itemAloc.length && item.sugestao){
+    /* saiu de "Item Não Chegou" pra outro status — repõe a sugestão original, senão o usuário
+       fica sem nenhuma linha de alocação até abrir "outros endereços" manualmente */
+    recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:c.quantidade||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
+  }
+  renderEstoque();
+}
+function recpAtualizaResumoSoma(){
+  const el=document.getElementById('recpSomaLinha'); if(!el) return;
+  const c=recpSt.conf[recpSt.itemId];
+  const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
+  const bate=Math.abs(soma-(c.quantidade||0))<0.001;
+  el.style.color=bate?'#1D9E75':'#C4451B';
+  el.textContent='Total alocado: '+soma+' de '+(c.quantidade||0);
+}
+function recpRenderItem(card){
+  const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  if(!item){ card.innerHTML='<div class="subnote">Item não encontrado.</div>'; return; }
+  const c=recpSt.conf[recpSt.itemId];
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(item.produto||item.descricaoNF||'(sem descrição)')+'</div>'
+    +'<div class="subnote" style="padding:0 0 8px">Quantidade na NF: '+_esc(item.quantidadeNF)+'</div>';
+  const chipsWrap=document.createElement('div'); chipsWrap.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px';
+  STATUS_ITEM_RECP.forEach(s=>{
+    const on=c.status===s;
+    const chip=document.createElement('div');
+    chip.style.cssText='padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(on?'#3E7EB0':'#E2E5E9')+';background:'+(on?'#3E7EB0':'#fff')+';color:'+(on?'#fff':'#4A5560');
+    chip.textContent=s; chip.onclick=()=>recpSetStatusItem(s);
+    chipsWrap.appendChild(chip);
+  });
+  card.appendChild(chipsWrap);
+  const semSecaoB=c.status==='Item Não Chegou';
+  const qtdWrap=document.createElement('div');
+  qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
+    +'<input id="recpQtd" type="number" min="0" step="0.01" value="'+cadEsc(c.quantidade)+'" '+(semSecaoB?'disabled':'')+' style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
+    +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
+  card.appendChild(qtdWrap);
+  if(!semSecaoB){
+    const secB=document.createElement('div'); secB.style.cssText='margin-top:6px';
+    secB.innerHTML='<div class="sec-title2">Pra onde vai</div>';
+    card.appendChild(secB);
+    recpSt.itemAloc.forEach((linha,idx)=>{
+      const cand=recpCandidato(linha.enderecoId);
+      const ehSugestaoOriginal=item.sugestao && linha.enderecoId===item.sugestao.enderecoId && linha.enderecoSugeridoId===item.sugestao.enderecoId;
+      const box=document.createElement('div'); box.style.cssText='border:1.5px solid '+(ehSugestaoOriginal?'#3E7EB0':'#E2E5E9')+';border-radius:12px;padding:12px;margin-bottom:8px';
+      let origemBadge='';
+      if(ehSugestaoOriginal){
+        const map={habitual:'⭐ Habitual', ultima_entrada:'🕐 Última entrada', vago:'📭 Vago'};
+        origemBadge='<span style="font-size:10px;font-weight:800;color:#3E7EB0;background:#e8f2fa;padding:2px 8px;border-radius:8px;margin-left:6px">'+(map[item.sugestao.origem]||'')+'</span>';
+      }
+      const loc=cand?[cand.area,cand.rua].filter(Boolean).join(' '):'';
+      const ocupTxt=cand?(cand.capacidade!=null?(cand.ocupacao+' / '+cand.capacidade):(cand.ocupacao+' · sem limite')):'';
+      box.innerHTML='<div style="font-weight:800;font-size:15px;color:#0B2239">'+_esc(cand?cand.codigo:'— escolha o endereço —')+origemBadge+'</div>'
+        +(cand?('<div style="font-size:12px;color:#686868;margin-top:2px">'+(loc?'📍 '+_esc(loc)+' · ':'')+_esc(ocupTxt)+'</div>'):'')
+        +(linha.forcado?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#a15c00;background:#fff2df;padding:2px 8px;border-radius:8px">⚠️ acima da capacidade</span></div>':'')
+        +(linha.verificado==='ok'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ verificado na prateleira</span></div>':'')
+        +(linha.verificado==='corrigido'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ corrigido na prateleira</span></div>':'');
+      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px';
+      const inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.step='0.01'; inp.value=linha.quantidade; inp.style.cssText='flex:1;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box';
+      inp.oninput=()=>{ recpSt.itemAloc[idx].quantidade=Number(inp.value)||0; recpAtualizaResumoSoma(); };
+      row.appendChild(inp);
+      const vb=document.createElement('button'); vb.className='btn btn-neutral'; vb.style.cssText='width:auto;height:42px;margin:0;padding:0 12px;font-size:12px'; vb.textContent='📶 Verificar';
+      vb.onclick=()=>recpVerificarLinha(idx);
+      row.appendChild(vb);
+      if(idx>0){ /* linha 0 (base) nunca é removível — só as linhas de divisão/complemento */
+        const rm=document.createElement('button'); rm.className='btn btn-neutral'; rm.style.cssText='width:auto;height:42px;margin:0;padding:0 12px;font-size:12px;color:#C4451B'; rm.textContent='✕';
+        rm.onclick=()=>{ recpSt.itemAloc[0].quantidade=(recpSt.itemAloc[0].quantidade||0)+(recpSt.itemAloc[idx].quantidade||0); recpSt.itemAloc.splice(idx,1); renderEstoque(); };
+        row.appendChild(rm);
+      }
+      box.appendChild(row);
+      secB.appendChild(box);
+    });
+    const alt=document.createElement('div'); alt.style.cssText='margin-top:4px';
+    const altBtn=document.createElement('div'); altBtn.style.cssText='font-size:12.5px;color:#3E7EB0;font-weight:700;cursor:pointer;padding:6px 0';
+    altBtn.textContent=(recpSt.outrosAbertos?'▴':'▾')+' outros endereços';
+    altBtn.onclick=()=>{ recpSt.outrosAbertos=!recpSt.outrosAbertos; renderEstoque(); };
+    alt.appendChild(altBtn);
+    if(recpSt.outrosAbertos){
+      const usados=new Set(recpSt.itemAloc.map(l=>l.enderecoId));
+      const idsAlternativas=(item.alternativas||[]).filter(id=>!usados.has(id));
+      const alternativas=idsAlternativas.map(id=>recpCandidato(id)).filter(Boolean);
+      const outros=(recpSt.rec.candidatos||[]).filter(cnd=>!usados.has(cnd.id) && !idsAlternativas.includes(cnd.id));
+      [...alternativas, ...outros].forEach(cnd=>{
+        const row=document.createElement('div'); row.style.cssText='padding:8px 10px;border:1px solid #E2E5E9;border-radius:10px;margin-top:6px;cursor:pointer;font-size:13px';
+        const loc=[cnd.area,cnd.rua].filter(Boolean).join(' ');
+        row.textContent=cnd.codigo+(loc?(' · 📍 '+loc):'')+' · '+(cnd.capacidade!=null?(cnd.ocupacao+'/'+cnd.capacidade):(cnd.ocupacao+' sem limite'));
+        row.onclick=()=>{ if(!recpSt.itemAloc.length) recpSt.itemAloc.push({enderecoId:cnd.id, quantidade:c.quantidade||0, enderecoSugeridoId:item.sugestao?item.sugestao.enderecoId:null, forcado:false, verificado:null}); else recpSt.itemAloc[0].enderecoId=cnd.id; recpSt.outrosAbertos=false; renderEstoque(); };
+        alt.appendChild(row);
+      });
+    }
+    secB.appendChild(alt);
+    const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
+    const bate=Math.abs(soma-(c.quantidade||0))<0.001;
+    const sumEl=document.createElement('div'); sumEl.id='recpSomaLinha'; sumEl.style.cssText='font-size:12px;font-weight:700;margin-top:8px;color:'+(bate?'#1D9E75':'#C4451B');
+    sumEl.textContent='Total alocado: '+soma+' de '+(c.quantidade||0);
+    secB.appendChild(sumEl);
+  }
+  if(recpSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=recpSt.erro; card.appendChild(e); }
+  const conf=document.createElement('button'); conf.className='btn btn-brand'; conf.style.cssText='width:100%;height:48px;margin-top:14px';
+  conf.textContent=c._salvando?'Salvando…':'✅ Confirmar item'; conf.disabled=!!c._salvando;
+  conf.onclick=()=>{
+    recpSt.conf[recpSt.itemId].quantidade=Number(document.getElementById('recpQtd').value)||0;
+    recpSt.conf[recpSt.itemId].observacao=(document.getElementById('recpObs').value||'').trim();
+    recpConfirmarItem();
+  };
+  card.appendChild(conf);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='recebimento'; renderEstoque(); }; card.appendChild(bk);
+}
+/* ---- validação + excedente (§3 da proposta) ---- */
+function recpValidarItem(){
+  const c=recpSt.conf[recpSt.itemId];
+  if(c.status==='Item Não Chegou') return {ok:true};
+  if(!recpSt.itemAloc.length) return {ok:false, msg:'Escolha ao menos um endereço.'};
+  const ids=new Set();
+  for(const l of recpSt.itemAloc){
+    if(!l.enderecoId) return {ok:false, msg:'Falta escolher o endereço de uma das linhas.'};
+    if(ids.has(l.enderecoId)) return {ok:false, msg:'Endereço repetido entre as linhas — some as quantidades numa só.'};
+    ids.add(l.enderecoId);
+    if(!(Number(l.quantidade)>0)) return {ok:false, msg:'Toda linha precisa de quantidade maior que zero.'};
+  }
+  const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
+  if(Math.abs(soma-(c.quantidade||0))>0.001) return {ok:false, msg:'Faltam alocar '+(Math.round((c.quantidade-soma)*100)/100)+' de '+c.quantidade+'.'};
+  return {ok:true};
+}
+/* espaço livre efetivo (§3.1): desconta alocações do MESMO recebimento (já fechadas em aloc{} de
+   outros itens, ou ainda em edição nas outras linhas de itemAloc) — senão 2 itens caberiam "cada
+   um sozinho" no mesmo bin e estourariam juntos na prateleira real, já que nenhum dos dois foi
+   pro Salesforce ainda (o POST final é atômico, no fim de tudo). */
+function recpEspacoLivreEfetivo(enderecoId, excluirIdxAtual){
+  const cand=recpCandidato(enderecoId);
+  if(!cand) return 0;
+  let livre = cand.capacidade==null ? Infinity : (cand.espacoLivre!=null?cand.espacoLivre:Math.max(0,cand.capacidade-(cand.ocupacao||0)));
+  Object.keys(recpSt.aloc).forEach(itId=>{
+    if(itId===recpSt.itemId) return;
+    (recpSt.aloc[itId]||[]).forEach(l=>{ if(l.enderecoId===enderecoId) livre-=(Number(l.quantidade)||0); });
+  });
+  recpSt.itemAloc.forEach((l,i)=>{ if(i!==excluirIdxAtual && l.enderecoId===enderecoId) livre-=(Number(l.quantidade)||0); });
+  return livre;
+}
+async function recpConfirmarItem(){
+  const v=recpValidarItem();
+  if(!v.ok){ recpSt.erro=v.msg; renderEstoque(); return; }
+  recpSt.erro=null;
+  for(let i=0;i<recpSt.itemAloc.length;i++){
+    const l=recpSt.itemAloc[i];
+    if(l.forcado) continue;
+    const livre=recpEspacoLivreEfetivo(l.enderecoId, i);
+    if(Number(l.quantidade) > livre){
+      recpSt.excedente={ idx:i, falta:Math.round((Number(l.quantidade)-Math.max(0,livre))*100)/100, escolhendoDestino:false };
+      renderEstoque(); return;
+    }
+  }
+  const c=recpSt.conf[recpSt.itemId];
+  c._salvando=true; renderEstoque();
+  try{
+    const body={ status:c.status, quantidadeRecebida:c.quantidade };
+    if(c.observacao) body.observacao=c.observacao;
+    await bePost('/estoque/recebimentos/'+recpSt.recId+'/itens/'+recpSt.itemId, body);
+    c.salvo=true; c._salvando=false;
+    recpSt.aloc[recpSt.itemId]=recpSt.itemAloc.map(l=>({ enderecoId:l.enderecoId, quantidade:l.quantidade, enderecoSugeridoId:l.enderecoSugeridoId, forcado:!!l.forcado, verificado:l.verificado||null }));
+    recpSt.step='recebimento'; renderEstoque();
+  }catch(e){ c._salvando=false; recpSt.erro='Erro ao salvar: '+e.message; renderEstoque(); }
+}
+/* ---- modal de excedente: 3 saídas (dividir / criar ponto complementar / forçar) ---- */
+function recpRenderExcedente(wrap){
+  const ex=recpSt.excedente; if(!ex) return;
+  const linha=recpSt.itemAloc[ex.idx]; if(!linha) return;
+  const cand=recpCandidato(linha.enderecoId);
+  const overlay=document.createElement('div'); overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:480px;max-height:85vh;overflow:auto;box-sizing:border-box';
+  const cabe=Math.max(0, Math.round((Number(linha.quantidade)-ex.falta)*100)/100);
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:6px">⚠️ '+_esc(cand?cand.codigo:'')+' não comporta essa quantidade</div>'
+    +'<div class="subnote" style="padding:0 0 14px">Capacidade '+_esc(cand&&cand.capacidade!=null?cand.capacidade:'sem limite')+' · cabem <b>'+cabe+'</b> — faltam <b>'+ex.falta+'</b>.</div>';
+  if(!ex.escolhendoDestino){
+    const btnDividir=document.createElement('button'); btnDividir.className='btn btn-brand'; btnDividir.style.cssText='width:100%;height:48px;margin-bottom:8px'; btnDividir.textContent='Dividir com outro endereço';
+    btnDividir.onclick=recpExcedenteDividir;
+    const btnComplementar=document.createElement('button'); btnComplementar.className='btn btn-brand'; btnComplementar.style.cssText='width:100%;height:48px;margin-bottom:8px;background:#0b827c'; btnComplementar.textContent='Criar ponto complementar';
+    btnComplementar.onclick=recpAbrirWizardComplementar;
+    const btnForcar=document.createElement('button'); btnForcar.className='btn btn-neutral'; btnForcar.style.cssText='width:100%;height:48px;margin-bottom:8px;border-color:#e08a00;color:#a15c00'; btnForcar.textContent='Guardar aqui mesmo (acima da capacidade)';
+    btnForcar.onclick=recpExcedenteForcar;
+    modal.appendChild(btnDividir); modal.appendChild(btnComplementar); modal.appendChild(btnForcar);
+  } else {
+    const tit=document.createElement('div'); tit.className='sec-title2'; tit.textContent='Escolha o endereço complementar'; modal.appendChild(tit);
+    const usados=new Set(recpSt.itemAloc.map(l=>l.enderecoId));
+    const lista=(recpSt.rec.candidatos||[]).filter(c=>!usados.has(c.id))
+      .map(c=>({c, livre:recpEspacoLivreEfetivo(c.id,-1)}))
+      .sort((a,b)=>((b.livre>=ex.falta)-(a.livre>=ex.falta)) || (b.livre-a.livre));
+    lista.forEach(({c:cnd,livre})=>{
+      const row=document.createElement('div'); row.style.cssText='padding:10px;border:1.5px solid '+(livre>=ex.falta?'#1D9E75':'#E2E5E9')+';border-radius:10px;margin-top:6px;cursor:pointer;font-size:13px';
+      row.innerHTML='<b>'+_esc(cnd.codigo)+'</b> — '+(livre===Infinity?'sem limite':('cabem '+Math.max(0,Math.round(livre*100)/100)));
+      row.onclick=()=>recpExcedenteEscolherDestino(cnd);
+      modal.appendChild(row);
+    });
+  }
+  const cancelar=document.createElement('div'); cancelar.style.cssText='text-align:center;font-size:12.5px;color:#686868;padding:14px 0 2px;cursor:pointer'; cancelar.textContent='cancelar';
+  cancelar.onclick=()=>{ recpSt.excedente=null; renderEstoque(); };
+  modal.appendChild(cancelar);
+  overlay.appendChild(modal); wrap.appendChild(overlay);
+}
+function recpExcedenteDividir(){
+  const ex=recpSt.excedente; const linha=recpSt.itemAloc[ex.idx];
+  const livre=recpEspacoLivreEfetivo(linha.enderecoId, ex.idx);
+  linha.quantidade=Math.max(0,Math.round(livre*100)/100);
+  recpSt.excedente.escolhendoDestino=true;
+  renderEstoque();
+}
+function recpExcedenteEscolherDestino(cand){
+  const ex=recpSt.excedente;
+  recpSt.itemAloc.push({ enderecoId:cand.id, quantidade:ex.falta, enderecoSugeridoId:recpSt.itemAloc[ex.idx].enderecoSugeridoId, forcado:false, verificado:null });
+  recpSt.excedente=null;
+  renderEstoque();
+}
+function recpExcedenteForcar(){
+  const ex=recpSt.excedente;
+  recpSt.itemAloc[ex.idx].forcado=true;
+  recpSt.excedente=null;
+  recpConfirmarItem();
+}
+/* ---- handoff pro wizard endr* em modo complementar (§5 da proposta) ---- */
+function recpAbrirWizardComplementar(){
+  const ex=recpSt.excedente; const linha=recpSt.itemAloc[ex.idx]; const cand=recpCandidato(linha.enderecoId);
+  const livre=recpEspacoLivreEfetivo(linha.enderecoId, ex.idx);
+  const qtdOriginal=Number(linha.quantidade);
+  linha.quantidade=Math.max(0,Math.round(livre*100)/100); /* reduz pro que cabe ANTES de sair — coerente se o usuário cancelar e escolher "dividir" depois */
+  recpSt.wizard={ itemId:recpSt.itemId, enderecoBaseId:linha.enderecoId, falta:ex.falta, idx:ex.idx, qtdOriginal };
+  const codigo=recpSugerirCodigoComplementar(cand?cand.codigo:'');
+  endrAbrirComplementar({
+    localId: recpSt.rec.localId, localNome: recpSt.localNome,
+    areaId: cand?cand.areaId:null, areaNome: cand?cand.area:'', rua: cand?cand.rua:'',
+    tipo: cand?cand.tipo:'Bin', capacidade: cand?cand.capacidade:null,
+    codigo,
+  });
+  estoqGo('enderecos');
+}
+function recpSugerirCodigoComplementar(codigoBase){
+  if(!codigoBase) return '';
+  const existentes=new Set((recpSt.rec.candidatos||[]).map(c=>c.codigo));
+  let n=1; while(existentes.has(codigoBase+'-C'+n)) n++;
+  return codigoBase+'-C'+n;
+}
+function recpVoltarDoWizard(endereco){
+  const wiz=recpSt.wizard; recpSt.wizard=null;
+  if(!wiz) return; /* segurança — não deveria acontecer, mas evita travar se chamado fora de contexto */
+  if(endereco){
+    if(!recpCandidato(endereco.id)) recpSt.rec.candidatos.push(recpNormalizarCandidato(endereco));
+    recpSt.itemAloc.push({ enderecoId:endereco.id, quantidade:wiz.falta, enderecoSugeridoId:(recpSt.itemAloc[0]||{}).enderecoSugeridoId||null, forcado:false, verificado:null });
+    recpSt.excedente=null;
+    toast('✅ '+(endereco.codigo||'')+' criado e selecionado');
+  } else {
+    /* cancelamento: restaura a quantidade original da linha que tínhamos reduzido antes de sair —
+       senão "Guardar aqui mesmo (forçar)" na reabertura do modal ficaria descontando a falta de
+       novo (a validação de soma nunca fecharia). recpSt.excedente fica intacto, com o mesmo
+       idx/falta de antes — agora coerente de novo com a quantidade restaurada. */
+    const linha=recpSt.itemAloc[wiz.idx];
+    if(linha && linha.enderecoId===wiz.enderecoBaseId) linha.quantidade=wiz.qtdOriginal;
+  }
+  recpSt.itemId=wiz.itemId; recpSt.step='item';
+  estoqGo('recebimentos');
+}
+/* ---- scan-to-confirm (§4 da proposta): leitura, nunca gravação; opcional/best-effort ---- */
+function recpVerificarLinha(idx){ recpNfcArmar({itemId:recpSt.itemId, idx}); }
+function recpVerificarLote(){ recpNfcArmar(null); }
+function recpNfcArmar(alvo){
+  if(!estoqNfcSuportado()){ recpAbrirCamScan(alvo); return; }
+  if(recpScanCtrl) return; /* trava contra toque duplo */
+  recpSt.scanAlvo=alvo; recpSt.nfc={status:'lendo',msg:null};
+  toast('📶 Aproxime a etiqueta NFC do endereço…');
+  (async()=>{
+    try{
+      const reader=new NDEFReader();
+      const ctrl=new AbortController(); recpScanCtrl=ctrl;
+      await reader.scan({signal:ctrl.signal});
+      reader.onreading=(e)=>{
+        const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
+        let texto='';
+        for(const rec of e.message.records){ if(rec.recordType==='url'){ try{ texto=new TextDecoder(rec.encoding||'utf-8').decode(rec.data); }catch(err){} break; } }
+        const m=/\/e\/([A-Za-z0-9-]+)/.exec(texto||'');
+        if(!m){ toast('⚠️ Etiqueta não reconhecida'); return; }
+        recpResolverEtiqueta(m[1], uid);
+      };
+    }catch(e){ recpScanCtrl=null; recpSt.nfc={status:'erro',msg:e.message}; toast('⚠️ Não consegui ativar o NFC: '+e.message); }
+  })();
+}
+async function recpAbrirCamScan(alvo){
+  recpSt.scanAlvo=alvo;
+  toast('📷 Aponte a câmera pro QR do endereço');
+  await estoqScanCamAbrir((texto)=>{
+    const m=/\/e\/([A-Za-z0-9-]+)/.exec(texto||'');
+    recpResolverEtiqueta(m?m[1]:String(texto||'').trim(), null);
+  });
+}
+function recpNfcDesativar(){
+  if(recpScanCtrl){ try{recpScanCtrl.abort();}catch(e){} recpScanCtrl=null; }
+  if(recpSt) recpSt.nfc={status:'idle',msg:null};
+}
+async function recpResolverEtiqueta(token, uid){
+  try{
+    let url='/estoque/enderecos/etiqueta/'+encodeURIComponent(token);
+    if(uid) url+='?uid='+encodeURIComponent(uid);
+    const d=await beGet(url);
+    recpNfcDesativar();
+    recpScanResultado(d.endereco);
+  }catch(e){
+    recpNfcDesativar();
+    if(e.status===410) toast('⚠️ Etiqueta antiga/substituída — imprima a etiqueta atual');
+    else if(e.status===403) toast('⚠️ UID não confere — possível clonagem da etiqueta');
+    else if(e.status===404) toast('⚠️ Etiqueta não encontrada');
+    else toast('⚠️ Erro ao ler etiqueta: '+e.message);
+  }
+}
+function recpScanResultado(endereco){
+  const alvo=recpSt.scanAlvo;
+  if(alvo && alvo.idx!=null){
+    const linha=recpSt.itemAloc[alvo.idx];
+    if(!linha) return;
+    if(linha.enderecoId===endereco.id){
+      linha.verificado='ok';
+      try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){}
+      toast('✓ '+(endereco.codigo||'')+' confirmado');
+      renderEstoque();
+    } else {
+      recpScanDivergencia(linha, endereco);
+    }
+    return;
+  }
+  let bateu=0;
+  Object.keys(recpSt.aloc).forEach(itemId=>{
+    (recpSt.aloc[itemId]||[]).forEach(l=>{ if(l.enderecoId===endereco.id && l.verificado!=='ok'){ l.verificado='ok'; bateu++; } });
+  });
+  if(bateu){ try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){} toast('✓ '+bateu+' linha(s) confirmada(s) em '+(endereco.codigo||'')); }
+  else toast('Nenhuma linha pendente alocada em '+(endereco.codigo||'')+'.');
+  renderEstoque();
+}
+function recpScanDivergencia(linha, enderecoLido){
+  if(!recpCandidato(enderecoLido.id)){ toast('⚠️ Você está em '+(enderecoLido.codigo||'')+', que não é um endereço válido pra este local.'); return; }
+  recpSt._divergencia={ linha, original:recpCandidato(linha.enderecoId), lido:enderecoLido };
+  renderEstoque();
+}
+function recpRenderDivergencia(wrap){
+  const dv=recpSt._divergencia; if(!dv) return;
+  const overlay=document.createElement('div'); overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px;padding:18px;max-width:420px;box-sizing:border-box';
+  modal.innerHTML='<div style="font-size:14px;color:#0B2239;margin-bottom:14px">Você está em <b>'+_esc(dv.lido.codigo||'')+'</b>, mas este item foi alocado pra <b>'+_esc(dv.original?dv.original.codigo:'—')+'</b>. Registrar aqui em vez do sugerido?</div>';
+  const reg=document.createElement('button'); reg.className='btn btn-brand'; reg.style.cssText='width:100%;height:46px;margin-bottom:8px'; reg.textContent='Registrar aqui';
+  reg.onclick=()=>{
+    dv.linha.enderecoId=dv.lido.id; dv.linha.verificado='corrigido';
+    if(!recpCandidato(dv.lido.id)) recpSt.rec.candidatos.push(recpNormalizarCandidato(dv.lido));
+    recpSt._divergencia=null;
+    recpConfirmarItem(); /* rerroda a checagem de excedente contra o endereço novo — pode abrir o modal */
+  };
+  const manter=document.createElement('button'); manter.className='btn btn-neutral'; manter.style.cssText='width:100%;height:44px'; manter.textContent='Manter o sugerido';
+  manter.onclick=()=>{ recpSt._divergencia=null; renderEstoque(); };
+  modal.appendChild(reg); modal.appendChild(manter);
+  overlay.appendChild(modal); wrap.appendChild(overlay);
+}
+/* ---- passo 4: revisão + confirmação final atômica ---- */
+function recpRenderRevisao(card){
+  const r=recpSt.rec;
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Revisão — '+_esc(r.name)+'</div>';
+  let temForcado=false;
+  (r.itens||[]).forEach(item=>{
+    const c=recpSt.conf[item.id]; if(!c) return;
+    const row=document.createElement('div'); row.style.cssText='padding:8px 0;border-bottom:1px solid #eef0f3;font-size:13px';
+    let alocTxt;
+    if(c.status==='Item Não Chegou') alocTxt='(não chegou)';
+    else {
+      const alocs=recpSt.aloc[item.id]||[];
+      alocTxt=alocs.map(a=>{
+        const cand=recpCandidato(a.enderecoId); const badges=[];
+        if(a.forcado) badges.push('⚠️'); if(a.verificado==='ok') badges.push('✓'); if(a.verificado==='corrigido') badges.push('✓*');
+        return (cand?cand.codigo:'?')+' ('+a.quantidade+')'+(badges.length?(' '+badges.join('')):'');
+      }).join(', ') || '—';
+      if(alocs.some(a=>a.forcado)) temForcado=true;
+    }
+    row.innerHTML='<b>'+_esc(item.produto||item.descricaoNF||'')+'</b> — '+_esc(c.status)+' · '+_esc(c.quantidade)+' → '+_esc(alocTxt);
+    card.appendChild(row);
+  });
+  if(temForcado){ const av=document.createElement('div'); av.className='subnote'; av.style.cssText='color:#a15c00;padding-top:10px'; av.textContent='⚠️ Um ou mais endereços ficarão acima da capacidade.'; card.appendChild(av); }
+  if(recpSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.cssText='color:#C4451B;padding-top:10px'; e.textContent=recpSt.erro; card.appendChild(e); }
+  const conf=document.createElement('button'); conf.className='btn btn-brand'; conf.style.cssText='width:100%;height:48px;margin-top:14px';
+  conf.textContent=recpSt.confirmando?'Confirmando…':'✅ Confirmar recebimento'; conf.disabled=!!recpSt.confirmando;
+  conf.onclick=recpConfirmarRecebimento;
+  card.appendChild(conf);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='recebimento'; renderEstoque(); }; card.appendChild(bk);
+}
+async function recpConfirmarRecebimento(){
+  if(recpSt.confirmando) return;
+  recpSt.confirmando=true; recpSt.erro=null; renderEstoque();
+  try{
+    const alocacoes={};
+    (recpSt.rec.itens||[]).forEach(item=>{
+      const c=recpSt.conf[item.id]; if(!c || c.status==='Item Não Chegou') return;
+      const lista=(recpSt.aloc[item.id]||[]).map(a=>{
+        const out={enderecoId:a.enderecoId, quantidade:a.quantidade};
+        if(a.enderecoSugeridoId) out.enderecoSugeridoId=a.enderecoSugeridoId;
+        return out;
+      });
+      if(lista.length) alocacoes[item.id]=lista;
+    });
+    const body={alocacoes};
+    if(recpSt.localDestinoId) body.localDestinoId=recpSt.localDestinoId;
+    await bePost('/estoque/recebimentos/'+recpSt.recId+'/confirmar', body);
+    recpSt.confirmando=false;
+    recpSt.step='sucesso'; renderEstoque();
+  }catch(e){ recpSt.confirmando=false; recpSt.erro='Erro ao confirmar: '+e.message; renderEstoque(); }
+}
+function recpRenderSucesso(card){
+  const r=recpSt.rec;
+  const nItens=(r.itens||[]).filter(i=>recpSt.conf[i.id]&&recpSt.conf[i.id].status!=='Item Não Chegou').length;
+  const nEnd=new Set(); Object.values(recpSt.aloc).forEach(l=>l.forEach(a=>nEnd.add(a.enderecoId)));
+  card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:6px">✅</div>'
+    +'<div style="text-align:center;font-size:16px;font-weight:700;color:#0B2239">Recebimento '+_esc(r.name)+' confirmado</div>'
+    +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:6px 0 16px">'+nItens+' ite'+(nItens===1?'m':'ns')+' · '+nEnd.size+' endereço'+(nEnd.size===1?'':'s')+'</div>';
+  const ver=document.createElement('button'); ver.className='btn btn-brand'; ver.style.cssText='width:100%;height:48px'; ver.textContent='Ver entradas pendentes';
+  ver.onclick=()=>{ recpReset(); estoqGo('recebimentos'); recpCarregarLista(); };
+  card.appendChild(ver);
+  const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Voltar ao painel';
+  fim.onclick=()=>{ recpReset(); estoqGo('dash'); };
+  card.appendChild(fim);
 }
 /* linha padrão de SEP nas listas */
 function sepRow(o,s,onclick){

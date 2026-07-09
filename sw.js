@@ -75,8 +75,16 @@
    (v93 10/07 — Endereçamento: nível intermediário Área/Rua no wizard endr* — passo Área entra
     entre Local e Tipo (só aparece se o local tiver áreas cadastradas), passo Rua entra depois
     quando a área exige (RequerRua__c); código sugerido agora usa prefixo Área-Rua-Tipo-Seq;
-    lista e detalhe do endereço mostram 📍 área/rua junto do código) */
-const CACHE = 'exaustech-os-v93';
+    lista e detalhe do endereço mostram 📍 área/rua junto do código)
+   (v94 10/07 — Fase 4: "Entradas pendentes" (recp*) — conferência item a item do recebimento,
+    sugestão de endereço em destaque (habitual/última entrada/vago), alerta de excedente com 3
+    saídas (dividir entre 2 endereços / criar ponto complementar via handoff pro wizard endr* com
+    retorno automático / forçar acima da capacidade), scan-to-confirm NFC/QR na prateleira antes
+    da confirmação final atômica; zero endpoint novo, backend já pronto desde a Fase 2. Desenhado
+    com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
+    corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
+    gate de confirmação sem checar persistência)) */
+const CACHE = 'exaustech-os-v94';
 const SHELL = [
   './',
   './index.html',
