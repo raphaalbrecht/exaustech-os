@@ -600,7 +600,15 @@ function sincronizarAlturaLista(){
   if (__roColDireita) { __roColDireita.disconnect(); __roColDireita = null; }
   if (!direita || !ST.selecionadaId) { lista.style.maxHeight = ''; return; } // sem seleção: volta pro teto padrão (78vh via CSS)
   const ajustar = () => {
-    const h = direita.getBoundingClientRect().height;
+    // não basta igualar a ALTURA da .lista à da coluna direita: a .lista começa mais abaixo (tem o
+    // campo de busca acima dela), então "mesma altura" sobrava embaixo, ultrapassando o fundo da
+    // coluna direita (achado do Raphael 10/07, com print mostrando o card da lista vazando abaixo
+    // do card de Reincidência). O que precisa bater é o LIMITE INFERIOR dos dois, então calcula a
+    // altura da lista a partir de onde ela realmente começa (getBoundingClientRect().top, que já
+    // reflete o campo de busca acima) até o fundo real da coluna direita.
+    const fundoAlvo = direita.getBoundingClientRect().bottom;
+    const topoLista = lista.getBoundingClientRect().top;
+    const h = fundoAlvo - topoLista;
     if (h > 0) lista.style.maxHeight = h + 'px';
   };
   ajustar();
