@@ -65,8 +65,12 @@
    (v90 09/07 — Cadastro de Ativos: campo tipo Foto (upload real pro Drive via /midias-ativo) +
     Multi-Picklist (seleção múltipla, antes sobrescrevia) + provisionar etiqueta NFC ao final do
     cadastro (lê UID físico, grava App Link do Portal na tag, QR companion pra impressão))
-   (republicação: run #127 do Pages ficou preso na fila, novo commit pra destravar) */
-const CACHE = 'exaustech-os-v90';
+   (republicação: run #127 do Pages ficou preso na fila, novo commit pra destravar)
+   (v91 09/07 — Fase 3 do wizard de Endereço de Estoque: criação guiada (local→lista→tipo→
+    nome→capacidade→revisão) + provisionamento de etiqueta NFC token+versão (EtiquetaEndereco__c,
+    App Link /e/:token) + impressão Zebra/PDF 80×50mm; entry point "Endereços de estoque" na
+    home do Estoquista) */
+const CACHE = 'exaustech-os-v91';
 const SHELL = [
   './',
   './index.html',
