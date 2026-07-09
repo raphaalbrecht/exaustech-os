@@ -90,6 +90,13 @@
   .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-bottom:12px}
   .pdf-viewer{width:100%;height:74vh;border:1px solid var(--border);border-radius:8px;background:#fff;display:block}
   .pdf-hint{font-size:11px;color:var(--weaker);font-weight:400}
+  .link-btn{background:none;border:none;color:var(--brand);font-size:12.5px;cursor:pointer;padding:9px 4px;text-decoration:underline;font-weight:600}
+  .link-btn:hover{color:var(--brand-d)}
+  .cm-panel{margin-top:12px;padding:12px;border:1px dashed var(--border2);border-radius:8px;background:var(--bg)}
+  .cm-pergunta-sel{font-size:12px;padding:8px 10px;background:var(--brand-l);border-radius:6px;margin-bottom:8px;color:var(--brand-d)}
+  .cm-nc-item{padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-top:6px;cursor:pointer;font-size:12.5px;background:#fff}
+  .cm-nc-item:hover{border-color:var(--brand)}
+  .cm-nc-item.sel{border-color:var(--brand);background:var(--brand-l)}
   .item-num{font-size:13.5px;font-weight:600;margin-bottom:8px}
   .item-texto{font-size:13px;line-height:1.55;color:var(--txt);margin-bottom:10px;white-space:pre-wrap}
   .nota{font-size:12.5px;font-style:italic;color:var(--weak);background:#fff;border-left:2px solid var(--border2);padding:8px 10px;border-radius:0 6px 6px 0}
@@ -213,6 +220,13 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 
 let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
+
+// ---- corrigir vínculo (pedido do Raphael 10/07): quando o match automático aponta pra NC
+// errada, o revisor busca a pergunta/NC certa no catálogo (reusa os mesmos endpoints do fluxo
+// mobile de lançamento manual: /exp/auditorias/perguntas?q= e /exp/auditorias/nc?perguntaId=) e
+// reaponta a Linha antes de confirmar — o backend já aceitava esse override há sessões
+// (naoConformidadeId/perguntaId/etc no POST /confirmar), só faltava a UI.
+let CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
@@ -749,7 +763,11 @@ async function renderDetalhe(){
 
   el.innerHTML =
     '<div class="col left">'
-    + '<h3>PDF original' + (pdfUrl ? ' <span class="pdf-hint">· dica: Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho</span>' : '') + '</h3>'
+    + '<h3>PDF original' + (pdfUrl
+        ? ' <span class="pdf-hint">' + (l.paginaPdf
+            ? '· já aberto na página ' + l.paginaPdf + ' — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho exato'
+            : '· página não identificada automaticamente — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho') + '</span>'
+        : '') + '</h3>'
     + (pdfUrl
         ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
         : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>')
@@ -771,7 +789,11 @@ async function renderDetalhe(){
         ? '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
           + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>'
         : '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>')
+    + ((CM.ativo && CM.linhaId === l.id)
+        ? ''
+        : '<button class="link-btn" onclick="cmAbrir(\'' + l.id + '\')">🔍 Corrigir vínculo (buscar outra não conformidade)</button>')
     + '</div>'
+    + ((CM.ativo && CM.linhaId === l.id) ? cmPanelHtml(l) : '')
     + (l.faixa === 'Sem match' ? '<div class="msg info" style="margin-top:14px">Itens "Sem match" que precisam virar item novo de catálogo ainda não têm tela própria aqui — isso é o wizard de cadastro (em construção, Sócio-only). Por ora, ajuste direto no Salesforce se precisar.</div>' : '')
     + '</div>';
 
@@ -785,7 +807,14 @@ async function renderDetalhe(){
       const url = await fotoBlobUrl(pdfUrl);
       if (ST.selecionadaId !== idAlvo) return; // usuário já trocou de item — não pinta painel errado
       const wrap = document.getElementById('pdfWrap');
-      if (wrap) wrap.innerHTML = '<iframe class="pdf-viewer" src="' + url + '" title="PDF original do laudo"></iframe>';
+      // pedido do Raphael 09/07: ao trocar de item, o visualizador já abre na página certa (em vez
+      // de sempre página 1 + Ctrl+F manual) — usa o parâmetro de abertura #page=N do visualizador
+      // nativo do Chrome/PDFium. Como o <iframe> é recriado do zero a cada seleção (ver comentário
+      // acima), isso é sempre uma navegação NOVA do src, então o #page=N é respeitado de forma
+      // confiável (diferente de só trocar o hash de um iframe já carregado). Item sem página
+      // detectada (âncora não reconhecida no import) cai pro padrão: abre na página 1.
+      const srcPdf = url + (l.paginaPdf ? '#page=' + l.paginaPdf : '');
+      if (wrap) wrap.innerHTML = '<iframe class="pdf-viewer" src="' + srcPdf + '" title="PDF original do laudo"></iframe>';
     } catch (e) {
       if (ST.selecionadaId !== idAlvo) return;
       const wrap = document.getElementById('pdfWrap');
@@ -840,6 +869,146 @@ async function reverterLinha(linhaId){
   } catch (e) {
     msg('Falha de rede ao reverter: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Reverter confirmação'; }
+  }
+}
+
+// ---- corrigir vínculo: busca pergunta -> lista NCs da pergunta -> confirma com override ----
+function cmPanelHtml(l){
+  const pergunta = CM.pergunta;
+  const prefixoOpcoes = pergunta && pergunta.prefixoOpcoes || [];
+  return '<div class="cm-panel">'
+    + '<div style="font-size:12px;color:var(--weak);margin-bottom:6px">Busque por um trecho do texto da pergunta do catálogo (Elemento/Grupo) pra achar o vínculo correto.</div>'
+    + '<div style="position:relative">'
+    + '<input class="busca-input" id="cmBusca" placeholder="Digite pra buscar a pergunta certa…" autocomplete="off" oninput="cmBuscarPergunta(this.value)">'
+    + '<div class="na-conta-lista" id="cmPerguntaLista" style="display:none"></div>'
+    + '</div>'
+    + (pergunta
+        ? '<div class="cm-pergunta-sel"><b>' + escapeHtml(pergunta.elementoNome || '—') + ' · ' + escapeHtml(pergunta.grupoNome || '—') + '</b><br>' + escapeHtml(pergunta.texto || '') + '</div>'
+        : '')
+    + (pergunta && prefixoOpcoes.length > 1
+        ? '<div style="margin-bottom:8px"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Prefixo/numeração (mais de uma opção pra esse Elemento/Grupo — escolha)</label>'
+          + '<select id="cmPrefixoSelect" onchange="cmEscolherPrefixo(this.value)">'
+          + '<option value="">— selecione —</option>'
+          + prefixoOpcoes.map((o) => '<option value="' + o.id + '">' + escapeHtml(o.nome || o.codigo || o.id) + '</option>').join('')
+          + '</select></div>'
+        : '')
+    + '<div id="cmNcLista">' + (pergunta ? '' : '<span style="font-size:12px;color:var(--weaker)">selecione uma pergunta acima pra ver as não conformidades relacionadas a ela</span>') + '</div>'
+    + '<div style="margin-top:10px;display:flex;gap:8px;align-items:center">'
+    + '<button class="btn" id="cmConfirmarBtn" disabled onclick="cmConfirmar(\'' + l.id + '\')">Confirmar este vínculo</button>'
+    + '<button class="btn sec" onclick="cmFechar()">Cancelar</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function cmAbrir(linhaId){
+  CM = { ativo:true, linhaId, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
+  renderDetalhe();
+}
+
+function cmFechar(){
+  CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
+  renderDetalhe();
+}
+
+function cmBuscarPergunta(valor){
+  clearTimeout(CM.buscaTimer);
+  const termo = valor.trim();
+  const lista = document.getElementById('cmPerguntaLista');
+  if (!lista) return;
+  if (termo.length < 3) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  CM.buscaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND + '/exp/auditorias/perguntas?q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const perguntas = await r.json();
+      if (!r.ok || !Array.isArray(perguntas) || !perguntas.length) {
+        lista.innerHTML = '<div class="na-conta-item" style="cursor:default;color:var(--weaker)">nenhuma pergunta encontrada com esse texto</div>';
+        lista.style.display = 'block';
+        return;
+      }
+      CM.resultados = perguntas;
+      lista.innerHTML = perguntas.map((p, i) => '<div class="na-conta-item" onclick="cmSelecionarPergunta(' + i + ')">'
+        + '<div style="font-weight:600">' + escapeHtml(p.elementoNome || '—') + ' · ' + escapeHtml(p.grupoNome || '—') + '</div>'
+        + '<div style="color:var(--weak)">' + escapeHtml(p.texto || '') + '</div>'
+        + '</div>').join('');
+      lista.style.display = 'block';
+    } catch (e) { /* best-effort: busca de pergunta não trava o resto da tela */ }
+  }, 300);
+}
+
+async function cmSelecionarPergunta(i){
+  const p = CM.resultados[i];
+  CM.pergunta = p; CM.ncEscolhida = null;
+  CM.prefixoEscolhido = (p.prefixoOpcoes && p.prefixoOpcoes.length === 1) ? p.prefixoOpcoes[0].id : null;
+  renderDetalhe(); // repinta o painel já com a pergunta escolhida (some a lista de busca)
+
+  const wrap = document.getElementById('cmNcLista');
+  if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--weaker)">carregando não conformidades…</span>';
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/nc?perguntaId=' + encodeURIComponent(p.perguntaId), { headers: { Authorization: 'Bearer ' + beTok() } });
+    const ncs = await r.json();
+    if (!CM.ativo || !CM.pergunta || CM.pergunta.perguntaId !== p.perguntaId) return; // usuário já trocou de pergunta ou fechou o painel
+    if (!r.ok || !Array.isArray(ncs) || !ncs.length) {
+      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">nenhuma não conformidade cadastrada pra essa pergunta no catálogo.</span>';
+      return;
+    }
+    CM.ncs = ncs;
+    if (wrap) wrap.innerHTML = ncs.map((n, i) => '<div class="cm-nc-item" id="cmNc' + i + '" onclick="cmSelecionarNc(' + i + ')">'
+      + escapeHtml(n.texto || '') + ' <span style="color:var(--weaker)">· ' + escapeHtml(n.classificacao || '') + (n.risco ? ' · ' + escapeHtml(n.risco) : '') + '</span></div>').join('');
+  } catch (e) {
+    if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao buscar não conformidades: ' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+function cmEscolherPrefixo(id){
+  CM.prefixoEscolhido = id || null;
+  const btn = document.getElementById('cmConfirmarBtn');
+  if (btn) btn.disabled = !cmPodeConfirmar();
+}
+
+function cmSelecionarNc(i){
+  CM.ncEscolhida = CM.ncs[i];
+  document.querySelectorAll('.cm-nc-item').forEach((el) => el.classList.remove('sel'));
+  const el = document.getElementById('cmNc' + i);
+  if (el) el.classList.add('sel');
+  const btn = document.getElementById('cmConfirmarBtn');
+  if (btn) btn.disabled = !cmPodeConfirmar();
+}
+
+function cmPodeConfirmar(){
+  if (!CM.pergunta || !CM.ncEscolhida) return false;
+  // Elemento/Grupo com mais de 1 prefixo cadastrado -> obrigatório escolher qual (mesma trava do Salesforce)
+  if (CM.pergunta.prefixoOpcoes && CM.pergunta.prefixoOpcoes.length > 1 && !CM.prefixoEscolhido) return false;
+  return true;
+}
+
+async function cmConfirmar(linhaId){
+  if (!cmPodeConfirmar()) return;
+  const btn = document.getElementById('cmConfirmarBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Confirmando…'; }
+  const payload = {
+    naoConformidadeId: CM.ncEscolhida.id,
+    perguntaId: CM.pergunta.perguntaId,
+    elementoId: CM.pergunta.elementoId,
+    grupoDescricaoId: CM.pergunta.grupoId,
+    numeroId: CM.pergunta.numeroId,
+    classificacaoLinha: CM.ncEscolhida.classificacao
+  };
+  const prefixoOpcoes = CM.pergunta.prefixoOpcoes || [];
+  if (CM.prefixoEscolhido) payload.prefixoElementoId = CM.prefixoEscolhido;
+  else if (prefixoOpcoes.length === 1) payload.prefixoElementoId = prefixoOpcoes[0].id;
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao corrigir vínculo: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar este vínculo'; } return; }
+    CM = { ativo:false, linhaId:null, buscaTimer:null, pergunta:null, ncEscolhida:null, prefixoEscolhido:null, resultados:null, ncs:null };
+    await carregar(); // recarrega o lote pra refletir o novo vínculo/contadores
+    ST.selecionadaId = linhaId; renderTudo();
+    msg('Vínculo corrigido e confirmado.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao corrigir vínculo: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar este vínculo'; }
   }
 }
 
