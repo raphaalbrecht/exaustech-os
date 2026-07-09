@@ -41,11 +41,12 @@
      canto esquerdo do corpo (branco), fonte azul grande e em negrito, como era antes da rodada 3
      ter mudado pra um chip pequeno dentro da barra azul do header (lá o azul do texto brigava com
      o azul do fundo — por isso tinha virado texto branco pequeno). Substitui o #headerConta. */
-  /* rodada 11b: virou 1ª linha do card branco (full-width, força quebra pro resto do loadbar) —
-     o line-height de 21px + margin de 12px somados deixavam o card visivelmente mais alto do que
-     antes. Reduz margin-bottom pra 2px e aperta o line-height, economizando a altura ganha. */
-  .conta-destaque{font-size:19px;line-height:1.15;font-weight:700;color:var(--brand);margin:0 0 2px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;flex:0 0 auto}
-  .conta-destaque .data{font-size:13px;font-weight:500;color:var(--weak)}
+  /* rodada 11c: 11b ainda sobrava espaço — o .loadbar tem gap:10px entre TODOS os itens flex
+     (inclusive depois do conta-destaque, que virou item de largura cheia), então além do próprio
+     line-height, esse gap de 10px somava por cima. margin-bottom negativo cancela esse gap; fonte
+     desce mais um degrau (16px) já que o objetivo agora é compacidade, não o tamanho em si. */
+  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;flex:0 0 auto}
+  .conta-destaque .data{font-size:12px;font-weight:500;color:var(--weak)}
   /* pedido do Raphael (10/07, rodada 2): "ocupar toda a largura da página" — tira o teto de
      1400px que sobrava como margem morta nas laterais em telas grandes; padding vira % da
      largura (min 20px) em vez de fixo, então a régua ainda respira em telas muito largas sem
