@@ -19,21 +19,34 @@
     --neu-bg:#F0F2F5; --neu-tx:#4A5560;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;font-family:'Salesforce Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
-  header{background:var(--brand);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20}
+  /* pedido do Raphael (10/07, rodada 2): eliminar o scroll da PÁGINA inteira — o app passa a
+     ocupar exatamente a altura da janela (header fixo + resto em flex-column), e quem rola é cada
+     coluna internamente (lista / PDF / registro), não o documento. */
+  html,body{height:100%;margin:0;padding:0;overflow:hidden;font-family:'Salesforce Sans',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  body{display:flex;flex-direction:column}
+  header{background:var(--brand);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;flex:0 0 auto;z-index:20}
   header h1{font-size:16px;font-weight:600;margin:0}
   header .sub{font-size:12px;opacity:.85}
   header .spacer{flex:1}
   .chip{background:rgba(255,255,255,.18);border-radius:999px;padding:4px 12px;font-size:12px}
-  .wrap{max-width:1400px;margin:0 auto;padding:18px 20px 60px}
+  /* botão que abre o modal de Nova auditoria — antes era um card sempre presente no topo da
+     página (ocupava altura mesmo fechado); agora é só um gatilho no cabeçalho. */
+  .chip-btn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer}
+  .chip-btn:hover{background:rgba(255,255,255,.3)}
+  .wrap{max-width:1400px;margin:0 auto;padding:14px 20px;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;width:100%}
+  #msgArea{flex:0 0 auto}
   .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
-  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
+  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;flex:0 0 auto}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
-  .nova-aud{margin-bottom:14px;padding:0}
-  .nova-aud-head{padding:12px 16px;font-size:13px;font-weight:600;color:var(--brand-d);cursor:pointer;user-select:none}
-  .nova-aud-head:hover{background:var(--brand-l)}
-  #novaAudBody{padding:0 16px 16px}
+  /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
+     altura que o card ocupava no topo da página, mesmo recolhido. */
+  .nova-aud-overlay{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:70px 20px;overflow-y:auto}
+  .nova-aud-modal{background:var(--card);border-radius:10px;max-width:640px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .nova-aud-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--brand-d)}
+  .modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--weak);padding:2px 8px}
+  .modal-close:hover{color:var(--txt)}
+  #novaAudBody{padding:16px 18px}
   .na-conta-lista{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:220px;overflow-y:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.08)}
   .na-conta-item{padding:8px 10px;font-size:13px;cursor:pointer}
   .na-conta-item:hover{background:var(--brand-l)}
@@ -45,7 +58,9 @@
   .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px}
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
-  .conta-header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  #conteudo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .conta-header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap;flex:0 0 auto}
+  #comparativoWrap{flex:0 0 auto}
   .conta-header .conta-nome{font-size:19px;font-weight:700;color:var(--brand-dk)}
   .conta-header .conta-data{font-size:13px;color:var(--weak)}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
@@ -60,15 +75,22 @@
      Tratamento em outra, cada uma com seu próprio espaço vertical. Junta as duas na MESMA linha
      (Filtros à esquerda, Tratamento empurrado pro canto direito via margin-left:auto), reduzindo
      a altura do cabeçalho e "arejando" o centro da linha em vez de deixar tudo grudado à esquerda. */
-  .filtros-linha{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px}
+  .filtros-linha{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px;flex:0 0 auto}
   .filtros-linha .filtros{margin-bottom:0}
   .filtros-linha .tratamento-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-  .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
-  .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px}
+  /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
+     .grid agora ocupa a altura restante da viewport (flex:1 dentro de #conteudo) e cada coluna
+     (lista / PDF / registro+reincidência) rola por conta própria (height:100%;overflow-y:auto),
+     em vez da página inteira rolar. Isso também aposenta o sincronizarAlturaLista()/ResizeObserver
+     que existia só pra IMITAR esse alinhamento via JS — CSS grid já garante altura igual nativamente. */
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;flex:1 1 auto;min-height:0;overflow:hidden}
+  .grid.grid-3{grid-template-columns:340px 1.25fr 1fr}
+  .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
+  .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
-  .lista{border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:78vh;overflow-y:auto}
+  .lista{border:1px solid var(--border);border-radius:10px;flex:1 1 auto;min-height:0;overflow-y:auto}
   .litem{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
   .litem:hover{background:var(--brand-l)}
   .litem.revisada{background:var(--succ-bg)}
@@ -90,14 +112,13 @@
   .badge.trat-nao{background:var(--neu-bg);color:var(--neu-tx)}
   .badge.trat-em{background:var(--warn-bg);color:var(--warn-tx)}
   .badge.trat-ok{background:var(--succ-bg);color:var(--succ)}
-  .filtros-sub{display:flex;gap:8px;margin:-6px 0 14px;flex-wrap:wrap;align-items:center}
-  .filtros-sub .rotulo{font-size:11px;color:var(--weaker);margin-right:2px}
-  .detalhe{border:1px solid var(--border);border-radius:10px;overflow:hidden;display:none}
-  /* sugestão Fable 10/07: 1fr/1fr deixava o PDF (página A4 inteira em 74vh) espremido; dá mais
-     fôlego ao documento fonte sem mudar a coluna direita (que é elástica, cabe bem em menos) */
-  .detalhe.show{display:grid;grid-template-columns:1.25fr 1fr}
-  .col{padding:18px}
-  .col.left{border-right:1px solid var(--border);background:var(--bg)}
+  .filtros-sub{display:flex;gap:8px;margin:-6px 0 14px;flex-wrap:wrap;align-items:center;flex:0 0 auto}
+  /* cada coluna da direita (PDF / registro) agora é uma caixa própria (borda+cantos+scroll
+     interno), lado a lado por causa do gap do .grid — antes viviam dentro de um único retângulo
+     .detalhe com divisória interna; sem essa moldura comum, cada .col ganha sua própria borda. */
+  .col{padding:18px;height:100%;min-height:0;overflow-y:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+  .col.left{background:var(--bg)}
+  .placeholder-col{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--weaker);font-size:13px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
   /* sugestão Fable 10/07: títulos de seção (h3) tinham quase o mesmo peso do corpo de texto —
      uppercase + letter-spacing dá um rótulo de seção mais claro sem mudar layout/estrutura */
   .col h3{font-size:11px;color:var(--weak);margin:0 0 10px;display:flex;align-items:center;gap:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
@@ -129,10 +150,14 @@
      enquanto o PDF (74vh) ainda estava visível — sticky acompanha o scroll sem mudar a estrutura */
   .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
-  .hist{border-top:1px solid var(--border);margin-top:0}
-  .hist-head{padding:14px 18px;font-size:12.5px;color:var(--weak);font-weight:600;display:flex;align-items:center;gap:8px}
+  /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
+     viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
+     padding lateral de 18px que compensava um card de largura cheia foi removido (a .col já dá
+     esse respiro) e sobrou só um separador horizontal (border-top). */
+  .hist{border-top:1px solid var(--border);margin-top:16px;padding-top:4px}
+  .hist-head{padding:10px 0 8px;font-size:12.5px;color:var(--weak);font-weight:600;display:flex;align-items:center;gap:8px}
   .hist-head .n{color:var(--txt)}
-  .hist-list{padding:0 18px 16px}
+  .hist-list{padding:0 0 4px}
   .hist-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:#fff}
   .hist-row:hover{background:var(--brand-l)}
   .hist-row.atual{border-color:var(--brand);background:var(--brand-l)}
@@ -140,8 +165,8 @@
   .hist-row .stnome{font-size:12px;color:var(--weak);flex:1}
   .hist-expand{padding:10px 12px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;margin:-2px 0 8px;font-size:12.5px}
   .hist-expand img{max-width:220px;border-radius:6px;display:block;margin-top:6px}
-  .hist-empty{padding:0 18px 16px;font-size:12.5px;color:var(--weaker)}
-  .hist-grid{padding:0 18px 14px;display:flex;gap:5px;flex-wrap:wrap}
+  .hist-empty{padding:0 0 4px;font-size:12.5px;color:var(--weaker)}
+  .hist-grid{padding:0 0 10px;display:flex;gap:5px;flex-wrap:wrap}
   .mes-pill{font-size:10.5px;font-weight:600;padding:4px 7px;border-radius:7px;text-align:center;min-width:46px;line-height:1.35}
   .mes-pill .mm{display:block;font-size:9.5px;font-weight:700;opacity:.85}
   .mes-pill.sem-vistoria{background:var(--neu-bg);color:var(--weaker);opacity:.55}
@@ -169,16 +194,21 @@
 <header>
   <h1>Exaustech · Revisor de Auditoria</h1>
   <div class="spacer"></div>
+  <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
   <div class="chip" id="userchip">carregando sessão…</div>
 </header>
-<div class="wrap">
-  <div id="msgArea"></div>
 
-  <div class="card nova-aud" id="novaAudCard">
-    <div class="nova-aud-head" onclick="toggleNovaAuditoria()">
-      <span id="novaAudToggleTxt">+ Nova auditoria (cadastrar e importar PDF)</span>
+<!-- pedido do Raphael (10/07, rodada 2): tirar esse formulário do fluxo normal da página (antes
+     era um card sempre presente logo abaixo do header, ocupando altura mesmo fechado) — agora é
+     um modal disparado pelo botão "+ Nova auditoria" do header, com position:fixed (não conta pra
+     altura de nada) por cima do resto da tela. Mesmos ids internos, só a moldura mudou. -->
+<div class="nova-aud-overlay" id="novaAudOverlay" onclick="if(event.target===this) toggleNovaAuditoria()">
+  <div class="nova-aud-modal">
+    <div class="nova-aud-modal-head">
+      <span>Nova auditoria (cadastrar e importar PDF)</span>
+      <button class="modal-close" onclick="toggleNovaAuditoria()">×</button>
     </div>
-    <div id="novaAudBody" style="display:none">
+    <div id="novaAudBody">
       <div class="loadbar" style="margin-bottom:6px">
         <div>
           <label>PDF do relatório</label>
@@ -222,6 +252,10 @@
       </div>
     </div>
   </div>
+</div>
+
+<div class="wrap">
+  <div id="msgArea"></div>
 
   <div class="card loadbar">
     <div>
@@ -278,10 +312,9 @@ async function carregarCatalogoSeNecessario(){
 let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null };
 
 function toggleNovaAuditoria(){
-  const body = document.getElementById('novaAudBody');
-  const abrindo = body.style.display === 'none';
-  body.style.display = abrindo ? 'block' : 'none';
-  document.getElementById('novaAudToggleTxt').textContent = abrindo ? '− Nova auditoria (cadastrar e importar PDF)' : '+ Nova auditoria (cadastrar e importar PDF)';
+  const overlay = document.getElementById('novaAudOverlay');
+  const abrindo = overlay.style.display !== 'flex';
+  overlay.style.display = abrindo ? 'flex' : 'none';
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
     NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null };
@@ -595,54 +628,28 @@ function renderTudo(){
     }).join('') + '</div>';
   }
 
-  h += '<div class="grid">';
-  h += '<div>'
+  // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
+  // as 2 colunas da direita (antes um único bloco .detalhe com grid interno + card de histórico
+  // embaixo) viram colunas DIRETAS do mesmo .grid (classe .grid-3), cada uma com scroll próprio
+  // via CSS (.col{height:100%;overflow-y:auto}). #historico deixa de ser card irmão e passa a
+  // morar dentro da coluna de registro (ver renderDetalhe). Isso substitui por completo o antigo
+  // sincronizarAlturaLista()/ResizeObserver — que existia só pra IMITAR via JS um alinhamento que
+  // o CSS grid já garante de graça quando as colunas são irmãs do mesmo container.
+  h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
+  h += '<div class="col-list">'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
     + '</div>';
-  h += '<div id="colDireita">' + (ST.selecionadaId
-    ? '<div class="detalhe show" id="detalhe"></div><div class="card hist" id="historico" style="margin-top:12px;padding:0"></div>'
-    : '<div class="card placeholder">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>') + '</div>';
+  h += ST.selecionadaId
+    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro"></div>'
+    : '<div class="placeholder-col">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>';
   h += '</div>';
 
   document.getElementById('conteudo').innerHTML = h;
   renderLista();
   renderComparativo();
   if (ST.selecionadaId) { renderDetalhe(); renderHistorico(ST.selecionadaId); }
-  sincronizarAlturaLista();
-}
-
-// pedido do Raphael (10/07): a coluna da lista (à esquerda) ficava com altura fixa (78vh) e às
-// vezes sobrava/faltava em relação à coluna da direita (PDF+registro+reincidência), que cresce ou
-// encolhe conforme o item selecionado (foto, quantidade de ocorrências no histórico etc.) —
-// crescer/encolher a lista pra sempre alinhar o fundo dela com o fundo da coluna da direita. Usa
-// ResizeObserver (em vez de recalcular só uma vez) porque o conteúdo da direita muda de tamanho
-// de forma assíncrona depois do primeiro paint (PDF carregando, foto carregando, histórico
-// chegando, linha de reincidência expandindo) — sem isso o alinhamento ficaria certo só por
-// acaso, no instante do clique, e desalinharia de novo assim que algo terminasse de carregar.
-let __roColDireita = null;
-function sincronizarAlturaLista(){
-  const lista = document.getElementById('listaLinhas');
-  const direita = document.getElementById('colDireita');
-  if (!lista) return;
-  if (__roColDireita) { __roColDireita.disconnect(); __roColDireita = null; }
-  if (!direita || !ST.selecionadaId) { lista.style.maxHeight = ''; return; } // sem seleção: volta pro teto padrão (78vh via CSS)
-  const ajustar = () => {
-    // não basta igualar a ALTURA da .lista à da coluna direita: a .lista começa mais abaixo (tem o
-    // campo de busca acima dela), então "mesma altura" sobrava embaixo, ultrapassando o fundo da
-    // coluna direita (achado do Raphael 10/07, com print mostrando o card da lista vazando abaixo
-    // do card de Reincidência). O que precisa bater é o LIMITE INFERIOR dos dois, então calcula a
-    // altura da lista a partir de onde ela realmente começa (getBoundingClientRect().top, que já
-    // reflete o campo de busca acima) até o fundo real da coluna direita.
-    const fundoAlvo = direita.getBoundingClientRect().bottom;
-    const topoLista = lista.getBoundingClientRect().top;
-    const h = fundoAlvo - topoLista;
-    if (h > 0) lista.style.maxHeight = h + 'px';
-  };
-  ajustar();
-  __roColDireita = new ResizeObserver(ajustar);
-  __roColDireita.observe(direita);
 }
 
 function formatarData(iso){
@@ -733,7 +740,7 @@ async function renderHistorico(linhaId){
     });
     const j = await r.json();
     if (document.getElementById('historico') !== el) return; // usuário já trocou de item
-    if (!r.ok) { el.innerHTML = '<div class="hist-empty">Não foi possível carregar o histórico: ' + escapeHtml(j.error || String(r.status)) + '</div>'; sincronizarAlturaLista(); return; }
+    if (!r.ok) { el.innerHTML = '<div class="hist-empty">Não foi possível carregar o histórico: ' + escapeHtml(j.error || String(r.status)) + '</div>'; return; }
     window.__histOcorrencias = j.ocorrencias || []; // guardado pra expandir sem novo fetch
 
     // grade fixa dos últimos 12 meses (padrão pedido pelo Raphael 09/07): sempre os 12 meses,
@@ -756,7 +763,6 @@ async function renderHistorico(linhaId){
       // sugestão Fable 10/07: esse branch usava <i> itálico enquanto o branch com ocorrências (logo
       // abaixo) usa texto normal — inconsistência gratuita, removida.
       el.innerHTML = '<div class="hist-head">Reincidência</div>' + gridHtml + '<div class="hist-empty">Primeira vez que esse item aparece nesta conta (sem ocorrência anterior encontrada).</div>';
-      sincronizarAlturaLista();
       return;
     }
     const head = '<div class="hist-head">Reincidência — <span class="n">' + j.ocorrencias.length + ' ocorrências</span> desde ' + formatarData(j.primeiraOcorrencia) + '</div>';
@@ -769,9 +775,8 @@ async function renderHistorico(linhaId){
       + '<div class="hist-expand" id="histExp' + i + '" style="display:none"></div>'
     ).join('');
     el.innerHTML = head + gridHtml + '<div class="hist-list">' + linhas + '</div>';
-    sincronizarAlturaLista();
   } catch (e) {
-    if (document.getElementById('historico') === el) { el.innerHTML = '<div class="hist-empty">Falha de rede ao buscar histórico: ' + escapeHtml(e.message) + '</div>'; sincronizarAlturaLista(); }
+    if (document.getElementById('historico') === el) { el.innerHTML = '<div class="hist-empty">Falha de rede ao buscar histórico: ' + escapeHtml(e.message) + '</div>'; }
   }
 }
 
@@ -783,12 +788,11 @@ function chipOportunidade(oport){
 async function toggleHistExpand(i){
   const box = document.getElementById('histExp' + i);
   if (!box) return;
-  if (box.style.display !== 'none') { box.style.display = 'none'; sincronizarAlturaLista(); return; }
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
   const o = (window.__histOcorrencias || [])[i];
   if (!o) return;
   box.style.display = 'block';
   box.innerHTML = escapeHtml(o.textoOriginal || '(sem texto)') + chipOportunidade(o.oportunidade) + (o.possuiFoto ? '<div style="font-size:11.5px;color:var(--weaker)">carregando foto…</div>' : '');
-  sincronizarAlturaLista();
   if (o.possuiFoto) {
     try {
       const url = await fotoBlobUrl(o.fotoUrl);
@@ -796,7 +800,6 @@ async function toggleHistExpand(i){
     } catch (e) {
       box.innerHTML = escapeHtml(o.textoOriginal || '') + chipOportunidade(o.oportunidade) + '<div style="color:var(--err-tx)">falha ao carregar a foto</div>';
     }
-    sincronizarAlturaLista();
   }
 }
 
@@ -853,8 +856,9 @@ async function fotoBlobUrl(fotoUrl){
 async function renderDetalhe(){
   const idAlvo = ST.selecionadaId; // capturado agora: se o usuário trocar de item durante o await abaixo, detectamos e não pintamos o painel errado
   const l = ST.linhas.find(x => x.id === idAlvo);
-  const el = document.getElementById('detalhe');
-  if (!l || !el) return;
+  const colPdf = document.getElementById('colPdf');
+  const colReg = document.getElementById('colRegistro');
+  if (!l || !colPdf || !colReg) return;
 
   // pedido do Raphael (10/07): coluna do meio deixa de mostrar o recorte de foto e passa a ser o
   // PDF original inteiro (o revisor precisa conferir contra o documento fonte, não só o recorte);
@@ -862,25 +866,29 @@ async function renderDetalhe(){
   // derivada do PDF" e fica ao lado do registro; a coluna do meio fica 100% dedicada ao PDF cru.
   const pdfUrl = ST.lote && ST.lote.pdfOriginalUrl;
 
-  el.innerHTML =
-    '<div class="col left">'
-    + '<h3>PDF original' + (pdfUrl
+  // pedido do Raphael (10/07, rodada 2): agora .col-left e .col-registro são colunas IRMÃS do
+  // mesmo .grid-3 (não mais um .detalhe-pai com grid interno) — cada uma escreve seu próprio
+  // innerHTML. #historico passa a viver DENTRO da coluna de registro, entre a foto e o actionbar
+  // (que continua sticky no fundo da coluna — antes stickava na página, agora gruda no fundo do
+  // scroll interno da própria coluna, o que é ainda melhor: fica sempre visível ao rolar).
+  colPdf.innerHTML =
+    '<h3>PDF original' + (pdfUrl
         ? ' <span class="pdf-hint">' + (l.paginaPdf
             ? '· já aberto na página ' + l.paginaPdf + ' — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho exato'
             : '· página não identificada automaticamente — use Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho') + '</span>'
         : '') + '</h3>'
     + (pdfUrl
         ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
-        : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>')
-    + '</div>'
-    + '<div class="col">'
-    + '<h3>Registro no Salesforce</h3>'
+        : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>');
+
+  colReg.innerHTML =
+    '<h3>Registro no Salesforce</h3>'
     + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
     + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
     + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
     + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
-    + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>'
-    + '</div>';
+    + '<div class="hist" id="historico"></div>'
+    + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
 
   if (pdfUrl) {
     try {
@@ -898,7 +906,11 @@ async function renderDetalhe(){
       // acima), isso é sempre uma navegação NOVA do src, então o #page=N é respeitado de forma
       // confiável (diferente de só trocar o hash de um iframe já carregado). Item sem página
       // detectada (âncora não reconhecida no import) cai pro padrão: abre na página 1.
-      const srcPdf = url + (l.paginaPdf ? '#page=' + l.paginaPdf : '');
+      // pedido do Raphael (10/07, rodada 2): "remover as miniaturas" — navpanes=0 é o parâmetro de
+      // abertura (mesma família do #page=N) que o visualizador nativo do Chrome/PDFium usa pra
+      // esconder a barra lateral de miniaturas de página.
+      const params = (l.paginaPdf ? 'page=' + l.paginaPdf + '&' : '') + 'navpanes=0';
+      const srcPdf = url + '#' + params;
       if (wrap) wrap.innerHTML = '<iframe class="pdf-viewer" src="' + srcPdf + '" title="PDF original do laudo"></iframe>';
     } catch (e) {
       if (ST.selecionadaId !== idAlvo) return;
@@ -919,11 +931,6 @@ async function renderDetalhe(){
       if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar a foto: ' + escapeHtml(e.message) + '</span>';
     }
   }
-  // a foto (às vezes o único elemento "alto" do painel) só termina de carregar aqui embaixo —
-  // o ResizeObserver de sincronizarAlturaLista() deveria pegar esse crescimento sozinho, mas na
-  // prática (observado 10/07) ele nem sempre dispara a tempo; resincroniza explicitamente também
-  // no fim de cada carregamento assíncrono, não só via observer, pra garantir o alinhamento.
-  if (ST.selecionadaId === idAlvo) sincronizarAlturaLista();
 }
 
 async function confirmarLinha(linhaId){
