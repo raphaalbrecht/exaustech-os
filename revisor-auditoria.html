@@ -89,6 +89,13 @@
   .stat.stat-completo{background:var(--succ-bg);border-color:var(--succ-bd)}
   .stat.stat-completo .n{color:var(--succ)}
   .stat.stat-completo .stat-barra-fill{background:var(--succ)}
+  /* pedido do Raphael (10/07, rodada 6): pílulas do resumo (total/confirmados/sem match) viram
+     clicáveis — aplicam o filtro respectivo na lista à esquerda. Anel (box-shadow inset, não
+     border) marca a ativa sem deslocar o conteúdo — funciona por cima do fundo verde de
+     stat-completo também, já que é uma camada independente do background. */
+  .stat.clicavel{cursor:pointer}
+  .stat.clicavel:hover{border-color:var(--brand)}
+  .stat.stat-ativo{box-shadow:inset 0 0 0 2px var(--brand)}
   .filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
   /* pedido do Raphael (10/07): o cabeçalho da lista ficava alto demais — Filtros numa linha e
      Tratamento em outra, cada uma com seu próprio espaço vertical. Junta as duas na MESMA linha
@@ -609,6 +616,7 @@ function contagem(faixaOrTag){
   if (faixaOrTag === 'nao_tratada' || faixaOrTag === 'em_tratativa' || faixaOrTag === 'tratada')
     return ST.linhas.filter(l => l.statusTratativa === faixaOrTag).length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
+  if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
@@ -644,6 +652,7 @@ function linhasFiltradas(){
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
     case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => l.statusTratativa === ST.filtro); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
+    case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
   }
   if (!ST.busca.trim()) return base;
@@ -683,12 +692,18 @@ function renderTudo(){
     const confirmados = l.itensConfirmados || 0;
     const completo = total > 0 && confirmados >= total;
     const pct = total > 0 ? Math.min(100, Math.round((confirmados / total) * 100)) : 0;
-    summaryWrap.innerHTML = '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
-      + '<div class="stat' + (completo ? ' stat-completo' : '') + '">'
+    // pedido do Raphael (10/07, rodada 6): as 3 pílulas com número (total/confirmados/sem match)
+    // viram clicáveis — aplicam o filtro respectivo na lista à esquerda e o fundo destaca (classe
+    // stat-ativo); clicar de novo limpa. "arquivo" não vira filtro (não é uma contagem).
+    const ativoTodas = ST.filtro === 'todas';
+    const ativoConfirmado = ST.filtro === 'confirmado';
+    const ativoSemMatch = ST.filtro === 'Sem match';
+    summaryWrap.innerHTML = '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
+      + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
       + '</div>'
-      + '<div class="stat"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
+      + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
       + '<div class="stat"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
@@ -906,6 +921,12 @@ async function toggleHistExpand(i){
 }
 
 function setFiltro(f){ ST.filtro = f; renderTudo(); }
+
+// pedido do Raphael (10/07, rodada 6): pílulas do resumo (total/confirmados/sem match) viram
+// clicáveis — aplicam o filtro correspondente na lista e o fundo destaca (mesmo ST.filtro que já
+// alimenta o "on" dos botões .fbtn, então clicar a pílula também acende o botão equivalente lá
+// embaixo, e vice-versa). Clicar de novo na MESMA pílula já ativa limpa o filtro (volta a "Todas").
+function toggleFiltroStat(chave){ setFiltro(ST.filtro === chave ? 'todas' : chave); }
 
 function renderLista(){
   const el = document.getElementById('listaLinhas');
