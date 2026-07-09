@@ -33,14 +33,21 @@
      página (ocupava altura mesmo fechado); agora é só um gatilho no cabeçalho. */
   .chip-btn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer}
   .chip-btn:hover{background:rgba(255,255,255,.3)}
+  /* pedido do Raphael (10/07, rodada 3): conta+data sobem do corpo pro header azul, ao lado do
+     título — separador sutil (borda esquerda translúcida) só pra diferenciar do título, sem virar
+     um bloco chamativo. */
+  .header-conta{font-size:12.5px;opacity:.92;margin-left:14px;padding-left:14px;border-left:1px solid rgba(255,255,255,.32);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
   /* pedido do Raphael (10/07, rodada 2): "ocupar toda a largura da página" — tira o teto de
      1400px que sobrava como margem morta nas laterais em telas grandes; padding vira % da
      largura (min 20px) em vez de fixo, então a régua ainda respira em telas muito largas sem
      voltar a criar uma faixa vazia enorme. */
   .wrap{margin:0 auto;padding:14px max(20px,1.5vw);flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;width:100%;box-sizing:border-box}
   #msgArea{flex:0 0 auto}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
-  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;flex:0 0 auto}
+  /* sugestão Fable 10/07 (prioridade máxima, zero risco): adensar os respiros verticais fixos —
+     card 16→10px, loadbar/conta-header/filtros 16→10-8px, pílula 10px→6px — several small shaves
+     that add up to real espaço vertical devolvido sem mudar nenhuma estrutura. */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px}
+  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;flex:0 0 auto}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
@@ -63,10 +70,7 @@
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
   #conteudo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  .conta-header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap;flex:0 0 auto}
   #comparativoWrap{flex:0 0 auto}
-  .conta-header .conta-nome{font-size:19px;font-weight:700;color:var(--brand-dk)}
-  .conta-header .conta-data{font-size:13px;color:var(--weak)}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
   /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
      depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
@@ -101,15 +105,25 @@
      em vez da página inteira rolar. Isso também aposenta o sincronizarAlturaLista()/ResizeObserver
      que existia só pra IMITAR esse alinhamento via JS — CSS grid já garante altura igual nativamente. */
   .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;flex:1 1 auto;min-height:0;overflow:hidden}
-  .grid.grid-3{grid-template-columns:340px 1.25fr 1fr}
+  /* pedido do Raphael (10/07, rodada 3): "sobrando espaço na direita, muita coisa na esquerda" —
+     com a página em full-width (rodada 2), a lista fixa em 340px ficou cramped (texto truncado em
+     2 linhas) enquanto a coluna de registro (kv de valores curtos) sobrava em branco. As 3 colunas
+     agora crescem em fr (a lista também), redistribuindo a largura ganha: mais pra lista e pro PDF,
+     menos pro registro, que não precisa de tanto espaço pros seus valores curtos. */
+  .grid.grid-3{grid-template-columns:1.15fr 1.65fr 1fr}
   .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
   .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
   .lista{border:1px solid var(--border);border-radius:10px;flex:1 1 auto;min-height:0;overflow-y:auto}
   .litem{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
   .litem:hover{background:var(--brand-l)}
-  .litem.revisada{background:var(--succ-bg)}
-  .litem.revisada:hover{background:#e0f2e3}
+  /* pedido do Raphael (10/07, rodada 3): match confirmado vira azul claro (reaproveita --brand-l,
+     a mesma cor de hover/seleção) em vez de verde — verde ficava "gritando" ao lado do verde de
+     tratativa concluída (.badge.trat-ok / .stat-completo), que é um sinal diferente (comercial,
+     não de revisão). .sel continua distinguível por cima porque o box-shadow inset (borda azul
+     mais forte à esquerda) some quando o item deixa de estar selecionado. */
+  .litem.revisada{background:var(--brand-l)}
+  .litem.revisada:hover{background:#d8e8f6}
   /* sugestão Fable 10/07: border-left só no .sel deslocava o conteúdo 3px a cada clique (jitter) —
      box-shadow inset ocupa o mesmo espaço visual sem alterar a caixa do elemento */
   .litem.sel{background:var(--brand-l);box-shadow:inset 3px 0 0 var(--brand)}
@@ -211,6 +225,10 @@
 <body>
 <header>
   <h1>Exaustech · Revisor de Auditoria</h1>
+  <!-- pedido do Raphael (10/07, rodada 3): "ganhar espaço vertical" — a conta+data tinha fileira
+       própria (.conta-header) só pra ela; sobe pro header azul, ao lado do título, e elimina essa
+       fileira inteira do fluxo (sugestão Fable). -->
+  <span class="header-conta" id="headerConta"></span>
   <div class="spacer"></div>
   <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
   <div class="chip" id="userchip">carregando sessão…</div>
@@ -285,6 +303,10 @@
       <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
     </div>
     <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
+    <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, centralizadas
+         no mesmo card — eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava
+         vazia à direita depois que a página passou a ocupar a largura toda. -->
+    <div id="riscoInline" style="margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
     <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
 
@@ -600,11 +622,13 @@ function renderTudo(){
   const l = ST.lote;
   const a = ST.auditoria;
   let h = '';
-  if (a && (a.contaNome || a.dataInspecao)) {
-    h += '<div class="conta-header">'
-      + '<span class="conta-nome">' + escapeHtml(a.contaNome || 'Conta não identificada') + '</span>'
-      + '<span class="conta-data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>'
-      + '</div>';
+  // pedido do Raphael (10/07, rodada 3): conta+data saem do corpo (não ocupam mais uma fileira
+  // própria) e vão pro header azul, ao lado do título — ver #headerConta no HTML/CSS.
+  const headerConta = document.getElementById('headerConta');
+  if (headerConta) {
+    headerConta.textContent = (a && (a.contaNome || a.dataInspecao))
+      ? (a.contaNome || 'Conta não identificada') + ' · Vistoria em ' + formatarData(a.dataInspecao)
+      : '';
   }
   // pedido do Raphael (10/07): as pílulas de resumo (itens/confirmados/sem match/arquivo) saem
   // do corpo da página e vão pro canto direito do MESMO retângulo branco onde ficam os campos
@@ -652,17 +676,19 @@ function renderTudo(){
     : '') + '</div>';
   h += '</div>';
 
-  // por nível de risco (0-5) — só mostra os níveis que de fato aparecem neste lote
+  // pedido do Raphael (10/07, rodada 3): pílulas de Risco sobem pro card do loadbar (#riscoInline,
+  // centralizado), em vez de uma fileira própria (.filtros-sub) que sobrava vazia à direita —
+  // ver comentário no HTML/CSS de #riscoInline.
   const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagem('risco:' + n) > 0);
-  if (niveisRisco.length) {
-    // sugestão Fable 10/07: border-color:transparent deixava essas pílulas idênticas aos chips
-    // estáticos (.risk-pill) da Reincidência — borda sutil na cor do texto devolve a affordance
-    // de botão clicável e diferencia de um badge informativo.
-    h += '<div class="filtros-sub"><span class="rotulo">Risco:</span>' + niveisRisco.map((n) => {
-      const c = riscoCor(n);
-      const on = ST.filtro === ('risco:' + n);
-      return '<button class="fbtn" style="' + (on ? 'background:' + c.tx + ';color:#fff;border-color:' + c.tx : 'background:' + c.bg + ';color:' + c.tx + ';border-color:' + c.tx + '66') + '" onclick="setFiltro(\'risco:' + n + '\')">R' + n + ' (' + contagem('risco:' + n) + ')</button>';
-    }).join('') + '</div>';
+  const riscoWrap = document.getElementById('riscoInline');
+  if (riscoWrap) {
+    riscoWrap.innerHTML = niveisRisco.length
+      ? '<span class="rotulo">Risco:</span>' + niveisRisco.map((n) => {
+          const c = riscoCor(n);
+          const on = ST.filtro === ('risco:' + n);
+          return '<button class="fbtn" style="' + (on ? 'background:' + c.tx + ';color:#fff;border-color:' + c.tx : 'background:' + c.bg + ';color:' + c.tx + ';border-color:' + c.tx + '66') + '" onclick="setFiltro(\'risco:' + n + '\')">R' + n + ' (' + contagem('risco:' + n) + ')</button>';
+        }).join('')
+      : '';
   }
 
   // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
