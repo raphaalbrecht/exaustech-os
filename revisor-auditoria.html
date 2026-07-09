@@ -211,6 +211,7 @@
       <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
     </div>
     <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
+    <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap"></div>
   </div>
 
   <div id="conteudo"></div>
@@ -525,12 +526,17 @@ function renderTudo(){
       + '<span class="conta-data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>'
       + '</div>';
   }
-  h += '<div class="summary">'
-    + '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
-    + '<div class="stat"><div class="n">' + (l.itensConfirmados ?? 0) + '</div><div class="l">confirmados</div></div>'
-    + '<div class="stat"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
-    + '<div class="stat"><div class="n">' + (l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
-    + '</div>';
+  // pedido do Raphael (10/07): as pílulas de resumo (itens/confirmados/sem match/arquivo) saem
+  // do corpo da página e vão pro canto direito do MESMO retângulo branco onde ficam os campos
+  // Auditoria(Id)/Lote(Id) + botão Carregar lote — os 2 campos de busca continuam onde estavam,
+  // só o resumo migra pra dentro do card via #summaryInline (fora do innerHTML de #conteudo).
+  const summaryWrap = document.getElementById('summaryInline');
+  if (summaryWrap) {
+    summaryWrap.innerHTML = '<div class="stat"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">itens no lote</div></div>'
+      + '<div class="stat"><div class="n">' + (l.itensConfirmados ?? 0) + '</div><div class="l">confirmados</div></div>'
+      + '<div class="stat"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
+      + '<div class="stat"><div class="n">' + (l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>';
+  }
 
   h += '<div id="comparativoWrap"></div>';
 
