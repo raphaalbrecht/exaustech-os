@@ -84,7 +84,11 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v94';
+const CACHE = 'exaustech-os-v95'; // v95 10/07: Locais de estoque — Tipo__c ganha "Veículo"; picker
+// agrupado (Galpão solto/🚐 Veículos com header) via estoqLocaisAgrupados, compartilhado por
+// endr*/recp*; Trânsito filtrado do backend nesses 2 pickers; Endereco__c reaproveitado como
+// legenda discreta (placa/modelo) sob o nome do veículo. Desenhado com o agente Fable
+// (proposta-locais-veiculos-tecnicos.md).
 const SHELL = [
   './',
   './index.html',

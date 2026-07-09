@@ -3094,6 +3094,32 @@ function renderEndrWizard(wrap){
   else if(endrSt.step==='revisao') endrRenderRevisao(card);
   else if(endrSt.step==='detalhe') endrRenderDetalhe(card);
 }
+/* ---- picker de Local de Estoque, compartilhado por endr* e recp* (10/07 — proposta de veículos):
+   agrupa visualmente por Tipo__c sem exigir hierarquia real no dado — Galpão(ões)/Almoxarifado
+   soltos no topo sem cabeçalho, "🚐 Veículos" com cabeçalho próprio, qualquer outro tipo (ex: Obra)
+   cai num "Outros" pra nunca sumir local do picker por tipo não mapeado. identificacao (Endereco__c
+   reaproveitado) aparece como legenda discreta embaixo do nome quando presente. ---- */
+function estoqLocaisAgrupados(card, locais, onEscolher){
+  const botao=(l)=>{
+    const b=document.createElement('div');
+    b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+    b.innerHTML=_esc(l.nome)+(l.identificacao?('<div style="font-weight:400;font-size:11.5px;color:var(--weak);margin-top:2px">'+_esc(l.identificacao)+'</div>'):'');
+    b.onclick=()=>onEscolher(l);
+    card.appendChild(b);
+  };
+  const principais=locais.filter(l=>l.tipo!=='Veículo' && l.tipo!=='Obra');
+  const veiculos=locais.filter(l=>l.tipo==='Veículo');
+  const outros=locais.filter(l=>l.tipo==='Obra');
+  principais.forEach(botao);
+  if(veiculos.length){
+    const h=document.createElement('div'); h.className='sec-title2'; h.style.cssText='margin-top:14px;font-size:12.5px'; h.textContent='🚐 Veículos'; card.appendChild(h);
+    veiculos.forEach(botao);
+  }
+  if(outros.length){
+    const h=document.createElement('div'); h.className='sec-title2'; h.style.cssText='margin-top:14px;font-size:12.5px'; h.textContent='Outros'; card.appendChild(h);
+    outros.forEach(botao);
+  }
+}
 /* ---- passo 1: Local de Estoque (auto-avança se só existir 1) ---- */
 async function endrCarregarLocais(){
   try{ const d=await beGet('/estoque/locais'); endrSt.locais=d.locais||[]; endrSt._locaisCarregados=true;
@@ -3107,10 +3133,7 @@ function endrRenderLocal(card){
   if(endrSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(endrSt.erro)+'</div>'; return; }
   if(!endrSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
   if(!endrSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado (LocalEstoque__c com Ativo__c=true).</div>'; return; }
-  endrSt.locais.forEach(l=>{
-    const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
-    b.textContent=l.nome; b.onclick=()=>endrEscolherLocal(l); card.appendChild(b);
-  });
+  estoqLocaisAgrupados(card, endrSt.locais, endrEscolherLocal);
 }
 /* ---- passo 2: lista de endereços já cadastrados no local + "novo" ---- */
 async function endrCarregarLista(){
@@ -3462,10 +3485,7 @@ function recpRenderLocal(card){
   if(recpSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>'; return; }
   if(!recpSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
   if(!recpSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
-  recpSt.locais.forEach(l=>{
-    const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
-    b.textContent=l.nome; b.onclick=()=>recpEscolherLocal(l); card.appendChild(b);
-  });
+  estoqLocaisAgrupados(card, recpSt.locais, recpEscolherLocal);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
 }
 async function recpEscolherLocal(l){
