@@ -87,6 +87,21 @@
   .hist-expand{padding:10px 12px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;margin:-2px 0 8px;font-size:12.5px}
   .hist-expand img{max-width:220px;border-radius:6px;display:block;margin-top:6px}
   .hist-empty{padding:0 18px 16px;font-size:12.5px;color:var(--weaker)}
+  .comp-card{margin-bottom:16px}
+  .comp-head{font-size:13px;font-weight:600;margin-bottom:10px}
+  .comp-sub{font-size:12px;font-weight:600;color:var(--weak);margin:12px 0 6px;display:flex;align-items:center;gap:6px}
+  .comp-sub .cnt{background:var(--neu-bg);color:var(--neu-tx);border-radius:999px;padding:0 8px;font-size:11px;font-weight:700}
+  .comp-row{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:12.5px;border-bottom:1px solid var(--border)}
+  .comp-row:last-child{border-bottom:none}
+  .comp-row .txt{flex:1;color:var(--txt)}
+  .comp-row .num{color:var(--weaker);font-size:11.5px;min-width:52px}
+  .arrow{font-weight:700;font-size:14px;min-width:16px;text-align:center}
+  .arrow.subiu{color:var(--err-tx)}
+  .arrow.desceu{color:var(--succ)}
+  .arrow.igual{color:var(--weaker)}
+  .risk-chip{font-size:11px;padding:1px 8px;border-radius:999px;background:var(--neu-bg);color:var(--neu-tx);white-space:nowrap}
+  .resolvido-chip{font-size:11px;padding:1px 8px;border-radius:999px;background:var(--succ-bg);color:var(--succ);white-space:nowrap}
+  .risk-pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;display:inline-block;min-width:64px;text-align:center}
 </style>
 </head>
 <body>
@@ -116,11 +131,11 @@
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getItem('be_tok'); }
 
-let ST = { auditoriaId:null, loteId:null, lote:null, linhas:[], selecionadaId:null, filtro:'todas' };
+let ST = { auditoriaId:null, loteId:null, lote:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
 function msg(texto, tipo){
-  document.getElementById('msgArea').innerHTML = texto ? '<div class="msg '+(tipo||'info')+'">'+texto+'</div>' : '';
+  document.getElementById('msgArea').innerHTML = texto ? '<div class="msg '+(tipo||'info')+'">'+escapeHtml(texto)+'</div>' : '';
 }
 
 function initSessao(){
@@ -152,13 +167,26 @@ async function carregar(){
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
     ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas;
-    ST.selecionadaId = null; ST.filtro = 'todas';
+    ST.selecionadaId = null; ST.filtro = 'todas'; ST.comparativo = null;
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
     renderTudo();
+    carregarComparativo(auditoriaId); // best-effort, não bloqueia o resto da tela
   } catch (e) {
     msg('Falha de rede: ' + e.message, 'err');
   }
+}
+
+async function carregarComparativo(auditoriaId){
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + auditoriaId + '/comparativo', {
+      headers: { Authorization: 'Bearer ' + beTok() }
+    });
+    const j = await r.json();
+    if (auditoriaId !== ST.auditoriaId) return; // trocou de lote enquanto isso carregava
+    ST.comparativo = r.ok ? j : null;
+    renderComparativo();
+  } catch (e) { /* best-effort: sem comparativo não impede o resto da revisão */ }
 }
 
 function badgeFaixa(faixa){
@@ -192,6 +220,8 @@ function renderTudo(){
     + '<div class="stat"><div class="n">' + (l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
     + '</div>';
 
+  h += '<div id="comparativoWrap"></div>';
+
   const filtros = [
     ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
     ['foto', 'Com foto'], ['nota', 'Com nota']
@@ -209,6 +239,7 @@ function renderTudo(){
 
   document.getElementById('conteudo').innerHTML = h;
   renderLista();
+  renderComparativo();
   if (ST.selecionadaId) { renderDetalhe(); renderHistorico(ST.selecionadaId); }
 }
 
@@ -216,6 +247,78 @@ function formatarData(iso){
   if (!iso) return '—';
   const [ano, mes, dia] = iso.split('-');
   return dia + '/' + mes + '/' + ano;
+}
+
+function formatarMesAno(iso){
+  if (!iso) return '—/—';
+  const [ano, mes] = iso.split('-');
+  return mes + '/' + ano.slice(2);
+}
+
+// Paleta de risco 0 (mais brando) -> 5 (vermelho) — mesma lógica de cor em toda a tela.
+const RISCO_PALETTE = [
+  { bg: '#EAF7EC', tx: '#2e844a' }, // 0
+  { bg: '#EAF7D8', tx: '#5c8a1f' }, // 1
+  { bg: '#FDF6D8', tx: '#8a7a06' }, // 2
+  { bg: '#FEF0DB', tx: '#8c4b02' }, // 3
+  { bg: '#FCE4D6', tx: '#b5450a' }, // 4
+  { bg: '#FDEAEA', tx: '#ba0517' }  // 5
+];
+function riscoCor(risco){
+  if (risco == null || isNaN(risco)) return { bg: 'var(--neu-bg)', tx: 'var(--neu-tx)' };
+  const idx = Math.max(0, Math.min(5, Math.round(risco)));
+  return RISCO_PALETTE[idx];
+}
+function riscoPill(risco, iso){
+  const c = riscoCor(risco);
+  const label = formatarMesAno(iso) + '-R' + (risco == null ? '?' : risco);
+  return '<span class="risk-pill" style="background:' + c.bg + ';color:' + c.tx + '">' + label + '</span>';
+}
+
+function direcaoArrow(dir){
+  if (dir === 'subiu') return '<span class="arrow subiu">▲</span>';
+  if (dir === 'desceu') return '<span class="arrow desceu">▼</span>';
+  return '<span class="arrow igual">＝</span>';
+}
+
+function renderComparativo(){
+  const el = document.getElementById('comparativoWrap');
+  if (!el) return;
+  const c = ST.comparativo;
+  if (!c || !c.ok || !c.temAnterior) { el.innerHTML = ''; return; }
+
+  let h = '<div class="card comp-card">';
+  h += '<div class="comp-head">Comparativo com o relatório de ' + formatarData(c.dataAnterior) + '</div>';
+
+  h += '<div class="comp-sub">Resolvidos desde a última visita <span class="cnt">' + c.resolvidos.length + '</span></div>';
+  h += c.resolvidos.length
+    ? c.resolvidos.map((o) =>
+        '<div class="comp-row"><span class="resolvido-chip">resolvido</span>'
+        + '<span class="txt">' + escapeHtml(o.perguntaTexto || o.naoConformidadeTexto || '—')
+        + (o.oportunidade ? ' <span class="risk-chip">Oportunidade: ' + escapeHtml(o.oportunidade.nome || o.oportunidade.oportunidadeId) + (o.oportunidade.stage ? ' · ' + escapeHtml(o.oportunidade.stage) : '') + '</span>' : '')
+        + '</span>'
+        + '<span class="num">' + escapeHtml(o.numeroRelatorio || '') + '</span></div>'
+      ).join('')
+    : '<div class="hist-empty" style="padding:0 0 6px">Nenhum item resolvido desde a última visita.</div>';
+
+  h += '<div class="comp-sub">Variação de risco <span class="cnt">' + c.variacoesRisco.length + '</span></div>';
+  h += c.variacoesRisco.length
+    ? c.variacoesRisco.map((o) =>
+        '<div class="comp-row">' + direcaoArrow(o.direcao)
+        + '<span class="txt">' + escapeHtml(o.perguntaTexto || o.naoConformidadeTexto || '—')
+        + (o.oportunidade ? ' <span class="risk-chip">Oportunidade: ' + escapeHtml(o.oportunidade.nome || o.oportunidade.oportunidadeId) + (o.oportunidade.stage ? ' · ' + escapeHtml(o.oportunidade.stage) : '') + '</span>' : '')
+        + '</span>'
+        + '<span class="risk-chip">R' + (o.riscoAnterior == null ? '?' : o.riscoAnterior) + ' → R' + (o.riscoAtual == null ? '?' : o.riscoAtual) + '</span>'
+        + '<span class="num">' + escapeHtml(o.numeroRelatorio || '') + '</span></div>'
+      ).join('')
+    : '<div class="hist-empty" style="padding:0 0 6px">Nenhum item em comum entre os dois relatórios.</div>';
+
+  if (c.novos && c.novos.length) {
+    h += '<div class="comp-sub">Itens novos (não constavam no relatório anterior) <span class="cnt">' + c.novos.length + '</span></div>';
+  }
+
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 async function renderHistorico(linhaId){
@@ -236,7 +339,7 @@ async function renderHistorico(linhaId){
     const head = '<div class="hist-head">Reincidência — <span class="n">' + j.ocorrencias.length + ' ocorrências</span> desde ' + formatarData(j.primeiraOcorrencia) + '</div>';
     const linhas = j.ocorrencias.map((o, i) =>
       '<div class="hist-row' + (o.atual ? ' atual' : '') + '" onclick="toggleHistExpand(' + i + ')">'
-      + '<span class="data">' + formatarData(o.dataInspecao) + '</span>'
+      + riscoPill(o.risco, o.dataInspecao)
       + '<span class="stnome">' + escapeHtml(o.auditoriaNome || '—') + (o.atual ? ' · <b>este registro</b>' : '') + '</span>'
       + badgeFaixa(o.faixa || 'Sem match')
       + '</div>'
@@ -249,6 +352,11 @@ async function renderHistorico(linhaId){
   }
 }
 
+function chipOportunidade(oport){
+  if (!oport) return '';
+  return '<div style="margin-top:6px"><span class="risk-chip">Oportunidade: ' + escapeHtml(oport.nome || oport.oportunidadeId) + (oport.stage ? ' · ' + escapeHtml(oport.stage) : '') + '</span></div>';
+}
+
 async function toggleHistExpand(i){
   const box = document.getElementById('histExp' + i);
   if (!box) return;
@@ -256,13 +364,13 @@ async function toggleHistExpand(i){
   const o = (window.__histOcorrencias || [])[i];
   if (!o) return;
   box.style.display = 'block';
-  box.innerHTML = escapeHtml(o.textoOriginal || '(sem texto)') + (o.possuiFoto ? '<div style="font-size:11.5px;color:var(--weaker)">carregando foto…</div>' : '');
+  box.innerHTML = escapeHtml(o.textoOriginal || '(sem texto)') + chipOportunidade(o.oportunidade) + (o.possuiFoto ? '<div style="font-size:11.5px;color:var(--weaker)">carregando foto…</div>' : '');
   if (o.possuiFoto) {
     try {
       const url = await fotoBlobUrl(o.fotoUrl);
-      box.innerHTML = escapeHtml(o.textoOriginal || '') + '<img src="' + url + '" alt="foto da ocorrência anterior">';
+      box.innerHTML = escapeHtml(o.textoOriginal || '') + chipOportunidade(o.oportunidade) + '<img src="' + url + '" alt="foto da ocorrência anterior">';
     } catch (e) {
-      box.innerHTML = escapeHtml(o.textoOriginal || '') + '<div style="color:var(--err-tx)">falha ao carregar a foto</div>';
+      box.innerHTML = escapeHtml(o.textoOriginal || '') + chipOportunidade(o.oportunidade) + '<div style="color:var(--err-tx)">falha ao carregar a foto</div>';
     }
   }
 }
@@ -280,7 +388,7 @@ function renderLista(){
     if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
     if (l.status === 'Pendente proposta') tags.push('<span class="badge confirmada">confirmado</span>');
     return '<div class="litem ' + (l.id === ST.selecionadaId ? 'sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
-      + '<div class="num">' + (l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</div>'
+      + '<div class="num">' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</div>'
       + '<div class="txt">' + escapeHtml(l.textoOriginal || '') + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
@@ -302,13 +410,14 @@ async function fotoBlobUrl(fotoUrl){
 }
 
 async function renderDetalhe(){
-  const l = ST.linhas.find(x => x.id === ST.selecionadaId);
+  const idAlvo = ST.selecionadaId; // capturado agora: se o usuário trocar de item durante o await da foto abaixo, detectamos e não pintamos a foto errada
+  const l = ST.linhas.find(x => x.id === idAlvo);
   const el = document.getElementById('detalhe');
   if (!l || !el) return;
 
   el.innerHTML =
     '<div class="col left">'
-    + '<h3>Recorte do PDF · item ' + (l.numeroRelatorio || '—') + '</h3>'
+    + '<h3>Recorte do PDF · item ' + escapeHtml(l.numeroRelatorio || '—') + '</h3>'
     + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
     + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
     + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
@@ -332,11 +441,13 @@ async function renderDetalhe(){
   if (l.possuiFoto) {
     try {
       const url = await fotoBlobUrl(l.fotoUrl);
+      if (ST.selecionadaId !== idAlvo) return; // usuário já trocou de item — não pinta foto errada no painel novo
       const wrap = document.getElementById('fotoWrap');
       if (wrap) wrap.innerHTML = '<img src="' + url + '" alt="foto da não conformidade">';
     } catch (e) {
+      if (ST.selecionadaId !== idAlvo) return;
       const wrap = document.getElementById('fotoWrap');
-      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar a foto: ' + e.message + '</span>';
+      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar a foto: ' + escapeHtml(e.message) + '</span>';
     }
   }
 }
