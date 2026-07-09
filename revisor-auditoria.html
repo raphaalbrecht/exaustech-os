@@ -1379,7 +1379,7 @@ function edHtmlTabela(l){
     html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="edOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, ED.prefixoId) + '</select></td></tr>';
   }
   html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
-    + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">cadastrar variação com outro risco</button></div>' : '')
+    + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px;text-align:right"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">Cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
   html += '</table>';
 
