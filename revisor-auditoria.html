@@ -88,6 +88,8 @@
   .foto-wrap{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px}
   .foto-wrap img{width:100%;border-radius:6px;display:block}
   .sem-foto{font-size:12px;color:var(--weaker);text-align:center;padding:30px 10px;background:#fff;border:1px dashed var(--border2);border-radius:8px;margin-bottom:12px}
+  .pdf-viewer{width:100%;height:74vh;border:1px solid var(--border);border-radius:8px;background:#fff;display:block}
+  .pdf-hint{font-size:11px;color:var(--weaker);font-weight:400}
   .item-num{font-size:13.5px;font-weight:600;margin-bottom:8px}
   .item-texto{font-size:13px;line-height:1.55;color:var(--txt);margin-bottom:10px;white-space:pre-wrap}
   .nota{font-size:12.5px;font-style:italic;color:var(--weak);background:#fff;border-left:2px solid var(--border2);padding:8px 10px;border-radius:0 6px 6px 0}
@@ -734,17 +736,23 @@ async function fotoBlobUrl(fotoUrl){
 }
 
 async function renderDetalhe(){
-  const idAlvo = ST.selecionadaId; // capturado agora: se o usuário trocar de item durante o await da foto abaixo, detectamos e não pintamos a foto errada
+  const idAlvo = ST.selecionadaId; // capturado agora: se o usuário trocar de item durante o await abaixo, detectamos e não pintamos o painel errado
   const l = ST.linhas.find(x => x.id === idAlvo);
   const el = document.getElementById('detalhe');
   if (!l || !el) return;
 
+  // pedido do Raphael (10/07): coluna do meio deixa de mostrar o recorte de foto e passa a ser o
+  // PDF original inteiro (o revisor precisa conferir contra o documento fonte, não só o recorte);
+  // a foto migrou pra coluna da direita, junto do texto do item e da nota — tudo isso é "evidência
+  // derivada do PDF" e fica ao lado do registro; a coluna do meio fica 100% dedicada ao PDF cru.
+  const pdfUrl = ST.lote && ST.lote.pdfOriginalUrl;
+
   el.innerHTML =
     '<div class="col left">'
-    + '<h3>Recorte do PDF · item ' + escapeHtml(l.numeroRelatorio || '—') + '</h3>'
-    + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
-    + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
-    + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
+    + '<h3>PDF original' + (pdfUrl ? ' <span class="pdf-hint">· dica: Ctrl+F "' + escapeHtml(l.numeroRelatorio || '') + '" pra achar o trecho</span>' : '') + '</h3>'
+    + (pdfUrl
+        ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
+        : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>')
     + '</div>'
     + '<div class="col">'
     + '<h3>Registro no Salesforce</h3>'
@@ -755,6 +763,9 @@ async function renderDetalhe(){
     + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
     + '<tr><td>Status</td><td>' + escapeHtml(l.status || '—') + '</td></tr>'
     + '</table>'
+    + '<div class="item-texto">' + escapeHtml(l.textoOriginal || '') + '</div>'
+    + (l.possuiTextoComplementar ? '<div class="nota">"' + escapeHtml(l.textoComplementar) + '"</div>' : '')
+    + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
     + '<div class="actionbar">'
     + (l.status === 'Pendente proposta'
         ? '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
@@ -763,6 +774,24 @@ async function renderDetalhe(){
     + '</div>'
     + (l.faixa === 'Sem match' ? '<div class="msg info" style="margin-top:14px">Itens "Sem match" que precisam virar item novo de catálogo ainda não têm tela própria aqui — isso é o wizard de cadastro (em construção, Sócio-only). Por ora, ajuste direto no Salesforce se precisar.</div>' : '')
     + '</div>';
+
+  if (pdfUrl) {
+    try {
+      // fotoBlobUrl é genérico o bastante (fetch autenticado -> blob -> object URL) pra servir
+      // qualquer arquivo do proxy /arquivos/:driveId, não só foto — e já cacheia por URL, então
+      // trocar de item não bate a rede de novo pro mesmo PDF (só perde a posição de rolagem, que
+      // é uma limitação aceita por ora — reconstruir o iframe sem perder o scroll exigiria não
+      // recriar a coluna inteira a cada seleção, mudança maior de estrutura pra depois se precisar).
+      const url = await fotoBlobUrl(pdfUrl);
+      if (ST.selecionadaId !== idAlvo) return; // usuário já trocou de item — não pinta painel errado
+      const wrap = document.getElementById('pdfWrap');
+      if (wrap) wrap.innerHTML = '<iframe class="pdf-viewer" src="' + url + '" title="PDF original do laudo"></iframe>';
+    } catch (e) {
+      if (ST.selecionadaId !== idAlvo) return;
+      const wrap = document.getElementById('pdfWrap');
+      if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar o PDF: ' + escapeHtml(e.message) + '</span>';
+    }
+  }
 
   if (l.possuiFoto) {
     try {
