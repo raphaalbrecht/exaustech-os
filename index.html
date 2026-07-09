@@ -1212,6 +1212,8 @@ function go(scr){
     if(typeof estoqScanCamFechar==='function') estoqScanCamFechar();
     if(typeof estoqNfcDesativar==='function') estoqNfcDesativar();
   }
+  /* idem pro NFC de provisionamento de etiqueta no Cadastro de Ativos */
+  if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadNfcDesativar==='function') cadNfcDesativar();
   /* navegar (troca de aba/tela) fecha qualquer modal aberto — evita modal órfão flutuando sobre uma tela que não é mais a dele */
   document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
   if(scr==='estoque') _estoqAutoFoco=true; /* navegação de propósito pra aba — foca o campo pro leitor físico funcionar sem tocar em nada */
@@ -3566,7 +3568,7 @@ function finishQuiz(){
 const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null}; }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'}}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
@@ -3919,14 +3921,95 @@ async function cadSalvar(){
 }
 function cadStepDone(){
   const el=document.getElementById('cadBody');
-  el.innerHTML='<div style="padding:32px 18px;text-align:center">'
+  const et=cadSt.etiqueta||{status:'idle'};
+  let h='<div style="padding:32px 18px 90px;text-align:center">'
     +'<div style="font-size:40px;margin-bottom:8px">✅</div>'
     +'<div style="font-size:17px;font-weight:700;color:#0B2239">Ativo cadastrado</div>'
-    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>'
-    +'<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
+    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>';
+
+  h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
+  h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
+  if(et.status==='ok'){
+    h+='<div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:8px">Gravada — versão '+et.versao+'</div>';
+    h+='<img id="cadNfcQr" style="width:120px;height:120px;display:block;margin:0 auto 8px;border:1px solid #E2E5E9;border-radius:6px">';
+    h+='<div style="font-size:11px;color:#686868;text-align:center;word-break:break-all">'+cadEsc(et.url)+'</div>';
+    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Gravar outra etiqueta</button>';
+  } else if(et.status==='lendo'||et.status==='gravando'){
+    h+='<div style="font-size:13px;color:#3E7EB0">'+(et.status==='lendo'?'📶 Aproxime a etiqueta NFC em branco…':'Gravando…')+'</div>';
+    h+='<button onclick="cadNfcCancelar()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#686868;font-size:13px">Cancelar</button>';
+  } else if(et.status==='erro'){
+    h+='<div style="font-size:12px;color:#C4451B;margin-bottom:8px">'+cadEsc(et.msg)+'</div>';
+    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar novamente</button>';
+  } else if(estoqNfcSuportado()){
+    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">🏷️ Provisionar etiqueta NFC</button>';
+  } else {
+    h+='<div style="font-size:12px;color:#686868">Exige aparelho Android com NFC (Chrome) — não disponível neste aparelho.</div>';
+  }
+  h+='</div>';
+
+  h+='<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
     +'<button onclick="go(\'schedule\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;color:#3A4552">Voltar à agenda</button></div>';
+  el.innerHTML=h;
+  if(et.status==='ok') cadDesenharQrPreview(et.url);
 }
 function cadStep(s){ cadSt.step=s; renderCadastro(); }
+/* desenha o QR (mesma lib qrcode-generator já vendorizada pro PDF de etiqueta do Estoque) num canvas
+   offscreen e joga o PNG resultante no <img> — só um companion visual/impressão do App Link, a
+   gravação de verdade na tag física é o reader.write() abaixo. */
+function cadDesenharQrPreview(url){
+  const img=document.getElementById('cadNfcQr'); if(!img) return;
+  try{
+    const qr=qrcode(0,'M'); qr.addData(url); qr.make();
+    const n=qr.getModuleCount(), escala=6, tam=n*escala;
+    const cv=document.createElement('canvas'); cv.width=tam; cv.height=tam;
+    const ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,tam,tam); ctx.fillStyle='#0B2239';
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) ctx.fillRect(c*escala,r*escala,escala,escala);
+    img.src=cv.toDataURL('image/png');
+  }catch(e){}
+}
+/* Etiqueta NFC (task pendente do Cadastro de Ativos) — reusa o mesmo padrão de leitura NDEFReader
+   do Estoque (estoqNfcSuportado), mas aqui é PROVISIONAMENTO: lê o serialNumber (UID físico do chip,
+   único jeito confiável de anticlonagem — por isso POST /etiquetas exige uid), cria o EtiquetaNFC__c
+   no Salesforce (token opaco) e GRAVA o App Link do Portal na própria tag (reader.write). Sem NFC no
+   aparelho não dá pra provisionar (a trava de UID é intencional, não é limitação nossa a contornar
+   com um QR alternativo aqui). */
+const PORTAL_BASE='https://portal.exaustech.com.br';
+let cadNfcCtrl=null;
+async function cadProvisionarEtiqueta(){
+  if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
+  if(cadNfcCtrl) return; /* trava contra toque duplo */
+  cadSt.etiqueta={status:'lendo'}; cadStepDone();
+  try{
+    const reader=new NDEFReader();
+    const ctrl=new AbortController(); cadNfcCtrl=ctrl;
+    await reader.scan({signal:ctrl.signal});
+    reader.onreading=async (e)=>{
+      if(cadSt.etiqueta.status==='gravando'||cadSt.etiqueta.status==='ok') return; /* já processando/processado esta leitura */
+      const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
+      if(!uid || uid.length<8){ cadNfcDesativar(); cadSt.etiqueta={status:'erro',msg:'Esta tag não expõe um número de série utilizável — use outra.'}; cadStepDone(); return; }
+      cadSt.etiqueta={status:'gravando'}; cadStepDone();
+      try{
+        const r=await bePost('/etiquetas',{ativoId:cadSt.ativoId,uid});
+        const url=PORTAL_BASE+'/a/'+r.token;
+        await reader.write({records:[{recordType:'url',data:url}]});
+        cadNfcDesativar();
+        cadSt.etiqueta={status:'ok',token:r.token,versao:r.versao,url};
+        cadStepDone();
+        toast('🏷️ Etiqueta gravada — versão '+r.versao);
+      }catch(err){
+        cadNfcDesativar();
+        cadSt.etiqueta={status:'erro',msg:err.message};
+        cadStepDone();
+      }
+    };
+  }catch(e){
+    cadNfcCtrl=null;
+    cadSt.etiqueta={status:'erro',msg:'Não consegui ativar o NFC: '+e.message};
+    cadStepDone();
+  }
+}
+function cadNfcCancelar(){ cadNfcDesativar(); cadSt.etiqueta={status:'idle'}; cadStepDone(); }
+function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} cadNfcCtrl=null; } }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
   {nome:'Pedro Gomes',matricula:'F-1188',cargo:'Auxiliar',cor:'#2e844a',lojas:['Outback · Botafogo','Outback · Barra Shopping']},
