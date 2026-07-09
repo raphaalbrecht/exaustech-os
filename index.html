@@ -3043,6 +3043,7 @@ function endrReset(){
   endrSt={
     step:'local', locais:[], _locaisCarregados:false, localId:null, localNome:'',
     enderecosDoLocal:[], _listaCarregada:false,
+    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, rua:'',
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
     enderecoId:null, enderecoDetalhe:null, etiqueta:{status:'idle'},
     criando:false, erro:null,
@@ -3057,6 +3058,8 @@ function renderEndrWizard(wrap){
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
   if(endrSt.step==='local') endrRenderLocal(card);
   else if(endrSt.step==='lista') endrRenderLista(card);
+  else if(endrSt.step==='area') endrRenderArea(card);
+  else if(endrSt.step==='rua') endrRenderRua(card);
   else if(endrSt.step==='tipo') endrRenderTipo(card);
   else if(endrSt.step==='nome') endrRenderNome(card);
   else if(endrSt.step==='capacidade') endrRenderCapacidade(card);
@@ -3086,7 +3089,52 @@ async function endrCarregarLista(){
   try{ const d=await beGet('/estoque/enderecos?localId='+encodeURIComponent(endrSt.localId)); endrSt.enderecosDoLocal=d.enderecos||[]; endrSt._listaCarregada=true; renderEstoque(); }
   catch(e){ endrSt.erro='Erro ao carregar endereços: '+e.message; endrSt._listaCarregada=true; renderEstoque(); }
 }
-function endrNovoEndereco(){ endrSt.tipo=null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade=''; endrSt.erro=null; endrSt.step='tipo'; renderEstoque(); }
+function endrNovoEndereco(){
+  endrSt.tipo=null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
+  endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua='';
+  endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
+}
+/* ---- passo 2b: Área (nível intermediário, opcional por local — 10/07). Se o local não tiver
+   nenhuma área cadastrada, pula direto pro Tipo; se tiver, é obrigatório escolher uma (toque avança). ---- */
+async function endrCarregarAreas(){
+  try{
+    const d=await beGet('/estoque/areas?localId='+encodeURIComponent(endrSt.localId));
+    endrSt.areas=d.areas||[]; endrSt._areasCarregadas=true;
+    if(!endrSt.areas.length){ endrSt.step='tipo'; }
+    renderEstoque();
+  }catch(e){
+    /* área é um refinamento opcional — se a busca falhar, não trava o cadastro: segue sem área */
+    endrSt.areas=[]; endrSt._areasCarregadas=true; endrSt.step='tipo'; renderEstoque();
+  }
+}
+function endrEscolherArea(a){
+  endrSt.areaId=a.id; endrSt.areaNome=a.nome; endrSt.areaRequerRua=!!a.requerRua; endrSt.rua='';
+  endrSt.step=endrSt.areaRequerRua?'rua':'tipo'; renderEstoque();
+}
+function endrRenderArea(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Área</div>';
+  if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  endrSt.areas.forEach(a=>{
+    const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+    b.textContent=a.nome+(a.requerRua?' (Rua obrigatória)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
+  });
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
+}
+/* ---- passo 2c: Rua (obrigatória só quando a área escolhida tem RequerRua__c=true) ---- */
+function endrRenderRua(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Rua — '+_esc(endrSt.areaNome)+'</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Rua</label>'
+    +'<input id="endrRua" type="text" value="'+cadEsc(endrSt.rua)+'" placeholder="Ex.: Rua 1" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<div class="subnote" style="padding:0 0 12px">Obrigatório nesta área.</div>';
+  const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
+  cont.onclick=()=>{
+    const v=(document.getElementById('endrRua').value||'').trim();
+    if(!v){ toast('⚠️ Informe a rua'); return; }
+    endrSt.rua=v; endrSt.step='tipo'; renderEstoque();
+  };
+  card.appendChild(cont);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='area'; renderEstoque(); }; card.appendChild(bk);
+}
 function endrRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(endrSt.localNome)+'</div>';
   const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:6px 0 12px'; novo.textContent='+ Novo endereço';
@@ -3099,7 +3147,8 @@ function endrRenderLista(card){
     endrSt.enderecosDoLocal.forEach(e=>{
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
       const ocupTxt=e.capacidade!=null?(e.ocupacao+'/'+e.capacidade):(''+e.ocupacao);
-      row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(e.nome)+'</div><div style="font-size:12px;color:var(--weak)">'+_esc(e.tipo||'')+' · '+_esc(e.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div></div><span style="color:#999;font-size:18px">›</span>';
+      const loc=[e.area,e.rua].filter(Boolean).join(' ');
+      row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(e.nome)+'</div><div style="font-size:12px;color:var(--weak)">'+_esc(e.tipo||'')+(loc?' · 📍 '+_esc(loc):'')+' · '+_esc(e.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div></div><span style="color:#999;font-size:18px">›</span>';
       row.onclick=()=>endrAbrirDetalhe(e.id);
       card.appendChild(row);
     });
@@ -3109,7 +3158,9 @@ function endrRenderLista(card){
 /* ---- passo 3: tipo (toque seleciona e avança) ---- */
 function endrEscolherTipo(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo(); }
 function endrRenderTipo(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>';
+  const loc=[endrSt.areaNome,endrSt.rua].filter(Boolean).join(' — ');
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>'
+    +(loc?'<div class="subnote" style="padding:0 0 6px">📍 '+_esc(loc)+'</div>':'');
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px';
   ENDR_TIPOS.forEach(t=>{
     const el=document.createElement('div'); el.style.cssText='background:#F7F9FA;border:1.5px solid #E2E5E9;border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;font-weight:700;color:#0B2239';
@@ -3118,11 +3169,17 @@ function endrRenderTipo(card){
     grid.appendChild(el);
   });
   card.appendChild(grid);
-  const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar'; bkb.onclick=()=>{ endrSt.step='lista'; renderEstoque(); }; card.appendChild(bkb);
+  const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar';
+  bkb.onclick=()=>{ endrSt.step=endrSt.areaRequerRua?'rua':(endrSt.areas.length?'area':'lista'); renderEstoque(); };
+  card.appendChild(bkb);
 }
 /* ---- passo 4: nomenclatura (nome amigável + código sugerido, editável) ---- */
 async function endrSugerirCodigo(){
-  try{ const d=await beGet('/estoque/enderecos/sugestao-codigo?localId='+encodeURIComponent(endrSt.localId)+'&tipo='+encodeURIComponent(endrSt.tipo));
+  try{
+    let url='/estoque/enderecos/sugestao-codigo?localId='+encodeURIComponent(endrSt.localId)+'&tipo='+encodeURIComponent(endrSt.tipo);
+    if(endrSt.areaId) url+='&areaId='+encodeURIComponent(endrSt.areaId);
+    if(endrSt.rua) url+='&rua='+encodeURIComponent(endrSt.rua);
+    const d=await beGet(url);
     if(endrSt.step==='nome' && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
@@ -3156,6 +3213,8 @@ function endrRenderCapacidade(card){
 function endrRenderRevisao(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Revisão</div>'
     +'<div class="det-row"><span class="det-k">Local</span><span class="det-v">'+_esc(endrSt.localNome)+'</span></div>'
+    +(endrSt.areaNome?'<div class="det-row"><span class="det-k">Área</span><span class="det-v">'+_esc(endrSt.areaNome)+'</span></div>':'')
+    +(endrSt.rua?'<div class="det-row"><span class="det-k">Rua</span><span class="det-v">'+_esc(endrSt.rua)+'</span></div>':'')
     +'<div class="det-row"><span class="det-k">Tipo</span><span class="det-v">'+_esc(endrSt.tipo)+'</span></div>'
     +'<div class="det-row"><span class="det-k">Nome</span><span class="det-v">'+_esc(endrSt.nome||'—')+'</span></div>'
     +'<div class="det-row"><span class="det-k">Código</span><span class="det-v">'+_esc(endrSt.codigo||'(sugerido automaticamente)')+'</span></div>'
@@ -3172,6 +3231,8 @@ async function endrCriar(){
   try{
     const body={localId:endrSt.localId, tipo:endrSt.tipo, nomeAmigavel:endrSt.nome, codigo:endrSt.codigo};
     if(endrSt.capacidade!=='') body.capacidadeMaxima=Number(endrSt.capacidade);
+    if(endrSt.areaId) body.areaId=endrSt.areaId;
+    if(endrSt.rua) body.rua=endrSt.rua;
     const r=await bePost('/estoque/enderecos',body);
     endrSt.criando=false;
     toast('✅ Endereço '+(r.codigo||'')+' criado');
@@ -3192,9 +3253,10 @@ function endrRenderDetalhe(card){
   const d=endrSt.enderecoDetalhe;
   if(!d){ card.innerHTML='<div class="subnote">'+(endrSt.erro?_esc(endrSt.erro):'Carregando…')+'</div>'; return; }
   const ocupTxt=d.capacidade!=null?(d.ocupacao+' / '+d.capacidade):(''+d.ocupacao);
+  const dloc=[d.area,d.rua].filter(Boolean).join(' ');
   card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:4px">✅</div>'
     +'<div style="text-align:center;font-size:16px;font-weight:700;color:#0B2239">'+_esc(d.nome)+'</div>'
-    +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:4px 0 16px">'+_esc(d.tipo||'')+' · '+_esc(d.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div>';
+    +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:4px 0 16px">'+_esc(d.tipo||'')+(dloc?' · 📍 '+_esc(dloc):'')+' · '+_esc(d.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div>';
   const et=endrSt.etiqueta||{status:'idle'};
   const box=document.createElement('div'); box.style.cssText='text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px';
   let h='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';

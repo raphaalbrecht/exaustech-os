@@ -71,8 +71,12 @@
     App Link /e/:token) + impressão Zebra/PDF 80×50mm; entry point "Endereços de estoque" na
     home do Estoquista)
    (v92 09/07 — fix: tile "Endereços de estoque" nunca chamava endrCarregarLocais() de verdade,
-    ficava preso em "Carregando…" pra sempre; achado no teste físico) */
-const CACHE = 'exaustech-os-v92';
+    ficava preso em "Carregando…" pra sempre; achado no teste físico)
+   (v93 10/07 — Endereçamento: nível intermediário Área/Rua no wizard endr* — passo Área entra
+    entre Local e Tipo (só aparece se o local tiver áreas cadastradas), passo Rua entra depois
+    quando a área exige (RequerRua__c); código sugerido agora usa prefixo Área-Rua-Tipo-Seq;
+    lista e detalhe do endereço mostram 📍 área/rua junto do código) */
+const CACHE = 'exaustech-os-v93';
 const SHELL = [
   './',
   './index.html',
