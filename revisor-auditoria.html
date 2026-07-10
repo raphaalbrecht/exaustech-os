@@ -70,15 +70,25 @@
   .modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--weak);padding:2px 8px}
   .modal-close:hover{color:var(--txt)}
   #novaAudBody{padding:16px 18px}
+  /* rodada 13 (10/07) — pedido do Raphael "os textos superiores estão adensados... arejar", 2
+     propostas do Fable (Salesforce vs Apple), Raphael escolheu a A (Salesforce Lightning): a etapa
+     de upload/análise vira um card próprio rotulado "Etapa 1", com a mensagem de status em formato
+     de scoped-notification (borda esquerda + fundo tintado); "Etapa 2" ganha um rótulo com hairline
+     antes do formulário. Só apresentação — nenhum id/onclick/fluxo mudou. */
+  .etapa-card{border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+  .etapa-label{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase;margin:0 0 12px}
+  .etapa-divider{border-top:1px solid var(--border);margin:0 0 12px;padding-top:14px}
   .na-upload-row{display:flex;gap:10px;align-items:flex-end;width:100%}
   .na-upload-row>div:first-child{flex:1 1 auto;min-width:0}
   .na-upload-row input[type="file"]{width:100%;box-sizing:border-box}
+  #naAnaliseStatus{border-left:3px solid var(--brand);background:var(--brand-l);border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px}
+  .na-progress-wrap+*{margin-top:0}
   /* barra de progresso ESTIMADA (não é % real de bytes/tokens — Gemini e Salesforce não expõem
      progresso granular aqui): avança em curva ease-out até um teto (92%) ao longo da duração
      esperada de cada etapa, e só fecha em 100% quando a resposta chega de verdade (ver
      naProgressoIniciar/naProgressoConcluir). Objetivo é dar sensação de movimento/tempo restante,
      não uma métrica exata. */
-  .na-progress-wrap{display:flex;align-items:center;gap:8px;margin:-2px 0 12px}
+  .na-progress-wrap{display:flex;align-items:center;gap:8px;margin:-2px 0 0}
   .na-progress{flex:1;height:6px;border-radius:999px;background:var(--border2);overflow:hidden}
   .na-progress-fill{height:100%;width:0%;background:var(--brand);border-radius:999px;transition:width .25s linear}
   .na-progress-pct{font-size:11.5px;color:var(--weak);min-width:32px;text-align:right;font-variant-numeric:tabular-nums}
@@ -323,19 +333,23 @@
       <button class="modal-close" onclick="toggleNovaAuditoria()">×</button>
     </div>
     <div id="novaAudBody">
-      <div class="na-upload-row" style="margin-bottom:6px">
-        <div>
-          <label>PDF do relatório</label>
-          <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
+      <div class="etapa-card">
+        <p class="etapa-label">Etapa 1 · Importar PDF (opcional)</p>
+        <div class="na-upload-row" style="margin-bottom:10px">
+          <div>
+            <label>PDF do relatório</label>
+            <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
+          </div>
+          <button class="btn sec" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled>Analisar PDF (opcional)</button>
         </div>
-        <button class="btn sec" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled>Analisar PDF (opcional)</button>
-      </div>
-      <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak);margin-bottom:12px">Selecione o PDF e clique em "Analisar" pra pré-preencher os campos abaixo — ou preencha tudo na mão sem analisar.</div>
-      <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
-        <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
-        <div class="na-progress-pct" id="naProgressPct">0%</div>
+        <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Selecione o PDF e clique em "Analisar" pra pré-preencher os campos abaixo — ou preencha tudo na mão sem analisar.</div>
+        <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
+          <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
+          <div class="na-progress-pct" id="naProgressPct">0%</div>
+        </div>
       </div>
 
+      <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria</p>
       <div class="loadbar" style="margin-bottom:10px">
         <div style="position:relative">
           <label>Conta (shopping/cliente)</label>
