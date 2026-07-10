@@ -120,16 +120,24 @@
      + legenda de quadradinhos coloridos abaixo) também foi reprovada: obrigava o olho a CASAR a
      cor da barra com a cor da legenda pra descobrir qual nível era qual. Rodada 12c: cada risco
      vira uma coluna autocontida — número em cima, barra proporcional no meio, rótulo "Rn" embaixo,
-     tudo alinhado no mesmo eixo vertical, sem legenda separada. A cor da barra mantém a paleta de
-     risco (verde→vermelho, mesma do resto da tela), mas agora é só reforço redundante, não a chave
-     de leitura. Clique em qualquer parte da coluna filtra (setFiltro('risco:N')); a ativa ganha
-     fundo+borda azul, mesmo padrão de destaque das pílulas .stat clicáveis. */
+     tudo alinhado no mesmo eixo vertical, sem legenda separada. Clique em qualquer parte da coluna
+     filtra (setFiltro('risco:N')); a ativa ganha fundo+borda azul, mesmo padrão das pílulas .stat.
+     Rodada 12d: Raphael pediu 2 propostas de identidade visual (Salesforce x Apple, geradas por
+     subagente Fable como mockups separados) e escolheu a Salesforce — aplicada aqui só na carinha
+     do gráfico (cor + hover + raio de canto), sem virar um card SLDS completo (isso quebraria o
+     compacto que o resto da sessão pediu pra manter). Cor das barras deixa de ser a paleta
+     verde→vermelho (que é usada em BADGES em outros lugares da tela) e vira uma RAMPA SEQUENCIAL
+     DE AZUL (só aqui, ver RISCO_RAMPA_SF) — risco é dado ORDINAL (0 a 5), então intensidade
+     crescente de uma única cor comunica "quanto maior, pior" melhor que 6 cores categóricas
+     soltas, que é como a Salesforce trata esse tipo de escala em dashboards Lightning. */
   .risco-chart{display:flex;align-items:flex-end;gap:2px}
   .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:pointer;padding:3px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
   .risco-col:hover{background:var(--bg);border-color:var(--border2)}
+  .risco-col:hover .risco-bar{filter:brightness(1.12)}
+  .risco-col:hover .risco-num{color:#0176D3}
   .risco-col.ativo{background:var(--brand-l);border-color:var(--brand)}
-  .risco-num{font-size:11.5px;font-weight:700;color:var(--txt);line-height:1}
-  .risco-bar{width:18px;border-radius:3px 3px 1px 1px;min-height:3px;display:block}
+  .risco-num{font-size:11.5px;font-weight:700;color:var(--txt);line-height:1;transition:color .12s}
+  .risco-bar{width:18px;border-radius:4px 4px 2px 2px;min-height:3px;display:block;transition:filter .12s}
   .risco-lbl{font-size:10.5px;font-weight:600;color:var(--weak);line-height:1}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
@@ -788,13 +796,13 @@ function renderTudo(){
     const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagem('risco:' + n)));
     riscoWrap.innerHTML = niveisRisco.length
       ? '<div class="risco-chart">' + niveisRisco.map((n) => {
-          const c = riscoCor(n);
+          const cor = RISCO_RAMPA_SF[n];
           const cnt = contagem('risco:' + n);
           const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
           const on = ST.filtro === ('risco:' + n);
           return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
             + '<span class="risco-num">' + cnt + '</span>'
-            + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + c.tx + '"></span>'
+            + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
             + '<span class="risco-lbl">R' + n + '</span>'
             + '</div>';
         }).join('') + '</div>'
@@ -842,7 +850,9 @@ function formatarMesAno(iso){
   return mes + '/' + ano.slice(2);
 }
 
-// Paleta de risco 0 (mais brando) -> 5 (vermelho) — mesma lógica de cor em toda a tela.
+// Paleta de risco 0 (mais brando) -> 5 (vermelho) — mesma lógica de cor em toda a tela
+// (badges de risco no registro, histórico de reincidência etc.). NÃO usada no gráfico de risco
+// do topo — ver RISCO_RAMPA_SF logo abaixo.
 const RISCO_PALETTE = [
   { bg: '#EAF7EC', tx: '#2e844a' }, // 0
   { bg: '#EAF7D8', tx: '#5c8a1f' }, // 1
@@ -851,6 +861,12 @@ const RISCO_PALETTE = [
   { bg: '#FCE4D6', tx: '#b5450a' }, // 4
   { bg: '#FDEAEA', tx: '#ba0517' }  // 5
 ];
+// pedido do Raphael (10/07, rodada 12d): rampa sequencial de azul (tokens reais do SLDS —
+// Salesforce Lightning Design System) só pro gráfico de barras de risco no topo da tela. Vem do
+// mockup "estilo Salesforce" gerado pelo Fable e escolhido pelo Raphael entre 2 propostas
+// (a outra era "estilo Apple"). Substitui a paleta verde→vermelho SÓ nesse componente — os badges
+// de risco no resto da tela continuam usando RISCO_PALETTE, sem mudança.
+const RISCO_RAMPA_SF = ['#AACBFF', '#78B0FD', '#1B96FF', '#0176D3', '#0B5CAB', '#032D60'];
 function riscoCor(risco){
   if (risco == null || isNaN(risco)) return { bg: 'var(--neu-bg)', tx: 'var(--neu-tx)' };
   const idx = Math.max(0, Math.min(5, Math.round(risco)));
