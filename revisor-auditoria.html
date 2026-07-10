@@ -335,7 +335,7 @@
     <div id="novaAudBody">
       <div class="etapa-card">
         <p class="etapa-label">Etapa 1 · Importar PDF (opcional)</p>
-        <div class="na-upload-row" style="margin-bottom:10px">
+        <div class="na-upload-row" style="margin-bottom:18px">
           <div>
             <label>PDF do relatório</label>
             <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
@@ -415,11 +415,17 @@
       <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
     </div>
     <button class="link-btn" id="btnToggleIds" onclick="toggleIdsManual()" style="padding:9px 0">Acessar por Id</button>
-    <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, centralizadas
-         no mesmo card — eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava
-         vazia à direita depois que a página passou a ocupar a largura toda. -->
-    <div id="riscoInline" style="margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="margin-left:auto;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
+    <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, no mesmo card —
+         eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava vazia à direita
+         depois que a página passou a ocupar a largura toda.
+         Rodada 14: "o gráfico está perdido... deveria ir para o lado direito ao lado da primeira
+         caixinha (Total)" — margin:0 auto centralizava o gráfico sozinho (2 margens auto contra a
+         1 do summaryInline dividiam o espaço livre 2/3 x 1/3, jogando o gráfico pro meio do card,
+         longe do resumo). Fix: só o riscoInline empurra pra direita (margin-left:auto); o
+         summaryInline perde o margin-left:auto e passa a colar direto nele via gap do .loadbar —
+         os dois viram um bloco único encostado na borda direita, gráfico logo antes de "Total". -->
+    <div id="riscoInline" style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
        ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
