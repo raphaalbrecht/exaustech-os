@@ -116,20 +116,21 @@
   .filtros-linha .tratamento-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
-     de botões — pouco escaneável e sem noção de proporção entre os níveis. Rodada 12b: a 1ª versão
-     (barra única horizontal segmentada) não era o pedido — o certo é um gráfico de BARRAS
-     VERTICAIS (altura proporcional à quantidade de cada risco) + legenda compacta abaixo. Clique
-     na barra OU na legenda aplica o mesmo filtro de sempre (setFiltro('risco:N')). */
-  .risco-chart{display:flex;flex-direction:column;gap:6px;min-width:170px;align-items:center}
-  .risco-bars{display:flex;align-items:flex-end;gap:5px;height:32px}
-  .risco-col{width:16px;border-radius:3px 3px 1px 1px;cursor:pointer;transition:filter .12s;min-height:3px}
-  .risco-col:hover{filter:brightness(0.9)}
-  .risco-col.ativo{box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
-  .risco-legenda{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center}
-  .risco-legenda .ritem{display:flex;align-items:center;gap:4px;cursor:pointer;padding:1px 5px;border-radius:5px;font-size:11px;color:var(--weak);border:1px solid transparent}
-  .risco-legenda .ritem:hover{border-color:var(--border2)}
-  .risco-legenda .ritem.ativo{background:var(--bg);border-color:var(--border2);font-weight:600;color:var(--txt)}
-  .risco-legenda .sw{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
+     de botões — pouco escaneável e sem noção de proporção entre os níveis. A 12b (barras verticais
+     + legenda de quadradinhos coloridos abaixo) também foi reprovada: obrigava o olho a CASAR a
+     cor da barra com a cor da legenda pra descobrir qual nível era qual. Rodada 12c: cada risco
+     vira uma coluna autocontida — número em cima, barra proporcional no meio, rótulo "Rn" embaixo,
+     tudo alinhado no mesmo eixo vertical, sem legenda separada. A cor da barra mantém a paleta de
+     risco (verde→vermelho, mesma do resto da tela), mas agora é só reforço redundante, não a chave
+     de leitura. Clique em qualquer parte da coluna filtra (setFiltro('risco:N')); a ativa ganha
+     fundo+borda azul, mesmo padrão de destaque das pílulas .stat clicáveis. */
+  .risco-chart{display:flex;align-items:flex-end;gap:2px}
+  .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:pointer;padding:3px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
+  .risco-col:hover{background:var(--bg);border-color:var(--border2)}
+  .risco-col.ativo{background:var(--brand-l);border-color:var(--brand)}
+  .risco-num{font-size:11.5px;font-weight:700;color:var(--txt);line-height:1}
+  .risco-bar{width:18px;border-radius:3px 3px 1px 1px;min-height:3px;display:block}
+  .risco-lbl{font-size:10.5px;font-weight:600;color:var(--weak);line-height:1}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
      .grid agora ocupa a altura restante da viewport (flex:1 dentro de #conteudo) e cada coluna
@@ -775,28 +776,28 @@ function renderTudo(){
     : '') + '</div>';
   h += '</div>';
 
-  // pedido do Raphael (10/07, rodada 12b): correção — não era barra horizontal segmentada, era
-  // gráfico de barras VERTICAIS (altura de cada barra proporcional à quantidade daquele risco,
-  // maior contagem = barra cheia) + legenda compacta abaixo. Mesma mecânica de clique de sempre.
+  // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
+  // reprovada — "preciso de um gráfico claro... com a respectiva numeração quantitativa claramente
+  // alinhada com a sua barra". O problema era a legenda separada: exigia casar cor da barra com
+  // cor do quadradinho. Agora cada nível é uma coluna autocontida (número em cima, barra
+  // proporcional no meio, rótulo "Rn" embaixo — os 3 no mesmo eixo vertical), legenda não existe
+  // mais. Altura da barra em px (teto 26px) em vez de % pro contêiner não precisar de altura fixa.
   const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagem('risco:' + n) > 0);
   const riscoWrap = document.getElementById('riscoInline');
   if (riscoWrap) {
     const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagem('risco:' + n)));
     riscoWrap.innerHTML = niveisRisco.length
-      ? '<div class="risco-chart">'
-        + '<div class="risco-bars">' + niveisRisco.map((n) => {
-            const c = riscoCor(n);
-            const cnt = contagem('risco:' + n);
-            const alturaPct = Math.max(8, Math.round(cnt / maxRisco * 100));
-            const on = ST.filtro === ('risco:' + n);
-            return '<div class="risco-col' + (on ? ' ativo' : '') + '" style="height:' + alturaPct + '%;background:' + c.tx + '" title="R' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')"></div>';
-          }).join('') + '</div>'
-        + '<div class="risco-legenda">' + niveisRisco.map((n) => {
-            const c = riscoCor(n);
-            const on = ST.filtro === ('risco:' + n);
-            return '<span class="ritem' + (on ? ' ativo' : '') + '" onclick="setFiltro(\'risco:' + n + '\')"><span class="sw" style="background:' + c.tx + '"></span>R' + n + ' · ' + contagem('risco:' + n) + '</span>';
-          }).join('') + '</div>'
-        + '</div>'
+      ? '<div class="risco-chart">' + niveisRisco.map((n) => {
+          const c = riscoCor(n);
+          const cnt = contagem('risco:' + n);
+          const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
+          const on = ST.filtro === ('risco:' + n);
+          return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
+            + '<span class="risco-num">' + cnt + '</span>'
+            + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + c.tx + '"></span>'
+            + '<span class="risco-lbl">R' + n + '</span>'
+            + '</div>';
+        }).join('') + '</div>'
       : '';
   }
 
