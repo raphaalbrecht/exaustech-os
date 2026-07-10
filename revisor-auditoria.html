@@ -586,11 +586,19 @@ async function naAnalisarPdf(){
     document.getElementById('naCocaoTag').innerHTML = (j.cocao && j.cocao.origem === 'estimativa_ia') ? tagIa : '';
     document.getElementById('naRiscoTag').innerHTML = (j.risco && j.risco.origem === 'estimativa_ia') ? tagIa : '';
 
+    // achado do Raphael 10/07: mostrar Loja/Shopping separados (quando o PDF os traz assim, formato
+    // FTR) em vez de só o nome combinado — deixa claro pro revisor QUAL dos dois campos foi lido,
+    // ajuda a pegar na hora um caso em que só a loja foi lida (sem o shopping) e a sugestão pode
+    // estar errada (mesma marca em shopping diferente).
+    const lidoDoPdf = (j.lojaLida || j.shoppingLido)
+      ? 'Loja: "' + escapeHtml(j.lojaLida || '—') + '" · Shopping: "' + escapeHtml(j.shoppingLido || '—') + '"'
+      : (j.localNomeLido ? '"' + escapeHtml(j.localNomeLido) + '"' : '');
+
     if (j.contasSugeridas && j.contasSugeridas.length) {
       naSelecionarConta(j.contasSugeridas[0].id, j.contasSugeridas[0].nome);
-      status.textContent = 'Sugestão de conta: "' + j.contasSugeridas[0].nome + '"' + (j.localNomeLido ? ' (lido do PDF: "' + escapeHtml(j.localNomeLido) + '")' : '') + ' — confira antes de confirmar.';
+      status.textContent = 'Sugestão de conta: "' + j.contasSugeridas[0].nome + '"' + (lidoDoPdf ? ' (lido do PDF: ' + lidoDoPdf + ')' : '') + ' — confira antes de confirmar.';
     } else {
-      status.textContent = 'Não encontrei conta com nome parecido com "' + (j.localNomeLido || '') + '" — busque manualmente no campo Conta.';
+      status.textContent = 'Não encontrei conta com nome parecido com ' + (lidoDoPdf || '(nada lido)') + ' — busque manualmente no campo Conta.';
     }
   } catch (e) {
     status.textContent = 'Falha de rede na análise: ' + e.message + ' — preencha os campos manualmente.';
