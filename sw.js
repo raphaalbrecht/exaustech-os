@@ -84,7 +84,8 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v96'; // v96 10/07: fix — recpCarregarLista() nunca limpava recpSt.erro;
+const CACHE = 'exaustech-os-v97'; // v97 09/07: domínio próprio — manifest.webmanifest aponta pra campo.exaustech.com.br (start_url/scope "/", era "/exaustech-os/") e cor da marca corrigida (#3E7EB0, estava esquecida em #0176D3); prep pra empacotar como TWA e publicar na Play Store
+// v96 10/07: fix — recpCarregarLista() nunca limpava recpSt.erro;
 // um erro de tela anterior (ex: abrir recebimento e falhar) ficava grudado na lista de Entradas
 // Pendentes pra sempre, mesmo com a lista carregando certinho por baixo (achado pelo Raphael no
 // teste físico). Corrigido: erro limpo no início de toda tentativa de recpCarregarLista(), e o
