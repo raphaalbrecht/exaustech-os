@@ -153,7 +153,15 @@
      verde→vermelho (que é usada em BADGES em outros lugares da tela) e vira uma RAMPA SEQUENCIAL
      DE AZUL (só aqui, ver RISCO_RAMPA_SF) — risco é dado ORDINAL (0 a 5), então intensidade
      crescente de uma única cor comunica "quanto maior, pior" melhor que 6 cores categóricas
-     soltas, que é como a Salesforce trata esse tipo de escala em dashboards Lightning. */
+     soltas, que é como a Salesforce trata esse tipo de escala em dashboards Lightning.
+     Rodada 15 (10/07): Raphael reverteu a decisão acima de não virar card — pediu explicitamente
+     "insira legenda e coloque dentro de um retângulo tb", inspirado no mockup A (etapa-card) do
+     modal Nova auditoria feito hoje. .risco-card usa o mesmo tipo de moldura (borda 1px + label
+     maiúsculo fraco, igual .etapa-label) + .risco-legenda mostra a rampa inteira (R0→R5) com um
+     rótulo "menor"/"maior" nas pontas — não duplica o número de cada coluna, só explica a DIREÇÃO
+     da cor (mais escuro = mais grave), que não era óbvio sem legenda. */
+  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .risco-card-label{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase}
   .risco-chart{display:flex;align-items:flex-end;gap:2px}
   .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:pointer;padding:3px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
   .risco-col:hover{background:var(--bg);border-color:var(--border2)}
@@ -163,6 +171,9 @@
   .risco-num{font-size:11.5px;font-weight:700;color:var(--txt);line-height:1;transition:color .12s}
   .risco-bar{width:18px;border-radius:4px 4px 2px 2px;min-height:3px;display:block;transition:filter .12s}
   .risco-lbl{font-size:10.5px;font-weight:600;color:var(--weak);line-height:1}
+  .risco-legenda{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--weak)}
+  .risco-legenda-txt{margin:0 3px}
+  .risco-legenda-swatch{width:9px;height:9px;border-radius:2px;display:inline-block}
   .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
      .grid agora ocupa a altura restante da viewport (flex:1 dentro de #conteudo) e cada coluna
@@ -966,8 +977,13 @@ function renderTudo(){
   const riscoWrap = document.getElementById('riscoInline');
   if (riscoWrap) {
     const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagem('risco:' + n)));
+    // legenda mostra a rampa inteira (R0→R5), não só os níveis presentes neste lote — ela explica
+    // a escala de cor em si (fixa), não a distribuição do lote atual (essa já está nas colunas).
+    const legenda = '<div class="risco-legenda"><span class="risco-legenda-txt">menor</span>'
+      + RISCO_RAMPA_SF.map((cor) => '<span class="risco-legenda-swatch" style="background:' + cor + '"></span>').join('')
+      + '<span class="risco-legenda-txt">maior</span></div>';
     riscoWrap.innerHTML = niveisRisco.length
-      ? '<div class="risco-chart">' + niveisRisco.map((n) => {
+      ? '<div class="risco-card"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
           const cor = RISCO_RAMPA_SF[n];
           const cnt = contagem('risco:' + n);
           const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
@@ -977,7 +993,7 @@ function renderTudo(){
             + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
             + '<span class="risco-lbl">R' + n + '</span>'
             + '</div>';
-        }).join('') + '</div>'
+        }).join('') + '</div>' + legenda + '</div>'
       : '';
   }
 
