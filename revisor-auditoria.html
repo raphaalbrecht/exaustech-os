@@ -227,6 +227,9 @@
   .kv-select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:12.5px;background:#fff;color:var(--txt)}
   .kv-select:disabled{background:var(--neu-bg);color:var(--weak)}
   .kv-select.dirty{border-color:var(--warn);background:var(--warn-bg)}
+  /* achado #8 da revisão Fable (10/07): texto completo da opção selecionada (Pergunta/NC), visível
+     sem precisar de hover — o select sozinho corta com ellipsis nativo. */
+  .kv-select-full{margin-top:4px;font-size:12px;color:var(--weak);line-height:1.35}
   .edit-panel{margin-top:12px;padding:12px;border:1px dashed var(--border2);border-radius:8px;background:var(--bg)}
   .edit-panel textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
   .edit-panel select{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px}
@@ -254,7 +257,9 @@
   .kv td:last-child{text-align:left;font-weight:600;color:var(--txt)}
   /* sugestão Fable 10/07: "Confirmar match" ficava abaixo da dobra quando a foto era alta,
      enquanto o PDF (74vh) ainda estava visível — sticky acompanha o scroll sem mudar a estrutura */
-  .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0}
+  /* achado #12 da revisão Fable (10/07): actionbar sticky sem separação do conteúdo (histórico)
+     que rola por baixo — "some" abruptamente atrás do botão. Borda sutil resolve sem mudar layout. */
+  .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0;border-top:1px solid var(--border)}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -276,7 +281,10 @@
   .mes-pill{font-size:10.5px;font-weight:600;padding:4px 7px;border-radius:7px;text-align:center;min-width:46px;line-height:1.35}
   .mes-pill .mm{display:block;font-size:9.5px;font-weight:700;opacity:.85}
   .mes-pill.sem-vistoria{background:var(--neu-bg);color:var(--weaker);opacity:.55}
-  .mes-pill.ok{background:var(--succ-bg);color:var(--succ);cursor:default}
+  /* achado #10 da revisão Fable (10/07): "OK" (sem achado) e a pílula de ocorrência Risco 0 usavam
+     quase o mesmo verde (--succ-bg ~ RISCO_PALETTE[0].bg) — visualmente indistinguíveis, significado
+     oposto (passou vs. foi sinalizado). Borda diferencia sem trocar a paleta de risco em nenhum lugar. */
+  .mes-pill.ok{background:var(--succ-bg);color:var(--succ);cursor:default;border:1px solid var(--succ-bd)}
   .mes-pill.ocorreu{cursor:pointer}
   .mes-pill.ocorreu:hover{filter:brightness(0.94)}
   .comp-card{margin-bottom:16px}
@@ -360,6 +368,11 @@
         </div>
         <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()">Criar auditoria e importar PDF</button>
       </div>
+      <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
+           em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
+           usuário clicava "Criar auditoria" com campo faltando e a mensagem de erro ficava
+           invisível atrás do próprio modal. #naMsg vive DENTRO do modal pra esse fluxo específico. -->
+      <div id="naMsg"></div>
     </div>
   </div>
 </div>
@@ -488,6 +501,7 @@ function toggleNovaAuditoria(){
     document.getElementById('btnAnalisarPdf').disabled = true;
     naAtualizarOpcoesRisco();
     naProgressoParar(); // fecha/reabre não pode deixar barra de progresso travada de uma tentativa anterior
+    naMsg(''); // idem pra mensagem de erro (achado #4) — não pode sobrar de uma tentativa anterior
   }
 }
 
@@ -611,13 +625,13 @@ function naSelecionarConta(id, nome){
 }
 
 async function naCriarEImportar(){
-  if (!NA.contaId) { msg('Escolha uma conta na lista (busque pelo nome e clique numa opção).', 'err'); return; }
+  if (!NA.contaId) { naMsg('Escolha uma conta na lista (busque pelo nome e clique numa opção).', 'err'); return; }
   const dataInspecao = document.getElementById('naData').value;
-  if (!dataInspecao) { msg('Informe a data da vistoria.', 'err'); return; }
-  if (!NA.arquivo) { msg('Selecione o PDF do relatório.', 'err'); return; }
+  if (!dataInspecao) { naMsg('Informe a data da vistoria.', 'err'); return; }
+  if (!NA.arquivo) { naMsg('Selecione o PDF do relatório.', 'err'); return; }
   const btn = document.getElementById('btnCriarAuditoria');
   btn.disabled = true; btn.textContent = 'Criando…';
-  msg('');
+  naMsg('');
   naProgressoIniciar(5000, 40); // fase 1: criar (rápido) — teto baixo, não deixa parecer que já foi
   let ok = false;
   try {
@@ -631,10 +645,10 @@ async function naCriarEImportar(){
       })
     });
     const j = await r.json();
-    if (!r.ok) { msg('Erro ao criar auditoria: ' + (j.error || r.status), 'err'); return; }
+    if (!r.ok) { naMsg('Erro ao criar auditoria: ' + (j.error || r.status), 'err'); return; }
     const auditoriaId = j.id;
     btn.textContent = 'Importando PDF… (pode levar até 1 min)';
-    msg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Importando PDF…', 'info');
+    naMsg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Importando PDF…', 'info');
     naProgressoIniciar(45000); // fase 2: import (mais longa) — reinicia a estimativa do zero
 
     const fd = new FormData();
@@ -643,18 +657,19 @@ async function naCriarEImportar(){
       method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
     });
     const j2 = await r2.json();
-    if (!r2.ok || j2.ok === false) { msg('Auditoria ' + auditoriaId + ' criada, mas houve erro ao importar o PDF: ' + (j2.mensagem || j2.error || r2.status), 'err'); return; }
+    if (!r2.ok || j2.ok === false) { naMsg('Auditoria ' + auditoriaId + ' criada, mas houve erro ao importar o PDF: ' + (j2.mensagem || j2.error || r2.status), 'err'); return; }
     ok = true;
 
     // sucesso: preenche os campos de "Carregar lote" e já abre a revisão direto, sem o usuário
     // ter que copiar/colar os Ids na mão
     document.getElementById('inAuditoria').value = auditoriaId;
     document.getElementById('inLote').value = j2.loteId;
-    toggleNovaAuditoria();
+    toggleNovaAuditoria(); // fecha o modal — a partir daqui msg() global volta a ser visível, então
+    // as mensagens de sucesso ficam nele (o naMsg() do modal já não seria visto pelo usuário)
     await carregar(); // carregar() controla o msgArea sozinho — só define a mensagem final DEPOIS dele, senão ele sobrescreve
     msg(j2.totalItens + ' item(ns) identificado(s) no PDF, ' + j2.semMatch + ' sem match — revise abaixo.', 'info');
   } catch (e) {
-    msg('Falha de rede: ' + e.message, 'err');
+    naMsg('Falha de rede: ' + e.message, 'err');
   } finally {
     btn.disabled = false; btn.textContent = 'Criar auditoria e importar PDF';
     if (ok) naProgressoConcluir(); else naProgressoParar();
@@ -663,6 +678,13 @@ async function naCriarEImportar(){
 
 function msg(texto, tipo){
   document.getElementById('msgArea').innerHTML = texto ? '<div class="msg '+(tipo||'info')+'">'+escapeHtml(texto)+'</div>' : '';
+}
+
+// achado #4: mensagens do fluxo "Nova auditoria" (validação + erros de criar/importar) enquanto o
+// modal ainda está aberto — nunca usar msg() global aqui, ele escreve atrás do backdrop.
+function naMsg(texto, tipo){
+  const el = document.getElementById('naMsg');
+  if (el) el.innerHTML = texto ? '<div class="msg '+(tipo||'info')+'" style="margin-top:10px">'+escapeHtml(texto)+'</div>' : '';
 }
 
 function initSessao(){
@@ -699,6 +721,11 @@ async function carregar(){
   if (!auditoriaId || !loteId) { msg('Preencha o Id da Auditoria e do Lote.', 'err'); return; }
   msg('Carregando…', 'info');
   carregarCatalogoSeNecessario().catch((e) => console.warn('[catálogo] falhou, edição campo a campo fica desativada:', e.message)); // best-effort, não bloqueia o resto da tela
+  // achado #1 da revisão Fable (10/07): confirmarLinha/reverterLinha/edSalvar chamam carregar() de
+  // novo só pra atualizar contadores do MESMO lote — resetar filtro/busca/seleção toda vez quebrava
+  // o loop de conferência em série (revisor filtra "Fraco", confirma um item, perde o filtro e a
+  // posição). Só reseta quando é troca de lote de verdade.
+  const mesmoLote = ST.loteId === loteId && ST.auditoriaId === auditoriaId;
   try {
     const r = await fetch(BACKEND + '/exp/auditorias/' + auditoriaId + '/lote/' + loteId, {
       headers: { Authorization: 'Bearer ' + beTok() }
@@ -706,7 +733,8 @@ async function carregar(){
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
     ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas; ST.auditoria = j.auditoria || null;
-    ST.selecionadaId = null; ST.filtro = 'todas'; ST.comparativo = null; ST.busca = '';
+    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; }
+    ST.comparativo = null; // sempre recarrega — é barato (ver carregarComparativo logo abaixo) e pode ter mudado
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
     document.getElementById('estadoVazio').style.display = 'none';
@@ -734,11 +762,23 @@ function badgeFaixa(faixa){
   return '<span class="badge ' + cls + '">' + faixa + '</span>';
 }
 
+// achado #11 da revisão Fable (10/07): score numérico cru ("Fraco 62") sem indicar a escala —
+// só informativo, o badge de faixa (Forte/Fraco/Sem match) já carrega a decisão.
+function scoreSpan(score){
+  return score != null ? '<span title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '</span>' : '';
+}
+
 // pedido do Raphael (10/07, rodada 2): "dar mais destaque pro Status" na tabela de registro — vira
 // pílula colorida (verde quando já confirmado, laranja quando ainda pendente) em vez de texto puro.
 function badgeStatus(status){
   const cls = status === 'Pendente proposta' ? 'confirmada' : status === 'Pendente de revisão' ? 'trat-em' : 'neu';
-  return '<span class="badge status-grande ' + cls + '">' + escapeHtml(status || '—') + '</span>';
+  // achado #6 da revisão Fable (10/07): status técnico do Salesforce ('Pendente proposta') pintado
+  // de VERDE é contraditório na leitura rápida ("pendente" + verde de "ok"), e é 1 de 3 rótulos
+  // diferentes pro mesmo estado nesta tela (lista diz "confirmado", actionbar diz "✓ Confirmado").
+  // Aqui só troca o RÓTULO exibido — o status técnico continua sendo a fonte (via title, no hover),
+  // sem mexer no valor gravado no Salesforce nem em nenhuma lógica de filtro/gate.
+  const label = status === 'Pendente proposta' ? '✓ Confirmado · aguardando proposta' : (status || '—');
+  return '<span class="badge status-grande ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
 }
 
 function contagem(faixaOrTag){
@@ -793,12 +833,33 @@ function linhasFiltradas(){
     .some(campo => campo && normalizarBusca(campo).includes(termo)));
 }
 
+// achado #2 da revisão Fable (10/07): depende do #1 (filtro/busca preservados). Depois de confirmar
+// ou salvar, o item confirmado continuava selecionado (só-leitura) e o revisor tinha que achar e
+// clicar o próximo pendente manualmente — contra o padrão já consolidado no app ("toque avança;
+// auto-avanço ao completar"). Busca o próximo PENDENTE dentro do filtro/busca ativos, sem voltar
+// pro início da lista (evita o susto de "acabou e reapareceu lá em cima").
+function proximaLinhaPendente(linhaIdAtual){
+  const lista = linhasFiltradas();
+  const idx = lista.findIndex((l) => l.id === linhaIdAtual);
+  if (idx === -1) return null;
+  for (let i = idx + 1; i < lista.length; i++) { if (lista[i].status === 'Pendente de revisão') return lista[i].id; }
+  return null;
+}
+
 function buscarDigitando(valor){
   ST.busca = valor;
   renderLista(); // só a lista — nunca renderTudo() aqui, senão o campo perde o foco a cada tecla
 }
 
 function renderTudo(){
+  // achado #5 da revisão Fable (10/07): renderTudo() reconstrói #conteudo inteiro (inclusive a
+  // .lista da esquerda) toda vez que o revisor seleciona outro item — num lote de 60+ itens, ir do
+  // item 40 pro 41 jogava a lista de volta pro topo. Guarda o scroll de #listaLinhas antes e
+  // restaura depois (o scroll do PDF/iframe continua resetando de propósito, ver comentário em
+  // renderDetalhe — aquele é intencional pro #page=N funcionar; este é só um custo colateral barato
+  // de resolver).
+  const listaAntiga = document.getElementById('listaLinhas');
+  const scrollListaAnterior = listaAntiga ? listaAntiga.scrollTop : 0;
   const l = ST.lote;
   const a = ST.auditoria;
   let h = '';
@@ -917,6 +978,8 @@ function renderTudo(){
 
   document.getElementById('conteudo').innerHTML = h;
   renderLista();
+  const listaNova = document.getElementById('listaLinhas');
+  if (listaNova) listaNova.scrollTop = scrollListaAnterior;
   renderComparativo();
   if (ST.selecionadaId) { renderDetalhe(); renderHistorico(ST.selecionadaId); }
 }
@@ -1115,14 +1178,24 @@ function renderLista(){
     const naoLida = l.status === 'Pendente de revisão';
     const revisada = !naoLida;
     return '<div class="litem ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
-      + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</div>'
+      + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
   }).join('');
 }
 
-function selecionar(id){ ST.selecionadaId = id; renderTudo(); }
+// achado #3 da revisão Fable (10/07): trocar de item sem salvar descartava em silêncio qualquer
+// correção feita nos selects em cascata (ou o cadastro de NC nova em andamento) — perda de trabalho
+// sem aviso nenhum. edSujo() já existia (usado pra habilitar o botão "Salvar"); só faltava checar
+// antes de trocar a seleção.
+function selecionar(id){
+  if (id === ST.selecionadaId) return;
+  const atual = ST.selecionadaId ? ST.linhas.find((l) => l.id === ST.selecionadaId) : null;
+  if (atual && edSujo(atual) && !confirm('Há correções não salvas neste item. Descartar e trocar de item?')) return;
+  ST.selecionadaId = id;
+  renderTudo();
+}
 
 function escapeHtml(s){ return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
 
@@ -1251,8 +1324,10 @@ async function confirmarLinha(linhaId){
     });
     const j = await r.json();
     if (!r.ok) { msg('Erro ao confirmar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; } return; }
-    await carregar(); // recarrega o lote pra refletir o novo status/contadores
-    ST.selecionadaId = linhaId; renderTudo();
+    await carregar(); // recarrega o lote pra refletir o novo status/contadores (filtro/busca preservados, achado #1)
+    // achado #2: auto-avança pro próximo item pendente dentro do filtro ativo, em vez de deixar o
+    // item recém-confirmado (agora só-leitura) selecionado — se não houver próximo, mantém a seleção.
+    ST.selecionadaId = proximaLinhaPendente(linhaId) || linhaId; renderTudo();
   } catch (e) {
     msg('Falha de rede ao confirmar: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; }
@@ -1531,15 +1606,25 @@ function edHtmlTabela(l){
   const notaRow = l.possuiTextoComplementar
     ? '<tr><td>Nota do vistoriador</td><td><span class="nota-inline">"' + escapeHtml(l.textoComplementar) + '"</span></td></tr>'
     : '';
+  // achado #7 da revisão Fable (10/07): rodada 5 tinha removido o texto bruto do PDF por ficar
+  // 100% redundante com Pergunta+Não-conformidade nos matches Fortes — mas o próprio comentário já
+  // reconhecia a exceção (linha ~1192 na época): em itens com correção MANUAL o texto some de vez,
+  // justo onde a conferência mais importa. Aqui implementa exatamente essa condicional — só aparece
+  // quando o registro tem override humano (Origem_do_Registro__c === 'Importado + editado'), sem
+  // reverter o caso comum (match forte confirmado sem edição continua sem essa linha extra).
+  const textoPdfRow = l.origem === 'Importado + editado' && l.textoOriginal
+    ? '<tr><td>Texto do PDF</td><td><span class="nota-inline">"' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '"</span></td></tr>'
+    : '';
 
   if (confirmado) {
     return '<table class="kv">'
       + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
-      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
+      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>'
       + '<tr><td>Grupo</td><td>' + escapeHtml((CAT && CAT.grupoPorId[l.grupoId] && CAT.grupoPorId[l.grupoId].nome) || '—') + '</td></tr>'
       + '<tr><td>Elemento</td><td>' + escapeHtml(elementoLabel(l.elementoId, l.grupoId, l.prefixoElementoId) || '—') + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
       + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + (l.risco != null ? ' <span class="badge neu">R' + l.risco + '</span>' : '') + '</td></tr>'
+      + textoPdfRow
       + notaRow
       + '</table>';
   }
@@ -1547,7 +1632,7 @@ function edHtmlTabela(l){
   if (!CAT) {
     return '<table class="kv">'
       + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
-      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>'
+      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
       + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
       + notaRow
@@ -1561,14 +1646,23 @@ function edHtmlTabela(l){
 
   let html = '<table class="kv">';
   html += '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>';
-  html += '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + (l.score != null ? l.score : '') + '</td></tr>';
+  html += '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>';
   html += '<tr><td>Grupo</td><td><select class="kv-select' + (ED.grupoId !== (l.grupoId || null) ? ' dirty' : '') + '" onchange="edOnGrupo(this.value)">' + edOptGrupos(ED.grupoId) + '</select></td></tr>';
   html += '<tr><td>Elemento</td><td><select class="kv-select' + (ED.elementoId !== (l.elementoId || null) ? ' dirty' : '') + '" onchange="edOnElemento(this.value)">' + edOptElementos(ED.grupoId, ED.elementoId) + '</select></td></tr>';
-  html += '<tr><td>Pergunta</td><td><select class="kv-select' + (ED.perguntaId !== (l.perguntaId || null) ? ' dirty' : '') + '" onchange="edOnPergunta(this.value)">' + edOptPerguntas(ED.elementoId, ED.perguntaId) + '</select></td></tr>';
+  // achado #8 da revisão Fable (10/07): o texto completo da Pergunta/NC selecionada só aparecia no
+  // modo confirmado (só-leitura) — no modo de edição, que é quando o revisor mais precisa ler com
+  // atenção pra conferir contra o PDF, o <select> corta o texto com ellipsis nativo (só o `title`
+  // no hover mostrava o texto inteiro). Div pequeno abaixo do select resolve sem mudar a interação.
+  const perguntaSelecionada = ED.perguntaId && CAT.perguntaPorId[ED.perguntaId];
+  html += '<tr><td>Pergunta</td><td><select class="kv-select' + (ED.perguntaId !== (l.perguntaId || null) ? ' dirty' : '') + '" onchange="edOnPergunta(this.value)">' + edOptPerguntas(ED.elementoId, ED.perguntaId) + '</select>'
+    + (perguntaSelecionada ? '<div class="kv-select-full">' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
+    + '</td></tr>';
   if (opcoesPrefixo.length > 1) {
     html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="edOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, ED.prefixoId) + '</select></td></tr>';
   }
+  const ncSelecionada = ED.ncId && CAT.ncPorId[ED.ncId];
   html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
+    + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
     + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px;text-align:right"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">Cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
   html += notaRow;
@@ -1662,14 +1756,46 @@ async function edSalvar(linhaId){
       if (!r.ok) { msg('Erro ao confirmar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar'; } return; }
     }
     ED = null;
-    await carregar();
-    ST.selecionadaId = linhaId; renderTudo();
+    await carregar(); // filtro/busca preservados (achado #1)
+    ST.selecionadaId = proximaLinhaPendente(linhaId) || linhaId; renderTudo(); // auto-avança (achado #2)
     msg('Alterações salvas e item confirmado.', 'info');
   } catch (e) {
     msg('Falha de rede ao salvar: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar'; }
   }
 }
+
+// achado #9 da revisão Fable (10/07): conferência é tarefa repetitiva de centenas de cliques por
+// lote — ↑/↓ trocam de item dentro do filtro/busca ativos (reusa selecionar(), que já tem a trava
+// de "correções não salvas" do achado #3) e Ctrl/Cmd+Enter confirma o match do item atual (só
+// quando não há edição suja pendente de decisão explícita). Esc fecha o modal Nova auditoria.
+function edAtalhoMover(delta){
+  const lista = linhasFiltradas();
+  if (!lista.length) return;
+  const idx = lista.findIndex((l) => l.id === ST.selecionadaId);
+  const novoIdx = idx === -1 ? 0 : Math.max(0, Math.min(lista.length - 1, idx + delta));
+  if (lista[novoIdx]) selecionar(lista[novoIdx].id);
+}
+function edAtalhoConfirmar(){
+  if (!ST.selecionadaId) return;
+  const l = ST.linhas.find((x) => x.id === ST.selecionadaId);
+  if (!l || l.status === 'Pendente proposta') return; // já confirmado, nada a fazer
+  if (ED && ED.linhaId === l.id && edSujo(l)) { if (edPodeSalvar(l)) edSalvar(l.id); return; }
+  confirmarLinha(l.id);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('novaAudOverlay');
+    if (overlay && overlay.style.display === 'flex') { toggleNovaAuditoria(); e.preventDefault(); }
+    return;
+  }
+  const tag = e.target && e.target.tagName;
+  const editandoTexto = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'IFRAME' || (e.target && e.target.isContentEditable);
+  if (editandoTexto) return; // não intercepta digitação nem uso normal dos selects/inputs
+  if (e.key === 'ArrowDown') { edAtalhoMover(1); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { edAtalhoMover(-1); e.preventDefault(); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { edAtalhoConfirmar(); e.preventDefault(); }
+});
 
 initSessao();
 </script>
