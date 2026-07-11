@@ -458,7 +458,7 @@
         </div>
         <div>
           <label>Data da vistoria</label>
-          <input id="naData" type="date">
+          <input id="naData" type="date" oninput="naAtualizarBotaoCriar()">
         </div>
         <div>
           <label>Classificação da cocção <span id="naCocaoTag"></span></label>
@@ -476,7 +476,7 @@
             <option value="Risco 4">Risco 4</option><option value="Risco 5">Risco 5</option>
           </select>
         </div>
-        <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()">Criar auditoria e importar PDF</button>
+        <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, data da vistoria e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
       </div>
       <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
            em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
@@ -641,6 +641,7 @@ function toggleNovaAuditoria(){
     naAtualizarOpcoesRisco();
     naProgressoParar(); // fecha/reabre não pode deixar barra de progresso travada de uma tentativa anterior
     naMsg(''); // idem pra mensagem de erro (achado #4) — não pode sobrar de uma tentativa anterior
+    naAtualizarBotaoCriar(); // reabrir sempre começa com o botão desabilitado (nenhum campo preenchido ainda)
   }
 }
 
@@ -658,6 +659,18 @@ function naArquivoSelecionado(input){
   NA.hashArquivo = null; NA.forcarImport = false;
   naMsg('');
   document.getElementById('btnAnalisarPdf').disabled = !NA.arquivo;
+  naAtualizarBotaoCriar();
+}
+
+// pedido do Raphael (11/07): o botão "Criar auditoria e importar PDF" ficava sempre clicável e só
+// avisava do campo faltando DEPOIS do clique (mensagem de erro). Agora ele reflete o estado real
+// do formulário o tempo todo — desabilitado até conta+data+PDF estarem todos presentes — e as
+// checagens dentro de naCriarEImportar() viram uma rede de segurança (defesa em profundidade),
+// não o mecanismo principal de validação.
+function naAtualizarBotaoCriar(){
+  const dataInspecao = document.getElementById('naData').value;
+  const habilitado = !!(NA.contaId && dataInspecao && NA.arquivo);
+  document.getElementById('btnCriarAuditoria').disabled = !habilitado;
 }
 
 // SHA-256 do PDF, calculado no navegador (Web Crypto, custo ~instantâneo pro tamanho típico de um
@@ -807,6 +820,7 @@ async function naAnalisarPdf(){
 
 function naBuscarConta(valor){
   NA.contaId = null; // qualquer edição no texto invalida a seleção anterior
+  naAtualizarBotaoCriar();
   clearTimeout(NA.buscaTimer);
   const termo = valor.trim();
   const lista = document.getElementById('naContaLista');
@@ -827,6 +841,7 @@ function naSelecionarConta(id, nome){
   document.getElementById('naConta').value = nome;
   const lista = document.getElementById('naContaLista');
   lista.style.display = 'none'; lista.innerHTML = '';
+  naAtualizarBotaoCriar();
 }
 
 async function naCriarEImportar(){
@@ -889,7 +904,8 @@ async function naCriarEImportar(){
   } catch (e) {
     naMsg('Falha de rede: ' + e.message, 'err');
   } finally {
-    btn.disabled = false; btn.textContent = 'Criar auditoria e importar PDF';
+    btn.textContent = 'Criar auditoria e importar PDF';
+    naAtualizarBotaoCriar(); // reabilita só se conta+data+PDF continuam válidos (não força true)
     if (ok) naProgressoConcluir(); else naProgressoParar();
   }
 }
