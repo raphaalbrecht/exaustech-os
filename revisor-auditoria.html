@@ -2263,7 +2263,23 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { edAtalhoConfirmar(); e.preventDefault(); }
 });
 
-initSessao();
+// Lançamento contextual a partir de um botão na página de Conta do Salesforce (11/07) —
+// campo.exaustech.com.br/revisor-auditoria.html?contaId=XXX&contaNome=YYY abre "Nova auditoria"
+// já com a conta selecionada. IGNORA de propósito o auto-load do último lote feito por
+// initSessao(): quem clicou o botão na Conta quer cadastrar uma auditoria NOVA pra essa conta
+// específica, não continuar revisando o que estava aberto antes — por isso roda depois de
+// initSessao() (que já tratou o caminho padrão) e abre o modal por cima.
+function abrirViaParametrosDeUrl(){
+  const params = new URLSearchParams(location.search);
+  const contaId = params.get('contaId');
+  if (!contaId) return;
+  const contaNome = params.get('contaNome') || '';
+  toggleNovaAuditoria();
+  naSelecionarConta(contaId, contaNome);
+  history.replaceState(null, '', location.pathname); // um refresh não deve reabrir o modal sozinho
+}
+
+if (initSessao()) abrirViaParametrosDeUrl();
 </script>
 </body>
 </html>
