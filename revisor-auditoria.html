@@ -224,6 +224,10 @@
   .litem.trat-nao{border-left-color:#CBD4DD}
   .litem.trat-em{border-left-color:var(--warn)}
   .litem.trat-ok{border-left-color:var(--succ)}
+  /* Rodada 17: trilho tracejado pra "fora de escopo" — visualmente distinto dos 3 estados de
+     tratativa (não é um estágio de tratamento, é uma exclusão), mesma cor de aviso do toggle. */
+  .litem.trat-fora{border-left-style:dashed;border-left-color:var(--warn)}
+  .trat-word.fora{color:var(--warn-tx)}
   /* pedido do Raphael (10/07, rodada 3): match confirmado vira azul claro (reaproveita --brand-l,
      a mesma cor de hover/seleção) em vez de verde — verde ficava "gritando" ao lado do verde de
      tratativa concluída (.badge.trat-ok / .stat-completo), que é um sinal diferente (comercial,
@@ -317,6 +321,17 @@
   /* achado #12 da revisão Fable (10/07): actionbar sticky sem separação do conteúdo (histórico)
      que rola por baixo — "some" abruptamente atrás do botão. Borda sutil resolve sem mudar layout. */
   .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0;border-top:1px solid var(--border)}
+  /* Rodada 17 (11/07) — "fora de escopo": controle segmentado grande, estilo Salesforce (mesma
+     lógica visual do .trat-tabs: par de botões, o ativo ganha fundo colorido). "Dentro" = neutro/
+     azul (comportamento padrão); "Fora" = laranja de aviso (--warn), reaproveita o mesmo par de
+     cores já usado em pendências/tratativa em aberto — não é erro, é uma exclusão intencional.
+     Ver DECISAO_item-fora-de-escopo.md. */
+  .escopo-toggle{display:flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin-top:14px}
+  .escopo-btn{flex:1;border:none;background:#fff;padding:11px 10px;font-size:12.5px;font-weight:700;color:var(--weak);cursor:pointer}
+  .escopo-btn+.escopo-btn{border-left:1px solid var(--border2)}
+  .escopo-btn.on{background:var(--brand-l);color:var(--brand-d)}
+  .escopo-btn.fora.on{background:var(--warn-bg);color:var(--warn-tx)}
+  .escopo-ro{margin-top:14px;border:1px solid var(--warn-bd);background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:9px 12px;font-size:12.5px;font-weight:600}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -488,6 +503,18 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 
 let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
+
+// pedido do Raphael (11/07): NCs de combate a incêndio/detecção de gás/detector de fumaça não são
+// do ramo da Exaustech — precisam sair da estatística que penaliza a empresa, sem sumir do relatório.
+// Achado ao investigar: NÃO precisa de schema novo. Classificacao_Linha__c (Linha) já tem o valor
+// "Serviço fora do escopo Exaustech" (ao lado de "Exaustão - estrutural"/"manutenção") desde antes,
+// e o catálogo de NCs (CAT.ncPorId[id].classificacao) já carrega a mesma classificação por família —
+// só nunca foi usado no frontend. Ver DECISAO_item-fora-de-escopo.md pro racional completo (Fable 5,
+// 2 propostas, Raphael escolheu a 1: "campo do registro", reusa o botão Confirmar em vez de ação
+// terminal separada).
+const CLASSIF_FORA_ESCOPO = 'Serviço fora do escopo Exaustech';
+const CLASSIF_LINHA_PADRAO = 'Exaustão - manutenção'; // espelha CLASSIFICACAO_LINHA_DEFAULT do backend
+function foraDeEscopo(l){ return l.classificacaoLinha === CLASSIF_FORA_ESCOPO; }
 
 // ---- edição campo a campo da hierarquia (pedido do Raphael 10/07, v2 — a v1 era um painel
 // lateral de busca textual de Pergunta que ele testou e rejeitou: "a edição deve ser campo a
@@ -862,15 +889,23 @@ function badgeStatus(status){
 function contagem(faixaOrTag){
   if (faixaOrTag === 'foto') return ST.linhas.filter(l => l.possuiFoto).length;
   if (faixaOrTag === 'nota') return ST.linhas.filter(l => l.possuiTextoComplementar).length;
-  if (faixaOrTag === 'todas') return ST.linhas.length;
+  if (faixaOrTag === 'todas') return ST.linhas.length; // "relatório como um todo" — nunca exclui fora de escopo
+  // Rodada 17 (11/07): o eixo de TRATATIVA (o que pesa pra Exaustech perante o cliente) exclui
+  // fora-de-escopo dos dois lados — classificar como fora de escopo já É o trabalho de revisão
+  // (por isso 'confirmado'/'todas' abaixo NÃO excluem: revisão cobre 100% dos itens, senão o lote
+  // podia marcar "Revisão completa" com item nunca olhado).
   if (faixaOrTag === 'nao_tratada' || faixaOrTag === 'em_tratativa' || faixaOrTag === 'tratada')
-    return ST.linhas.filter(l => l.statusTratativa === faixaOrTag).length;
+    return ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa === faixaOrTag).length;
   // Rodada 16: "Em aberto" da aba-placar = tudo que ainda NÃO chegou em 'tratada' (nao_tratada +
   // em_tratativa juntos) — é o agregado que a Proposta 2 do Fable pediu pra virar botão de destaque.
-  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => l.statusTratativa !== 'tratada').length;
+  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa !== 'tratada').length;
+  if (faixaOrTag === 'fora_escopo') return ST.linhas.filter(foraDeEscopo).length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
   if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
+  // "Sem match" é a única faixa de match que conta pra estatística de tratativa (Fraco/Forte não
+  // são exibidos como pílula de "penalidade" hoje) — exclui fora de escopo; Forte/Fraco não mudam.
+  if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !foraDeEscopo(l)).length;
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
 
@@ -900,11 +935,13 @@ function linhasFiltradas(){
     const n = Number(ST.filtro.slice(6));
     base = ST.linhas.filter(l => l.risco === n);
   } else switch (ST.filtro) {
-    case 'Forte': case 'Fraco': case 'Sem match': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
+    case 'Forte': case 'Fraco': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
+    case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !foraDeEscopo(l)); break;
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
-    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => l.statusTratativa === ST.filtro); break;
-    case 'trat_aberta': base = ST.linhas.filter(l => l.statusTratativa !== 'tratada'); break;
+    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa === ST.filtro); break;
+    case 'trat_aberta': base = ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa !== 'tratada'); break;
+    case 'fora_escopo': base = ST.linhas.filter(foraDeEscopo); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
@@ -978,12 +1015,20 @@ function renderTudo(){
     const ativoTodas = ST.filtro === 'todas';
     const ativoConfirmado = ST.filtro === 'confirmado';
     const ativoSemMatch = ST.filtro === 'Sem match';
+    const ativoForaEscopo = ST.filtro === 'fora_escopo';
+    // Rodada 17 (11/07): pílula "sem match" trocou de fonte — l.itensSemMatch é campo do backend
+    // (Itens_Sem_Match__c) calculado só na importação e nunca recalculado após correção manual
+    // (bug identificado 10/07, "como explicar a diferença..."); contagem('Sem match') é sempre
+    // client-side, reflete o estado atual da tela e de brinde já exclui fora de escopo. Zero
+    // mudança de backend.
+    const foraEscopoCount = contagem('fora_escopo');
     summaryWrap.innerHTML = '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
       + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
       + '</div>'
-      + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + (l.itensSemMatch ?? 0) + '</div><div class="l">sem match</div></div>'
+      + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
+      + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
       + '<div class="stat"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
@@ -1277,15 +1322,19 @@ function renderLista(){
     // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
     // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
     // presente; esta palavra no rodapé é só a redundância textual (não depender só de cor).
+    // Rodada 17 (11/07): item "fora de escopo" ganha trilho/palavra próprios (não entram na conta
+    // de tratativa — ver contagem()/linhasFiltradas() — mas continuam visíveis e filtráveis aqui).
+    const fora = foraDeEscopo(l);
     const trat = labelTratativa(l.statusTratativa || 'nao_tratada');
-    const tratSuf = trat.cls.replace('trat-', '');
-    tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>');
+    const tratCls = fora ? 'trat-fora' : trat.cls;
+    if (fora) tags.push('<span class="trat-word fora">fora de escopo</span>');
+    else { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
     // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal —
     // e o card inteiro ganha fundo verde + check quando já passou pelo olhar humano do revisor
     // (pedido do Raphael: distinção clara demais pra depender só do negrito/normal do texto).
     const naoLida = l.status === 'Pendente de revisão';
     const revisada = !naoLida;
-    return '<div class="litem ' + trat.cls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
+    return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
       + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
@@ -1378,6 +1427,11 @@ async function renderDetalhe(){
     // com a mesma indicação das outras linhas (Não conformidade etc.), valor continua itálico.
     + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
     + '<div class="hist" id="historico"></div>'
+    // Rodada 17 (11/07): controle segmentado de escopo, ver DECISAO_item-fora-de-escopo.md.
+    // Fica acima do actionbar (que já é o botão terminal "Confirmar match") — o revisor primeiro
+    // decide o escopo, depois confirma; o próprio botão de confirmar reflete a escolha (Proposta 1
+    // do Fable: reusa o botão existente em vez de criar uma ação separada).
+    + '<div id="regEscopo">' + edHtmlEscopo(l) + '</div>'
     + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
 
   if (pdfUrl) {
@@ -1478,6 +1532,10 @@ function edGarantirEstado(l){
     perguntaId: l.perguntaId || null,
     prefixoId: l.prefixoElementoId || null,
     ncId: l.naoConformidadeId || null,
+    // Rodada 17 (11/07): "fora de escopo" — ver DECISAO_item-fora-de-escopo.md. Guarda a
+    // classificação editável junto do resto do rascunho (mesmo padrão de grupoId/elementoId/etc:
+    // só grava de verdade quando o revisor confirma/salva).
+    classificacao: l.classificacaoLinha || CLASSIF_LINHA_PADRAO,
     novoNcAberto: false,
     novoNc: { texto: cortarAposTagRisco(l.textoOriginal), classificacao: '', risco: '', pontuaExp: false }
   };
@@ -1487,7 +1545,17 @@ function edSujo(l){
   if (!ED || ED.linhaId !== l.id) return false;
   if (ED.novoNcAberto) return true;
   return ED.grupoId !== (l.grupoId || null) || ED.elementoId !== (l.elementoId || null) ||
-    ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null);
+    ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null) ||
+    ED.classificacao !== (l.classificacaoLinha || CLASSIF_LINHA_PADRAO);
+}
+
+// Rodada 17: alterna o campo de escopo do rascunho (botão segmentado na tela de detalhe).
+function edSetEscopo(linhaId, foraEscopo){
+  const l = ST.linhas.find((x) => x.id === linhaId);
+  if (!l) return;
+  edGarantirEstado(l);
+  ED.classificacao = foraEscopo ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  edRerenderTabela();
 }
 
 // prefixo só é OBRIGATÓRIO escolher quando Elemento OU Grupo mudaram (o prefixo antigo pode não
@@ -1654,7 +1722,9 @@ function edRerenderTabela(){
   if (!l) return;
   const tabelaWrap = document.getElementById('regSf');
   const acaoWrap = document.getElementById('regAcao');
+  const escopoWrap = document.getElementById('regEscopo');
   if (tabelaWrap) tabelaWrap.innerHTML = edHtmlTabela(l);
+  if (escopoWrap) escopoWrap.innerHTML = edHtmlEscopo(l);
   if (acaoWrap) acaoWrap.innerHTML = edHtmlAcao(l);
 }
 
@@ -1807,6 +1877,25 @@ function edHtmlNovoNc(){
     + '</div>';
 }
 
+// Rodada 17 (11/07): controle segmentado "Dentro/Fora de escopo Exaustech" — ver
+// DECISAO_item-fora-de-escopo.md. Antes de confirmado, é editável (2 botões grandes); depois de
+// confirmado, vira um aviso só-leitura (mudar exige reverter a confirmação, igual aos outros
+// campos do registro).
+function edHtmlEscopo(l){
+  if (l.status === 'Pendente proposta') {
+    return foraDeEscopo(l)
+      ? '<div class="escopo-ro">⛔ Fora do escopo Exaustech — não entra na estatística de tratativa, mas continua no relatório.</div>'
+      : '';
+  }
+  if (!CAT) return ''; // fallback sem catálogo carregado — sem editor de escopo, confirmarLinha() manda '{}'
+  edGarantirEstado(l);
+  const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
+  return '<div class="escopo-toggle">'
+    + '<button type="button" class="escopo-btn' + (fora ? '' : ' on') + '" onclick="edSetEscopo(\'' + l.id + '\', false)">Dentro do escopo Exaustech</button>'
+    + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="edSetEscopo(\'' + l.id + '\', true)">Fora de escopo Exaustech</button>'
+    + '</div>';
+}
+
 function edHtmlAcao(l){
   if (l.status === 'Pendente proposta') {
     return '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Confirmado</span>'
@@ -1818,8 +1907,9 @@ function edHtmlAcao(l){
   edGarantirEstado(l);
   const sujo = edSujo(l);
   const podeSalvar = edPodeSalvar(l);
+  const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
   return '<button class="btn" id="btnSalvarEd"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
-    + (sujo ? 'Salvar correções e confirmar' : 'Confirmar match') + '</button>'
+    + (fora ? 'Confirmar como fora de escopo' : (sujo ? 'Salvar correções e confirmar' : 'Confirmar match')) + '</button>'
     + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
 }
 
@@ -1838,7 +1928,10 @@ async function edSalvar(linhaId){
       const body = {
         perguntaId: ED.perguntaId, elementoId: ED.elementoId, grupoDescricaoId: ED.grupoId,
         prefixoElementoId: ED.prefixoId, textoNovo: ED.novoNc.texto.trim(),
-        classificacaoNC: ED.novoNc.classificacao, riscoNC: ED.novoNc.risco, pontuaExp: !!ED.novoNc.pontuaExp
+        classificacaoNC: ED.novoNc.classificacao, riscoNC: ED.novoNc.risco, pontuaExp: !!ED.novoNc.pontuaExp,
+        // achado da revisão Fable (11/07): sem isso o backend cai no default (CLASSIFICACAO_LINHA_DEFAULT)
+        // e apaga silenciosamente uma marcação de "fora de escopo" ao cadastrar NC nova nessa linha.
+        classificacaoLinha: ED.classificacao
       };
       const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/novo-item-catalogo', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(body)
@@ -1857,6 +1950,7 @@ async function edSalvar(linhaId){
       if (ED.elementoId !== l.elementoId) overrides.elementoId = ED.elementoId;
       if (ED.grupoId !== l.grupoId) overrides.grupoDescricaoId = ED.grupoId;
       if (edPrefixoNecessario(l) && ED.prefixoId) overrides.prefixoElementoId = ED.prefixoId;
+      if (ED.classificacao !== (l.classificacaoLinha || CLASSIF_LINHA_PADRAO)) overrides.classificacaoLinha = ED.classificacao;
       const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(overrides)
       });
