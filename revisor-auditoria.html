@@ -583,7 +583,7 @@ function toggleIdsManual(){
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
-let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null };
+let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false };
 
 function toggleNovaAuditoria(){
   const overlay = document.getElementById('novaAudOverlay');
@@ -591,7 +591,7 @@ function toggleNovaAuditoria(){
   overlay.style.display = abrindo ? 'flex' : 'none';
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
-    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null };
+    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false };
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
@@ -614,7 +614,56 @@ function naAtualizarOpcoesRisco(valorAtual){
 
 function naArquivoSelecionado(input){
   NA.arquivo = input.files[0] || null;
+  // troca de arquivo invalida hash calculado e qualquer "importar mesmo assim" já sinalizado pra
+  // o arquivo ANTERIOR — cada arquivo novo passa pela checagem de duplicata do zero.
+  NA.hashArquivo = null; NA.forcarImport = false;
+  naMsg('');
   document.getElementById('btnAnalisarPdf').disabled = !NA.arquivo;
+}
+
+// SHA-256 do PDF, calculado no navegador (Web Crypto, custo ~instantâneo pro tamanho típico de um
+// laudo) — pedido do Raphael 11/07 (ver DECISAO_deteccao-import-duplicado.md): identifica o arquivo
+// pelo "DNA" dele, não pelo nome, pra detectar reimport mesmo se o arquivo foi renomeado.
+async function naCalcularHash(arquivo){
+  const buf = await arquivo.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// diálogo de duplicata (409 de POST /exp/auditorias) — escreve HTML de verdade em #naMsg (não passa
+// por naMsg(), que escapa tudo), com o contexto do registro já existente e 2 caminhos: abrir ou
+// seguir mesmo assim. Nunca bloqueia sem saída (mesmo padrão "IA: fallback em bloqueio" do projeto).
+function naMostrarDuplicata(motivo, existente){
+  const el = document.getElementById('naMsg');
+  if (!el) return;
+  const quando = existente.criadoEm ? new Date(existente.criadoEm).toLocaleString('pt-BR') : '—';
+  const contexto = escapeHtml(existente.nome || existente.auditoriaId) + ' — ' + escapeHtml(existente.contaNome || 'conta desconhecida')
+    + ' · vistoria ' + escapeHtml(existente.dataInspecao || '—') + ' · status ' + escapeHtml(existente.status || '—')
+    + ' · importada em ' + quando;
+  const titulo = motivo === 'hash'
+    ? 'Este mesmo arquivo já foi importado antes:'
+    : 'Já existe uma auditoria desta conta com vistoria nesta mesma data:';
+  const podeAbrir = existente.auditoriaId && existente.loteId;
+  el.innerHTML = '<div class="msg err" style="margin-top:10px">'
+    + '<div style="margin-bottom:8px">' + titulo + '<br>' + contexto + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + (podeAbrir ? '<button type="button" class="btn" onclick="naAbrirExistente(\'' + existente.auditoriaId + '\',\'' + existente.loteId + '\')">Abrir a auditoria existente</button>' : '')
+      + '<button type="button" class="btn sec" onclick="naForcarImportar()">Importar mesmo assim' + (motivo === 'hash' ? ' (cria uma auditoria duplicada)' : '') + '</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function naAbrirExistente(auditoriaId, loteId){
+  document.getElementById('inAuditoria').value = auditoriaId;
+  document.getElementById('inLote').value = loteId;
+  toggleNovaAuditoria(); // fecha o modal (e reseta NA)
+  carregar();
+}
+
+function naForcarImportar(){
+  NA.forcarImport = true;
+  naMsg('');
+  naCriarEImportar();
 }
 
 // pedido do Raphael (10/07): barra de progresso com percentual pro "Analisar PDF" e pro "Criar
@@ -743,16 +792,22 @@ async function naCriarEImportar(){
   naProgressoIniciar(5000, 40); // fase 1: criar (rápido) — teto baixo, não deixa parecer que já foi
   let ok = false;
   try {
+    // hash do arquivo (ver DECISAO_deteccao-import-duplicado.md) — calcula uma vez só e guarda em
+    // NA, pois "Importar mesmo assim" reusa o mesmo hash sem precisar reler o arquivo.
+    if (!NA.hashArquivo) { try { NA.hashArquivo = await naCalcularHash(NA.arquivo); } catch (e) { /* best-effort: sem hash, só perde a checagem de duplicata, não trava o import */ } }
+
     const r = await fetch(BACKEND + '/exp/auditorias', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
       body: JSON.stringify({
         contaId: NA.contaId, dataInspecao,
         recordType: document.getElementById('naTipo').value,
         classificacaoCocao: document.getElementById('naCocao').value,
-        classificacaoRisco: document.getElementById('naRisco').value
+        classificacaoRisco: document.getElementById('naRisco').value,
+        hashArquivo: NA.hashArquivo, importarMesmoAssim: NA.forcarImport
       })
     });
     const j = await r.json();
+    if (r.status === 409 && j.error === 'duplicado') { naMostrarDuplicata(j.motivo, j.existente); return; }
     if (!r.ok) { naMsg('Erro ao criar auditoria: ' + (j.error || r.status), 'err'); return; }
     const auditoriaId = j.id;
     btn.textContent = 'Importando PDF… (pode levar até 1 min)';
@@ -761,6 +816,7 @@ async function naCriarEImportar(){
 
     const fd = new FormData();
     fd.append('arquivo', NA.arquivo);
+    if (NA.forcarImport) fd.append('importarMesmoAssim', 'true'); // defesa em profundidade no backend (mesmo motivo do POST acima)
     const r2 = await fetch(BACKEND + '/exp/auditorias/' + auditoriaId + '/importar-pdf', {
       method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
     });
