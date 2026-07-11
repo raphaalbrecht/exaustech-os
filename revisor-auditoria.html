@@ -331,6 +331,28 @@
   .escopo-btn.on{background:var(--brand-l);color:var(--brand-d)}
   .escopo-btn.fora.on{background:var(--warn-bg);color:var(--warn-tx)}
   .escopo-ro{margin-top:14px;border:1px solid var(--warn-bd);background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:9px 12px;font-size:12.5px;font-weight:600}
+  /* ---- Contestação técnica (11/07) — eixo ortogonal a escopo e status, ver DECISAO_contestacao-tecnica.md.
+     Layout desenhado por subagente Fable 5: card contido (nunca banner cheio como .escopo-ro) porque
+     contestação é exceção rara, não decisão de rotina de toda linha. */
+  .cont-slot{margin-top:14px}
+  .cont-gatilho{text-align:right}
+  .cont-gatilho .link-btn{color:var(--weaker);padding:2px 0}
+  .cont-gatilho .link-btn:hover{color:var(--err-tx)}
+  .cont-card{border:1px solid var(--err-bd);border-left:3px solid var(--err);border-radius:8px;background:#fff;padding:11px 12px}
+  .cont-card.improcedente{border-color:var(--border2);border-left-color:var(--neu-tx)}
+  .cont-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .cont-titulo{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--err-tx)}
+  .cont-card.improcedente .cont-titulo{color:var(--neu-tx)}
+  .badge.cont-pendente,.badge.cont-procedente{background:var(--err-bg);color:var(--err-tx)}
+  .badge.cont-improcedente{background:var(--neu-bg);color:var(--neu-tx)}
+  .cont-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
+  .cont-txt+.cont-txt{margin-top:6px}
+  .cont-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
+  .cont-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+  .cont-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .btn.cont-proc{background:#fff;color:var(--err-tx);border:1px solid var(--err-bd)}
+  .btn.cont-proc:hover{background:var(--err-bg)}
+  .cont-nota{font-size:12px;color:var(--weak);margin-top:8px}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -521,6 +543,10 @@ const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item 
 const CLASSIF_FORA_ESCOPO = 'Serviço fora do escopo Exaustech';
 const CLASSIF_LINHA_PADRAO = 'Exaustão - manutenção'; // espelha CLASSIFICACAO_LINHA_DEFAULT do backend
 function foraDeEscopo(l){ return l.classificacaoLinha === CLASSIF_FORA_ESCOPO; }
+// Contestação técnica (11/07) — eixo ortogonal ao escopo, ver DECISAO_contestacao-tecnica.md.
+// Contestação Procedente tem o MESMO efeito que fora-de-escopo na estatística de tratativa (some
+// dela, continua no relatório); Pendente/Improcedente continuam contando normalmente.
+function excluidaDaTratativa(l){ return foraDeEscopo(l) || l.statusContestacao === 'Procedente'; }
 
 // ---- edição campo a campo da hierarquia (pedido do Raphael 10/07, v2 — a v1 era um painel
 // lateral de busca textual de Pergunta que ele testou e rejeitou: "a edição deve ser campo a
@@ -957,17 +983,17 @@ function contagem(faixaOrTag){
   // (por isso 'confirmado'/'todas' abaixo NÃO excluem: revisão cobre 100% dos itens, senão o lote
   // podia marcar "Revisão completa" com item nunca olhado).
   if (faixaOrTag === 'nao_tratada' || faixaOrTag === 'em_tratativa' || faixaOrTag === 'tratada')
-    return ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa === faixaOrTag).length;
+    return ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa === faixaOrTag).length;
   // Rodada 16: "Em aberto" da aba-placar = tudo que ainda NÃO chegou em 'tratada' (nao_tratada +
   // em_tratativa juntos) — é o agregado que a Proposta 2 do Fable pediu pra virar botão de destaque.
-  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa !== 'tratada').length;
+  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa !== 'tratada').length;
   if (faixaOrTag === 'fora_escopo') return ST.linhas.filter(foraDeEscopo).length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
   if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
   // "Sem match" é a única faixa de match que conta pra estatística de tratativa (Fraco/Forte não
-  // são exibidos como pílula de "penalidade" hoje) — exclui fora de escopo; Forte/Fraco não mudam.
-  if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !foraDeEscopo(l)).length;
+  // são exibidos como pílula de "penalidade" hoje) — exclui fora de escopo e contestação procedente.
+  if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l)).length;
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
 
@@ -998,11 +1024,11 @@ function linhasFiltradas(){
     base = ST.linhas.filter(l => l.risco === n);
   } else switch (ST.filtro) {
     case 'Forte': case 'Fraco': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
-    case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !foraDeEscopo(l)); break;
+    case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l)); break;
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
-    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa === ST.filtro); break;
-    case 'trat_aberta': base = ST.linhas.filter(l => !foraDeEscopo(l) && l.statusTratativa !== 'tratada'); break;
+    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa === ST.filtro); break;
+    case 'trat_aberta': base = ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa !== 'tratada'); break;
     case 'fora_escopo': base = ST.linhas.filter(foraDeEscopo); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
@@ -1371,6 +1397,9 @@ function renderLista(){
     // (.revisada) + check já bastam pro mesmo fato; removido pra abrir espaço pro indicador de
     // tratamento abaixo, que agora precisa aparecer SEMPRE (não só quando foge do default).
     if (recorrentes.has(l.naoConformidadeId)) tags.push('<span class="badge neu">recorrente</span>');
+    // 11/07: só o estado "precisa de ação" ganha badge na lista — resolvidas (Procedente/Improcedente)
+    // não poluem aqui, o card na coluna direita já registra o histórico (ver ctHtml()).
+    if (l.statusContestacao === 'Pendente de avaliação') tags.push('<span class="badge cont-pendente">contestada</span>');
     // Rodada 16: indicador de tratamento deixa de ser condicional (rodada anterior só mostrava
     // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
     // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
@@ -1485,6 +1514,12 @@ async function renderDetalhe(){
     // decide o escopo, depois confirma; o próprio botão de confirmar reflete a escolha (Proposta 1
     // do Fable: reusa o botão existente em vez de criar uma ação separada).
     + '<div id="regEscopo">' + edHtmlEscopo(l) + '</div>'
+    // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
+    // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Fica entre o escopo
+    // e a actionbar (não na tabela, que é "o que o registro É"; não na actionbar, que é sticky e
+    // reservada às ações terminais do pipeline) — é exceção rara, não deve competir com o fluxo
+    // principal de revisão.
+    + '<div class="cont-slot" id="regContestacao">' + ctHtml(l) + '</div>'
     + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
 
   if (pdfUrl) {
@@ -1982,6 +2017,137 @@ function edHtmlAcao(l){
   return '<button class="btn" id="btnSalvarEd"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
     + (fora ? 'Confirmar como fora de escopo' : (sujo ? 'Salvar correções e confirmar' : 'Confirmar match')) + '</button>'
     + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
+}
+
+// ===== Contestação técnica (11/07) — Status_da_contestacao__c / Motivo_da_contestacao__c /
+// Resolucao_da_contestacao__c. Layout desenhado por subagente Fable 5, ver
+// DECISAO_contestacao-tecnica.md. Estado local separado do ED (editor de match) de propósito: é um
+// eixo ortogonal, não deve sujar edSujo() nem travar a edição de hierarquia.
+let CT = null; // { linhaId, aberto:false, motivo:'', resolucao:'' }
+
+function ctGarantirEstado(l){
+  if (CT && CT.linhaId === l.id) return;
+  CT = { linhaId: l.id, aberto: false, motivo: '', resolucao: '' };
+}
+
+function ctHtml(l){
+  ctGarantirEstado(l);
+  const st = l.statusContestacao || 'Não contestada';
+  if (st === 'Não contestada') return CT.aberto ? ctHtmlForm(l) : ctHtmlGatilho(l);
+  if (st === 'Pendente de avaliação') return ctHtmlPendente(l);
+  return ctHtmlResolvida(l, st); // Procedente | Improcedente
+}
+
+function ctHtmlGatilho(l){
+  return '<div class="cont-gatilho"><button class="link-btn" onclick="ctAbrir(\'' + l.id + '\')">Contestar este apontamento</button></div>';
+}
+
+function ctHtmlForm(l){
+  const ok = !!CT.motivo.trim();
+  return '<div class="cont-card">'
+    + '<div class="cont-head"><span class="cont-titulo">Contestação técnica</span></div>'
+    + '<div class="cont-txt" style="color:var(--weak)">Use quando o apontamento do vistoriador for inaplicável ou mal interpretado. A linha continua no relatório; se a contestação for julgada procedente, ela sai da estatística de tratativa.</div>'
+    + '<label class="cont-rotulo">Motivo da contestação (obrigatório)</label>'
+    + '<textarea rows="3" oninput="ctOnMotivo(this.value)">' + escapeHtml(CT.motivo) + '</textarea>'
+    + '<div class="cont-acoes">'
+      + '<button class="btn" id="btnCtRegistrar"' + (ok ? '' : ' disabled') + ' onclick="ctRegistrar(\'' + l.id + '\')">Registrar contestação</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="ctCancelar()">cancelar</button>'
+    + '</div></div>';
+}
+
+function ctHtmlPendente(l){
+  const ok = !!CT.resolucao.trim();
+  return '<div class="cont-card">'
+    + '<div class="cont-head"><span class="cont-titulo">Contestação técnica</span><span class="badge cont-pendente">Pendente de avaliação</span></div>'
+    + '<div class="cont-txt"><b>Motivo:</b> <span class="nota-inline">"' + escapeHtml(l.motivoContestacao || '') + '"</span></div>'
+    + '<label class="cont-rotulo">Resolução (obrigatória pra avaliar)</label>'
+    + '<textarea rows="3" oninput="ctOnResolucao(this.value)">' + escapeHtml(CT.resolucao) + '</textarea>'
+    + '<div class="cont-acoes">'
+      + '<button class="btn cont-proc ctBtnAvaliar"' + (ok ? '' : ' disabled') + ' onclick="ctAvaliar(\'' + l.id + '\', \'Procedente\')">Procedente — sai da estatística</button>'
+      + '<button class="btn sec ctBtnAvaliar"' + (ok ? '' : ' disabled') + ' onclick="ctAvaliar(\'' + l.id + '\', \'Improcedente\')">Improcedente — continua contando</button>'
+    + '</div></div>';
+}
+
+function ctHtmlResolvida(l, st){
+  const proc = st === 'Procedente';
+  return '<div class="cont-card' + (proc ? '' : ' improcedente') + '">'
+    + '<div class="cont-head"><span class="cont-titulo">Contestação técnica</span>'
+      + '<span class="badge ' + (proc ? 'cont-procedente' : 'cont-improcedente') + '">' + escapeHtml(st) + '</span></div>'
+    + '<div class="cont-txt"><b>Motivo:</b> <span class="nota-inline">"' + escapeHtml(l.motivoContestacao || '') + '"</span></div>'
+    + '<div class="cont-txt"><b>Resolução:</b> <span class="nota-inline">"' + escapeHtml(l.resolucaoContestacao || '') + '"</span></div>'
+    + (proc ? '<div class="cont-nota">Não entra na estatística de tratativa, mas continua no relatório.</div>' : '')
+    + '</div>';
+}
+
+function ctAbrir(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId); if (!l) return;
+  ctGarantirEstado(l); CT.aberto = true; ctRerender();
+}
+
+function ctCancelar(){
+  if (CT) { CT.aberto = false; CT.motivo = ''; }
+  ctRerender();
+}
+
+// oninput NÃO chama ctRerender() (destruiria o textarea e derrubaria o foco a cada tecla) — só
+// atualiza o rascunho e liga/desliga o disabled dos botões direto no DOM.
+function ctOnMotivo(v){
+  if (!CT) return;
+  CT.motivo = v;
+  const b = document.getElementById('btnCtRegistrar'); if (b) b.disabled = !v.trim();
+}
+function ctOnResolucao(v){
+  if (!CT) return;
+  CT.resolucao = v;
+  document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = !v.trim(); });
+}
+
+function ctRerender(){
+  const l = ST.linhas.find((x) => x.id === (CT && CT.linhaId)); if (!l) return;
+  const w = document.getElementById('regContestacao');
+  if (w) w.innerHTML = ctHtml(l);
+}
+
+async function ctRegistrar(linhaId){
+  if (!CT || !CT.motivo.trim()) return;
+  const btn = document.getElementById('btnCtRegistrar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/contestar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ motivo: CT.motivo.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao registrar contestação: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Registrar contestação'; } return; }
+    CT = null;
+    await carregar(); renderTudo(); // sem auto-avanço: contestar não conclui a revisão do item
+    msg('Contestação registrada — pendente de avaliação.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao registrar contestação: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Registrar contestação'; }
+  }
+}
+
+async function ctAvaliar(linhaId, veredito){
+  if (!CT || !CT.resolucao.trim()) return;
+  if (!confirm(veredito === 'Procedente'
+    ? 'Marcar como PROCEDENTE? A linha sai da estatística de tratativa (continua no relatório).'
+    : 'Marcar como IMPROCEDENTE? A linha volta a contar normalmente; a justificativa fica registrada.')) return;
+  document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = true; });
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/avaliar-contestacao', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ status: veredito, resolucao: CT.resolucao.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao avaliar contestação: ' + (j.error || r.status), 'err'); document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = false; }); return; }
+    CT = null;
+    await carregar(); renderTudo();
+    msg('Contestação avaliada como ' + veredito.toLowerCase() + '.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao avaliar contestação: ' + e.message, 'err');
+    document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = false; });
+  }
 }
 
 function edDescartar(){
