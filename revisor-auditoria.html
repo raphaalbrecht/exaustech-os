@@ -860,11 +860,12 @@ async function naCriarEImportar(){
     const auditoriaId = j.id;
     btn.textContent = 'Importando PDF… (relatórios grandes podem levar alguns minutos)';
     naMsg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Importando PDF…', 'info');
-    // 90s (não 45s — estimativa antiga era 2-4x menor que o real medido pelo Fable pra um FTR
-    // típico com fotos: Gemini + matching + N uploads/upserts sequenciais somam 1,5-3min) e não
-    // 180s: com 90s a curva ainda dá sensação de movimento no caso comum, e o contador de
-    // segundos + aviso (msgLonga) cobrem o excedente sem prometer um número que não é real.
-    naProgressoIniciar(90000, 92,
+    // 160s até 100% (não mais um teto de 92% "travado") — cobre o pior caso medido pelo Fable
+    // pra um FTR típico com fotos (Gemini + matching + N uploads/upserts sequenciais, 1,5-3min).
+    // Só depois de bater 100% (ou seja, só depois de estourar os 160s) é que o contador de
+    // segundos entra em cena — até lá a barra sozinha já comunica avanço real, sem precisar de
+    // um número crescente ao lado pra disfarçar que ela parou antes do fim.
+    naProgressoIniciar(160000, 100,
       'Ainda processando — relatórios grandes ou com muitas fotos levam mais tempo (IA + recorte e upload de cada foto). Não feche esta janela.');
 
     const fd = new FormData();
