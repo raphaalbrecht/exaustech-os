@@ -84,6 +84,19 @@
   .na-upload-row{display:flex;gap:10px;align-items:flex-end;width:100%}
   .na-upload-row>div:first-child{flex:1 1 auto;min-width:0}
   .na-upload-row input[type="file"]{width:100%;box-sizing:border-box}
+  /* pedido do Raphael (11/07): Etapa 1 ganha identidade de "assistente de IA" — tinta azul que
+     esvai pro branco + sparkle Einstein no rótulo e no botão. O contraste com a Etapa 2 (neutra)
+     é o que comunica os DOIS modos de entrada: o card tintado é o acelerador opcional, o
+     formulário branco é o dado de verdade — sem virar seletor either-or (avaliado e descartado
+     via Fable 5: 2 cards empilhados prometeriam uma exclusividade que o fluxo não tem, já que o
+     PDF anexado é importado de qualquer forma e os campos seguem editáveis depois da IA). */
+  .etapa-card-ia{background:linear-gradient(180deg,var(--brand-l),var(--card) 60%);border-color:var(--border2)}
+  .etapa-label-ia{display:flex;align-items:center;gap:6px;color:var(--brand-d)}
+  .ia-spark{flex:0 0 auto;display:inline-block}
+  .btn-ia{display:inline-flex;align-items:center;gap:7px}
+  @keyframes iaPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+  .btn-ia:not(:disabled) .ia-spark{animation:iaPulse 2.4s ease-in-out infinite}
+  .etapa-hint{font-weight:600;text-transform:none;letter-spacing:0;color:var(--weaker)}
   #naAnaliseStatus{border-left:3px solid var(--brand);background:var(--brand-l);border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px}
   .na-progress-wrap+*{margin-top:0}
   /* barra de progresso ESTIMADA (não é % real de bytes/tokens — Gemini e Salesforce não expõem
@@ -416,23 +429,23 @@
       <button class="modal-close" onclick="toggleNovaAuditoria()">×</button>
     </div>
     <div id="novaAudBody">
-      <div class="etapa-card">
-        <p class="etapa-label">Etapa 1 · Importar PDF (opcional)</p>
+      <div class="etapa-card etapa-card-ia">
+        <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · PDF do laudo + pré-preenchimento com IA (opcional)</p>
         <div class="na-upload-row" style="margin-bottom:18px">
           <div>
             <label>PDF do relatório</label>
             <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
           </div>
-          <button class="btn sec" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled>Analisar PDF (opcional)</button>
+          <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
         </div>
-        <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Selecione o PDF e clique em "Analisar" pra pré-preencher os campos abaixo — ou preencha tudo na mão sem analisar.</div>
+        <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.</div>
         <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
           <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
           <div class="na-progress-pct" id="naProgressPct">0%</div>
         </div>
       </div>
 
-      <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria</p>
+      <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria <span class="etapa-hint">— preencha na mão ou revise o que a IA sugeriu</span></p>
       <div class="loadbar" style="margin-bottom:10px">
         <div style="position:relative">
           <label>Conta (shopping/cliente)</label>
@@ -623,7 +636,7 @@ function toggleNovaAuditoria(){
     document.getElementById('naData').value = '';
     document.getElementById('naCocaoTag').innerHTML = '';
     document.getElementById('naRiscoTag').innerHTML = '';
-    document.getElementById('naAnaliseStatus').textContent = 'Selecione o PDF e clique em "Analisar" pra pré-preencher os campos abaixo — ou preencha tudo na mão sem analisar.';
+    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.';
     document.getElementById('btnAnalisarPdf').disabled = true;
     naAtualizarOpcoesRisco();
     naProgressoParar(); // fecha/reabre não pode deixar barra de progresso travada de uma tentativa anterior
@@ -731,7 +744,7 @@ async function naAnalisarPdf(){
   if (!NA.arquivo) { msg('Selecione o PDF antes de analisar.', 'err'); return; }
   const btn = document.getElementById('btnAnalisarPdf');
   const status = document.getElementById('naAnaliseStatus');
-  btn.disabled = true; btn.textContent = 'Analisando…';
+  btn.disabled = true; document.getElementById('btnAnalisarPdfTxt').textContent = 'Analisando…';
   status.textContent = 'Lendo o PDF com IA (pode levar ~20-30s)…';
   naProgressoIniciar(25000); // estimativa ~ texto acima (~20-30s); Gemini não expõe progresso real
   let ok = false;
@@ -778,7 +791,7 @@ async function naAnalisarPdf(){
   } catch (e) {
     status.textContent = 'Falha de rede na análise: ' + e.message + ' — preencha os campos manualmente.';
   } finally {
-    btn.disabled = false; btn.textContent = 'Analisar PDF (opcional)';
+    btn.disabled = false; document.getElementById('btnAnalisarPdfTxt').textContent = 'Pré-preencher com IA';
     if (ok) naProgressoConcluir(); else naProgressoParar();
   }
 }
