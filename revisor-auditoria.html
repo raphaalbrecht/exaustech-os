@@ -138,8 +138,8 @@
      margin-bottom grande — agora é só o respiro entre ele e a busca logo abaixo. As classes
      .filtros-linha/.tratamento-inline morreram (não são mais emitidas pelo JS); trat-tabs abaixo
      é o substituto do cluster "Tratamento: Não tratada/Em tratativa/Tratada". */
-  .filtros{display:flex;gap:8px;margin:0 0 8px;flex-wrap:wrap;flex:0 0 auto}
-  .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
+  /* .filtros/.fbtn removidos (11/07, pedido do Raphael) — a linha inteira de pílulas de filtro
+     saiu da coluna da lista; ver comentário em renderTudo() no JS. */
   /* abas-placar de tratamento (Proposta 2): "Em aberto" (não tratada + em tratativa, com
      sub-contagem clicável só pra em tratativa) e "Tratadas" — número grande tipo placar, ocupam a
      largura toda da coluna, ficam ACIMA dos filtros de match/revisão (é o eixo que sobrevive a
@@ -190,7 +190,6 @@
   .risco-legenda{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--weak)}
   .risco-legenda-txt{margin:0 3px}
   .risco-legenda-swatch{width:9px;height:9px;border-radius:2px;display:inline-block}
-  .fbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
      .grid agora ocupa a altura restante da viewport (flex:1 dentro de #conteudo) e cada coluna
      (lista / PDF / registro+reincidência) rola por conta própria (height:100%;overflow-y:auto),
@@ -1035,16 +1034,12 @@ function renderTudo(){
 
   // pedido do Raphael (11/07): bloco de comparativo removido da tela — ver comentário em carregar().
 
-  const filtros = [
-    ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
-    ['foto', 'Com foto'], ['nota', 'Com nota']
-  ];
-  // Rodada 16 (10/07): 2ª revisão Fable, Proposta 2 "Fila de triagem" — achado #14 (filtros
-  // ficavam soltos numa .filtros-linha de largura da PÁGINA, longe da coluna que afetam). O antigo
-  // cluster "Tratamento: Não tratada/Em tratativa/Tratada" (.tratamento-inline) morre aqui — vira
-  // as 2 abas-placar montadas dentro de .col-list, mais abaixo. "Em tratativa" não some: sobrevive
-  // como sub-contagem clicável dentro da aba "Em aberto" (ver trat-tabs). "Recorrentes" migra pro
-  // grupo principal de filtros (estava no cluster de tratamento por acidente de layout).
+  // pedido do Raphael (11/07): a linha inteira de pílulas de filtro (Todas/Forte/Fraco/Sem
+  // match/Com foto/Com nota/Recorrentes) foi removida — "Todas" e "Sem match" já existem como
+  // pílula clicável no resumo (#summaryInline) e as abas Em aberto/Tratadas cobrem o filtro
+  // operacional principal. Forte/Fraco/Com foto/Com nota/Recorrentes ficam sem atalho de filtro
+  // por enquanto (histórico: Rodada 16, 10/07, tinha acabado de reagrupar esse cluster pra dentro
+  // da coluna — ver git log se precisar recuperar algum desses filtros no futuro).
 
   // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
   // reprovada — "preciso de um gráfico claro... com a respectiva numeração quantitativa claramente
@@ -1107,11 +1102,6 @@ function renderTudo(){
         + '<span class="l">Tratadas</span>'
       + '</button>'
     + '</div>'
-    + '<div class="filtros">' + filtros.map(([k, label]) =>
-        '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
-      ).join('') + (contagem('recorrente')
-        ? '<button class="fbtn ' + (ST.filtro === 'recorrente' ? 'on' : '') + '" onclick="setFiltro(\'recorrente\')">Recorrentes (' + contagem('recorrente') + ')</button>'
-        : '') + '</div>'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
