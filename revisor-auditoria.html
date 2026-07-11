@@ -1536,9 +1536,24 @@ function edGarantirEstado(l){
     // classificação editável junto do resto do rascunho (mesmo padrão de grupoId/elementoId/etc:
     // só grava de verdade quando o revisor confirma/salva).
     classificacao: l.classificacaoLinha || CLASSIF_LINHA_PADRAO,
+    // true assim que o revisor mexe no toggle manualmente — a partir daí edOnNc/edUsarNcExistente
+    // param de sobrescrever a escolha dele quando ele troca de NC (ver edSetEscopo/edPreencherEscopoPorNc).
+    escopoManual: false,
     novoNcAberto: false,
     novoNc: { texto: cortarAposTagRisco(l.textoOriginal), classificacao: '', risco: '', pontuaExp: false }
   };
+}
+
+// Rodada 17b (11/07): pedido do Raphael — pré-preencher "fora de escopo" automaticamente quando o
+// item casa (match) com uma NC do catálogo já classificada assim, tanto no IMPORT (backend, ver
+// expRoutes.js/hidratarCandidatoComNC) quanto aqui no revisor, quando o humano TROCA a NC via os
+// selects em cascata. Só o eixo binário dentro/fora é transferido (o toggle não distingue
+// "estrutural" de "manutenção" — ver edHtmlEscopo); não sobrescreve se o revisor já mexeu no
+// toggle manualmente nesta edição.
+function edPreencherEscopoPorNc(ncId){
+  if (ED.escopoManual) return;
+  const nc = ncId && CAT ? CAT.ncPorId[ncId] : null;
+  ED.classificacao = (nc && nc.classificacao === CLASSIF_FORA_ESCOPO) ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
 }
 
 function edSujo(l){
@@ -1555,6 +1570,7 @@ function edSetEscopo(linhaId, foraEscopo){
   if (!l) return;
   edGarantirEstado(l);
   ED.classificacao = foraEscopo ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  ED.escopoManual = true; // a partir daqui, trocar de NC não pisa mais na escolha do revisor
   edRerenderTabela();
 }
 
@@ -1692,6 +1708,7 @@ function edOnNc(v){
     }
   } else {
     ED.ncId = v || null; ED.novoNcAberto = false;
+    edPreencherEscopoPorNc(ED.ncId);
   }
   edRerenderTabela();
 }
@@ -1714,6 +1731,7 @@ function edCancelarNovoNc(){
 
 function edUsarNcExistente(ncId){
   ED.ncId = ncId; ED.novoNcAberto = false;
+  edPreencherEscopoPorNc(ncId);
   edRerenderTabela();
 }
 
