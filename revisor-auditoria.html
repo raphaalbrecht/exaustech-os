@@ -104,7 +104,10 @@
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
   #conteudo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  #comparativoWrap{flex:0 0 auto}
+  /* Rodada 16: antes desta rodada, a .filtros-linha entre #comparativoWrap e .grid garantia um
+     respiro mínimo de 14px mesmo com o comparativo vazio (sem relatório anterior). Ela morreu (os
+     filtros migraram pra dentro de .col-list) — margin-bottom aqui repõe esse respiro. */
+  #comparativoWrap{flex:0 0 auto;margin-bottom:14px}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
   /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
      depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
@@ -130,15 +133,29 @@
   .stat.clicavel{cursor:pointer}
   .stat.clicavel:hover{border-color:var(--brand)}
   .stat.stat-ativo{box-shadow:inset 0 0 0 2px var(--brand)}
-  .filtros{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-  /* pedido do Raphael (10/07): o cabeçalho da lista ficava alto demais — Filtros numa linha e
-     Tratamento em outra, cada uma com seu próprio espaço vertical. Junta as duas na MESMA linha
-     (Filtros à esquerda, Tratamento empurrado pro canto direito via margin-left:auto), reduzindo
-     a altura do cabeçalho e "arejando" o centro da linha em vez de deixar tudo grudado à esquerda. */
-  .filtros-linha{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-bottom:14px;flex:0 0 auto}
-  .filtros-linha .filtros{margin-bottom:0}
-  .filtros-linha .tratamento-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+  /* Rodada 16 (10/07): 2ª revisão Fable, Proposta 2 "Fila de triagem" escolhida pelo Raphael —
+     achado #14 (filtros ficavam soltos numa .filtros-linha que ocupava a largura da PÁGINA, longe
+     da coluna que eles afetam). .filtros migra pra DENTRO de .col-list (ver JS), então perde o
+     margin-bottom grande — agora é só o respiro entre ele e a busca logo abaixo. As classes
+     .filtros-linha/.tratamento-inline morreram (não são mais emitidas pelo JS); trat-tabs abaixo
+     é o substituto do cluster "Tratamento: Não tratada/Em tratativa/Tratada". */
+  .filtros{display:flex;gap:8px;margin:0 0 8px;flex-wrap:wrap;flex:0 0 auto}
   .fbtn{border:1px solid var(--border2);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--weak)}
+  /* abas-placar de tratamento (Proposta 2): "Em aberto" (não tratada + em tratativa, com
+     sub-contagem clicável só pra em tratativa) e "Tratadas" — número grande tipo placar, ocupam a
+     largura toda da coluna, ficam ACIMA dos filtros de match/revisão (é o eixo que sobrevive a
+     longo prazo, por isso tem mais destaque que os filtros). */
+  .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;margin-bottom:10px;flex:0 0 auto}
+  .trat-tab{flex:1;padding:12px 16px 14px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
+  .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
+  .trat-tab:hover{background:var(--bg)}
+  .trat-tab .big{font-size:26px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
+  .trat-tab .l{display:block;font-size:11px;font-weight:700;color:var(--weak);margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
+  .trat-tab .mini{font-size:11px;font-weight:700;color:var(--warn-tx);cursor:pointer}
+  .trat-tab .mini:hover{text-decoration:underline}
+  .trat-tab.tratadas .big{color:var(--succ)}
+  .trat-tab.on{background:var(--brand-l)}
+  .trat-tab.on::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--brand)}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
      de botões — pouco escaneável e sem noção de proporção entre os níveis. A 12b (barras verticais
      + legenda de quadradinhos coloridos abaixo) também foi reprovada: obrigava o olho a CASAR a
@@ -194,33 +211,53 @@
   .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
   .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
-  .lista{border:1px solid var(--border);border-radius:10px;flex:1 1 auto;min-height:0;overflow-y:auto}
-  .litem{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:#fff}
-  .litem:hover{background:var(--brand-l)}
+  /* Rodada 16: a lista deixa de ser uma caixa contígua com borda própria (linhas coladas, separadas
+     só por border-bottom) e vira uma pilha de cards soltos com respiro entre eles — cada .litem
+     ganha a própria borda+raio+trilho colorido. gap no container substitui o border-bottom de cada
+     item. */
+  .lista{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:2px 2px 2px 0}
+  /* trilho colorido à esquerda (4px) = estado de TRATAMENTO (achado #1 desta rodada: antes só
+     aparecia como badge quando saía do default — agora é sempre visível, legível de longe sem
+     precisar ler texto). Cor cinza pro default (--neu-tx não serve aqui, é fraco demais pra trilho;
+     usa um cinza mais sólido só nesta borda). */
+  .litem{border:1px solid var(--border);border-left-width:4px;border-radius:9px;padding:10px 14px;cursor:pointer;background:#fff}
+  .litem:hover{border-color:var(--brand)}
+  .litem.trat-nao{border-left-color:#CBD4DD}
+  .litem.trat-em{border-left-color:var(--warn)}
+  .litem.trat-ok{border-left-color:var(--succ)}
   /* pedido do Raphael (10/07, rodada 3): match confirmado vira azul claro (reaproveita --brand-l,
      a mesma cor de hover/seleção) em vez de verde — verde ficava "gritando" ao lado do verde de
      tratativa concluída (.badge.trat-ok / .stat-completo), que é um sinal diferente (comercial,
-     não de revisão). .sel continua distinguível por cima porque o box-shadow inset (borda azul
-     mais forte à esquerda) some quando o item deixa de estar selecionado. */
+     não de revisão). */
   .litem.revisada{background:var(--brand-l)}
   .litem.revisada:hover{background:#d8e8f6}
-  /* sugestão Fable 10/07: border-left só no .sel deslocava o conteúdo 3px a cada clique (jitter) —
-     box-shadow inset ocupa o mesmo espaço visual sem alterar a caixa do elemento */
-  .litem.sel{background:var(--brand-l);box-shadow:inset 3px 0 0 var(--brand)}
+  /* Rodada 16: seleção deixa de ser box-shadow inset à esquerda (aquele espaço agora é do trilho de
+     tratamento) e vira um ANEL ao redor do card inteiro — troca de linguagem visual deliberada
+     (mudança de hábito reconhecida pelo Fable como custo da Proposta 2, aceita pelo Raphael). */
+  .litem.sel{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
   .litem .num{font-size:12.5px;font-weight:600;color:var(--brand-d)}
   .litem .check-icon{display:inline-block;width:16px;text-align:center;color:var(--succ);font-weight:700}
   .litem .txt{font-size:12px;color:var(--weak);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .litem.nao-lida .txt{font-weight:700;color:var(--txt)}
-  .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap}
+  .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-block}
   .badge.forte{background:var(--succ-bg);color:var(--succ)}
   .badge.fraco{background:var(--warn-bg);color:var(--warn-tx)}
   .badge.semmatch{background:var(--err-bg);color:var(--err-tx)}
   .badge.neu{background:var(--neu-bg);color:var(--neu-tx)}
   .badge.confirmada{background:var(--succ-bg);color:var(--succ)}
+  /* .badge.trat-* continuam existindo — não são mais usadas no card da lista (substituídas pelo
+     trilho + .trat-word), mas badgeStatus() (coluna de registro, pílula de Status) ainda usa
+     .badge.trat-em pro estado "Pendente de revisão". Não remover. */
   .badge.trat-nao{background:var(--neu-bg);color:var(--neu-tx)}
   .badge.trat-em{background:var(--warn-bg);color:var(--warn-tx)}
   .badge.trat-ok{background:var(--succ-bg);color:var(--succ)}
+  /* palavra do estado de tratamento no rodapé do card — redundância textual do trilho (achado do
+     Fable: não depender só de cor pra quem tem dificuldade de percepção de cor). */
+  .trat-word{margin-left:auto;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .trat-word.nao{color:#9AA5B1}
+  .trat-word.em{color:var(--warn-tx)}
+  .trat-word.ok{color:var(--succ)}
   /* pedido do Raphael (10/07, rodada 2): o Status na tabela de registro ficava texto puro, mesmo
      peso visual das outras linhas (Grupo/Elemento/Pergunta) — vira pílula colorida, maior que o
      badge padrão de tag, pra destacar de cara se o item já foi revisado ou ainda está pendente. */
@@ -826,6 +863,9 @@ function contagem(faixaOrTag){
   if (faixaOrTag === 'todas') return ST.linhas.length;
   if (faixaOrTag === 'nao_tratada' || faixaOrTag === 'em_tratativa' || faixaOrTag === 'tratada')
     return ST.linhas.filter(l => l.statusTratativa === faixaOrTag).length;
+  // Rodada 16: "Em aberto" da aba-placar = tudo que ainda NÃO chegou em 'tratada' (nao_tratada +
+  // em_tratativa juntos) — é o agregado que a Proposta 2 do Fable pediu pra virar botão de destaque.
+  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => l.statusTratativa !== 'tratada').length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
   if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
@@ -862,6 +902,7 @@ function linhasFiltradas(){
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
     case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => l.statusTratativa === ST.filtro); break;
+    case 'trat_aberta': base = ST.linhas.filter(l => l.statusTratativa !== 'tratada'); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
@@ -951,21 +992,12 @@ function renderTudo(){
     ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
     ['foto', 'Com foto'], ['nota', 'Com nota']
   ];
-  // status de tratamento (2º eixo, separado da revisão de match) + NC recorrente neste lote
-  const filtrosTratativa = [['nao_tratada', 'Não tratada'], ['em_tratativa', 'Em tratativa'], ['tratada', 'Tratada']];
-
-  // Filtros e Tratamento na mesma linha (Filtros à esquerda, Tratamento alinhado à direita) pra
-  // encurtar o cabeçalho — ver comentário da classe .filtros-linha no CSS.
-  h += '<div class="filtros-linha">';
-  h += '<div class="filtros">' + filtros.map(([k, label]) =>
-    '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
-  ).join('') + '</div>';
-  h += '<div class="tratamento-inline"><span class="rotulo">Tratamento:</span>' + filtrosTratativa.map(([k, label]) =>
-    '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
-  ).join('') + (contagem('recorrente')
-    ? '<button class="fbtn ' + (ST.filtro === 'recorrente' ? 'on' : '') + '" onclick="setFiltro(\'recorrente\')">Recorrentes (' + contagem('recorrente') + ')</button>'
-    : '') + '</div>';
-  h += '</div>';
+  // Rodada 16 (10/07): 2ª revisão Fable, Proposta 2 "Fila de triagem" — achado #14 (filtros
+  // ficavam soltos numa .filtros-linha de largura da PÁGINA, longe da coluna que afetam). O antigo
+  // cluster "Tratamento: Não tratada/Em tratativa/Tratada" (.tratamento-inline) morre aqui — vira
+  // as 2 abas-placar montadas dentro de .col-list, mais abaixo. "Em tratativa" não some: sobrevive
+  // como sub-contagem clicável dentro da aba "Em aberto" (ver trat-tabs). "Recorrentes" migra pro
+  // grupo principal de filtros (estava no cluster de tratamento por acidente de layout).
 
   // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
   // reprovada — "preciso de um gráfico claro... com a respectiva numeração quantitativa claramente
@@ -1004,8 +1036,35 @@ function renderTudo(){
   // morar dentro da coluna de registro (ver renderDetalhe). Isso substitui por completo o antigo
   // sincronizarAlturaLista()/ResizeObserver — que existia só pra IMITAR via JS um alinhamento que
   // o CSS grid já garante de graça quando as colunas são irmãs do mesmo container.
+  // abas-placar de tratamento (Proposta 2, escolhida pelo Raphael): "Em aberto" agrega
+  // nao_tratada+em_tratativa (é a pergunta operacional real: "o que ainda precisa de atenção?");
+  // em_tratativa vira sub-contagem clicável dentro dela em vez de botão de 1ª classe (perderia
+  // informação se sumisse de vez, mas não merece o mesmo destaque de "Tratadas").
+  const abertaCount = contagem('trat_aberta');
+  const emTratativaCount = contagem('em_tratativa');
+  const tratadaCount = contagem('tratada');
+  const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
+  const onTratada = ST.filtro === 'tratada';
+
   h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
   h += '<div class="col-list">'
+    + '<div class="trat-tabs">'
+      + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
+        + '<span class="big">' + abertaCount + (emTratativaCount
+          ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
+          : '') + '</span>'
+        + '<span class="l">Em aberto</span>'
+      + '</button>'
+      + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
+        + '<span class="big">' + tratadaCount + '</span>'
+        + '<span class="l">Tratadas</span>'
+      + '</button>'
+    + '</div>'
+    + '<div class="filtros">' + filtros.map(([k, label]) =>
+        '<button class="fbtn ' + (ST.filtro === k ? 'on' : '') + '" onclick="setFiltro(\'' + k + '\')">' + label + ' (' + contagem(k) + ')</button>'
+      ).join('') + (contagem('recorrente')
+        ? '<button class="fbtn ' + (ST.filtro === 'recorrente' ? 'on' : '') + '" onclick="setFiltro(\'recorrente\')">Recorrentes (' + contagem('recorrente') + ')</button>'
+        : '') + '</div>'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
@@ -1208,20 +1267,23 @@ function renderLista(){
     const tags = [];
     if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
     if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
-    if (l.status === 'Pendente proposta') tags.push('<span class="badge confirmada">confirmado</span>');
-    // sugestão Fable 10/07: "não tratada" é o estado default (quase todo item) e virava ruído
-    // visual competindo com os badges que realmente importam — só mostra quando sai do default.
-    if (l.statusTratativa && l.statusTratativa !== 'nao_tratada') {
-      const trat = labelTratativa(l.statusTratativa);
-      tags.push('<span class="badge ' + trat.cls + '">' + trat.label + '</span>');
-    }
+    // achado #15 da 2ª revisão Fable (10/07): badge "confirmado" era sinal redundante — fundo azul
+    // (.revisada) + check já bastam pro mesmo fato; removido pra abrir espaço pro indicador de
+    // tratamento abaixo, que agora precisa aparecer SEMPRE (não só quando foge do default).
     if (recorrentes.has(l.naoConformidadeId)) tags.push('<span class="badge neu">recorrente</span>');
+    // Rodada 16: indicador de tratamento deixa de ser condicional (rodada anterior só mostrava
+    // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
+    // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
+    // presente; esta palavra no rodapé é só a redundância textual (não depender só de cor).
+    const trat = labelTratativa(l.statusTratativa || 'nao_tratada');
+    const tratSuf = trat.cls.replace('trat-', '');
+    tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>');
     // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal —
     // e o card inteiro ganha fundo verde + check quando já passou pelo olhar humano do revisor
     // (pedido do Raphael: distinção clara demais pra depender só do negrito/normal do texto).
     const naoLida = l.status === 'Pendente de revisão';
     const revisada = !naoLida;
-    return '<div class="litem ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
+    return '<div class="litem ' + trat.cls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
       + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
