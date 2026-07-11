@@ -485,8 +485,15 @@
          longe do resumo). Fix: só o riscoInline empurra pra direita (margin-left:auto); o
          summaryInline perde o margin-left:auto e passa a colar direto nele via gap do .loadbar —
          os dois viram um bloco único encostado na borda direita, gráfico logo antes de "Total". -->
-    <div id="riscoInline" style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
+    <!-- Rodada 18 (11/07): "igualar o espaço acima e abaixo do retângulo" — riscoInline/summaryInline
+         são o item mais alto da 2ª linha do .loadbar (que quebra em 2 linhas via flex-wrap: 1ª linha
+         é o conta-destaque, 2ª linha é este grupo + btnToggleIds), então align-items:flex-end da
+         .loadbar cola os dois só embaixo (gap de baixo = padding, ~11px) e sobra um vão bem maior
+         em cima (~33px, a distância até a 1ª linha). margin-top negativo puxa o grupo pra cima até
+         igualar ao padrão apertado de baixo — valor calibrado medindo ao vivo (getBoundingClientRect),
+         não um chute; se o conteúdo do card mudar de altura no futuro, reconferir. -->
+    <div id="riscoInline" style="margin-left:auto;margin-top:-22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="margin-top:-22px;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
        ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
