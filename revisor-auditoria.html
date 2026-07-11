@@ -711,7 +711,13 @@ function naForcarImportar(){
 // (já conhecida pelos textos de status que existiam antes: ~20-30s análise, ~1min import), que
 // para num teto (92%) e só fecha em 100% quando a resposta de verdade chega (ou trava/erra).
 let _naProgressTimer = null;
-function naProgressoIniciar(duracaoMsEstimada, teto){
+// Rodada 19 (11/07, achado do Raphael "trava em 92%" + diagnóstico Fable): a curva nunca passava
+// do teto, e quando a duração real estourava a estimativa, o % ficava mudo lá parado — sem
+// diferença visual entre "ainda processando" e "travou de verdade". Dois reforços: (1) depois de
+// estourar a estimativa, o texto ganha um contador de segundos (algo sempre muda na tela, mesmo
+// com a barra parada); (2) msgLonga (opcional) avisa no #naMsg que relatórios grandes demoram mais,
+// uma única vez, no instante em que estoura.
+function naProgressoIniciar(duracaoMsEstimada, teto, msgLonga){
   teto = teto || 92;
   clearInterval(_naProgressTimer);
   const wrap = document.getElementById('naProgressWrap');
@@ -719,11 +725,14 @@ function naProgressoIniciar(duracaoMsEstimada, teto){
   const pct = document.getElementById('naProgressPct');
   wrap.style.display = 'flex';
   const t0 = Date.now();
+  let avisou = false;
   const atualizar = () => {
-    const fracao = Math.min(1, (Date.now() - t0) / duracaoMsEstimada);
+    const decorrido = Date.now() - t0;
+    const fracao = Math.min(1, decorrido / duracaoMsEstimada);
     const valor = Math.round(teto * (1 - Math.pow(1 - fracao, 2))); // ease-out, nunca passa do teto
     fill.style.width = valor + '%';
-    pct.textContent = valor + '%';
+    pct.textContent = valor + '%' + (fracao >= 1 ? ' · ' + Math.round(decorrido / 1000) + 's' : '');
+    if (!avisou && fracao >= 1 && msgLonga) { avisou = true; naMsg(msgLonga, 'info'); }
   };
   atualizar();
   _naProgressTimer = setInterval(atualizar, 200);
@@ -849,9 +858,14 @@ async function naCriarEImportar(){
     if (r.status === 409 && j.error === 'duplicado') { naMostrarDuplicata(j.motivo, j.existente); return; }
     if (!r.ok) { naMsg('Erro ao criar auditoria: ' + (j.error || r.status), 'err'); return; }
     const auditoriaId = j.id;
-    btn.textContent = 'Importando PDF… (pode levar até 1 min)';
+    btn.textContent = 'Importando PDF… (relatórios grandes podem levar alguns minutos)';
     naMsg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Importando PDF…', 'info');
-    naProgressoIniciar(45000); // fase 2: import (mais longa) — reinicia a estimativa do zero
+    // 90s (não 45s — estimativa antiga era 2-4x menor que o real medido pelo Fable pra um FTR
+    // típico com fotos: Gemini + matching + N uploads/upserts sequenciais somam 1,5-3min) e não
+    // 180s: com 90s a curva ainda dá sensação de movimento no caso comum, e o contador de
+    // segundos + aviso (msgLonga) cobrem o excedente sem prometer um número que não é real.
+    naProgressoIniciar(90000, 92,
+      'Ainda processando — relatórios grandes ou com muitas fotos levam mais tempo (IA + recorte e upload de cada foto). Não feche esta janela.');
 
     const fd = new FormData();
     fd.append('arquivo', NA.arquivo);
