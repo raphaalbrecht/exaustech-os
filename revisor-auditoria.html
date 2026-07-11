@@ -57,7 +57,10 @@
      card 16→10px, loadbar/conta-header/filtros 16→10-8px, pílula 10px→6px — several small shaves
      that add up to real espaço vertical devolvido sem mudar nenhuma estrutura. */
   .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px}
-  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;flex:0 0 auto}
+  /* pedido do Raphael (11/07): bloco "Comparativo com o relatório de..." removido da tela — o
+     #comparativoWrap que ficava entre este card e o .grid (com seu próprio margin-bottom) foi
+     junto; margin-bottom sobe de 10px pra 20px aqui pra repor o respiro que existia antes dele. */
+  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;flex:0 0 auto}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
@@ -104,10 +107,6 @@
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
   #conteudo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-  /* Rodada 16: antes desta rodada, a .filtros-linha entre #comparativoWrap e .grid garantia um
-     respiro mínimo de 14px mesmo com o comparativo vazio (sem relatório anterior). Ela morreu (os
-     filtros migraram pra dentro de .col-list) — margin-bottom aqui repõe esse respiro. */
-  #comparativoWrap{flex:0 0 auto;margin-bottom:14px}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
   /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
      depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
@@ -815,7 +814,10 @@ async function carregar(){
     msg('');
     document.getElementById('estadoVazio').style.display = 'none';
     renderTudo();
-    carregarComparativo(auditoriaId); // best-effort, não bloqueia o resto da tela
+    // pedido do Raphael (11/07): remover o bloco "Comparativo com o relatório de..." da tela —
+    // chamada desligada aqui (carregarComparativo/renderComparativo continuam definidas, só não
+    // são mais chamadas), reversível se ele quiser o bloco de volta no futuro.
+    // carregarComparativo(auditoriaId);
   } catch (e) {
     msg('Falha de rede: ' + e.message, 'err');
   }
@@ -986,7 +988,7 @@ function renderTudo(){
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
 
-  h += '<div id="comparativoWrap"></div>';
+  // pedido do Raphael (11/07): bloco de comparativo removido da tela — ver comentário em carregar().
 
   const filtros = [
     ['todas', 'Todas'], ['Forte', 'Forte'], ['Fraco', 'Fraco'], ['Sem match', 'Sem match'],
