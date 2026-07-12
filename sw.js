@@ -84,7 +84,10 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v97'; // v97 12/07: wizard endr* — esconde cabeçalho "Estoque"+carrossel
+const CACHE = 'exaustech-os-v98'; // v98 12/07: mesmo tratamento do v97 (esconder cabeçalho "Estoque"+
+// carrossel de dia) estendido pro fluxo de Entradas Pendentes (recp*) — lista/detalhe/item também
+// são tela cheia própria, sem sentido por dia; achado pelo Raphael no teste físico (ainda aparecia lá).
+// v97 12/07: wizard endr* — esconde cabeçalho "Estoque"+carrossel
 // de dia na tela de Endereços (não faz sentido, endereço não é por dia); botão "+ Novo endereço"
 // movido pra baixo da lista de endereços cadastrados (pedido do Raphael, ajuste cirúrgico de UX).
 // v96 10/07: fix — recpCarregarLista() nunca limpava recpSt.erro;

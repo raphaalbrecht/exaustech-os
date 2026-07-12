@@ -3065,13 +3065,14 @@ function renderEstoque(){
     const btnNfc=document.getElementById('estoqBtnNfc'); if(btnNfc) btnNfc.style.display=estoqNfcSuportado()?'block':'none';
     if(_estoqAutoFoco){ _estoqAutoFoco=false; const inp=document.getElementById('estoqBusca'); if(inp) setTimeout(()=>inp.focus(),50); }
   }
-  /* wizard de Endereço de Estoque (Fase 3) é tela cheia própria — cabeçalho "Estoque" + carrossel
-     de dia não fazem sentido aqui (endereço não é por dia). Escondidos só neste modo. */
+  /* wizard de Endereço de Estoque (Fase 3) e fluxo de Entradas Pendentes (recebimentos) são telas
+     cheias próprias — cabeçalho "Estoque" + carrossel de dia não fazem sentido nelas (endereço e
+     entrada de estoque não são por dia). Escondidos só nesses modos. */
   const schedTop=document.querySelector('#scr-estoque .sched-top');
   const dayLabel=document.getElementById('estoqDayLabel');
-  const emEnderecos=(estoqView.mode==='enderecos');
-  if(schedTop) schedTop.style.display=emEnderecos?'none':'';
-  if(dayLabel) dayLabel.style.display=emEnderecos?'none':'';
+  const emTelaCheia=(estoqView.mode==='enderecos' || estoqView.mode==='recebimentos');
+  if(schedTop) schedTop.style.display=emTelaCheia?'none':'';
+  if(dayLabel) dayLabel.style.display=emTelaCheia?'none':'';
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
