@@ -1134,8 +1134,11 @@ function badgeFaixa(faixa){
 
 // achado #11 da revisão Fable (10/07): score numérico cru ("Fraco 62") sem indicar a escala —
 // só informativo, o badge de faixa (Forte/Fraco/Sem match) já carrega a decisão.
+// pedido do Raphael (12/07): "%" no número pra deixar claro que é assertividade (0-100), não uma
+// contagem qualquer — mesma função usada nos cards da lista e na tabela "Registro no Salesforce",
+// então o "%" aparece nos dois lugares de uma vez só.
 function scoreSpan(score){
-  return score != null ? '<span title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '</span>' : '';
+  return score != null ? '<span title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '%</span>' : '';
 }
 
 // pedido do Raphael (10/07, rodada 2): "dar mais destaque pro Status" na tabela de registro — vira
