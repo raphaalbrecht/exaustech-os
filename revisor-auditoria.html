@@ -622,7 +622,7 @@ function toggleIdsManual(){
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
-let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false };
+let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null };
 
 function toggleNovaAuditoria(){
   const overlay = document.getElementById('novaAudOverlay');
@@ -630,7 +630,7 @@ function toggleNovaAuditoria(){
   overlay.style.display = abrindo ? 'flex' : 'none';
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
-    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false };
+    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null };
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
@@ -683,11 +683,15 @@ async function naCalcularHash(arquivo){
 }
 
 // diálogo de duplicata (409 de POST /exp/auditorias) — escreve HTML de verdade em #naMsg (não passa
-// por naMsg(), que escapa tudo), com o contexto do registro já existente e 2 caminhos: abrir ou
-// seguir mesmo assim. Nunca bloqueia sem saída (mesmo padrão "IA: fallback em bloqueio" do projeto).
+// por naMsg(), que escapa tudo), com o contexto do registro já existente e 2 caminhos DISTINTOS
+// (pedido do Raphael 11/07, substitui o par antigo "abrir existente"/"importar mesmo assim"):
+// Sobrescrever (reimporta o PDF selecionado EM CIMA da auditoria já existente) ou Criar outro (cria
+// uma Auditoria_tecnica__c nova e separada). Nunca bloqueia sem saída (mesmo padrão "IA: fallback em
+// bloqueio" do projeto).
 function naMostrarDuplicata(motivo, existente){
   const el = document.getElementById('naMsg');
   if (!el) return;
+  NA.duplicataExistente = existente; // usado por naSobrescreverExistente() — evita interpolar Id em onclick
   const quando = existente.criadoEm ? new Date(existente.criadoEm).toLocaleString('pt-BR') : '—';
   const contexto = escapeHtml(existente.nome || existente.auditoriaId) + ' — ' + escapeHtml(existente.contaNome || 'conta desconhecida')
     + ' · vistoria ' + escapeHtml(existente.dataInspecao || '—') + ' · status ' + escapeHtml(existente.status || '—')
@@ -695,21 +699,54 @@ function naMostrarDuplicata(motivo, existente){
   const titulo = motivo === 'hash'
     ? 'Este mesmo arquivo já foi importado antes:'
     : 'Já existe uma auditoria desta conta com vistoria nesta mesma data:';
-  const podeAbrir = existente.auditoriaId && existente.loteId;
+  const podeSobrescrever = !!existente.auditoriaId;
   el.innerHTML = '<div class="msg err" style="margin-top:10px">'
     + '<div style="margin-bottom:8px">' + titulo + '<br>' + contexto + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + (podeAbrir ? '<button type="button" class="btn" onclick="naAbrirExistente(\'' + existente.auditoriaId + '\',\'' + existente.loteId + '\')">Abrir a auditoria existente</button>' : '')
-      + '<button type="button" class="btn sec" onclick="naForcarImportar()">Importar mesmo assim' + (motivo === 'hash' ? ' (cria uma auditoria duplicada)' : '') + '</button>'
+      + (podeSobrescrever ? '<button type="button" class="btn" onclick="naSobrescreverExistente()">Sobrescrever</button>' : '')
+      + '<button type="button" class="btn sec" onclick="naForcarImportar()">Criar outro</button>'
     + '</div>'
   + '</div>';
 }
 
-function naAbrirExistente(auditoriaId, loteId){
-  document.getElementById('inAuditoria').value = auditoriaId;
-  document.getElementById('inLote').value = loteId;
-  toggleNovaAuditoria(); // fecha o modal (e reseta NA)
-  carregar();
+// "Sobrescrever": reimporta o PDF selecionado direto em cima da auditoria já existente, SEM criar
+// uma Auditoria_tecnica__c nova — pula o POST /exp/auditorias (não faz sentido recriá-la) e chama
+// /importar-pdf direto no Id que já existe. O backend já trata reimport sobre a mesma auditoria via
+// upsert por Chave_de_importacao__c (auditoriaId+hash do arquivo): mesmo hash de antes = reprocessa
+// o MESMO Lote (troca de verdade, linhas já confirmadas por humano ficam protegidas — ver
+// DECISAO_deteccao-import-duplicado.md, achado A4); hash diferente (ex. relatório reexportado com
+// alguma diferença) = cria um Lote novo na mesma auditoria, sem apagar o anterior — nunca deleta
+// dado existente sem confirmação explícita, fora de escopo desta rodada.
+async function naSobrescreverExistente(){
+  const existente = NA.duplicataExistente;
+  if (!existente || !existente.auditoriaId || !NA.arquivo) return;
+  naMsg('');
+  const btn = document.getElementById('btnCriarAuditoria');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sobrescrevendo…'; }
+  naProgressoIniciar(160000, 100,
+    'Ainda processando — relatórios grandes ou com muitas fotos levam mais tempo (IA + recorte e upload de cada foto). Não feche esta janela.');
+  let ok = false;
+  try {
+    const fd = new FormData();
+    fd.append('arquivo', NA.arquivo);
+    fd.append('importarMesmoAssim', 'true'); // já é a mesma auditoria — evita a defesa em profundidade barrar à toa
+    const r2 = await fetch(BACKEND + '/exp/auditorias/' + existente.auditoriaId + '/importar-pdf', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
+    });
+    const j2 = await r2.json();
+    if (!r2.ok || j2.ok === false) { naMsg('Erro ao sobrescrever: ' + (j2.mensagem || j2.error || r2.status), 'err'); return; }
+    ok = true;
+    document.getElementById('inAuditoria').value = existente.auditoriaId;
+    document.getElementById('inLote').value = j2.loteId;
+    toggleNovaAuditoria(); // fecha o modal (e reseta NA)
+    await carregar();
+    msg(j2.totalItens + ' item(ns) identificado(s) no PDF, ' + j2.semMatch + ' sem match — revise abaixo.', 'info');
+  } catch (e) {
+    naMsg('Falha de rede: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.textContent = 'Criar auditoria e importar PDF'; naAtualizarBotaoCriar(); }
+    if (ok) naProgressoConcluir(); else naProgressoParar();
+  }
 }
 
 function naForcarImportar(){
