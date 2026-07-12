@@ -1324,7 +1324,7 @@ function renderTudo(){
     // moldura. Cada seção só existe se tiver dado; os onclick das colunas não mudam.
     const secoesRisco = [];
     if (niveisRisco.length) {
-      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
+      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Distribuição dos riscos</span><div class="risco-chart">' + niveisRisco.map((n) => {
         const cor = RISCO_RAMPA_SF[n];
         const cnt = contagem('risco:' + n);
         const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
