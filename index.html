@@ -697,7 +697,6 @@
         <div class="sched-title">Agenda</div>
         <div class="days" id="days"></div>
       </div>
-      <div id="agFiltroBox" style="display:none;gap:8px;margin:8px 14px 0"></div>
       <div class="daylabel" id="dayLabel"></div>
       <div id="apptList"></div>
     </section>
@@ -1365,21 +1364,13 @@ function back(){
 }
 
 /* ===== agenda ===== */
-/* filtro "minha agenda": técnico vê só as OS em que está alocado; Coordenador+ começa vendo todas */
-let agFiltro=localStorage.getItem('ag_filtro')||null;
-/* Líder de Equipe só vê as próprias OS na Agenda — sem opção de trocar pra "Todas" */
-function agModo(){ if(!(SF_LIVE&&myRid())) return 'todas'; if(ROLE==='Líder de Equipe') return 'minhas'; return agFiltro || (canAloc(ROLE)?'todas':'minhas'); }
-function setAgFiltro(m){ agFiltro=m; localStorage.setItem('ag_filtro',m); renderSchedule(); }
+/* "minha agenda": técnico vê só as OS em que está alocado; Coordenador+ (e Líder de Equipe fica
+   preso em "minhas") vê todas — sem alternância manual na tela, o papel decide sozinho (pedido do
+   Raphael 12-13/07: o toggle "Minhas OS/Todas" ocupava espaço à toa e ele não queria escolha ali). */
+function agModo(){ if(!(SF_LIVE&&myRid())) return 'todas'; if(ROLE==='Líder de Equipe') return 'minhas'; return canAloc(ROLE)?'todas':'minhas'; }
 function agVisivel(a){ return agModo()==='todas' || !!(a.os&&(a.os.alocacoes||[]).some(x=>x.matricula===myRid())); }
 function renderSchedule(){
   const days=document.getElementById('days'); days.innerHTML='';
-  /* alternância Minhas OS · Todas (só no modo ao vivo, com usuário vinculado a um recurso) */
-  const fb=document.getElementById('agFiltroBox');
-  if(SF_LIVE&&myRid()&&ROLE!=='Líder de Equipe'){
-    const m=agModo();
-    fb.style.display='flex';
-    fb.innerHTML=['minhas','todas'].map(k=>`<button onclick="setAgFiltro('${k}')" style="flex:1;height:34px;border-radius:999px;border:1.5px solid ${k===m?'#0B5CAB':'#D7DEE6'};background:${k===m?'#EAF3FC':'#fff'};color:${k===m?'#0B5CAB':'#4A5560'};font:700 13px system-ui;cursor:pointer">${k==='minhas'?'Minhas OS':'Todas'}</button>`).join('');
-  } else if(fb){ fb.style.display='none'; }
   DAYS.forEach(dd=>{
     const has=appts.some(a=>a.dia===dd.key && agVisivel(a));
     const hoje=isHojeKey(dd.key);
