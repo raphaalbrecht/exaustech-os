@@ -1503,7 +1503,18 @@ function renderStatusBtn(){
   btn.textContent=(a.stage+1===STAGES.length-1)?'Concluir compromisso':('Marcar como '+STAGES[a.stage+1]);
   alt.innerHTML='<button class="ab warn" onclick="openOutcome(\'Não Concluído\')">Não foi possível concluir</button><button class="ab danger" onclick="openOutcome(\'Cancelado\')">Cancelar compromisso</button>';
 }
-function advanceStatus(){ const a=curAppt; if(a.stage+1===STAGES.length-1){completeAppt();return;} a.stage++; stamp(a); renderAppt(); toast('Status: '+STAGES[a.stage]); sfMaybePush(a); }
+async function advanceStatus(fromGate){ const a=curAppt; if(a.stage+1===STAGES.length-1){completeAppt();return;}
+  /* gate de Avisos do Contrato também no "Marcar como Em execução" (v4, 12/07): o stage é ÚNICO e
+     compartilhado do compromisso (a 1ª pessoa que toca avança pra equipe toda), então o gate aqui
+     checa a leitura da ALOCAÇÃO PRÓPRIA de quem está tocando o botão (mesma leitura do check-in —
+     Leitura_Aviso__c por Alocacao_em_OS__c; quem leu num ponto não relê no outro). Quem NÃO tem
+     alocação própria nesta OS (ex.: Coordenador supervisionando, fora da equipe) passa direto:
+     não há alocação onde carimbar a leitura, e não travamos quem não tem como resolver. */
+  if(!fromGate && a.stage===0 && SF_LIVE && myRid() && ((a.os&&a.os._contrato) || ((a.os&&a.os._avisos)||[]).length)){
+    const minha=((a.os&&a.os.alocacoes)||[]).find(al=>al.matricula===myRid()&&al._ar);
+    if(minha){ const ok=await avisosGateOk(a.os, minha._ar, {onOk:function(){ advanceStatus(true); }, acao:'a execução', okBtn:'Li todos — iniciar execução'}); if(!ok) return; }
+  }
+  a.stage++; stamp(a); renderAppt(); toast('Status: '+STAGES[a.stage]); sfMaybePush(a); }
 async function completeAppt(){
   const a=curAppt, o=curOS; let faltas=[]; o._itens.forEach(eq=>{ if(!itemComplete(eq))faltas.push(eq.tag); });
   if(faltas.length){ toast('⚠️ Itens incompletos: '+faltas[0]+(faltas.length>1?` (+${faltas.length-1})`:'')); pushSub({type:'itens'}); return; }
@@ -5397,7 +5408,7 @@ async function checkInAloc(fromGate){ if(!_alocDet) return; const a=_alocDet.a;
   await getGeo(); const geo=_geoStr({geo:_lastGeo});
   a._efIni=t; if(geo)a._geoIn=geo;
   sfPushPresenca(a,Object.assign({efetivoInicio:t},geo?{geoCheckin:geo}:{}),'Check-in'); openAlocDet(_alocDet.o.id,a.matricula); }
-/* ===== AVISOS DO CONTRATO: leitura obrigatória POR OS antes do check-in =====
+/* ===== AVISOS DO CONTRATO: leitura obrigatória POR OS antes do check-in e do "Marcar como Em execução" (v4) =====
    A leitura vale por ALOCAÇÃO (Alocacao_em_OS__c = pessoa × OS), não "por pessoa pra sempre":
    toda OS nova nasce com os avisos não lidos pra todo mundo — como o aviso de segurança do
    avião, que vale de novo a cada voo ("voo novo" = OS nova). Dentro da MESMA OS a leitura
@@ -5406,15 +5417,21 @@ async function checkInAloc(fromGate){ if(!_alocDet) return; const a=_alocDet.a;
    lido/lidoEm pra alocação do usuário NAQUELA OS (_avisos) — por isso o gate funciona também
    OFFLINE, com o snapshot da última sincronização. Na hora do check-in tentamos um refresh
    best-effort do backend (pega aviso publicado depois do último hydrate); sem sinal, snapshot. */
-let _avisosCtx=null; /* {o, avisos, alocId, onOk} */
-async function avisosGateOk(o, alocId){
+let _avisosCtx=null; /* {o, avisos, alocId, onOk, acao, okBtn} */
+/* cont (opcional) permite reusar o MESMO gate em outros botões (ex.: "Marcar como Em execução"):
+   {onOk: continuação ao liberar, acao: texto da ação no subtítulo, okBtn: rótulo do botão}.
+   Sem cont, comporta-se exatamente como antes (continuação = check-in). */
+async function avisosGateOk(o, alocId, cont){
   let avisos=o._avisos||[];
   if(o._contrato){
     try{ const fresh=await beGet('/avisos?contratoId='+encodeURIComponent(o._contrato)+(alocId?'&alocId='+encodeURIComponent(alocId):''));
       if(Array.isArray(fresh)){ o._avisos=fresh; avisos=fresh; } }catch(e){ /* offline/erro: segue com o snapshot */ }
   }
-  if(!avisos.some(v=>!v.lido)) return true; /* nada pendente (ou avisos todos desativados) — segue o check-in */
-  _avisosCtx={o,avisos,alocId:alocId||null,onOk:function(){ checkInAloc(true); }};
+  if(!avisos.some(v=>!v.lido)) return true; /* nada pendente (ou avisos todos desativados) — segue a ação */
+  _avisosCtx={o,avisos,alocId:alocId||null,
+    onOk:(cont&&cont.onOk)||function(){ checkInAloc(true); },
+    acao:(cont&&cont.acao)||'o check-in',
+    okBtn:(cont&&cont.okBtn)||'Li todos — check-in'};
   renderAvisos();
   document.getElementById('avisosModal').classList.add('show');
   return false;
@@ -5423,7 +5440,7 @@ function renderAvisos(){
   const c=_avisosCtx; if(!c) return;
   const pend=c.avisos.filter(v=>!v.lido).length;
   document.getElementById('avisosSub').innerHTML = pend
-    ? 'Este contrato tem <b>'+pend+' aviso'+(pend>1?'s':'')+' não lido'+(pend>1?'s':'')+'</b>. Toque em cada um pra ler — o check-in libera quando todos estiverem lidos.'
+    ? 'Este contrato tem <b>'+pend+' aviso'+(pend>1?'s':'')+' não lido'+(pend>1?'s':'')+'</b>. Toque em cada um pra ler — '+(c.acao||'o check-in')+' libera quando todos estiverem lidos.'
     : 'Todos os avisos deste contrato foram lidos. ✅';
   document.getElementById('avisosList').innerHTML = c.avisos.map((v,i)=>
     '<div class="av-item'+(v.lido?' lido':'')+(v._aberto?' aberto':'')+'" onclick="avisoAbrir('+i+')">'+
@@ -5431,7 +5448,7 @@ function renderAvisos(){
       '<div class="av-meta">'+(v.name?_esc(v.name)+' · ':'')+(v.lido?('lido'+(v.lidoEm?' em '+fmtDH(v.lidoEm):'')):'não lido — toque para abrir')+(v.status==='Aguardando aprovação de exclusão'?' · ⚠️ exclusão pedida — vale até aprovarem':'')+'</div>'+
       '<div class="av-body">'+_esc(v.mensagem)+'</div>'+
     '</div>').join('') || '<div class="modal-sub" style="margin:0">Nenhum aviso ativo.</div>';
-  document.getElementById('avisosOkBtn').disabled = pend>0;
+  const okB=document.getElementById('avisosOkBtn'); okB.disabled = pend>0; okB.textContent = c.okBtn||'Li todos — check-in';
 }
 function avisoAbrir(i){
   const c=_avisosCtx; if(!c) return; const v=c.avisos[i]; if(!v) return;
