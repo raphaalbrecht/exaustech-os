@@ -271,6 +271,9 @@
   .litem.nao-lida .txt{font-weight:700;color:var(--txt)}
   .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-block}
+  /* pedido do Raphael (12/07, rodada 2): score de match 1 ponto menor que os números vizinhos
+     (prefixo da NC no card, valores da tabela), pra ficar discreto e não competir por atenção. */
+  .score-num{font-size:11.5px}
   .badge.forte{background:var(--succ-bg);color:var(--succ)}
   .badge.fraco{background:var(--warn-bg);color:var(--warn-tx)}
   .badge.semmatch{background:var(--err-bg);color:var(--err-tx)}
@@ -1137,8 +1140,12 @@ function badgeFaixa(faixa){
 // pedido do Raphael (12/07): "%" no número pra deixar claro que é assertividade (0-100), não uma
 // contagem qualquer — mesma função usada nos cards da lista e na tabela "Registro no Salesforce",
 // então o "%" aparece nos dois lugares de uma vez só.
+// pedido do Raphael (12/07, rodada 2): 1 ponto menor que o texto ao redor, pra não competir com o
+// número que é o prefixo da NC (ex. "11.2.11") — classe própria com font-size explícito, mesmo
+// padrão do .badge (não herda do container, porque score aparece em 2 contextos com base
+// diferente: .num do card em 12.5px e .kv da tabela em 13px).
 function scoreSpan(score){
-  return score != null ? '<span title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '%</span>' : '';
+  return score != null ? '<span class="score-num" title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '%</span>' : '';
 }
 
 // pedido do Raphael (10/07, rodada 2): "dar mais destaque pro Status" na tabela de registro — vira
