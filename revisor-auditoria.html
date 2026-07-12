@@ -1708,7 +1708,11 @@ async function renderDetalhe(){
     // pedido do Raphael (10/07, rodada 7): a nota do vistoriador saiu daqui (bloco solto embaixo da
     // tabela, sem rótulo) e virou uma linha do próprio kv em edHtmlTabela() — "Nota do vistoriador"
     // com a mesma indicação das outras linhas (Não conformidade etc.), valor continua itálico.
-    + (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>')
+    // pedido do Raphael (12/07, rodada 9): antes da confirmação, a foto só empurrava "Confirmar
+    // match" pra fora da dobra sem agregar nada — o PDF na coluna do meio já mostra a mesma foto
+    // (e já pula pra página certa). Foto só entra aqui como registro/evidência DEPOIS do match
+    // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
+    + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
     + '<div class="hist" id="historico"></div>'
     // Rodada 17 (11/07): controle segmentado de escopo, ver DECISAO_item-fora-de-escopo.md.
     // Fica acima do actionbar (que já é o botão terminal "Confirmar match") — o revisor primeiro
@@ -1757,7 +1761,7 @@ async function renderDetalhe(){
     }
   }
 
-  if (l.possuiFoto) {
+  if (l.possuiFoto && matchConfirmado(l)) {
     try {
       const url = await fotoBlobUrl(l.fotoUrl);
       if (ST.selecionadaId !== idAlvo) return; // usuário já trocou de item — não pinta foto errada no painel novo
