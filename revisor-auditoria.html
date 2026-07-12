@@ -614,6 +614,11 @@ function excluidaDaTratativa(l){ return foraDeEscopo(l) || l.statusContestacao =
 // corrigido não faz sentido. Mesmo critério de "confirmado" já usado em edHtmlEscopo() (l.status
 // === 'Pendente proposta').
 function matchConfirmado(l){ return l.status === 'Pendente proposta'; }
+// 12/07/2026 (rodada 4): Contestar e Solicitar levantamento também exigem que o item esteja
+// DENTRO do escopo Exaustech — pedido do Raphael, confirmado como coerente: não faz sentido
+// contestar ou mandar equipe a campo levantar algo que já foi classificado como fora do nosso
+// escopo (já não entra na estatística de tratativa, não há "nossa" solução técnica a disputar).
+function podeAbrirExcecao(l){ return matchConfirmado(l) && !foraDeEscopo(l); }
 
 // ---- edição campo a campo da hierarquia (pedido do Raphael 10/07, v2 — a v1 era um painel
 // lateral de busca textual de Pergunta que ele testou e rejeitou: "a edição deve ser campo a
@@ -1767,7 +1772,12 @@ function edGarantirEstado(l){
     // Rodada 17 (11/07): "fora de escopo" — ver DECISAO_item-fora-de-escopo.md. Guarda a
     // classificação editável junto do resto do rascunho (mesmo padrão de grupoId/elementoId/etc:
     // só grava de verdade quando o revisor confirma/salva).
-    classificacao: l.classificacaoLinha || CLASSIF_LINHA_PADRAO,
+    // 12/07/2026 (rodada 4): itens SEM MATCH chegam sem l.classificacaoLinha (nenhuma NC do
+    // catálogo foi hidratada no import) — nesse caso o rascunho começa com classificacao=null (sem
+    // pré-seleção nos 2 botões), forçando o revisor a escolher Dentro/Fora explicitamente. Itens
+    // com match (Forte/Fraco) já chegam com classificacaoLinha preenchido pelo backend, então
+    // continuam pré-selecionados normalmente.
+    classificacao: l.classificacaoLinha || null,
     // true assim que o revisor mexe no toggle manualmente — a partir daí edOnNc/edUsarNcExistente
     // param de sobrescrever a escolha dele quando ele troca de NC (ver edSetEscopo/edPreencherEscopoPorNc).
     escopoManual: false,
@@ -1793,7 +1803,7 @@ function edSujo(l){
   if (ED.novoNcAberto) return true;
   return ED.grupoId !== (l.grupoId || null) || ED.elementoId !== (l.elementoId || null) ||
     ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null) ||
-    ED.classificacao !== (l.classificacaoLinha || CLASSIF_LINHA_PADRAO);
+    ED.classificacao !== (l.classificacaoLinha || null);
 }
 
 // Rodada 17: alterna o campo de escopo do rascunho (botão segmentado na tela de detalhe).
@@ -1822,6 +1832,11 @@ function edPodeSalvar(l){
       ED.novoNc.texto && ED.novoNc.texto.trim() && ED.novoNc.classificacao && ED.novoNc.risco !== '' && ED.novoNc.risco != null);
   }
   if (!(ED.grupoId && ED.elementoId && ED.perguntaId && ED.ncId)) return false;
+  // 12/07/2026 (rodada 4): item sem match começa com classificacao=null (ver edGarantirEstado) —
+  // exige que o revisor escolha Dentro/Fora explicitamente antes de liberar o Confirmar. Na
+  // prática isso quase sempre já vem preenchido sozinho por edPreencherEscopoPorNc() assim que o
+  // revisor escolhe uma Não conformidade real, mas o guard fica aqui pra cobrir qualquer brecha.
+  if (!ED.classificacao) return false;
   if (edPrefixoNecessario(l)) {
     const opcoes = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
     if (opcoes.length > 1 && !ED.prefixoId) return false;
@@ -2139,9 +2154,13 @@ function edHtmlEscopo(l){
   }
   if (!CAT) return ''; // fallback sem catálogo carregado — sem editor de escopo, confirmarLinha() manda '{}'
   edGarantirEstado(l);
+  // 12/07/2026 (rodada 4): tri-state — ED.classificacao pode ser null (item sem match, nenhuma
+  // escolha ainda feita), então NENHUM dos 2 botões deve vir com a classe "on" nesse caso (antes
+  // era binário: "não fora" = sempre pintava "Dentro" como pré-selecionado).
+  const dentro = ED.classificacao === CLASSIF_LINHA_PADRAO;
   const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
   return '<div class="escopo-toggle">'
-    + '<button type="button" class="escopo-btn' + (fora ? '' : ' on') + '" onclick="edSetEscopo(\'' + l.id + '\', false)">Dentro do escopo Exaustech</button>'
+    + '<button type="button" class="escopo-btn' + (dentro ? ' on' : '') + '" onclick="edSetEscopo(\'' + l.id + '\', false)">Dentro do escopo Exaustech</button>'
     + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="edSetEscopo(\'' + l.id + '\', true)">Fora de escopo Exaustech</button>'
     + '</div>';
 }
@@ -2181,7 +2200,8 @@ function ctHtml(l){
     // 12/07 rodada 2: só oferece a opção de abrir contestação depois do match confirmado — ver
     // matchConfirmado(). Se já havia uma contestação em andamento/resolvida, ela continua visível
     // normalmente abaixo (não depende mais de confirmação, já é fato consumado).
-    if (!matchConfirmado(l)) return '';
+    // 12/07 rodada 4: e só dentro do escopo Exaustech — ver podeAbrirExcecao().
+    if (!podeAbrirExcecao(l)) return '';
     return CT.aberto ? ctHtmlForm(l) : ctHtmlGatilho(l);
   }
   if (st === 'Pendente de avaliação') return ctHtmlPendente(l);
@@ -2341,7 +2361,8 @@ function lvHtml(l){
     // histórico da(s) anterior(es) logo abaixo (traço, não unidade de ação). 12/07 rodada 2: o
     // gatilho só aparece depois do match confirmado — ver matchConfirmado(); o histórico de
     // demandas anteriores continua visível independente disso, é fato consumado.
-    if (!matchConfirmado(l)) return ativo ? lvHtmlHistoricoItem(ativo) : '';
+    // 12/07 rodada 4: e só dentro do escopo Exaustech — ver podeAbrirExcecao().
+    if (!podeAbrirExcecao(l)) return ativo ? lvHtmlHistoricoItem(ativo) : '';
     return (LV.aberto ? lvHtmlForm(l) : lvHtmlGatilho())
       + (ativo ? lvHtmlHistoricoItem(ativo) : '');
   }
