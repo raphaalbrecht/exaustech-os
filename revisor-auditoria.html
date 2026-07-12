@@ -200,7 +200,11 @@
      fundem num card só, com hairline vertical entre as seções — mesma informação e mesmos
      cliques, uma moldura a menos brigando com as pílulas do resumo. .risco-sec reproduz o
      layout de coluna centralizada que cada card inteiro tinha antes. */
-  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center}
+  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;gap:2px}
+  /* rodada 8 (12/07/2026): título único "RISCO" no alto do card, as 2 seções viram subtítulo
+     ("Distribuição"/"Da loja") — pedido do Raphael, evita repetir a palavra "Risco" 2x. */
+  .risco-card-titulo{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--brand-d);text-transform:uppercase}
+  .risco-card-secoes{display:flex;align-items:center}
   .risco-sec{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 14px}
   .risco-sec:first-child{padding-left:0}
   .risco-sec:last-child{padding-right:0}
@@ -1324,7 +1328,7 @@ function renderTudo(){
     // moldura. Cada seção só existe se tiver dado; os onclick das colunas não mudam.
     const secoesRisco = [];
     if (niveisRisco.length) {
-      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
+      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Distribuição</span><div class="risco-chart">' + niveisRisco.map((n) => {
         const cor = RISCO_RAMPA_SF[n];
         const cnt = contagem('risco:' + n);
         const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
@@ -1338,10 +1342,14 @@ function renderTudo(){
     }
     if (a && a.riscoLoja) {
       const cor = corRiscoLojaTexto(a.riscoLoja);
-      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco da loja</span>'
+      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Da loja</span>'
         + '<span class="badge" style="background:' + cor.bg + ';color:' + cor.tx + ';font-size:13px;font-weight:700;padding:5px 12px">' + escapeHtml(a.riscoLoja) + '</span></div>');
     }
-    riscoWrap.innerHTML = secoesRisco.length ? '<div class="risco-card">' + secoesRisco.join('') + '</div>' : '';
+    // rodada 8 (12/07/2026): título único "Risco" no alto do card (era repetido em cada seção) —
+    // ver .risco-card-titulo/.risco-card-secoes no CSS.
+    riscoWrap.innerHTML = secoesRisco.length
+      ? '<div class="risco-card"><span class="risco-card-titulo">Risco</span><div class="risco-card-secoes">' + secoesRisco.join('') + '</div></div>'
+      : '';
   }
 
   // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
