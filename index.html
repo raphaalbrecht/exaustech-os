@@ -3065,6 +3065,13 @@ function renderEstoque(){
     const btnNfc=document.getElementById('estoqBtnNfc'); if(btnNfc) btnNfc.style.display=estoqNfcSuportado()?'block':'none';
     if(_estoqAutoFoco){ _estoqAutoFoco=false; const inp=document.getElementById('estoqBusca'); if(inp) setTimeout(()=>inp.focus(),50); }
   }
+  /* wizard de Endereço de Estoque (Fase 3) é tela cheia própria — cabeçalho "Estoque" + carrossel
+     de dia não fazem sentido aqui (endereço não é por dia). Escondidos só neste modo. */
+  const schedTop=document.querySelector('#scr-estoque .sched-top');
+  const dayLabel=document.getElementById('estoqDayLabel');
+  const emEnderecos=(estoqView.mode==='enderecos');
+  if(schedTop) schedTop.style.display=emEnderecos?'none':'';
+  if(dayLabel) dayLabel.style.display=emEnderecos?'none':'';
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
@@ -3257,8 +3264,6 @@ function endrRenderRua(card){
 }
 function endrRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(endrSt.localNome)+'</div>';
-  const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:6px 0 12px'; novo.textContent='+ Novo endereço';
-  novo.onclick=endrNovoEndereco; card.appendChild(novo);
   if(endrSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=endrSt.erro; card.appendChild(e); }
   if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.textContent='Carregando…'; card.appendChild(l); }
   else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
@@ -3273,7 +3278,9 @@ function endrRenderLista(card){
       card.appendChild(row);
     });
   }
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:12px'; bk.textContent='‹ Trocar local'; bk.onclick=()=>{ endrSt.step='local'; renderEstoque(); }; card.appendChild(bk);
+  const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:12px 0 0'; novo.textContent='+ Novo endereço';
+  novo.onclick=endrNovoEndereco; card.appendChild(novo);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Trocar local'; bk.onclick=()=>{ endrSt.step='local'; renderEstoque(); }; card.appendChild(bk);
 }
 /* ---- passo 3: tipo (toque seleciona e avança) ---- */
 function endrEscolherTipo(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo(); }
