@@ -130,7 +130,14 @@
   /* sugestão Fable 10/07: nome do arquivo reusava a fonte de "métrica" (20px bold) e brigava com
      os números de verdade — reduz peso/tamanho e trunca com ellipsis pra não alargar o card */
   .stat .n.arquivo{font-size:12.5px;font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .stat .l{font-size:11.5px;color:var(--weak)}
+  /* 12/07/2026 (rodada 7, polimento da barra de resumo): rótulo das pílulas entra na mesma voz
+     tipográfica do .risco-card-label (uppercase pequeno fraco) — todos os cards da fileira passam
+     a falar igual, sem mudar estrutura nem tamanho de nada. */
+  .stat .l{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase}
+  /* 12/07/2026 (rodada 7): o card do arquivo é METADADO (não é métrica nem filtro) — perde a
+     moldura branca e vira legenda solta no fim da fileira. Menos um retângulo repetido e
+     hierarquia de graça: moldura = número clicável, sem moldura = identificação do lote. */
+  .stat.stat-meta{background:transparent;border-color:transparent;padding-left:4px;padding-right:4px}
   /* pedido do Raphael (10/07, rodada 2): progresso visual de "quanto já foi confirmado" — barrinha
      fina embaixo do número, e a pílula inteira vira verde quando bate 100% (sinal de "terminou"). */
   .stat-barra{margin-top:7px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:90px}
@@ -189,7 +196,15 @@
      maiúsculo fraco, igual .etapa-label) + .risco-legenda mostra a rampa inteira (R0→R5) com um
      rótulo "menor"/"maior" nas pontas — não duplica o número de cada coluna, só explica a DIREÇÃO
      da cor (mais escuro = mais grave), que não era óbvio sem legenda. */
-  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  /* 12/07/2026 (rodada 7): os DOIS retângulos de risco (histograma por item + risco da loja)
+     fundem num card só, com hairline vertical entre as seções — mesma informação e mesmos
+     cliques, uma moldura a menos brigando com as pílulas do resumo. .risco-sec reproduz o
+     layout de coluna centralizada que cada card inteiro tinha antes. */
+  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center}
+  .risco-sec{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 14px}
+  .risco-sec:first-child{padding-left:0}
+  .risco-sec:last-child{padding-right:0}
+  .risco-sec+.risco-sec{border-left:1px solid var(--border);align-self:stretch}
   .risco-card-label{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase}
   .risco-chart{display:flex;align-items:flex-end;gap:2px}
   .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:pointer;padding:3px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
@@ -584,9 +599,13 @@
          loja" é bem mais raso de conteúdo que o gráfico de risco por item (só rótulo + 1 badge),
          então "center" deixava ele flutuando baixinho, desalinhado. "stretch" + justify-content:
          center dentro do .risco-card (ver CSS) resolve: ele cresce até a altura do vizinho mais
-         alto e centraliza o conteúdo dentro disso. -->
-    <div id="riscoInline" style="margin-left:auto;margin-top:-22px;display:flex;gap:8px;align-items:stretch;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="margin-top:-22px;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap"></div>
+         alto e centraliza o conteúdo dentro disso.
+         [rodada 7: superado em parte — os 2 cards fundiram num só (seções .risco-sec); o
+         alinhamento interno agora é do align-self:stretch da própria seção, ver CSS.] -->
+    <!-- 12/07/2026 (rodada 7): gap unificado em 10px nos dois grupos (era 8/14) — mesmo ritmo do
+         gap do próprio .loadbar, a fileira inteira respira igual de ponta a ponta. -->
+    <div id="riscoInline" style="margin-left:auto;margin-top:-22px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="margin-top:-22px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
        ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
@@ -1267,7 +1286,9 @@ function renderTudo(){
       + '</div>'
       + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
       + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
-      + '<div class="stat"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
+      // 12/07/2026 (rodada 7): arquivo ganha .stat-meta (sem moldura, ver CSS) — é identificação
+      // do lote, não métrica; sai da competição visual com as pílulas clicáveis.
+      + '<div class="stat stat-meta"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
 
@@ -1297,28 +1318,30 @@ function renderTudo(){
       + '<span class="risco-legenda-txt">maior</span></div>';
     // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
     // diferente do histograma por item acima: é a classificação geral gravada na Auditoria na
-    // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c). Mesmo container .risco-card,
-    // lado a lado via o flex do próprio #riscoInline.
-    const riscoLojaHtml = (a && a.riscoLoja)
-      ? (() => {
-          const cor = corRiscoLojaTexto(a.riscoLoja);
-          return '<div class="risco-card"><span class="risco-card-label">Risco da loja</span>'
-            + '<span class="badge" style="background:' + cor.bg + ';color:' + cor.tx + ';font-size:13px;font-weight:700;padding:5px 12px">' + escapeHtml(a.riscoLoja) + '</span></div>';
-        })()
-      : '';
-    riscoWrap.innerHTML = (niveisRisco.length
-      ? '<div class="risco-card"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
-          const cor = RISCO_RAMPA_SF[n];
-          const cnt = contagem('risco:' + n);
-          const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
-          const on = ST.filtro === ('risco:' + n);
-          return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
-            + '<span class="risco-num">' + cnt + '</span>'
-            + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
-            + '<span class="risco-lbl">R' + n + '</span>'
-            + '</div>';
-        }).join('') + '</div>' + legenda + '</div>'
-      : '') + riscoLojaHtml;
+    // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
+    // 12/07/2026 (rodada 7, polimento): os 2 retângulos irmãos viram 2 SEÇÕES do mesmo
+    // .risco-card, separadas por hairline (.risco-sec no CSS) — risco é UM assunto, ganha UMA
+    // moldura. Cada seção só existe se tiver dado; os onclick das colunas não mudam.
+    const secoesRisco = [];
+    if (niveisRisco.length) {
+      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
+        const cor = RISCO_RAMPA_SF[n];
+        const cnt = contagem('risco:' + n);
+        const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
+        const on = ST.filtro === ('risco:' + n);
+        return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
+          + '<span class="risco-num">' + cnt + '</span>'
+          + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
+          + '<span class="risco-lbl">R' + n + '</span>'
+          + '</div>';
+      }).join('') + '</div>' + legenda + '</div>');
+    }
+    if (a && a.riscoLoja) {
+      const cor = corRiscoLojaTexto(a.riscoLoja);
+      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco da loja</span>'
+        + '<span class="badge" style="background:' + cor.bg + ';color:' + cor.tx + ';font-size:13px;font-weight:700;padding:5px 12px">' + escapeHtml(a.riscoLoja) + '</span></div>');
+    }
+    riscoWrap.innerHTML = secoesRisco.length ? '<div class="risco-card">' + secoesRisco.join('') + '</div>' : '';
   }
 
   // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
