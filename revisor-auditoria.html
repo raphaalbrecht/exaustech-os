@@ -1290,7 +1290,18 @@ function renderTudo(){
     const legenda = '<div class="risco-legenda"><span class="risco-legenda-txt">menor</span>'
       + RISCO_RAMPA_SF.map((cor) => '<span class="risco-legenda-swatch" style="background:' + cor + '"></span>').join('')
       + '<span class="risco-legenda-txt">maior</span></div>';
-    riscoWrap.innerHTML = niveisRisco.length
+    // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
+    // diferente do histograma por item acima: é a classificação geral gravada na Auditoria na
+    // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c). Mesmo container .risco-card,
+    // lado a lado via o flex do próprio #riscoInline.
+    const riscoLojaHtml = (a && a.riscoLoja)
+      ? (() => {
+          const cor = corRiscoLojaTexto(a.riscoLoja);
+          return '<div class="risco-card"><span class="risco-card-label">Risco da loja</span>'
+            + '<span class="badge" style="background:' + cor.bg + ';color:' + cor.tx + ';font-size:13px;font-weight:700;padding:5px 12px">' + escapeHtml(a.riscoLoja) + '</span></div>';
+        })()
+      : '';
+    riscoWrap.innerHTML = (niveisRisco.length
       ? '<div class="risco-card"><span class="risco-card-label">Risco</span><div class="risco-chart">' + niveisRisco.map((n) => {
           const cor = RISCO_RAMPA_SF[n];
           const cnt = contagem('risco:' + n);
@@ -1302,7 +1313,7 @@ function renderTudo(){
             + '<span class="risco-lbl">R' + n + '</span>'
             + '</div>';
         }).join('') + '</div>' + legenda + '</div>'
-      : '';
+      : '') + riscoLojaHtml;
   }
 
   // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
@@ -1391,6 +1402,19 @@ function riscoCor(risco){
   if (risco == null || isNaN(risco)) return { bg: 'var(--neu-bg)', tx: 'var(--neu-tx)' };
   const idx = Math.max(0, Math.min(5, Math.round(risco)));
   return RISCO_PALETTE[idx];
+}
+// 12/07/2026 (rodada 5): "Risco da loja" (a.riscoLoja) é a Classificacao_de_risco__c gravada na
+// Auditoria — texto livre que varia por tipo de relatório: "Baixo"/"Médio"/"Alto" (ARPLAC) ou
+// "Risco 0".."Risco 5" (FTR, mesma escala numérica do histograma por item). Reaproveita
+// RISCO_PALETTE (0=verde…5=vermelho) pros dois formatos, só precisa mapear o texto pro índice.
+function corRiscoLojaTexto(txt){
+  const t = (txt || '').toLowerCase();
+  const m = t.match(/(\d)/);
+  if (m) return riscoCor(Number(m[1]));
+  if (t.includes('baixo')) return RISCO_PALETTE[1];
+  if (t.includes('médio') || t.includes('medio')) return RISCO_PALETTE[3];
+  if (t.includes('alto')) return RISCO_PALETTE[5];
+  return { bg: 'var(--neu-bg)', tx: 'var(--neu-tx)' };
 }
 function riscoPill(risco, iso){
   const c = riscoCor(risco);
