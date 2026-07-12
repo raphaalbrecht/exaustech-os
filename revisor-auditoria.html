@@ -454,11 +454,19 @@
   .hist-grid{padding:0 0 10px;display:flex;gap:5px;flex-wrap:wrap}
   .mes-pill{font-size:10.5px;font-weight:600;padding:4px 7px;border-radius:7px;text-align:center;min-width:46px;line-height:1.35}
   .mes-pill .mm{display:block;font-size:9.5px;font-weight:700;opacity:.85}
+  /* pedido do Raphael (12/07): primeiro nome do líder da visita, abaixo do rótulo do mês — opacidade
+     um pouco menor que o .mm (é um dado complementar, não a informação principal da pílula). */
+  .mes-pill .lider{display:block;font-size:9px;font-weight:600;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mes-pill.sem-vistoria{background:var(--neu-bg);color:var(--weaker);opacity:.55}
   /* achado #10 da revisão Fable (10/07): "OK" (sem achado) e a pílula de ocorrência Risco 0 usavam
      quase o mesmo verde (--succ-bg ~ RISCO_PALETTE[0].bg) — visualmente indistinguíveis, significado
-     oposto (passou vs. foi sinalizado). Borda diferencia sem trocar a paleta de risco em nenhum lugar. */
-  .mes-pill.ok{background:var(--succ-bg);color:var(--succ);cursor:default;border:1px solid var(--succ-bd)}
+     oposto (passou vs. foi sinalizado). Borda diferencia sem trocar a paleta de risco em nenhum lugar.
+     pedido do Raphael (12/07, rodada 10): o card inteiro é "REINCIDÊNCIA" (rastreio de não
+     conformidade, coisa ruim) — um selo VERDE no meio dele passa uma mensagem de "sucesso" que não
+     combina com o tom do widget, mesmo esse mês específico não tendo achado. Troca pro azul da marca
+     (informativo/neutro: "houve vistoria, nada a registrar aqui" — não é uma conquista) e larga de
+     vez a paleta verde/sucesso, que fica reservada só pra ações concluídas (ex. contestação resolvida). */
+  .mes-pill.ok{background:var(--brand-l);color:var(--brand-d);cursor:default;border:1px solid var(--brand)}
   .mes-pill.ocorreu{cursor:pointer}
   .mes-pill.ocorreu:hover{filter:brightness(0.94)}
   .comp-card{margin-bottom:16px}
@@ -1517,11 +1525,16 @@ async function renderHistorico(linhaId){
       gridHtml = '<div class="hist-grid">' + j.mesesGrid.map((m) => {
         const [ano, mesN] = m.mesAno.split('-');
         const mm = mesN + '/' + ano.slice(2);
+        // pedido do Raphael (12/07): primeiro nome de quem liderou aquela visita, junto do rótulo
+        // do mês — só existe pra auditorias criadas depois do vínculo automático com a OS de
+        // manutenção (ver DECISAO_lider-manutencao-vinculada.md); auditorias antigas ficam sem essa
+        // linha, igual a qualquer outro dado ausente na grade.
+        const lider = m.liderNome ? '<span class="lider">' + escapeHtml(primeiroNome(m.liderNome)) + '</span>' : '';
         if (!m.teveVisita) return '<div class="mes-pill sem-vistoria" title="Sem vistoria neste mês">' + mm + '<span class="mm">sem vistoria</span></div>';
-        if (!m.ocorreu) return '<div class="mes-pill ok" title="Vistoria em ' + escapeHtml(m.auditoriaNome || '') + ' — sem achado nesta NC">' + mm + '<span class="mm">OK</span></div>';
+        if (!m.ocorreu) return '<div class="mes-pill ok" title="Vistoria em ' + escapeHtml(m.auditoriaNome || '') + ' — sem achado nesta NC">' + mm + '<span class="mm">OK</span>' + lider + '</div>';
         const c = riscoCor(m.risco);
         const clique = m.ocorrenciaIndex != null ? ' onclick="toggleHistExpand(' + m.ocorrenciaIndex + ')"' : '';
-        return '<div class="mes-pill ocorreu" style="background:' + c.bg + ';color:' + c.tx + '"' + clique + ' title="Sinalizado em ' + escapeHtml(m.auditoriaNome || '') + '">' + mm + '<span class="mm">R' + (m.risco == null ? '?' : m.risco) + '</span></div>';
+        return '<div class="mes-pill ocorreu" style="background:' + c.bg + ';color:' + c.tx + '"' + clique + ' title="Sinalizado em ' + escapeHtml(m.auditoriaNome || '') + '">' + mm + '<span class="mm">R' + (m.risco == null ? '?' : m.risco) + '</span>' + lider + '</div>';
       }).join('') + '</div>';
     }
 
@@ -1638,6 +1651,9 @@ function selecionar(id){
 }
 
 function escapeHtml(s){ return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+// pedido do Raphael (12/07): primeiro nome do líder na grade de reincidência — só o primeiro termo,
+// cabe no espaço apertado da pílula (46px).
+function primeiroNome(nomeCompleto){ return String(nomeCompleto || '').trim().split(/\s+/)[0] || ''; }
 
 // pedido do Raphael (10/07, rodada 5): "evitar que esse texto explicativo da norma fosse extraído...
 // pode terminar não conformidade em todos os casos" — o texto bruto do achado (textoOriginal) vem
