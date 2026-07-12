@@ -349,8 +349,11 @@
      contestação é exceção rara, não decisão de rotina de toda linha. */
   .cont-slot{margin-top:14px}
   .cont-gatilho{text-align:right}
-  .cont-gatilho .link-btn{color:var(--weaker);padding:2px 0}
-  .cont-gatilho .link-btn:hover{color:var(--err-tx)}
+  /* 12/07: pedido do Raphael — o gatilho parecia link solto sublinhado; vira botão outline no
+     nível do .btn.sec, mas NEUTRO (cinza) porque contestação é exceção rara/discreta; o hover
+     puxa pro vermelho da disputa, preservando o sinal que o link antigo já dava. */
+  .cont-btn-gatilho{background:#fff;color:var(--weaker);border:1px solid var(--border2);border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .cont-btn-gatilho:hover{color:var(--err-tx);border-color:var(--err-bd);background:var(--err-bg)}
   .cont-card{border:1px solid var(--err-bd);border-left:3px solid var(--err);border-radius:8px;background:#fff;padding:11px 12px}
   .cont-card.improcedente{border-color:var(--border2);border-left-color:var(--neu-tx)}
   .cont-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
@@ -373,7 +376,11 @@
      derivado na lista, ver renderLista()/lv-badge-*). */
   .lv-slot{margin-top:14px}
   .lv-gatilho{text-align:right}
-  .lv-gatilho .link-btn{padding:2px 0}
+  /* 12/07: idem gatilho de contestação — botão outline em vez de link sublinhado, mas AZUL
+     (--brand, espelha o .btn.sec) porque levantamento é fluxo normal; fonte 12.5px mantém a
+     hierarquia abaixo do .btn primário "Solicitar levantamento" dentro do form aberto. */
+  .lv-btn-gatilho{background:#fff;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .lv-btn-gatilho:hover{background:var(--brand-l)}
   .lv-card{border:1px solid var(--border2);border-left:3px solid var(--brand);border-radius:8px;background:#fff;padding:11px 12px}
   .lv-card.concluida{border-left-color:var(--succ)}
   .lv-card.cancelada{border-left-color:var(--neu-tx)}
@@ -601,6 +608,12 @@ function foraDeEscopo(l){ return l.classificacaoLinha === CLASSIF_FORA_ESCOPO; }
 // Contestação Procedente tem o MESMO efeito que fora-de-escopo na estatística de tratativa (some
 // dela, continua no relatório); Pendente/Improcedente continuam contando normalmente.
 function excluidaDaTratativa(l){ return foraDeEscopo(l) || l.statusContestacao === 'Procedente'; }
+// 12/07/2026 (rodada 2): Contestar e Solicitar levantamento só ficam disponíveis DEPOIS do match
+// confirmado — pedido do Raphael. Antes disso o registro ainda está em edição (Pergunta/NC podem
+// mudar), então contestar ou abrir uma OS de levantamento em cima de um match que ainda pode ser
+// corrigido não faz sentido. Mesmo critério de "confirmado" já usado em edHtmlEscopo() (l.status
+// === 'Pendente proposta').
+function matchConfirmado(l){ return l.status === 'Pendente proposta'; }
 
 // ---- edição campo a campo da hierarquia (pedido do Raphael 10/07, v2 — a v1 era um painel
 // lateral de busca textual de Pergunta que ele testou e rejeitou: "a edição deve ser campo a
@@ -2164,13 +2177,19 @@ function ctGarantirEstado(l){
 function ctHtml(l){
   ctGarantirEstado(l);
   const st = l.statusContestacao || 'Não contestada';
-  if (st === 'Não contestada') return CT.aberto ? ctHtmlForm(l) : ctHtmlGatilho(l);
+  if (st === 'Não contestada') {
+    // 12/07 rodada 2: só oferece a opção de abrir contestação depois do match confirmado — ver
+    // matchConfirmado(). Se já havia uma contestação em andamento/resolvida, ela continua visível
+    // normalmente abaixo (não depende mais de confirmação, já é fato consumado).
+    if (!matchConfirmado(l)) return '';
+    return CT.aberto ? ctHtmlForm(l) : ctHtmlGatilho(l);
+  }
   if (st === 'Pendente de avaliação') return ctHtmlPendente(l);
   return ctHtmlResolvida(l, st); // Procedente | Improcedente
 }
 
 function ctHtmlGatilho(l){
-  return '<div class="cont-gatilho"><button class="link-btn" onclick="ctAbrir(\'' + l.id + '\')">Contestar este apontamento</button></div>';
+  return '<div class="cont-gatilho"><button class="cont-btn-gatilho" onclick="ctAbrir(\'' + l.id + '\')">Contestar este apontamento</button></div>';
 }
 
 function ctHtmlForm(l){
@@ -2319,7 +2338,10 @@ function lvHtml(l){
   const ativo = l.levantamentos && l.levantamentos[0];
   if (!ativo || ativo.status === 'Cancelada' || ativo.status === 'Concluída') {
     // sem demanda ainda, ou a última já é terminal — mostra o gatilho pra abrir uma nova, com o
-    // histórico da(s) anterior(es) logo abaixo (traço, não unidade de ação).
+    // histórico da(s) anterior(es) logo abaixo (traço, não unidade de ação). 12/07 rodada 2: o
+    // gatilho só aparece depois do match confirmado — ver matchConfirmado(); o histórico de
+    // demandas anteriores continua visível independente disso, é fato consumado.
+    if (!matchConfirmado(l)) return ativo ? lvHtmlHistoricoItem(ativo) : '';
     return (LV.aberto ? lvHtmlForm(l) : lvHtmlGatilho())
       + (ativo ? lvHtmlHistoricoItem(ativo) : '');
   }
@@ -2328,7 +2350,7 @@ function lvHtml(l){
 }
 
 function lvHtmlGatilho(){
-  return '<div class="lv-gatilho"><button class="link-btn" onclick="lvAbrir(\'' + (LV.linhaId) + '\')">Solicitar levantamento em campo</button></div>';
+  return '<div class="lv-gatilho"><button class="lv-btn-gatilho" onclick="lvAbrir(\'' + (LV.linhaId) + '\')">Solicitar levantamento em campo</button></div>';
 }
 
 function lvHtmlForm(l){
