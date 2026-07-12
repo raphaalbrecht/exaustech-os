@@ -366,6 +366,31 @@
   .btn.cont-proc{background:#fff;color:var(--err-tx);border:1px solid var(--err-bd)}
   .btn.cont-proc:hover{background:var(--err-bg)}
   .cont-nota{font-size:12px;color:var(--weak);margin-top:8px}
+  /* ===== Demanda de Levantamento em campo (12/07) — ver DECISAO_demanda-levantamento-campo.md.
+     Mesmo padrão de card contido do bloco de contestação acima (exceção pontual, não decisão de
+     rotina), mas em azul (--brand, workflow normal) em vez de vermelho (--err, que é pra disputa) —
+     decisão de UI: botão de ação, nunca o toggle verde estilo iOS (esse só sobrevive como badge
+     derivado na lista, ver renderLista()/lv-badge-*). */
+  .lv-slot{margin-top:14px}
+  .lv-gatilho{text-align:right}
+  .lv-gatilho .link-btn{padding:2px 0}
+  .lv-card{border:1px solid var(--border2);border-left:3px solid var(--brand);border-radius:8px;background:#fff;padding:11px 12px}
+  .lv-card.concluida{border-left-color:var(--succ)}
+  .lv-card.cancelada{border-left-color:var(--neu-tx)}
+  .lv-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .lv-titulo{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)}
+  .lv-card.concluida .lv-titulo{color:var(--succ)}
+  .lv-card.cancelada .lv-titulo{color:var(--neu-tx)}
+  .badge.lv-solicitada{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.lv-aprovada{background:var(--brand-l);color:var(--brand-d)}
+  .badge.lv-concluida{background:var(--succ-bg);color:var(--succ)}
+  .badge.lv-cancelada{background:var(--neu-bg);color:var(--neu-tx)}
+  .lv-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
+  .lv-txt+.lv-txt{margin-top:6px}
+  .lv-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
+  .lv-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+  .lv-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .lv-nota{font-size:12px;color:var(--weak);margin-top:8px}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -1481,6 +1506,10 @@ function renderLista(){
     // 11/07: só o estado "precisa de ação" ganha badge na lista — resolvidas (Procedente/Improcedente)
     // não poluem aqui, o card na coluna direita já registra o histórico (ver ctHtml()).
     if (l.statusContestacao === 'Pendente de avaliação') tags.push('<span class="badge cont-pendente">contestada</span>');
+    // 12/07/2026: Demanda de Levantamento em campo — só estado ativo (Solicitada/Aprovada) vira
+    // ruído na lista, mesmo critério da contestação acima (ver DECISAO_demanda-levantamento-campo.md).
+    const lvBadge = lvBadgeLista(l);
+    if (lvBadge) tags.push(lvBadge);
     // Rodada 16: indicador de tratamento deixa de ser condicional (rodada anterior só mostrava
     // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
     // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
@@ -1601,6 +1630,11 @@ async function renderDetalhe(){
     // reservada às ações terminais do pipeline) — é exceção rara, não deve competir com o fluxo
     // principal de revisão.
     + '<div class="cont-slot" id="regContestacao">' + ctHtml(l) + '</div>'
+    // 12/07/2026: Demanda de Levantamento em campo — ver DECISAO_demanda-levantamento-campo.md.
+    // Mesma lógica de posicionamento da contestação acima (entre o eixo de escopo/disputa e a
+    // actionbar terminal): não é o fluxo principal de revisão, é uma exceção pontual quando a NC
+    // precisa que uma equipe vá até o local antes de dar pra propor solução.
+    + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
     + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
 
   if (pdfUrl) {
@@ -2228,6 +2262,213 @@ async function ctAvaliar(linhaId, veredito){
   } catch (e) {
     msg('Falha de rede ao avaliar contestação: ' + e.message, 'err');
     document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = false; });
+  }
+}
+
+// ===== Demanda de Levantamento em campo (12/07) — Demanda_Levantamento__c, ver
+// DECISAO_demanda-levantamento-campo.md. Mesmo padrão de estado local isolado que CT (eixo
+// ortogonal, não deve interferir em ED/CT). Ciclo: Solicitada -> Aprovada (dispara Apex que cria a
+// OS real) -> Concluída (equipe registra o que trouxe do local); ou Cancelada (com motivo), de
+// Solicitada ou Aprovada. Decisão de UI confirmada com o Raphael: botão de ação, nunca o toggle
+// verde estilo iOS — o toggle só sobrevive como badge derivado na lista (ver lvBadgeLista()).
+let LV = null; // { linhaId, aberto, objetivo, concluirAberto, resultado, cancelarAberto, motivo }
+
+function lvGarantirEstado(l){
+  if (LV && LV.linhaId === l.id) return;
+  LV = { linhaId: l.id, aberto: false, objetivo: '', concluirAberto: false, resultado: '', cancelarAberto: false, motivo: '' };
+}
+
+// badge pra lista (renderLista()) — só estados que pedem atenção/ação entram aqui, mesmo critério
+// já usado pra contestação ("só o estado que precisa de ação vira ruído na lista").
+function lvBadgeLista(l){
+  const ativo = l.levantamentos && l.levantamentos[0];
+  if (!ativo) return '';
+  if (ativo.status === 'Solicitada') return '<span class="badge lv-solicitada">levant. solicitado</span>';
+  if (ativo.status === 'Aprovada') return '<span class="badge lv-aprovada">levant. em campo</span>';
+  return '';
+}
+
+function lvHtml(l){
+  lvGarantirEstado(l);
+  const ativo = l.levantamentos && l.levantamentos[0];
+  if (!ativo || ativo.status === 'Cancelada' || ativo.status === 'Concluída') {
+    // sem demanda ainda, ou a última já é terminal — mostra o gatilho pra abrir uma nova, com o
+    // histórico da(s) anterior(es) logo abaixo (traço, não unidade de ação).
+    return (LV.aberto ? lvHtmlForm(l) : lvHtmlGatilho())
+      + (ativo ? lvHtmlHistoricoItem(ativo) : '');
+  }
+  if (ativo.status === 'Solicitada') return lvHtmlSolicitada(ativo);
+  return lvHtmlAprovada(ativo); // 'Aprovada'
+}
+
+function lvHtmlGatilho(){
+  return '<div class="lv-gatilho"><button class="link-btn" onclick="lvAbrir(\'' + (LV.linhaId) + '\')">Solicitar levantamento em campo</button></div>';
+}
+
+function lvHtmlForm(l){
+  const ok = !!LV.objetivo.trim();
+  return '<div class="lv-card">'
+    + '<div class="lv-head"><span class="lv-titulo">Demanda de levantamento em campo</span></div>'
+    + '<div class="lv-txt" style="color:var(--weak)">Use quando precisar que uma equipe vá até o local medir/fotografar/levantar antes de dar pra propor solução pra esta NC. Isso cria uma Ordem de Serviço real, que entra no agendamento normal.</div>'
+    + '<label class="lv-rotulo">Objetivo do levantamento (obrigatório)</label>'
+    + '<textarea rows="3" oninput="lvOnObjetivo(this.value)">' + escapeHtml(LV.objetivo) + '</textarea>'
+    + '<div class="lv-acoes">'
+      + '<button class="btn" id="btnLvSolicitar"' + (ok ? '' : ' disabled') + ' onclick="lvSolicitar(\'' + l.id + '\')">Solicitar levantamento</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="lvCancelarForm()">cancelar</button>'
+    + '</div></div>';
+}
+
+function lvHtmlSolicitada(d){
+  return '<div class="lv-card">'
+    + '<div class="lv-head"><span class="lv-titulo">Demanda de levantamento em campo</span><span class="badge lv-solicitada">Solicitada</span></div>'
+    + (LV.cancelarAberto ? lvHtmlCancelarForm(d) :
+      '<div class="lv-acoes">'
+        + '<button class="btn" onclick="lvAprovar(\'' + d.id + '\')">Aprovar — gera a OS</button>'
+        + '<button class="link-btn" style="padding:2px 0" onclick="lvAbrirCancelar()">cancelar demanda</button>'
+      + '</div>')
+    + '</div>';
+}
+
+function lvHtmlAprovada(d){
+  return '<div class="lv-card">'
+    + '<div class="lv-head"><span class="lv-titulo">Demanda de levantamento em campo</span><span class="badge lv-aprovada">Aprovada</span></div>'
+    + (d.osId ? '<div class="lv-txt"><b>OS gerada:</b> <span class="nota-inline">' + escapeHtml(d.osId) + '</span> — segue o agendamento normal.</div>' : '')
+    + (LV.cancelarAberto ? lvHtmlCancelarForm(d) : (
+      LV.concluirAberto ? lvHtmlConcluirForm(d) :
+      '<div class="lv-acoes">'
+        + '<button class="btn" onclick="lvAbrirConcluir()">Registrar conclusão</button>'
+        + '<button class="link-btn" style="padding:2px 0" onclick="lvAbrirCancelar()">cancelar demanda</button>'
+      + '</div>'))
+    + '</div>';
+}
+
+function lvHtmlConcluirForm(d){
+  const ok = !!LV.resultado.trim();
+  return '<label class="lv-rotulo">O que a equipe encontrou/mediu em campo (obrigatório)</label>'
+    + '<textarea rows="3" oninput="lvOnResultado(this.value)">' + escapeHtml(LV.resultado) + '</textarea>'
+    + '<div class="lv-acoes">'
+      + '<button class="btn" id="btnLvConcluir"' + (ok ? '' : ' disabled') + ' onclick="lvConcluir(\'' + d.id + '\')">Registrar conclusão</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="lvFecharSubform()">cancelar</button>'
+    + '</div>';
+}
+
+function lvHtmlCancelarForm(d){
+  const ok = !!LV.motivo.trim();
+  return '<label class="lv-rotulo">Motivo do cancelamento (obrigatório)</label>'
+    + '<textarea rows="2" oninput="lvOnMotivo(this.value)">' + escapeHtml(LV.motivo) + '</textarea>'
+    + '<div class="lv-acoes">'
+      + '<button class="btn sec" id="btnLvCancelarDemanda"' + (ok ? '' : ' disabled') + ' onclick="lvCancelarDemanda(\'' + d.id + '\')">Confirmar cancelamento</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="lvFecharSubform()">voltar</button>'
+    + '</div>';
+}
+
+function lvHtmlHistoricoItem(d){
+  const proc = d.status === 'Concluída';
+  return '<div class="lv-card' + (proc ? ' concluida' : ' cancelada') + '" style="margin-top:8px">'
+    + '<div class="lv-head"><span class="lv-titulo">Levantamento anterior</span>'
+      + '<span class="badge ' + (proc ? 'lv-concluida' : 'lv-cancelada') + '">' + escapeHtml(d.status) + '</span></div>'
+    + (proc ? '<div class="lv-nota">Resultado registrado — histórico preservado no Salesforce.</div>'
+             : '<div class="lv-nota">Demanda cancelada.</div>')
+    + '</div>';
+}
+
+function lvAbrir(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId); if (!l) return;
+  lvGarantirEstado(l); LV.aberto = true; lvRerender();
+}
+function lvCancelarForm(){
+  if (LV) { LV.aberto = false; LV.objetivo = ''; }
+  lvRerender();
+}
+function lvAbrirConcluir(){ if (LV) { LV.concluirAberto = true; LV.cancelarAberto = false; } lvRerender(); }
+function lvAbrirCancelar(){ if (LV) { LV.cancelarAberto = true; LV.concluirAberto = false; } lvRerender(); }
+function lvFecharSubform(){ if (LV) { LV.concluirAberto = false; LV.cancelarAberto = false; LV.resultado = ''; LV.motivo = ''; } lvRerender(); }
+
+// oninput NÃO chama lvRerender() (destruiria o textarea e derrubaria o foco a cada tecla) — só
+// atualiza o rascunho e liga/desliga o disabled do botão direto no DOM (mesmo padrão de ctOnMotivo).
+function lvOnObjetivo(v){ if (!LV) return; LV.objetivo = v; const b = document.getElementById('btnLvSolicitar'); if (b) b.disabled = !v.trim(); }
+function lvOnResultado(v){ if (!LV) return; LV.resultado = v; const b = document.getElementById('btnLvConcluir'); if (b) b.disabled = !v.trim(); }
+function lvOnMotivo(v){ if (!LV) return; LV.motivo = v; const b = document.getElementById('btnLvCancelarDemanda'); if (b) b.disabled = !v.trim(); }
+
+function lvRerender(){
+  const l = ST.linhas.find((x) => x.id === (LV && LV.linhaId)); if (!l) return;
+  const w = document.getElementById('regLevantamento');
+  if (w) w.innerHTML = lvHtml(l);
+}
+
+async function lvSolicitar(linhaId){
+  if (!LV || !LV.objetivo.trim()) return;
+  const btn = document.getElementById('btnLvSolicitar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando…'; }
+  try {
+    const r = await fetch(BACKEND + '/levantamentos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ linhaId, objetivo: LV.objetivo.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao solicitar levantamento: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Solicitar levantamento'; } return; }
+    LV = null;
+    await carregar(); renderTudo();
+    msg('Levantamento solicitado.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao solicitar levantamento: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Solicitar levantamento'; }
+  }
+}
+
+async function lvAprovar(demandaId){
+  if (!confirm('Aprovar este levantamento? Isso cria uma Ordem de Serviço real, que entra no agendamento normal da equipe.')) return;
+  try {
+    const r = await fetch(BACKEND + '/levantamentos/' + demandaId + '/aprovar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: '{}'
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao aprovar levantamento: ' + (j.error || r.status), 'err'); return; }
+    await carregar(); renderTudo();
+    msg('Levantamento aprovado — Ordem de Serviço criada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao aprovar levantamento: ' + e.message, 'err');
+  }
+}
+
+async function lvConcluir(demandaId){
+  if (!LV || !LV.resultado.trim()) return;
+  const btn = document.getElementById('btnLvConcluir');
+  if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+  try {
+    const r = await fetch(BACKEND + '/levantamentos/' + demandaId + '/concluir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ resultado: LV.resultado.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao registrar conclusão: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Registrar conclusão'; } return; }
+    LV = null;
+    await carregar(); renderTudo();
+    msg('Conclusão do levantamento registrada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao registrar conclusão: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Registrar conclusão'; }
+  }
+}
+
+async function lvCancelarDemanda(demandaId){
+  if (!LV || !LV.motivo.trim()) return;
+  if (!confirm('Cancelar esta demanda de levantamento?')) return;
+  const btn = document.getElementById('btnLvCancelarDemanda');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelando…'; }
+  try {
+    const r = await fetch(BACKEND + '/levantamentos/' + demandaId + '/cancelar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ motivo: LV.motivo.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao cancelar levantamento: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; } return; }
+    LV = null;
+    await carregar(); renderTudo();
+    msg('Demanda de levantamento cancelada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao cancelar levantamento: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; }
   }
 }
 
