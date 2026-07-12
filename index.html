@@ -1033,6 +1033,18 @@
       <button class="btn btn-neutral" onclick="closeAvGes()">Fechar</button>
     </div></div></div>
 
+  <!-- MODAL GESTÃO DE AVISOS GLOBAIS (12/07/2026) · universais — valem pra TODAS as OS de TODOS
+       os contratos, dentro da janela Data de início/Data de desligamento. EXCLUSIVO de
+       Supervisor pra cima; sem fila de aprovação: lançar/editar/excluir aplicam na hora.
+       Aberto pela aba Aprovações (botão "Gerenciar avisos globais"). -->
+  <div class="modal" id="avGloModal"><div class="modal-card">
+    <div class="modal-title">🌐 Gestão de avisos globais</div>
+    <div class="modal-sub" id="avGloSub"></div>
+    <div id="avGloBody" style="max-height:56vh;overflow:auto"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeAvGlo()">Fechar</button>
+    </div></div></div>
+
   <!-- MODAL PERFIL -->
   <div class="modal" id="roleModal"><div class="modal-card">
     <div class="modal-title">Trocar perfil</div>
@@ -4459,6 +4471,9 @@ function canApprovalsTab(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
    canAloc/canCadastrar). Abaixo de Supervisor só SUGERE — sempre entra na fila de aprovação. */
 function canLancarAviso(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
 function canAprovarAviso(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* Avisos GLOBAIS (12/07): exclusivo de Supervisor pra cima (mesma lista de canAprovarAviso) —
+   Líder de Equipe não vê a tela de gestão, não lança, não sugere. Sem fila: tudo aplica direto. */
+function canLancarAvisoGlobal(r){ return canAprovarAviso(r); }
 /* módulo Produção (Ordem_de_Producao__c, task #49/#50): aprovação técnica = mesma função
    elevada usada em toda a app (Coordenador/Gerente/Sócio); iniciar/finalizar = Funcao__c='Produção'
    (quem realmente fabrica, ex.: Gabriel) — os 2 gates batem com o que o backend já exige. */
@@ -5452,7 +5467,7 @@ function renderAvisos(){
   document.getElementById('avisosList').innerHTML = c.avisos.map((v,i)=>
     '<div class="av-item'+(v.lido?' lido':'')+(v._aberto?' aberto':'')+'" onclick="avisoAbrir('+i+')">'+
       '<div class="av-tit">'+(v.lido?'':'● ')+_esc(v.titulo)+'</div>'+
-      '<div class="av-meta">'+(v.name?_esc(v.name)+' · ':'')+(v.lido?('lido'+(v.lidoEm?' em '+fmtDH(v.lidoEm):'')):'não lido — toque para abrir')+(v.status==='Aguardando aprovação de exclusão'?' · ⚠️ exclusão pedida — vale até aprovarem':'')+'</div>'+
+      '<div class="av-meta">'+(v.tipo==='global'?'🌐 aviso geral · ':'')+(v.name?_esc(v.name)+' · ':'')+(v.lido?('lido'+(v.lidoEm?' em '+fmtDH(v.lidoEm):'')):'não lido — toque para abrir')+(v.status==='Aguardando aprovação de exclusão'?' · ⚠️ exclusão pedida — vale até aprovarem':'')+'</div>'+
       '<div class="av-body">'+_esc(v.mensagem)+'</div>'+
     '</div>').join('') || '<div class="modal-sub" style="margin:0">Nenhum aviso ativo.</div>';
   const okB=document.getElementById('avisosOkBtn'); okB.disabled = pend>0; okB.textContent = c.okBtn||'Li todos — check-in';
@@ -5462,8 +5477,10 @@ function avisoAbrir(i){
   if(v.lido){ v._aberto=!v._aberto; renderAvisos(); return; } /* já lido: só expande/recolhe */
   v.lido=true; v.lidoEm=new Date().toISOString(); v._aberto=true;
   /* a leitura é gravada NA ALOCAÇÃO (pessoa × OS); idempotente no backend — com a fila offline
-     (bePost com label) a leitura feita sem sinal sincroniza depois */
-  bePost('/avisos/'+v.id+'/ler',{alocId:c.alocId||null},'Leitura do aviso '+(v.name||''))
+     (bePost com label) a leitura feita sem sinal sincroniza depois. O endpoint depende do TIPO
+     do item (12/07): aviso de contrato → /avisos/:id/ler; aviso GLOBAL → /avisos-globais/:id/ler
+     (objetos de leitura separados no Salesforce) — o resto da caixa é idêntico pros dois. */
+  bePost((v.tipo==='global'?'/avisos-globais/':'/avisos/')+v.id+'/ler',{alocId:c.alocId||null},'Leitura do aviso '+(v.name||''))
     .then(r=>{ if(r&&r._queued) toast('📡 Leitura salva no aparelho — sincroniza com sinal'); })
     .catch(e=>toast('⚠️ Leitura não gravada: '+e.message));
   renderAvisos();
@@ -5494,7 +5511,10 @@ function renderAvisosAppr(list){
       ?'Você aprova criação, edição e exclusão de avisos — e pode alterar direto.'
       :'Você lança avisos e sugere alterações; valem depois da aprovação do Supervisor pra cima.')+'</div>'
     +'<div id="avPendList"></div>'
-    +'<div style="padding:0 14px"><button class="btn btn-neutral" id="avGesBtn" style="width:100%" onclick="openAvGes()">Gerenciar avisos de contrato</button></div>';
+    +'<div style="padding:0 14px;display:flex;flex-direction:column;gap:8px"><button class="btn btn-neutral" id="avGesBtn" style="width:100%" onclick="openAvGes()">Gerenciar avisos de contrato</button>'
+    /* avisos GLOBAIS: só Supervisor pra cima vê o botão (Líder não gerencia nem lança) */
+    +(canLancarAvisoGlobal(ROLE)?'<button class="btn btn-neutral" id="avGloBtn" style="width:100%" onclick="openAvGlo()">🌐 Gerenciar avisos globais</button>':'')
+    +'</div>';
   list.appendChild(sec);
   paintAvPend();
   fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); });
@@ -5629,6 +5649,107 @@ async function avGesExcluir(i){
     const r=await bePost('/avisos/'+a.id+'/pedir-exclusao',{});
     toast(r&&r.pendente?'📨 Exclusão enviada pra aprovação — o aviso segue valendo':'🗑 Aviso excluído');
     avGesAbrirContrato(g.ctr);
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+/* ===== GESTÃO DE AVISOS GLOBAIS (12/07/2026) =====
+   Aviso universal: vale pra TODAS as OS de TODOS os contratos enquanto estiver "ligado"
+   (Status Ativo + janela Data de início/Data de desligamento — a fórmula Ativo__c no Salesforce
+   combina os dois, então um aviso programado pro futuro ainda não bloqueia e um com data de
+   desligamento passada desliga sozinho). EXCLUSIVO de Supervisor pra cima (canLancarAvisoGlobal):
+   Líder não vê o botão nem a tela. SEM fila de aprovação: lançar/editar/excluir aplicam NA HORA
+   (o histórico de Alterações fica só como auditoria, sem estado Pendente). Editar apaga as
+   leituras — todo mundo relê, mesma regra do aviso de contrato. Na caixa de leitura obrigatória
+   (avisosModal) os itens globais entram MISTURADOS com os de contrato (tipo:'global'). */
+let _avGlo=null; /* {view:'lista'|'form', avisos, formAviso, erro} */
+function hojeLocalISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function openAvGlo(){
+  if(!canLancarAvisoGlobal(ROLE)){ toast('Avisos globais: Supervisor pra cima'); return; }
+  _avGlo={view:'lista',avisos:null,formAviso:null,erro:null};
+  document.getElementById('avGloModal').classList.add('show');
+  renderAvGlo(); avGloCarregar();
+}
+function closeAvGlo(){ document.getElementById('avGloModal').classList.remove('show'); _avGlo=null; }
+async function avGloCarregar(){
+  try{ const r=await beGet('/avisos-globais');
+    if(_avGlo){ _avGlo.avisos=Array.isArray(r)?r:[]; if(_avGlo.view!=='form') renderAvGlo(); } }
+  catch(e){ if(_avGlo){ _avGlo.avisos=[]; _avGlo.erro=e.message; if(_avGlo.view!=='form') renderAvGlo(); } }
+}
+/* rótulo de vigência do card: programado (início no futuro) / desligado (fim no passado) / até quando vale */
+function avGloVigencia(a){
+  if(a.status!=='Ativo') return '';
+  const hoje=hojeLocalISO();
+  if(a.dataInicio&&String(a.dataInicio).slice(0,10)>hoje) return ' · ⏳ programado pra '+fmtDataBR(a.dataInicio);
+  if(a.dataFim&&String(a.dataFim).slice(0,10)<hoje) return ' · ⏸ desligado em '+fmtDataBR(a.dataFim);
+  return a.dataFim?(' · vale até '+fmtDataBR(a.dataFim)):'';
+}
+function avGloHistHTML(a){
+  const h=a.historico||[]; if(!h.length) return '';
+  return '<div class="av-hist">'+h.map(x=>'<div class="av-hist-row"><b>'+_esc(x.tipo||'')+'</b> por '+_esc(x.aplicadoPorNome||'—')+(x.aplicadoEm?' em '+fmtDH(x.aplicadoEm):'')+'</div>').join('')+'</div>';
+}
+function renderAvGlo(){
+  const g=_avGlo; if(!g) return;
+  const body=document.getElementById('avGloBody'), sub=document.getElementById('avGloSub');
+  if(g.view==='form'){
+    const ed=g.formAviso;
+    sub.textContent=ed?'Alterar o aviso — aplica na hora e TODOS releem.':'Novo aviso global — vale pra TODAS as OS de TODOS os contratos, publica na hora.';
+    body.innerHTML=
+      '<div class="field"><label>Título</label><input id="avGloTitulo" maxlength="120" value="'+_esc(ed?ed.titulo:'')+'"></div>'
+      +'<div class="field"><label>Mensagem</label><textarea id="avGloMsg" rows="5" style="width:100%">'+_esc(ed?ed.mensagem:'')+'</textarea></div>'
+      +'<div class="field"><label>Data de início</label><input id="avGloIni" type="date" value="'+_esc(ed?String(ed.dataInicio||'').slice(0,10):hojeLocalISO())+'"></div>'
+      +'<div class="field"><label>Data de desligamento (opcional — desliga sozinho)</label><input id="avGloFim" type="date" value="'+_esc(ed&&ed.dataFim?String(ed.dataFim).slice(0,10):'')+'"></div>'
+      +'<div class="sig-hint" style="margin-top:-6px">Vale pela <b>data de hoje</b>, não pela data em que a OS foi criada: assim que chegar a data de início, TODA OS (nova ou já em andamento) passa a exigir a leitura na hora do check-in/início — mesmo uma OS antiga. Ao passar a data de desligamento, para de bloquear sozinho, sem precisar excluir.</div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button class="btn btn-neutral" style="flex:1" onclick="avGloVoltar()">Cancelar</button>'
+      +'<button class="btn btn-brand" style="flex:1" id="avGloSalvarBtn" onclick="avGloSalvar()">'+(ed?'Salvar alteração':'Publicar aviso global')+'</button>'
+      +'</div>';
+    return;
+  }
+  sub.textContent='Valem pra todas as OS de todos os contratos, dentro da janela de datas.';
+  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0">Carregando…</div>'; return; }
+  const cards=g.avisos.map(function(a,i){
+    return '<div class="av-item aberto" style="cursor:default">'
+      +'<div class="av-tit">🌐 '+_esc(a.titulo)+avStChip(a.status)+'</div>'
+      +'<div class="av-meta">'+_esc(a.name||'')+' · início '+fmtDataBR(a.dataInicio)+avGloVigencia(a)+'</div>'
+      +'<div class="av-body">'+_esc(a.mensagem)+'</div>'
+      +avGloHistHTML(a)
+      +(a.status==='Ativo'?('<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<button class="btn btn-neutral" style="flex:1" onclick="avGloEditar('+i+')">✏️ Editar</button>'
+        +'<button class="btn btn-neutral" style="flex:1;color:var(--err-tx);border-color:var(--err-bd)" onclick="avGloExcluir('+i+')">🗑 Excluir</button>'
+        +'</div>'):'')
+      +'</div>';
+  }).join('');
+  body.innerHTML=(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
+    +(cards||'<div class="subnote" style="padding:8px 0">Nenhum aviso global ainda.</div>')
+    +'<button class="btn btn-brand" id="avGloNovoBtn" style="width:100%;margin-top:12px" onclick="avGloNovo()">➕ Lançar aviso global</button>';
+}
+function avGloVoltar(){ if(!_avGlo) return; _avGlo.view='lista'; _avGlo.formAviso=null; renderAvGlo(); }
+function avGloNovo(){ if(!_avGlo) return; _avGlo.view='form'; _avGlo.formAviso=null; renderAvGlo(); }
+function avGloEditar(i){ if(!_avGlo||!_avGlo.avisos) return; _avGlo.view='form'; _avGlo.formAviso=_avGlo.avisos[i]||null; renderAvGlo(); }
+async function avGloSalvar(){
+  const g=_avGlo; if(!g) return;
+  const titulo=(document.getElementById('avGloTitulo').value||'').trim();
+  const mensagem=(document.getElementById('avGloMsg').value||'').trim();
+  const dataInicio=(document.getElementById('avGloIni').value||'').trim();
+  const dataFim=(document.getElementById('avGloFim').value||'').trim();
+  if(!titulo||!mensagem){ toast('Preencha título e mensagem'); return; }
+  if(!dataInicio){ toast('Informe a data de início'); return; }
+  if(dataFim&&dataFim<dataInicio){ toast('A data de desligamento não pode ser antes do início'); return; }
+  const btn=document.getElementById('avGloSalvarBtn'); if(btn) btn.disabled=true;
+  try{
+    if(g.formAviso) await bePost('/avisos-globais/'+g.formAviso.id+'/editar',{titulo,mensagem,dataInicio,dataFim:dataFim||null});
+    else await bePost('/avisos-globais',{titulo,mensagem,dataInicio,dataFim:dataFim||null});
+    toast(g.formAviso?'✅ Aviso global alterado — todos vão reler':'✅ Aviso global publicado — vale pra todas as OS');
+    _avGlo.view='lista'; _avGlo.formAviso=null; _avGlo.avisos=null; renderAvGlo(); avGloCarregar();
+  }catch(e){ toast('Erro: '+e.message); if(btn) btn.disabled=false; }
+}
+async function avGloExcluir(i){
+  const g=_avGlo; if(!g||!g.avisos) return; const a=g.avisos[i]; if(!a) return;
+  if(!window.confirm('Excluir o aviso global "'+a.titulo+'"? Ele para de valer em TODAS as OS na hora.')) return;
+  try{
+    await bePost('/avisos-globais/'+a.id+'/excluir',{});
+    toast('🗑 Aviso global excluído');
+    _avGlo.avisos=null; renderAvGlo(); avGloCarregar();
   }catch(e){ toast('Erro: '+e.message); }
 }
 async function checkOutAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
