@@ -3213,6 +3213,16 @@ function endrNovoEndereco(){
   endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua='';
   endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
 }
+/* ---- "criar outro aqui": herda área/rua/tipo do endereço recém-criado, pula direto pro passo
+   'nome' — poupa 2-3 toques repetidos no mapeamento de um local inteiro (ex. "Rua 1" com 20 bins
+   seguidos). Mesmo padrão já usado em endrAbrirComplementar. Não mexe em endrSt.areas/_areasCarregadas
+   de propósito — se o usuário voltar até o passo 'área', a lista já carregada continua servindo.
+   Pedido do Raphael 13/07/2026, análise de UX feita com o agente Fable. ---- */
+function endrNovoEnderecoAqui(d){
+  endrSt.tipo=d.tipo||null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
+  endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaRequerRua=!!d.rua; endrSt.rua=d.rua||'';
+  endrSt.erro=null; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo();
+}
 /* ---- passo 2b: Área (nível intermediário, opcional por local — 10/07). Se o local não tiver
    nenhuma área cadastrada, pula direto pro Tipo; se tiver, é obrigatório escolher uma (toque avança). ---- */
 async function endrCarregarAreas(){
@@ -3257,10 +3267,16 @@ function endrRenderRua(card){
 function endrRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(endrSt.localNome)+'</div>';
   if(endrSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=endrSt.erro; card.appendChild(e); }
+  /* "+ Novo endereço" sobe pra logo abaixo do título — é a ação mais frequente na fase atual de
+     mapeamento (dezenas de endereços em sequência); com a lista de existentes embaixo, o botão não
+     pode depender de rolar a tela inteira pra achar. Lista de existentes vira secundária (consulta/
+     reimpressão de etiqueta), com contador. Pedido do Raphael 13/07/2026, análise Fable. */
+  const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
+  novo.onclick=endrNovoEndereco; card.appendChild(novo);
   if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.textContent='Carregando…'; card.appendChild(l); }
   else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
   else {
-    const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560'; lbl.textContent='Endereços cadastrados'; card.appendChild(lbl);
+    const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560'; lbl.textContent='Endereços cadastrados ('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
     endrSt.enderecosDoLocal.forEach(e=>{
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
       const ocupTxt=e.capacidade!=null?(e.ocupacao+'/'+e.capacidade):(''+e.ocupacao);
@@ -3270,9 +3286,7 @@ function endrRenderLista(card){
       card.appendChild(row);
     });
   }
-  const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:12px 0 0'; novo.textContent='+ Novo endereço';
-  novo.onclick=endrNovoEndereco; card.appendChild(novo);
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Trocar local'; bk.onclick=()=>{ endrSt.step='local'; renderEstoque(); }; card.appendChild(bk);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Trocar local'; bk.onclick=()=>{ endrSt.step='local'; renderEstoque(); }; card.appendChild(bk);
 }
 /* ---- passo 3: tipo (toque seleciona e avança) ---- */
 function endrEscolherTipo(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo(); }
@@ -3411,8 +3425,15 @@ function endrRenderDetalhe(card){
     usar.onclick=()=>recpVoltarDoWizard(d);
     card.appendChild(usar);
   } else {
-    const outro=document.createElement('button'); outro.className='btn btn-brand'; outro.style.cssText='width:100%;height:48px'; outro.textContent='+ Criar outro endereço neste local';
-    outro.onclick=endrNovoEndereco; card.appendChild(outro);
+    /* "criar outro aqui" herda área/rua/tipo do endereço recém-criado (endrNovoEnderecoAqui) —
+       é o caminho rápido pro mapeamento em sequência (ex. 20 bins na mesma rua). "Criar em outro
+       local/área" continua disponível pro reset completo. Pedido do Raphael 13/07/2026. */
+    const loc=[d.area,d.rua].filter(Boolean).join(' — ');
+    const outroAqui=document.createElement('button'); outroAqui.className='btn btn-brand'; outroAqui.style.cssText='width:100%;height:48px';
+    outroAqui.textContent='+ Criar outro '+(d.tipo||'endereço')+' aqui'+(loc?' ('+loc+')':'');
+    outroAqui.onclick=()=>endrNovoEnderecoAqui(d); card.appendChild(outroAqui);
+    const outroLugar=document.createElement('button'); outroLugar.className='btn btn-neutral'; outroLugar.style.cssText='width:100%;height:44px;margin-top:8px'; outroLugar.textContent='Criar em outro local/área';
+    outroLugar.onclick=endrNovoEndereco; card.appendChild(outroLugar);
     const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Ver lista do local';
     fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
     card.appendChild(fim);

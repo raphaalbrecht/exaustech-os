@@ -84,7 +84,13 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v99'; // v99 13/07: Agenda perde o toggle manual "Minhas OS/Todas" —
+const CACHE = 'exaustech-os-v100'; // v100 13/07: wizard endr* — análise de UX (agente Fable) sobre o
+// passo "lista" do cadastro de endereço: "+ Novo endereço" sobe pra logo abaixo do título (não fica
+// mais escondido embaixo da lista de existentes, que virou secundária com contador); tela de
+// sucesso ganha "+ Criar outro <tipo> aqui" herdando área/rua/tipo do endereço recém-criado
+// (endrNovoEnderecoAqui), poupando toques repetidos no mapeamento de um local inteiro em sequência;
+// "Criar em outro local/área" continua disponível pro reset completo.
+// v99 13/07: Agenda perde o toggle manual "Minhas OS/Todas" —
 // técnico continua vendo só as próprias OS, Coordenador+ continua vendo todas, mas sem botão pra
 // trocar (ocupava espaço à toa, pedido do Raphael); Líder de Equipe já não tinha essa opção mesmo.
 // v98 12/07: mesmo tratamento do v97 (esconder cabeçalho "Estoque"+
