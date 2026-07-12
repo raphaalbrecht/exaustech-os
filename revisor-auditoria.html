@@ -391,6 +391,22 @@
   .lv-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
   .lv-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
   .lv-nota{font-size:12px;color:var(--weak);margin-top:8px}
+  /* 12/07/2026, 2ª rodada: sinalizador de urgência (3 escalas, sempre 1 selecionada, default
+     Média) — mesmo padrão visual do .escopo-toggle (segmentado), cores crescem em atenção da
+     esquerda pra direita (verde->azul->vermelho, não é "erro", é "chama atenção"). */
+  .lv-urgencia{display:flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+  .lv-urg-btn{flex:1;border:none;background:#fff;padding:9px 8px;font-size:12px;font-weight:700;color:var(--weak);cursor:pointer}
+  .lv-urg-btn+.lv-urg-btn{border-left:1px solid var(--border2)}
+  .lv-urg-btn.baixa.on{background:var(--succ-bg);color:var(--succ)}
+  .lv-urg-btn.media.on{background:var(--brand-l);color:var(--brand-d)}
+  .lv-urg-btn.alta.on{background:var(--err-bg);color:var(--err-tx)}
+  /* Catálogo pré-cadastrado (multiselect) do que a equipe deve verificar em campo — checkbox
+     nativo por acessibilidade/clareza, linha inteira clicável via <label>. */
+  .lv-tipos{display:flex;flex-direction:column;gap:6px}
+  .lv-tipo-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--txt);cursor:pointer;padding:7px 9px;border:1px solid var(--border2);border-radius:6px}
+  .lv-tipo-item:hover{border-color:var(--brand)}
+  .lv-tipo-item:has(input:checked){background:var(--brand-l);border-color:var(--brand)}
+  .lv-tipo-item input[type=checkbox]{margin:0;flex:0 0 auto}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -2271,11 +2287,21 @@ async function ctAvaliar(linhaId, veredito){
 // OS real) -> Concluída (equipe registra o que trouxe do local); ou Cancelada (com motivo), de
 // Solicitada ou Aprovada. Decisão de UI confirmada com o Raphael: botão de ação, nunca o toggle
 // verde estilo iOS — o toggle só sobrevive como badge derivado na lista (ver lvBadgeLista()).
-let LV = null; // { linhaId, aberto, objetivo, concluirAberto, resultado, cancelarAberto, motivo }
+let LV = null; // { linhaId, aberto, urgencia, tiposLevantamento, objetivo, concluirAberto, resultado, cancelarAberto, motivo }
+
+// 12/07/2026, 2ª rodada: catálogo pré-cadastrado de tipos de levantamento (multiselect) — tem que
+// bater exatamente com os valores do picklist Tipos_de_Levantamento__c no salesforce-slice e com
+// TIPOS_LEVANTAMENTO_VALIDOS em backend/levantamentoRoutes.js (3 lugares, mesma lista).
+const TIPOS_LEVANTAMENTO = [
+  'Levantar medidas do equipamento',
+  'Verificar se o equipamento entra na casa de máquinas',
+  'Verificar se o equipamento passa pelo elevador'
+];
+const URGENCIAS = ['Baixa', 'Média', 'Alta'];
 
 function lvGarantirEstado(l){
   if (LV && LV.linhaId === l.id) return;
-  LV = { linhaId: l.id, aberto: false, objetivo: '', concluirAberto: false, resultado: '', cancelarAberto: false, motivo: '' };
+  LV = { linhaId: l.id, aberto: false, urgencia: 'Média', tiposLevantamento: [], objetivo: '', concluirAberto: false, resultado: '', cancelarAberto: false, motivo: '' };
 }
 
 // badge pra lista (renderLista()) — só estados que pedem atenção/ação entram aqui, mesmo critério
@@ -2306,16 +2332,37 @@ function lvHtmlGatilho(){
 }
 
 function lvHtmlForm(l){
-  const ok = !!LV.objetivo.trim();
+  const ok = LV.tiposLevantamento.length > 0;
   return '<div class="lv-card">'
     + '<div class="lv-head"><span class="lv-titulo">Demanda de levantamento em campo</span></div>'
-    + '<div class="lv-txt" style="color:var(--weak)">Use quando precisar que uma equipe vá até o local medir/fotografar/levantar antes de dar pra propor solução pra esta NC. Isso cria uma Ordem de Serviço real, que entra no agendamento normal.</div>'
-    + '<label class="lv-rotulo">Objetivo do levantamento (obrigatório)</label>'
+    + '<div class="lv-txt" style="color:var(--weak)">Use quando precisar que uma equipe vá até o local medir/fotografar/levantar antes de propor solução pra esta NC. Isso cria uma Ordem de Serviço real, que entra no agendamento normal.</div>'
+    + '<label class="lv-rotulo">Urgência</label>'
+    + lvHtmlUrgencia()
+    + '<label class="lv-rotulo">O que a equipe deve verificar (selecione 1 ou mais)</label>'
+    + lvHtmlTipos()
+    + '<label class="lv-rotulo">Complemento (opcional)</label>'
     + '<textarea rows="3" oninput="lvOnObjetivo(this.value)">' + escapeHtml(LV.objetivo) + '</textarea>'
     + '<div class="lv-acoes">'
       + '<button class="btn" id="btnLvSolicitar"' + (ok ? '' : ' disabled') + ' onclick="lvSolicitar(\'' + l.id + '\')">Solicitar levantamento</button>'
       + '<button class="link-btn" style="padding:2px 0" onclick="lvCancelarForm()">cancelar</button>'
     + '</div></div>';
+}
+
+function lvHtmlUrgencia(){
+  return '<div class="lv-urgencia">' + URGENCIAS.map((u) => {
+    const cls = u === 'Baixa' ? 'baixa' : (u === 'Alta' ? 'alta' : 'media');
+    const on = LV.urgencia === u;
+    return '<button type="button" class="lv-urg-btn ' + cls + (on ? ' on' : '') + '" onclick="lvSetUrgencia(\'' + u + '\')">' + u + '</button>';
+  }).join('') + '</div>';
+}
+
+function lvHtmlTipos(){
+  return '<div class="lv-tipos">' + TIPOS_LEVANTAMENTO.map((t, i) => {
+    const on = LV.tiposLevantamento.includes(t);
+    return '<label class="lv-tipo-item">'
+      + '<input type="checkbox"' + (on ? ' checked' : '') + ' onchange="lvToggleTipo(' + i + ')">'
+      + '<span>' + escapeHtml(t) + '</span></label>';
+  }).join('') + '</div>';
 }
 
 function lvHtmlSolicitada(d){
@@ -2377,7 +2424,15 @@ function lvAbrir(linhaId){
   lvGarantirEstado(l); LV.aberto = true; lvRerender();
 }
 function lvCancelarForm(){
-  if (LV) { LV.aberto = false; LV.objetivo = ''; }
+  if (LV) { LV.aberto = false; LV.urgencia = 'Média'; LV.tiposLevantamento = []; LV.objetivo = ''; }
+  lvRerender();
+}
+function lvSetUrgencia(u){ if (LV) LV.urgencia = u; lvRerender(); }
+function lvToggleTipo(i){
+  if (!LV) return;
+  const t = TIPOS_LEVANTAMENTO[i];
+  const idx = LV.tiposLevantamento.indexOf(t);
+  if (idx >= 0) LV.tiposLevantamento.splice(idx, 1); else LV.tiposLevantamento.push(t);
   lvRerender();
 }
 function lvAbrirConcluir(){ if (LV) { LV.concluirAberto = true; LV.cancelarAberto = false; } lvRerender(); }
@@ -2397,13 +2452,16 @@ function lvRerender(){
 }
 
 async function lvSolicitar(linhaId){
-  if (!LV || !LV.objetivo.trim()) return;
+  if (!LV || !LV.tiposLevantamento.length) return;
   const btn = document.getElementById('btnLvSolicitar');
   if (btn) { btn.disabled = true; btn.textContent = 'Solicitando…'; }
   try {
     const r = await fetch(BACKEND + '/levantamentos', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
-      body: JSON.stringify({ linhaId, objetivo: LV.objetivo.trim() })
+      body: JSON.stringify({
+        linhaId, urgencia: LV.urgencia, tiposLevantamento: LV.tiposLevantamento,
+        objetivo: LV.objetivo.trim() || undefined
+      })
     });
     const j = await r.json();
     if (!r.ok) { msg('Erro ao solicitar levantamento: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Solicitar levantamento'; } return; }
