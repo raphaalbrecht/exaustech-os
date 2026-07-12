@@ -430,6 +430,18 @@
   .modal-card .field select{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="%23747474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4 4 4-4"/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:36px}
   .modal-card .field input:focus,.modal-card .field select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-l)}
   .modal-card textarea{width:100%;box-sizing:border-box}
+  /* Avisos do contrato: caixa estilo e-mail — NÃO lido em negrito, lido em fonte normal */
+  .av-item{padding:10px 6px;border-bottom:1px solid var(--border);cursor:pointer}
+  .av-item:last-child{border-bottom:none}
+  .av-item .av-tit{font-size:13.5px;font-weight:700}
+  .av-item.lido .av-tit{font-weight:400;color:var(--weak)}
+  .av-item .av-meta{font-size:11px;color:var(--weak);margin-top:2px}
+  .av-item .av-body{font-size:13px;line-height:1.5;white-space:pre-wrap;margin-top:6px;display:none}
+  .av-item.aberto .av-body{display:block}
+  #avisosOkBtn:disabled{opacity:.45;pointer-events:none}
+  /* gestão de avisos (fluxo de aprovação): histórico de alterações dentro do card */
+  .av-hist{margin-top:8px;padding:8px;background:var(--neu-bg,#f4f6f9);border-radius:.25rem;font-size:11.5px;color:var(--weak);line-height:1.6}
+  .av-hist .av-hist-row+.av-hist-row{margin-top:2px}
   .det-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px}
   .det-row:last-child{border-bottom:none}
   .det-k{color:var(--weak);font-size:12px;flex-shrink:0}
@@ -990,6 +1002,30 @@
       <button class="btn btn-brand" onclick="closeAlocDet()">Fechar</button>
     </div></div></div>
 
+  <!-- MODAL AVISOS DO CONTRATO · leitura obrigatória POR OS (por alocação = pessoa × OS) antes
+       do check-in. Caixa estilo e-mail: não lido em NEGRITO, lido em fonte normal; o check-in só
+       libera quando TODOS os avisos ativos do contrato estiverem lidos NESTA OS — OS nova do
+       mesmo contrato zera tudo de novo (regra do aviso de segurança do avião). -->
+  <div class="modal" id="avisosModal"><div class="modal-card">
+    <div class="modal-title">📨 Avisos do contrato</div>
+    <div class="modal-sub" id="avisosSub"></div>
+    <div id="avisosList" style="max-height:50vh;overflow:auto"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeAvisos()">Agora não</button>
+      <button class="btn btn-brand" id="avisosOkBtn" disabled onclick="avisosConfirmar()">Li todos — check-in</button>
+    </div></div></div>
+
+  <!-- MODAL GESTÃO DE AVISOS DE CONTRATO · fluxo de aprovação (v2, 11/07/2026).
+       Líder pra cima lança/sugere; Supervisor pra cima aprova, edita e exclui direto.
+       Aberto pela aba Aprovações (botão "Gerenciar avisos de contrato"). -->
+  <div class="modal" id="avGesModal"><div class="modal-card">
+    <div class="modal-title">📨 Gestão de avisos de contrato</div>
+    <div class="modal-sub" id="avGesSub"></div>
+    <div id="avGesBody" style="max-height:56vh;overflow:auto"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeAvGes()">Fechar</button>
+    </div></div></div>
+
   <!-- MODAL PERFIL -->
   <div class="modal" id="roleModal"><div class="modal-card">
     <div class="modal-title">Trocar perfil</div>
@@ -1358,7 +1394,9 @@ function apptClass(a){ if(a.outcome) return a.outcome==='Cancelado'?'s-cancelado
 
 /* ===== aprovações (fila) ===== */
 function pendingReports(){ return appts.filter(a=>a.os.relatorio.stage>=1 && a.os.relatorio.stage<4); }
-function updateApprBadge(){ const n=pendingReports().length; const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+/* fila de Alterações de Aviso pendentes (só Supervisor+ enxerga — GET /avisos/pendencias) */
+let _avPend=[];
+function updateApprBadge(){ const n=pendingReports().length+(canAprovarAviso(ROLE)?_avPend.length:0); const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
 /* separações marcadas como urgentes e ainda pendentes (checkbox Urgente__c na Ordem de Separação) */
 function urgentesPendentes(){ return sepListAll().filter(x=>x.s.urgente && sepPendente(x.s.status)); }
 function updateEstoqueBadge(){ const n=urgentesPendentes().length; const b=document.getElementById('estoqueBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
@@ -1377,14 +1415,15 @@ function checkUrgentAlerts(){
 function renderApprovals(){
   const list=document.getElementById('apprList'); list.innerHTML='';
   const items=pendingReports();
-  if(!items.length){ list.innerHTML=`<div class="empty"><span class="tile" style="background:var(--neu-bg)"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg></span><div>Nenhum relatório aguardando você.</div></div>`; return; }
-  items.forEach(a=>{
+  if(!items.length){ list.innerHTML=`<div class="empty"><span class="tile" style="background:var(--neu-bg)"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg></span><div>Nenhum relatório aguardando você.</div></div>`; }
+  else items.forEach(a=>{
     const o=a.os, el=document.createElement('div'); el.className='appr-item'; el.onclick=()=>{ curAppt=a; curOS=o; navStack=[]; pushSub({type:'relatorio'}); };
     el.innerHTML=`<div class="appr-top"><div class="appr-cli">${o.cli}</div><span class="lz ${repLozCls(o)}">${repStatusLabel(o)}</span></div>
       <div class="appr-meta">${o.id} · ${a.id} · v${o.relatorio.versao}</div>
       <div class="appr-meta">${o.relatorio.ajustes?'Devolvido para ajustes':(o.relatorio.stage===3?'Aprovado — aguardando liberação':'Aguarda revisão · '+REP_STAGES[o.relatorio.stage])}</div>`;
     list.appendChild(el);
   });
+  renderAvisosAppr(list);
 }
 
 /* ===== Produção (Ordem_de_Producao__c — task #49/#50) =====
@@ -4396,6 +4435,12 @@ function canBipar(r){ return ['Supervisor','Líder de Equipe','Sócio'].includes
 function canTreino(r){ return ['Auxiliar de Manutenção (MPP)','Líder de Equipe'].includes(r); }
 /* aba Aprovações: todos menos o Auxiliar (que é só visualização) */
 function canApprovalsTab(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
+/* Avisos de Contrato (fluxo de aprovação v2): LANÇAR = "líder pra cima" (todo papel exceto o
+   Auxiliar — inclui Líder de Equipe, Estoquista, Supervisor, Coordenador, Gerente, Sócio);
+   APROVAR criação/edição/exclusão e ALTERAR texto direto = Supervisor pra cima (mesma lista de
+   canAloc/canCadastrar). Abaixo de Supervisor só SUGERE — sempre entra na fila de aprovação. */
+function canLancarAviso(r){ return r!=='Auxiliar de Manutenção (MPP)'; }
+function canAprovarAviso(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
 /* módulo Produção (Ordem_de_Producao__c, task #49/#50): aprovação técnica = mesma função
    elevada usada em toda a app (Coordenador/Gerente/Sócio); iniciar/finalizar = Funcao__c='Produção'
    (quem realmente fabrica, ex.: Gabriel) — os 2 gates batem com o que o backend já exige. */
@@ -5342,10 +5387,226 @@ function sfPushPresenca(a,body,label){
     .then(r=>{ toast(r&&r._queued?('📡 '+label+' salvo no aparelho — sincroniza com sinal'):('✅ '+label+' gravado')); return r; })
     .catch(e=>toast('⚠️ '+label+' não gravado: '+e.message));
 }
-async function checkInAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
+async function checkInAloc(fromGate){ if(!_alocDet) return; const a=_alocDet.a;
+  /* gate de Avisos do Contrato: cada pessoa alocada precisa ter lido TODOS os avisos ativos do
+     contrato NESTA OS antes do check-in — a leitura vale POR ALOCAÇÃO (pessoa × OS, gravada em
+     Leitura_Aviso__c.Alocacao__c): OS nova do mesmo contrato nasce tudo não lido de novo. */
+  if(!fromGate && SF_LIVE && myRid() && (_alocDet.o._contrato || (_alocDet.o._avisos||[]).length)){
+    const ok=await avisosGateOk(_alocDet.o, a._ar); if(!ok) return; }
+  const t=new Date().toISOString();
   await getGeo(); const geo=_geoStr({geo:_lastGeo});
   a._efIni=t; if(geo)a._geoIn=geo;
   sfPushPresenca(a,Object.assign({efetivoInicio:t},geo?{geoCheckin:geo}:{}),'Check-in'); openAlocDet(_alocDet.o.id,a.matricula); }
+/* ===== AVISOS DO CONTRATO: leitura obrigatória POR OS antes do check-in =====
+   A leitura vale por ALOCAÇÃO (Alocacao_em_OS__c = pessoa × OS), não "por pessoa pra sempre":
+   toda OS nova nasce com os avisos não lidos pra todo mundo — como o aviso de segurança do
+   avião, que vale de novo a cada voo ("voo novo" = OS nova). Dentro da MESMA OS a leitura
+   persiste (check-out + novo check-in não pedem reler).
+   Fonte: o /hydrate já traz cada OS com o contrato (_contrato) e os avisos ativos anotados com
+   lido/lidoEm pra alocação do usuário NAQUELA OS (_avisos) — por isso o gate funciona também
+   OFFLINE, com o snapshot da última sincronização. Na hora do check-in tentamos um refresh
+   best-effort do backend (pega aviso publicado depois do último hydrate); sem sinal, snapshot. */
+let _avisosCtx=null; /* {o, avisos, alocId, onOk} */
+async function avisosGateOk(o, alocId){
+  let avisos=o._avisos||[];
+  if(o._contrato){
+    try{ const fresh=await beGet('/avisos?contratoId='+encodeURIComponent(o._contrato)+(alocId?'&alocId='+encodeURIComponent(alocId):''));
+      if(Array.isArray(fresh)){ o._avisos=fresh; avisos=fresh; } }catch(e){ /* offline/erro: segue com o snapshot */ }
+  }
+  if(!avisos.some(v=>!v.lido)) return true; /* nada pendente (ou avisos todos desativados) — segue o check-in */
+  _avisosCtx={o,avisos,alocId:alocId||null,onOk:function(){ checkInAloc(true); }};
+  renderAvisos();
+  document.getElementById('avisosModal').classList.add('show');
+  return false;
+}
+function renderAvisos(){
+  const c=_avisosCtx; if(!c) return;
+  const pend=c.avisos.filter(v=>!v.lido).length;
+  document.getElementById('avisosSub').innerHTML = pend
+    ? 'Este contrato tem <b>'+pend+' aviso'+(pend>1?'s':'')+' não lido'+(pend>1?'s':'')+'</b>. Toque em cada um pra ler — o check-in libera quando todos estiverem lidos.'
+    : 'Todos os avisos deste contrato foram lidos. ✅';
+  document.getElementById('avisosList').innerHTML = c.avisos.map((v,i)=>
+    '<div class="av-item'+(v.lido?' lido':'')+(v._aberto?' aberto':'')+'" onclick="avisoAbrir('+i+')">'+
+      '<div class="av-tit">'+(v.lido?'':'● ')+_esc(v.titulo)+'</div>'+
+      '<div class="av-meta">'+(v.name?_esc(v.name)+' · ':'')+(v.lido?('lido'+(v.lidoEm?' em '+fmtDH(v.lidoEm):'')):'não lido — toque para abrir')+(v.status==='Aguardando aprovação de exclusão'?' · ⚠️ exclusão pedida — vale até aprovarem':'')+'</div>'+
+      '<div class="av-body">'+_esc(v.mensagem)+'</div>'+
+    '</div>').join('') || '<div class="modal-sub" style="margin:0">Nenhum aviso ativo.</div>';
+  document.getElementById('avisosOkBtn').disabled = pend>0;
+}
+function avisoAbrir(i){
+  const c=_avisosCtx; if(!c) return; const v=c.avisos[i]; if(!v) return;
+  if(v.lido){ v._aberto=!v._aberto; renderAvisos(); return; } /* já lido: só expande/recolhe */
+  v.lido=true; v.lidoEm=new Date().toISOString(); v._aberto=true;
+  /* a leitura é gravada NA ALOCAÇÃO (pessoa × OS); idempotente no backend — com a fila offline
+     (bePost com label) a leitura feita sem sinal sincroniza depois */
+  bePost('/avisos/'+v.id+'/ler',{alocId:c.alocId||null},'Leitura do aviso '+(v.name||''))
+    .then(r=>{ if(r&&r._queued) toast('📡 Leitura salva no aparelho — sincroniza com sinal'); })
+    .catch(e=>toast('⚠️ Leitura não gravada: '+e.message));
+  renderAvisos();
+}
+function closeAvisos(){ document.getElementById('avisosModal').classList.remove('show'); _avisosCtx=null; }
+function avisosConfirmar(){ const c=_avisosCtx; if(!c || c.avisos.some(v=>!v.lido)) return; closeAvisos(); if(c.onOk) c.onOk(); }
+
+/* ===== GESTÃO DE AVISOS DE CONTRATO — fluxo de aprovação (v2, 11/07/2026) =====
+   Status do aviso (fonte da verdade no Aviso_Contrato__c.Status__c, o backend decide):
+   Aguardando aprovação (não bloqueia ainda) → Ativo (bloqueia) → Aguardando aprovação de
+   exclusão (AINDA bloqueia) → Excluído (não bloqueia) · Rejeitado (nunca valeu).
+   Cada pedido de Criação/Edição/Exclusão vira um Aviso_Contrato_Alteracao__c — a lista é o
+   histórico de auditoria. Supervisor+ age direto (auto-aprovado); abaixo disso vai pra fila,
+   que aparece pro Supervisor+ na MESMA aba Aprovações dos relatórios de visita. */
+const AV_ST_LZ={'Aguardando aprovação':'lz-warn','Ativo':'lz-succ','Aguardando aprovação de exclusão':'lz-warn','Excluído':'lz-neu','Rejeitado':'lz-err'};
+function avStChip(st){ return '<span class="lz '+(AV_ST_LZ[st]||'lz-neu')+'" style="margin-left:6px">'+_esc(st||'—')+'</span>'; }
+async function fetchAvPendencias(){
+  if(!(SF_LIVE&&canAprovarAviso(ROLE))){ _avPend=[]; return _avPend; }
+  try{ const r=await beGet('/avisos/pendencias'); _avPend=Array.isArray(r)?r:[]; }catch(e){ _avPend=[]; }
+  return _avPend;
+}
+/* seção "Avisos de contrato" dentro da aba Aprovações (mesmo lugar de tudo que precisa aprovação) */
+function renderAvisosAppr(list){
+  if(!(SF_LIVE&&canLancarAviso(ROLE))) return;
+  const sec=document.createElement('div'); sec.id='avApprSec';
+  sec.innerHTML='<div class="rel-hd" style="padding-left:14px">📨 Avisos de contrato</div>'
+    +'<div class="subnote" style="padding:0 14px 8px">'+(canAprovarAviso(ROLE)
+      ?'Você aprova criação, edição e exclusão de avisos — e pode alterar direto.'
+      :'Você lança avisos e sugere alterações; valem depois da aprovação do Supervisor pra cima.')+'</div>'
+    +'<div id="avPendList"></div>'
+    +'<div style="padding:0 14px"><button class="btn btn-neutral" id="avGesBtn" style="width:100%" onclick="openAvGes()">Gerenciar avisos de contrato</button></div>';
+  list.appendChild(sec);
+  paintAvPend();
+  fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); });
+}
+function paintAvPend(){
+  const el=document.getElementById('avPendList'); if(!el) return;
+  if(!canAprovarAviso(ROLE)){ el.innerHTML=''; return; }
+  el.innerHTML=_avPend.map(p=>
+    '<div class="appr-item" style="cursor:default">'
+    +'<div class="appr-top"><div class="appr-cli">'+_esc(p.tipo||'')+' de aviso — '+_esc(p.tituloNovo||p.avisoTitulo||p.avisoName||'')+'</div><span class="lz lz-warn">Pendente</span></div>'
+    +'<div class="appr-meta">'+_esc(p.avisoName||'')+' · pedido por '+_esc(p.solicitadoPorNome||'—')+(p.solicitadoEm?' · '+fmtDH(p.solicitadoEm):'')+'</div>'
+    +(p.tipo==='Exclusão'?'':'<div class="appr-meta">Texto: '+_esc(String(p.textoNovo||'').slice(0,160))+'</div>')
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button class="btn btn-succ" style="flex:1" onclick="avPendDecidir(\''+p.avisoId+'\',\''+p.id+'\',true)">Aprovar</button>'
+    +'<button class="btn btn-neutral" style="flex:1" onclick="avPendDecidir(\''+p.avisoId+'\',\''+p.id+'\',false)">Rejeitar</button>'
+    +'</div></div>'
+  ).join('')||'<div class="subnote" style="padding:0 14px 8px">Nenhum aviso aguardando sua aprovação.</div>';
+}
+async function avPendDecidir(avisoId,altId,aprovar){
+  let motivo='';
+  if(!aprovar){ motivo=window.prompt('Motivo da rejeição (opcional):')||''; }
+  try{
+    const r=await bePost('/avisos/'+avisoId+'/alteracoes/'+altId+'/'+(aprovar?'aprovar':'rejeitar'), aprovar?{}:{motivo});
+    toast(aprovar?('✅ '+((r&&r.tipo)||'Alteração')+' aprovada'+(r&&r.leiturasResetadas?' — todos vão reler o aviso':'')):'Alteração rejeitada');
+    await fetchAvPendencias(); paintAvPend(); updateApprBadge();
+    if(_avGes&&_avGes.ctr) avGesAbrirContrato(_avGes.ctr); /* refresca a lista do modal, se aberto */
+  }catch(e){ toast('Erro: '+e.message); }
+}
+/* modal de gestão: contratos (das OS carregadas) → avisos do contrato (todos os status) + histórico */
+let _avGes=null; /* {view:'contratos'|'lista'|'form', contratos, ctr, ctrLabel, avisos, formAviso, erro} */
+function avGesContratos(){
+  const map={}; ordens.forEach(o=>{ if(o._contrato&&!map[o._contrato]) map[o._contrato]={id:o._contrato,label:o.cli||o._contrato}; });
+  return Object.values(map);
+}
+function openAvGes(){
+  const cs=avGesContratos();
+  if(!cs.length){ toast('Nenhum contrato carregado — os contratos vêm das OS da agenda'); return; }
+  _avGes={view:'contratos',contratos:cs};
+  document.getElementById('avGesModal').classList.add('show');
+  if(cs.length===1){ avGesAbrirContrato(cs[0].id); return; }
+  renderAvGes();
+}
+function closeAvGes(){ document.getElementById('avGesModal').classList.remove('show'); _avGes=null; }
+async function avGesAbrirContrato(ctrId){
+  const cs=(_avGes&&_avGes.contratos)||avGesContratos();
+  const c=cs.find(x=>x.id===ctrId);
+  _avGes={view:'lista',contratos:cs,ctr:ctrId,ctrLabel:(c?c.label:ctrId),avisos:null,erro:null};
+  renderAvGes();
+  try{ const r=await beGet('/avisos/contrato/'+encodeURIComponent(ctrId));
+    if(_avGes&&_avGes.ctr===ctrId&&_avGes.view!=='form'){ _avGes.avisos=Array.isArray(r)?r:[]; renderAvGes(); }
+    else if(_avGes&&_avGes.ctr===ctrId){ _avGes.avisos=Array.isArray(r)?r:[]; } }
+  catch(e){ if(_avGes&&_avGes.ctr===ctrId){ _avGes.avisos=[]; _avGes.erro=e.message; renderAvGes(); } }
+}
+function avGesHistHTML(a){
+  const h=a.historico||[]; if(!h.length) return '';
+  return '<div class="av-hist">'+h.map(x=>{
+    const st=x.status==='Pendente'?'⏳ pendente':(x.status==='Aprovado'?'✔ aprovado':'✖ rejeitado');
+    return '<div class="av-hist-row"><b>'+_esc(x.tipo||'')+'</b> por '+_esc(x.solicitadoPorNome||'—')+(x.solicitadoEm?' em '+fmtDH(x.solicitadoEm):'')
+      +' — '+st+(x.decididoPorNome?(' por '+_esc(x.decididoPorNome)+(x.decididoEm?' em '+fmtDH(x.decididoEm):'')):'')
+      +(x.motivoRejeicao?(' · motivo: '+_esc(x.motivoRejeicao)):'')+'</div>';
+  }).join('')+'</div>';
+}
+function renderAvGes(){
+  const g=_avGes; if(!g) return;
+  const body=document.getElementById('avGesBody'), sub=document.getElementById('avGesSub');
+  if(g.view==='contratos'){
+    sub.textContent='Escolha o contrato:';
+    body.innerHTML=g.contratos.map(c=>'<div class="av-item" onclick="avGesAbrirContrato(\''+c.id+'\')"><div class="av-tit">'+_esc(c.label)+'</div><div class="av-meta">tocar para abrir os avisos</div></div>').join('');
+    return;
+  }
+  if(g.view==='form'){
+    const ed=g.formAviso;
+    sub.textContent=ed?(canAprovarAviso(ROLE)?'Alterar o texto — aplica na hora e TODOS releem o aviso.':'Sugerir alteração — só vale depois da aprovação do Supervisor pra cima.')
+                     :('Novo aviso em '+g.ctrLabel+(canAprovarAviso(ROLE)?' — publica na hora.':' — vai pra aprovação do Supervisor pra cima.'));
+    body.innerHTML=
+      '<div class="field"><label>Título</label><input id="avGesTitulo" maxlength="120" value="'+_esc(ed?ed.titulo:'')+'"></div>'
+      +'<div class="field"><label>Mensagem</label><textarea id="avGesMsg" rows="5" style="width:100%">'+_esc(ed?ed.mensagem:'')+'</textarea></div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button class="btn btn-neutral" style="flex:1" onclick="avGesVoltar()">Cancelar</button>'
+      +'<button class="btn btn-brand" style="flex:1" id="avGesSalvarBtn" onclick="avGesSalvar()">'+(ed?(canAprovarAviso(ROLE)?'Salvar alteração':'Enviar sugestão'):(canAprovarAviso(ROLE)?'Publicar aviso':'Enviar pra aprovação'))+'</button>'
+      +'</div>';
+    return;
+  }
+  /* lista de avisos do contrato (todos os status) + histórico + ações por papel */
+  sub.innerHTML='Contrato: <b>'+_esc(g.ctrLabel)+'</b>';
+  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0">Carregando…</div>'; return; }
+  const cards=g.avisos.map(function(a,i){
+    const pend=(a.historico||[]).filter(x=>x.status==='Pendente');
+    return '<div class="av-item aberto" style="cursor:default">'
+      +'<div class="av-tit">'+_esc(a.titulo)+avStChip(a.status)+'</div>'
+      +'<div class="av-meta">'+_esc(a.name||'')+(a.criadoEm?' · criado em '+fmtDH(a.criadoEm):'')+'</div>'
+      +'<div class="av-body">'+_esc(a.mensagem)+'</div>'
+      +avGesHistHTML(a)
+      +(canAprovarAviso(ROLE)?pend.map(x=>
+        '<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><span class="lz lz-warn">'+_esc(x.tipo)+' pendente</span>'
+        +'<button class="btn btn-succ" style="flex:1" onclick="avPendDecidir(\''+a.id+'\',\''+x.id+'\',true)">Aprovar</button>'
+        +'<button class="btn btn-neutral" style="flex:1" onclick="avPendDecidir(\''+a.id+'\',\''+x.id+'\',false)">Rejeitar</button></div>').join(''):'')
+      +(a.status==='Ativo'?('<div style="display:flex;gap:8px;margin-top:8px">'
+        +'<button class="btn btn-neutral" style="flex:1" onclick="avGesEditar('+i+')">'+(canAprovarAviso(ROLE)?'✏️ Editar texto':'✏️ Sugerir alteração')+'</button>'
+        +'<button class="btn btn-neutral" style="flex:1;color:var(--err-tx);border-color:var(--err-bd)" onclick="avGesExcluir('+i+')">'+(canAprovarAviso(ROLE)?'🗑 Excluir':'🗑 Pedir exclusão')+'</button>'
+        +'</div>'):'')
+      +'</div>';
+  }).join('');
+  body.innerHTML=(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
+    +(cards||'<div class="subnote" style="padding:8px 0">Nenhum aviso neste contrato ainda.</div>')
+    +'<button class="btn btn-brand" id="avGesNovoBtn" style="width:100%;margin-top:12px" onclick="avGesNovo()">➕ Lançar aviso'+(canAprovarAviso(ROLE)?'':' (vai pra aprovação)')+'</button>';
+}
+function avGesVoltar(){ if(!_avGes) return; _avGes.view='lista'; _avGes.formAviso=null; renderAvGes(); }
+function avGesNovo(){ if(!_avGes) return; _avGes.view='form'; _avGes.formAviso=null; renderAvGes(); }
+function avGesEditar(i){ if(!_avGes||!_avGes.avisos) return; _avGes.view='form'; _avGes.formAviso=_avGes.avisos[i]||null; renderAvGes(); }
+async function avGesSalvar(){
+  const g=_avGes; if(!g) return;
+  const titulo=(document.getElementById('avGesTitulo').value||'').trim();
+  const mensagem=(document.getElementById('avGesMsg').value||'').trim();
+  if(!titulo||!mensagem){ toast('Preencha título e mensagem'); return; }
+  const btn=document.getElementById('avGesSalvarBtn'); if(btn) btn.disabled=true;
+  try{
+    const r=g.formAviso
+      ? await bePost('/avisos/'+g.formAviso.id+'/sugerir-edicao',{titulo,mensagem})
+      : await bePost('/avisos',{contratoId:g.ctr,titulo,mensagem});
+    toast(r&&r.pendente?'📨 Enviado pra aprovação do Supervisor pra cima':('✅ Aviso '+(g.formAviso?'alterado — todos vão reler':'publicado')));
+    avGesAbrirContrato(g.ctr);
+  }catch(e){ toast('Erro: '+e.message); if(btn) btn.disabled=false; }
+}
+async function avGesExcluir(i){
+  const g=_avGes; if(!g||!g.avisos) return; const a=g.avisos[i]; if(!a) return;
+  const direto=canAprovarAviso(ROLE);
+  if(!window.confirm(direto
+    ? 'Excluir o aviso "'+a.titulo+'"? Ele para de bloquear o check-in na hora.'
+    : 'Pedir a exclusão do aviso "'+a.titulo+'"? Ele CONTINUA bloqueando o check-in até um Supervisor+ aprovar.')) return;
+  try{
+    const r=await bePost('/avisos/'+a.id+'/pedir-exclusao',{});
+    toast(r&&r.pendente?'📨 Exclusão enviada pra aprovação — o aviso segue valendo':'🗑 Aviso excluído');
+    avGesAbrirContrato(g.ctr);
+  }catch(e){ toast('Erro: '+e.message); }
+}
 async function checkOutAloc(){ if(!_alocDet) return; const a=_alocDet.a; const t=new Date().toISOString();
   await getGeo(); const geo=_geoStr({geo:_lastGeo});
   a._efFim=t; if(geo)a._geoOut=geo;
@@ -5959,6 +6220,7 @@ async function beHydrate(quiet){
       if(_dtDia0>=_hojeD0) diasSet.add(dia+'|'+dt.getFullYear());
       const o={ id:_esc(wo.id||'OS'), _wo:wo.osId, _sfName:wo.id, _sfStatus:wo.status, _sa:null,
         _autorizados:wo.autorizados||{}, _sols:wo.solicitacoes||[], _solEnviada:!!wo.solicitacaoEnviada,
+        _contrato:wo.contratoId||null, _avisos:wo.avisos||[],
         _dataISO:(wo.startDate||'').slice(0,10),
         equipePadrao:2,
         cli:wo.account||'—', contrato:'—', local:wo.account||'—', modelo:wo.objeto||'Manutenção preventiva',
