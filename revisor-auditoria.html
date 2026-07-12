@@ -703,7 +703,7 @@ function naMostrarDuplicata(motivo, existente){
   el.innerHTML = '<div class="msg err" style="margin-top:10px">'
     + '<div style="margin-bottom:8px">' + titulo + '<br>' + contexto + '</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + (podeSobrescrever ? '<button type="button" class="btn" onclick="naSobrescreverExistente()">Sobrescrever</button>' : '')
+      + (podeSobrescrever ? '<button type="button" class="btn" onclick="naSobrescreverExistente()">Substituir o anterior por este</button>' : '')
       + '<button type="button" class="btn sec" onclick="naForcarImportar()">Criar outro</button>'
     + '</div>'
   + '</div>';
