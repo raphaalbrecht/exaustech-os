@@ -84,7 +84,10 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v100'; // v100 13/07: wizard endr* — análise de UX (agente Fable) sobre o
+const CACHE = 'exaustech-os-v101'; // v101 13/07: spinner animado (.ld-spin, CSS puro) substitui todos
+// os "Carregando…" estáticos do app (endr*/recp*/aprovações/avisos/cadastro/galeria de mídia) — só
+// cosmético, dá a sensação de progresso acontecendo entre uma tela e outra (pedido do Raphael).
+// v100 13/07: wizard endr* — análise de UX (agente Fable) sobre o
 // passo "lista" do cadastro de endereço: "+ Novo endereço" sobe pra logo abaixo do título (não fica
 // mais escondido embaixo da lista de existentes, que virou secundária com contador); tela de
 // sucesso ganha "+ Criar outro <tipo> aqui" herdando área/rua/tipo do endereço recém-criado

@@ -72,6 +72,11 @@
   @keyframes lzLivePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.4;box-shadow:0 0 0 4px transparent}}
   .eq-pill.live{animation:eqLivePulse 2.2s ease-in-out infinite}
   @keyframes eqLivePulse{0%,100%{box-shadow:0 0 0 0 rgba(186,5,23,.45)}50%{box-shadow:0 0 0 5px rgba(186,5,23,0)}}
+  /* ---- spinner de carregamento (13/07/2026, pedido do Raphael): símbolo animado só pra dar a
+     sensação de progresso acontecendo entre uma tela e outra — substitui os "Carregando…" estáticos
+     que só ficavam parados na tela. Puramente cosmético, sem CSS/lib externa, cirúrgico. ---- */
+  .ld-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--brand-l);border-top-color:var(--brand);border-radius:50%;animation:ldSpin .7s linear infinite;vertical-align:-2.5px;margin-right:7px;flex:none}
+  @keyframes ldSpin{to{transform:rotate(360deg)}}
   /* ---- agenda ---- */
   .sched-top{background:#fff;border-bottom:1px solid var(--border);padding:10px 14px 4px}
   .sched-title{font-size:18px;font-weight:700;margin:0 0 8px}
@@ -1478,7 +1483,7 @@ let _producaoLoading=false;
 async function renderProducao(){
   const list=document.getElementById('producaoList'); if(!list) return;
   if(_producaoLoading) return; _producaoLoading=true;
-  list.innerHTML='<div class="empty">Carregando…</div>';
+  list.innerHTML='<div class="empty"><span class="ld-spin"></span>Carregando…</div>';
   try{
     const ops=await fetchProducaoList();
     if(!ops.length){ list.innerHTML=`<div class="empty"><span class="tile" style="background:var(--neu-bg)"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg></span><div>Nenhuma Ordem de Produção pendente de você.</div></div>`; }
@@ -3199,7 +3204,7 @@ function endrEscolherLocal(l){ endrSt.localId=l.id; endrSt.localNome=l.nome; end
 function endrRenderLocal(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Local de estoque</div>';
   if(endrSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(endrSt.erro)+'</div>'; return; }
-  if(!endrSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!endrSt._locaisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!endrSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado (LocalEstoque__c com Ativo__c=true).</div>'; return; }
   estoqLocaisAgrupados(card, endrSt.locais, endrEscolherLocal);
 }
@@ -3242,7 +3247,7 @@ function endrEscolherArea(a){
 }
 function endrRenderArea(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Área</div>';
-  if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   endrSt.areas.forEach(a=>{
     const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
     b.textContent=a.nome+(a.requerRua?' (Rua obrigatória)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
@@ -3273,7 +3278,7 @@ function endrRenderLista(card){
      reimpressão de etiqueta), com contador. Pedido do Raphael 13/07/2026, análise Fable. */
   const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
   novo.onclick=endrNovoEndereco; card.appendChild(novo);
-  if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.textContent='Carregando…'; card.appendChild(l); }
+  if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(l); }
   else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
   else {
     const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560'; lbl.textContent='Endereços cadastrados ('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
@@ -3390,7 +3395,7 @@ async function endrAbrirDetalhe(id){
 }
 function endrRenderDetalhe(card){
   const d=endrSt.enderecoDetalhe || (endrSt.retorno==='recp' ? endrSt.enderecoCriado : null);
-  if(!d){ card.innerHTML='<div class="subnote">'+(endrSt.erro?_esc(endrSt.erro):'Carregando…')+'</div>'; return; }
+  if(!d){ card.innerHTML='<div class="subnote">'+(endrSt.erro?_esc(endrSt.erro):'<span class="ld-spin"></span>Carregando…')+'</div>'; return; }
   const ocupTxt=d.capacidade!=null?(d.ocupacao+' / '+d.capacidade):(''+d.ocupacao);
   const dloc=[d.area,d.rua].filter(Boolean).join(' ');
   card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:4px">✅</div>'
@@ -3557,7 +3562,7 @@ async function recpCarregarLista(){
 function recpRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Entradas aguardando conferência</div>';
   if(recpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>';
-  if(!recpSt._listaCarregada){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!recpSt._listaCarregada){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!recpSt.recebimentos.length){ card.innerHTML+='<div class="subnote">Nenhuma entrada aguardando conferência. 🎉</div>'; return; }
   recpSt.recebimentos.forEach(r=>{
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
@@ -3575,7 +3580,7 @@ async function recpCarregarLocais(){
 function recpRenderLocal(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Este recebimento não tem local padrão — escolha onde vai guardar</div>';
   if(recpSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>'; return; }
-  if(!recpSt._locaisCarregados){ card.innerHTML+='<div class="subnote">Carregando…</div>'; return; }
+  if(!recpSt._locaisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!recpSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
   estoqLocaisAgrupados(card, recpSt.locais, recpEscolherLocal);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='lista'; recpSt._listaCarregada=false; renderEstoque(); recpCarregarLista(); }; card.appendChild(bk);
@@ -3632,7 +3637,7 @@ function recpStatusComposto(item){
 }
 function recpRenderRecebimento(card){
   const r=recpSt.rec;
-  if(!r){ card.innerHTML='<div class="subnote">'+(recpSt.erro?_esc(recpSt.erro):'Carregando…')+'</div>'; return; }
+  if(!r){ card.innerHTML='<div class="subnote">'+(recpSt.erro?_esc(recpSt.erro):'<span class="ld-spin"></span>Carregando…')+'</div>'; return; }
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(r.name)+'</div>'
     +'<div class="subnote" style="padding:0 0 8px">'+_esc(r.status||'')+' · '+_esc(recpSt.localNome||'local não definido')+'</div>';
   if(recpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>';
@@ -4707,7 +4712,7 @@ async function renderCadastro(){
   if(!canCadastrar(ROLE)){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Cadastro de ativos é liberado para Supervisor pra cima.</div>'; return; }
   if(!beTok()){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Entre para cadastrar.</div>'; return; }
   if(!cadSt.tipos.length){
-    el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Carregando…</div>';
+    el.innerHTML='<div style="padding:24px;text-align:center;color:#686868"><span class="ld-spin"></span>Carregando…</div>';
     try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipo=cadSt.tipos.find(t=>t.nome===CAD_SIS_TIPO)||null; }
     catch(e){ el.innerHTML='<div style="padding:24px;color:#C4451B">'+cadEsc(e.message)+'</div>'; return; }
   }
@@ -4721,7 +4726,7 @@ async function cadStepConta(){
   const el=document.getElementById('cadBody');
   el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em qual conta você está?</div>'
-    +'<div id="cadContaWrap" style="color:#686868">Carregando…</div></div>';
+    +'<div id="cadContaWrap" style="color:#686868"><span class="ld-spin"></span>Carregando…</div></div>';
   try{
     if(!cadSt.contas.length) cadSt.contas=await beGet('/contas');
     const opts=cadSt.contas.map((c,i)=>`<option value="${i}"${cadSt.conta&&cadSt.conta.id===c.id?' selected':''}>${cadEsc(c.nome)}</option>`).join('');
@@ -4866,7 +4871,7 @@ async function cadCriarConta(){
 async function cadPickConta(i){
   cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
   cadSt.sistemas=[];
-  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Carregando sistemas…</div>';
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando sistemas…</div>';
   try{ if(cadSt.sistemaTipo) cadSt.sistemas=await beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+cadSt.sistemaTipo.id); }catch(e){ toast(e.message); }
   cadStepSistema();
 }
@@ -5620,7 +5625,7 @@ function renderAvGes(){
   }
   /* lista de avisos do contrato (todos os status) + histórico + ações por papel */
   sub.innerHTML='Contrato: <b>'+_esc(g.ctrLabel)+'</b>';
-  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0">Carregando…</div>'; return; }
+  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando…</div>'; return; }
   const cards=g.avisos.map(function(a,i){
     const pend=(a.historico||[]).filter(x=>x.status==='Pendente');
     return '<div class="av-item aberto" style="cursor:default">'
@@ -5726,7 +5731,7 @@ function renderAvGlo(){
     return;
   }
   sub.textContent='Valem pra todas as OS de todos os contratos, dentro da janela de datas.';
-  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0">Carregando…</div>'; return; }
+  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando…</div>'; return; }
   const cards=g.avisos.map(function(a,i){
     return '<div class="av-item aberto" style="cursor:default">'
       +'<div class="av-tit">🌐 '+_esc(a.titulo)+avStChip(a.status)+'</div>'
@@ -6195,7 +6200,7 @@ async function renderExp(){
   const wrap=document.getElementById('expBody'); if(!wrap) return;
   const rid=myRid();
   if(!rid){ wrap.innerHTML='<div style="padding:16px;color:var(--weaker);font-size:13px">Sem recurso vinculado ao seu login — fale com o supervisor.</div>'; return; }
-  wrap.innerHTML='<div style="padding:16px;color:var(--weaker);font-size:13px">Carregando…</div>';
+  wrap.innerHTML='<div style="padding:16px;color:var(--weaker);font-size:13px"><span class="ld-spin"></span>Carregando…</div>';
   try{
     if(expView==='extrato') await renderExpExtrato(wrap,rid); else await renderExpHome(wrap,rid);
   }catch(e){ wrap.innerHTML='<div style="padding:16px;color:var(--err);font-size:13px">Erro ao carregar EXP: '+e.message+'</div>'; }
@@ -6302,7 +6307,7 @@ async function verImagem(driveId,titulo){
     m.onclick=e=>{ if(e.target===m) fecharImagem(); };
     document.body.appendChild(m); }
   document.getElementById('imgViewTit').textContent=titulo||'Arquivo';
-  const body=document.getElementById('imgViewBody'); body.innerHTML='<div style="font:600 13px system-ui;color:#666">⏳ Carregando…</div>';
+  const body=document.getElementById('imgViewBody'); body.innerHTML='<div style="font:600 13px system-ui;color:#666"><span class="ld-spin"></span>Carregando…</div>';
   m.style.display='flex';
   try{
     const r=await fetch(BACKEND+'/arquivos/'+driveId,{headers:{Authorization:'Bearer '+beTok()}});
