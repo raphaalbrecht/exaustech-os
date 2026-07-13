@@ -2382,15 +2382,10 @@ function edHtmlTabela(l){
   const notaRow = l.possuiTextoComplementar
     ? '<tr><td>Nota do vistoriador</td><td><span class="nota-inline">"' + escapeHtml(l.textoComplementar) + '"</span></td></tr>'
     : '';
-  // achado #7 da revisão Fable (10/07): rodada 5 tinha removido o texto bruto do PDF por ficar
-  // 100% redundante com Pergunta+Não-conformidade nos matches Fortes — mas o próprio comentário já
-  // reconhecia a exceção (linha ~1192 na época): em itens com correção MANUAL o texto some de vez,
-  // justo onde a conferência mais importa. Aqui implementa exatamente essa condicional — só aparece
-  // quando o registro tem override humano (Origem_do_Registro__c === 'Importado + editado'), sem
-  // reverter o caso comum (match forte confirmado sem edição continua sem essa linha extra).
-  const textoPdfRow = l.origem === 'Importado + editado' && l.textoOriginal
-    ? '<tr><td>Texto do PDF</td><td><span class="nota-inline">"' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '"</span></td></tr>'
-    : '';
+  // 13/07/2026: pedido do Raphael — retirar "Texto do PDF" da exibição (ficava redundante com
+  // Pergunta+Não-conformidade também no caso "Importado + editado"). Linha totalmente removida
+  // (histórico do achado #7 da revisão Fable de 10/07 que a tinha introduzido: ver git blame).
+  const textoPdfRow = '';
 
   const faixaCell = faixaMatchCell(l);
   const faixaRow = faixaCell ? '<tr><td>Faixa do match</td><td>' + faixaCell + '</td></tr>' : '';
