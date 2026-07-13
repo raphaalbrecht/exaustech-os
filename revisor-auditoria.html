@@ -322,7 +322,9 @@
      direita, como um grupo só (rótulo + faixa/score, ou "corrigido" quando ainda não confirmado). */
   .litem .num .faixa-match{font-weight:400;color:var(--weak);white-space:nowrap;flex-shrink:0}
   .litem .check-icon{display:inline-block;width:16px;text-align:center;color:var(--succ);font-weight:700}
-  .litem .txt{font-size:12px;color:var(--weak);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  /* 13/07/2026: pedido do Raphael — quebra visual entre a linha do número/faixa e o texto da NC
+     (antes 3px, quase colado); agora abre uma linha em branco de verdade entre os dois blocos. */
+  .litem .txt{font-size:12px;color:var(--weak);margin-top:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .litem.nao-lida .txt{font-weight:700;color:var(--txt)}
   .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-block}
