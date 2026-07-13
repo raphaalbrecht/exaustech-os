@@ -1295,7 +1295,11 @@ function faixaMatchCell(l){
 // Forte/Fraco/Sem match que ainda contam por esse campo.
 function faixaCardBadge(l){
   if (l.origem === 'Manual') return '<span class="badge neu">manual</span>';
-  if (l.origem === 'Importado + editado') {
+  // 13/07/2026: pedido do Raphael — depois que o match é confirmado, o badge "corrigido" vira ruído
+  // (a pílula MATCH CONFIRMADO já entrega esse contexto); some e volta a mostrar só a faixa/percentual
+  // que já existiam antes da correção (mesmo l.faixa/l.score, que o backend nunca reescreve). Enquanto
+  // ainda não foi confirmado, "corrigido" continua aparecendo — é útil pro revisor em andamento.
+  if (l.origem === 'Importado + editado' && !matchConfirmado(l)) {
     const tit = 'Match automático do import: ' + escapeHtml(l.faixa || '—') + (l.score != null ? ' · ' + l.score + '%' : '');
     return '<span class="badge neu" title="' + tit + '">corrigido</span>';
   }
