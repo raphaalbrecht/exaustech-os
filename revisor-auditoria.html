@@ -1320,6 +1320,16 @@ function badgeStatus(status){
   return '<span class="badge status-grande ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
 }
 
+// 13/07/2026: pedido do Raphael — o card da lista sinalizava "match confirmado" de forma disfarçada
+// (check-icon + fundo azul claro, ver .litem.revisada), sem pílula nenhuma; ele perguntou se o check
+// era sinônimo do status e pediu pra trocar por uma pílula clara, mesma cor/mesmo sentido da pílula
+// grande da coluna de registro (badgeStatus() acima) — só com rótulo mais curto pra caber no card.
+function badgeStatusMini(status){
+  const cls = status === 'Pendente proposta' ? 'confirmada' : status === 'Pendente de revisão' ? 'trat-em' : 'neu';
+  const label = status === 'Pendente proposta' ? '✓ Confirmado' : status === 'Pendente de revisão' ? 'Pendente confirmação' : (status || '—');
+  return '<span class="badge ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
+}
+
 function contagem(faixaOrTag){
   if (faixaOrTag === 'foto') return ST.linhas.filter(l => l.possuiFoto).length;
   if (faixaOrTag === 'nota') return ST.linhas.filter(l => l.possuiTextoComplementar).length;
@@ -1796,11 +1806,13 @@ function renderLista(){
   const recorrentes = idsRecorrentes();
   el.innerHTML = linhas.map(l => {
     const tags = [];
+    // 13/07/2026: pedido do Raphael — o "achado #15" abaixo (10/07) tinha removido o badge de status
+    // por achar redundante com o check-icon/fundo azul, mas isso deixou o sinal "disfarçado" (ele
+    // perguntou se o check era sinônimo do match confirmado). Volta como pílula explícita — mesma
+    // cor/mesmo sentido da pílula grande da coluna de registro, ver badgeStatusMini().
+    tags.push(badgeStatusMini(l.status));
     if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
     if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
-    // achado #15 da 2ª revisão Fable (10/07): badge "confirmado" era sinal redundante — fundo azul
-    // (.revisada) + check já bastam pro mesmo fato; removido pra abrir espaço pro indicador de
-    // tratamento abaixo, que agora precisa aparecer SEMPRE (não só quando foge do default).
     if (recorrentes.has(l.naoConformidadeId)) tags.push('<span class="badge neu">recorrente</span>');
     // 11/07: só o estado "precisa de ação" ganha badge na lista — resolvidas (Procedente/Improcedente)
     // não poluem aqui, o card na coluna direita já registra o histórico (ver ctHtml()).
@@ -1823,13 +1835,12 @@ function renderLista(){
     const tratCls = fora ? 'trat-fora' : trat.cls;
     if (fora) tags.push('<span class="trat-word fora">fora de escopo</span>');
     else { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
-    // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal —
-    // e o card inteiro ganha fundo verde + check quando já passou pelo olhar humano do revisor
-    // (pedido do Raphael: distinção clara demais pra depender só do negrito/normal do texto).
+    // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal — e o
+    // card ganha fundo azul claro quando já passou pelo olhar humano do revisor. O check-icon que
+    // ficava aqui foi removido nesta rodada: virou pílula explícita em tags[] (badgeStatusMini()).
     const naoLida = l.status === 'Pendente de revisão';
-    const revisada = !naoLida;
     return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
-      + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + faixaCardBadge(l) + '</div>'
+      + '<div class="num">' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + faixaCardBadge(l) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
