@@ -495,6 +495,36 @@
   .lv-tipo-item:hover{border-color:var(--brand)}
   .lv-tipo-item:has(input:checked){background:var(--brand-l);border-color:var(--brand)}
   .lv-tipo-item input[type=checkbox]{margin:0;flex:0 0 auto}
+  /* 13/07/2026: Solicitar cotação de materiais (ver DECISAO_cotacao-materiais.md) — mesmo
+     vocabulário visual do bloco de Levantamento (.lv-*), com prefixo próprio pra não confundir
+     grep/manutenção futura entre os 2 fluxos. */
+  .cot-slot{margin-top:14px}
+  .cot-gatilho{text-align:right}
+  .cot-btn-gatilho{background:#fff;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .cot-btn-gatilho:hover{background:var(--brand-l)}
+  .cot-card{border:1px solid var(--border2);border-left:3px solid var(--brand);border-radius:8px;background:#fff;padding:11px 12px}
+  .cot-card.concluida{border-left-color:var(--succ)}
+  .cot-card.cancelada{border-left-color:var(--neu-tx)}
+  .cot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .cot-titulo{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)}
+  .cot-card.concluida .cot-titulo{color:var(--succ)}
+  .cot-card.cancelada .cot-titulo{color:var(--neu-tx)}
+  .badge.cot-solicitada{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.cot-cotando{background:var(--brand-l);color:var(--brand-d)}
+  .badge.cot-cotada{background:var(--succ-bg);color:var(--succ)}
+  .badge.cot-cancelada{background:var(--neu-bg);color:var(--neu-tx)}
+  .cot-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
+  .cot-txt+.cot-txt{margin-top:6px}
+  .cot-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
+  .cot-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+  .cot-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .cot-nota{font-size:12px;color:var(--weak);margin-top:8px}
+  .cot-ativo-busca{position:relative}
+  .cot-ativo-busca input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit}
+  .cot-ativo-lista{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:200px;overflow-y:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .cot-ativo-item{padding:8px 10px;font-size:13px;cursor:pointer}
+  .cot-ativo-item:hover{background:var(--brand-l)}
+  .cot-ativo-sel{font-size:12px;color:var(--brand-d);font-weight:600;margin-top:4px}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -1774,6 +1804,9 @@ function renderLista(){
     // ruído na lista, mesmo critério da contestação acima (ver DECISAO_demanda-levantamento-campo.md).
     const lvBadge = lvBadgeLista(l);
     if (lvBadge) tags.push(lvBadge);
+    // 13/07/2026: Demanda de Cotação de materiais — mesmo critério da de Levantamento acima.
+    const cotBadge = cotBadgeLista(l);
+    if (cotBadge) tags.push(cotBadge);
     // Rodada 16: indicador de tratamento deixa de ser condicional (rodada anterior só mostrava
     // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
     // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
@@ -1937,6 +1970,9 @@ async function renderDetalhe(){
     // Mesma lógica de posicionamento da contestação acima: exceção pontual quando a NC precisa que
     // uma equipe vá até o local antes de dar pra propor solução.
     + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
+    // pedido do Raphael (13/07, rodada 26): Solicitar cotação de materiais — mesmo gate/posição do
+    // Levantamento acima, sempre associada a um Ativo; ver DECISAO_cotacao-materiais.md.
+    + '<div class="cot-slot" id="regCotacao">' + cotHtml(l) + '</div>'
     // pedido do Raphael (13/07, rodada 23): reincidência é o ÚLTIMO bloco da coluna — informação de
     // apoio/consulta, não faz parte do fluxo de decisão (escopo → confirmar → contestação →
     // levantamento) que acontece antes dela.
@@ -3065,6 +3101,196 @@ async function lvCancelarDemanda(demandaId){
     msg('Demanda de levantamento cancelada.', 'info');
   } catch (e) {
     msg('Falha de rede ao cancelar levantamento: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; }
+  }
+}
+
+// ---- SOLICITAR COTAÇÃO DE MATERIAIS (ver DECISAO_cotacao-materiais.md, 13/07/2026) ----
+// Mesmo esqueleto do bloco LV acima (Levantamento em campo): 1 demanda ativa por vez, gatilho só
+// aparece dentro do escopo (podeAbrirExcecao), gate de solicitar/cancelar é feito pelo BACKEND
+// (não replicado aqui — mesmo padrão de LV: o botão fica visível, o 403 vem do servidor se a
+// função não for elevada). Diferente de LV: sem aprovar/concluir — Suprimentos move o Status__c
+// direto no Salesforce, então os únicos estados "ativos" pro app são Solicitada e Em Cotação,
+// tratados de forma idêntica (cotHtmlAberta), só cancelamento é ação do app.
+let COT = null; // { linhaId, aberto, ativoId, ativoNome, descricao, cancelarAberto, motivo, buscaTimer }
+
+function cotGarantirEstado(l){
+  if (COT && COT.linhaId === l.id) return;
+  COT = { linhaId: l.id, aberto: false, ativoId: null, ativoNome: '', descricao: '', cancelarAberto: false, motivo: '', buscaTimer: null };
+}
+
+// badge pra lista (renderLista()) — mesmo critério de lvBadgeLista: só estado ativo vira ruído.
+function cotBadgeLista(l){
+  const ativo = l.cotacoes && l.cotacoes[0];
+  if (!ativo) return '';
+  if (ativo.status === 'Solicitada') return '<span class="badge cot-solicitada">cotação solicitada</span>';
+  if (ativo.status === 'Em Cotação') return '<span class="badge cot-cotando">em cotação</span>';
+  return '';
+}
+
+function cotHtml(l){
+  cotGarantirEstado(l);
+  const ativo = l.cotacoes && l.cotacoes[0];
+  if (!ativo || ativo.status === 'Cancelada' || ativo.status === 'Cotada') {
+    if (!podeAbrirExcecao(l)) return ativo ? cotHtmlHistoricoItem(ativo) : '';
+    return (COT.aberto ? cotHtmlForm(l) : cotHtmlGatilho()) + (ativo ? cotHtmlHistoricoItem(ativo) : '');
+  }
+  return cotHtmlAberta(ativo); // 'Solicitada' ou 'Em Cotação' — mesma UI pras 2, só o texto do badge muda
+}
+
+function cotHtmlGatilho(){
+  return '<div class="cot-gatilho"><button class="cot-btn-gatilho" onclick="cotAbrir(\'' + (COT.linhaId) + '\')">Solicitar cotação de materiais</button></div>';
+}
+
+function cotHtmlForm(l){
+  const ok = !!COT.ativoId && !!COT.descricao.trim();
+  return '<div class="cot-card">'
+    + '<div class="cot-head"><span class="cot-titulo">Cotação de materiais</span></div>'
+    + '<div class="cot-txt" style="color:var(--weak)">Use quando identificar que precisa de uma peça/material cotado pra resolver esta NC. Suprimentos vê o Ativo relacionado pra entender as características do que tem que ser cotado.</div>'
+    + '<label class="cot-rotulo">Ativo</label>'
+    + cotHtmlAtivoBusca()
+    + '<label class="cot-rotulo">O que precisa ser cotado</label>'
+    + '<textarea rows="3" oninput="cotOnDescricao(this.value)">' + escapeHtml(COT.descricao) + '</textarea>'
+    + '<div class="cot-acoes">'
+      + '<button class="btn" id="btnCotSolicitar"' + (ok ? '' : ' disabled') + ' onclick="cotSolicitar(\'' + l.id + '\')">Solicitar cotação</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="cotCancelarForm()">cancelar</button>'
+    + '</div></div>';
+}
+
+// busca de Ativo restrita à Conta da própria auditoria (ST.auditoria.contaId) — reusa
+// GET /ativos?contaId=&q= já existente (checklistRoutes.js), mesmo padrão debounced de
+// naBuscarConta()/naSelecionarConta() usado no modal de Nova auditoria.
+function cotHtmlAtivoBusca(){
+  return '<div class="cot-ativo-busca">'
+    + '<input type="text" id="cotAtivoInput" placeholder="Busque o ativo pelo nome…" value="' + escapeHtml(COT.ativoNome) + '" oninput="cotBuscarAtivo(this.value)">'
+    + '<div class="cot-ativo-lista" id="cotAtivoLista" style="display:none"></div>'
+    + '</div>'
+    + (COT.ativoId ? '<div class="cot-ativo-sel">✓ ' + escapeHtml(COT.ativoNome) + '</div>' : '');
+}
+
+function cotHtmlAberta(d){
+  const cls = d.status === 'Solicitada' ? 'cot-solicitada' : 'cot-cotando';
+  return '<div class="cot-card">'
+    + '<div class="cot-head"><span class="cot-titulo">Cotação de materiais</span><span class="badge ' + cls + '">' + escapeHtml(d.status) + '</span></div>'
+    + '<div class="cot-txt"><b>Ativo:</b> ' + escapeHtml(d.ativoNome || '—') + '</div>'
+    + '<div class="cot-txt"><b>Pedido:</b> ' + escapeHtml(d.descricao || '') + '</div>'
+    + (d.observacoesSuprimentos ? '<div class="cot-txt"><b>Suprimentos:</b> ' + escapeHtml(d.observacoesSuprimentos) + '</div>' : '')
+    + (COT.cancelarAberto ? cotHtmlCancelarForm(d) :
+      '<div class="cot-acoes"><button class="link-btn" style="padding:2px 0" onclick="cotAbrirCancelar()">cancelar demanda</button></div>')
+    + '</div>';
+}
+
+function cotHtmlCancelarForm(d){
+  const ok = !!COT.motivo.trim();
+  return '<label class="cot-rotulo">Motivo do cancelamento (obrigatório)</label>'
+    + '<textarea rows="2" oninput="cotOnMotivo(this.value)">' + escapeHtml(COT.motivo) + '</textarea>'
+    + '<div class="cot-acoes">'
+      + '<button class="btn sec" id="btnCotCancelarDemanda"' + (ok ? '' : ' disabled') + ' onclick="cotCancelarDemanda(\'' + d.id + '\')">Confirmar cancelamento</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="cotFecharSubform()">voltar</button>'
+    + '</div>';
+}
+
+function cotHtmlHistoricoItem(d){
+  const proc = d.status === 'Cotada';
+  return '<div class="cot-card' + (proc ? ' concluida' : ' cancelada') + '" style="margin-top:8px">'
+    + '<div class="cot-head"><span class="cot-titulo">Cotação anterior</span>'
+      + '<span class="badge ' + (proc ? 'cot-cotada' : 'cot-cancelada') + '">' + escapeHtml(d.status) + '</span></div>'
+    + (proc ? '<div class="cot-nota">Cotação concluída' + (d.observacoesSuprimentos ? (': ' + escapeHtml(d.observacoesSuprimentos)) : '') + ' — histórico preservado no Salesforce.</div>'
+             : '<div class="cot-nota">Demanda cancelada' + (d.observacoesSuprimentos ? (': ' + escapeHtml(d.observacoesSuprimentos)) : '') + '.</div>')
+    + '</div>';
+}
+
+function cotAbrir(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId); if (!l) return;
+  cotGarantirEstado(l); COT.aberto = true; cotRerender();
+}
+function cotCancelarForm(){
+  if (COT) { COT.aberto = false; COT.ativoId = null; COT.ativoNome = ''; COT.descricao = ''; }
+  cotRerender();
+}
+
+function cotBuscarAtivo(valor){
+  if (!COT) return;
+  COT.ativoId = null; COT.ativoNome = valor; // qualquer edição no texto invalida a seleção anterior
+  const btnSel = document.getElementById('btnCotSolicitar'); if (btnSel) btnSel.disabled = true;
+  clearTimeout(COT.buscaTimer);
+  const termo = valor.trim();
+  const lista = document.getElementById('cotAtivoLista');
+  if (!lista) return;
+  if (termo.length < 2) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  const contaId = ST.auditoria && ST.auditoria.contaId;
+  if (!contaId) { lista.innerHTML = '<div class="cot-ativo-item" style="color:var(--weaker);cursor:default">Conta da auditoria não identificada — não é possível buscar o ativo.</div>'; lista.style.display = 'block'; return; }
+  COT.buscaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND + '/ativos?contaId=' + encodeURIComponent(contaId) + '&q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const j = await r.json();
+      const ativos = Array.isArray(j) ? j : [];
+      if (!r.ok || !ativos.length) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+      lista.innerHTML = ativos.map((a) => '<div class="cot-ativo-item" onclick="cotSelecionarAtivo(\'' + a.id + '\',\'' + escapeHtml(a.nome || '').replace(/'/g, "\\'") + '\')">' + escapeHtml(a.nome || '—') + (a.tipo ? ' <span style="color:var(--weaker)">— ' + escapeHtml(a.tipo) + '</span>' : '') + '</div>').join('');
+      lista.style.display = 'block';
+    } catch (e) { /* best-effort: busca de ativo não trava o resto do form */ }
+  }, 300);
+}
+
+function cotSelecionarAtivo(id, nome){
+  if (!COT) return;
+  COT.ativoId = id; COT.ativoNome = nome;
+  const lista = document.getElementById('cotAtivoLista');
+  if (lista) { lista.style.display = 'none'; lista.innerHTML = ''; }
+  cotRerender();
+}
+
+// oninput NÃO chama cotRerender() (derrubaria o foco a cada tecla) — só atualiza o rascunho e
+// liga/desliga o disabled do botão direto no DOM (mesmo padrão de lvOnObjetivo/ctOnMotivo).
+function cotOnDescricao(v){ if (!COT) return; COT.descricao = v; const b = document.getElementById('btnCotSolicitar'); if (b) b.disabled = !(COT.ativoId && v.trim()); }
+function cotOnMotivo(v){ if (!COT) return; COT.motivo = v; const b = document.getElementById('btnCotCancelarDemanda'); if (b) b.disabled = !v.trim(); }
+
+function cotAbrirCancelar(){ if (COT) COT.cancelarAberto = true; cotRerender(); }
+function cotFecharSubform(){ if (COT) { COT.cancelarAberto = false; COT.motivo = ''; } cotRerender(); }
+
+function cotRerender(){
+  const l = ST.linhas.find((x) => x.id === (COT && COT.linhaId)); if (!l) return;
+  const w = document.getElementById('regCotacao');
+  if (w) w.innerHTML = cotHtml(l);
+}
+
+async function cotSolicitar(linhaId){
+  if (!COT || !COT.ativoId || !COT.descricao.trim()) return;
+  const btn = document.getElementById('btnCotSolicitar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando…'; }
+  try {
+    const r = await fetch(BACKEND + '/cotacoes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ linhaId, ativoId: COT.ativoId, descricao: COT.descricao.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao solicitar cotação: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Solicitar cotação'; } return; }
+    COT = null;
+    await carregar(); renderTudo();
+    msg('Cotação de materiais solicitada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao solicitar cotação: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Solicitar cotação'; }
+  }
+}
+
+async function cotCancelarDemanda(demandaId){
+  if (!COT || !COT.motivo.trim()) return;
+  if (!confirm('Cancelar esta demanda de cotação?')) return;
+  const btn = document.getElementById('btnCotCancelarDemanda');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelando…'; }
+  try {
+    const r = await fetch(BACKEND + '/cotacoes/' + demandaId + '/cancelar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ motivo: COT.motivo.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao cancelar cotação: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; } return; }
+    COT = null;
+    await carregar(); renderTudo();
+    msg('Demanda de cotação cancelada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao cancelar cotação: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; }
   }
 }
