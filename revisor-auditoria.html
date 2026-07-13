@@ -2394,8 +2394,9 @@ function nmOnItemAuditado(v){
 
 function nmPodeSalvar(){
   if (!CAT || !NM) return false;
+  // pedido do Raphael (13/07): "O que foi observado" é OPCIONAL — só os 4 campos do catálogo
+  // (Grupo/Elemento/Pergunta/Não conformidade) + prefixo (quando ambíguo) são obrigatórios.
   if (!(NM.grupoId && NM.elementoId && NM.perguntaId && NM.ncId && NM.classificacao)) return false;
-  if (!NM.itemAuditado || !NM.itemAuditado.trim()) return false;
   const opcoes = CAT.prefixosPorPar[(NM.elementoId || '') + '|' + (NM.grupoId || '')] || [];
   if (opcoes.length === 0) return false; // par sem prefixo cadastrado — precisa cadastrar no Salesforce antes
   if (opcoes.length > 1 && !NM.prefixoId) return false;
@@ -2430,10 +2431,13 @@ function renderNovoItem(){
   html += '<tr><td>Não conformidade</td><td><select class="kv-select" onchange="nmOnNc(this.value)">' + nmOptNc(NM.perguntaId, NM.ncId) + '</select>'
     + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
     + '</td></tr>';
+  // pedido do Raphael (13/07): o campo de texto livre precisa seguir a mesma padronização de
+  // alinhamento/fonte dos 4 campos acima — vira mais uma linha da MESMA tabela .kv (rótulo na
+  // coluna esquerda, mesmo estilo/largura de .kv td:first-child) em vez de label+textarea soltos
+  // fora da tabela. É o único campo opcional do modal — "(opcional)" no próprio rótulo deixa isso
+  // explícito, já que visualmente ele fica lado a lado com os 4 obrigatórios.
+  html += '<tr><td>O que foi observado (opcional)</td><td><textarea rows="3" oninput="nmOnItemAuditado(this.value)">' + escapeHtml(NM.itemAuditado || '') + '</textarea></td></tr>';
   html += '</table>';
-
-  html += '<label style="font-size:11.5px;color:var(--weak);display:block;margin:12px 0 4px">O que foi observado (descrição livre, como aparece no laudo)</label>'
-    + '<textarea rows="3" oninput="nmOnItemAuditado(this.value)">' + escapeHtml(NM.itemAuditado || '') + '</textarea>';
 
   html += '<div class="escopo-toggle">'
     + '<button type="button" class="escopo-btn' + (dentro ? ' on' : '') + '" onclick="nmSetEscopo(false)">Dentro do escopo Exaustech</button>'
