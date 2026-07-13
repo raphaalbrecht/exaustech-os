@@ -68,7 +68,13 @@
   /* pedido do Raphael (11/07): bloco "Comparativo com o relatório de..." removido da tela — o
      #comparativoWrap que ficava entre este card e o .grid (com seu próprio margin-bottom) foi
      junto; margin-bottom sobe de 10px pra 20px aqui pra repor o respiro que existia antes dele. */
-  .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;flex:0 0 auto}
+  /* pedido do Raphael (13/07): "centralizar as pílulas alinhadas pelo meio da altura do retângulo
+     grande" — align-items vira center (era flex-end, que colava tudo embaixo). Fix real do
+     "mesmo assim desalinhadas": achado via investigação (não achismo) — .trat-tabs tinha um
+     margin-bottom:10px sobrando de quando ele morava em outro lugar da tela (dentro de .col-list,
+     acima da busca); esse resto comia 10px do stretch e deixava só ELE mais baixo que os .stat
+     vizinhos na mesma linha. Removido em .trat-tabs (ver CSS abaixo). */
+  .loadbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;flex:0 0 auto}
   /* pedido do Raphael (13/07): "reduza em 25% a altura da barra branca superior que abriga as
      pílulas" — override específico (não mexe em .card genérico, que também serve o comp-card morto)
      mais os cortes de padding/fonte abaixo (.risco-card/.risco-sec/.risco-col/.stat/.trat-tab).
@@ -180,7 +186,11 @@
      sub-contagem clicável só pra em tratativa) e "Tratadas" — número grande tipo placar, ocupam a
      largura toda da coluna, ficam ACIMA dos filtros de match/revisão (é o eixo que sobrevive a
      longo prazo, por isso tem mais destaque que os filtros). */
-  .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;margin-bottom:10px;flex:0 0 auto}
+  /* margin-bottom:10px removido (13/07) — era resquício de quando este bloco morava dentro de
+     .col-list (acima da busca, precisava de respiro pro elemento seguinte); hoje ele é só mais um
+     item da fileira de pílulas de #summaryInline, e aquele margin comia 10px do align-items:stretch
+     da linha, deixando .trat-tabs sistematicamente mais baixo que os .stat vizinhos. */
+  .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto}
   .trat-tab{flex:1;padding:7px 16px 8px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
   .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
   .trat-tab:hover{background:var(--bg)}
@@ -631,11 +641,16 @@
          os dois viram um bloco único encostado na borda direita, gráfico logo antes de "Total". -->
     <!-- Rodada 18 (11/07): "igualar o espaço acima e abaixo do retângulo" — riscoInline/summaryInline
          são o item mais alto da 2ª linha do .loadbar (que quebra em 2 linhas via flex-wrap: 1ª linha
-         é o conta-destaque, 2ª linha é este grupo + btnToggleIds), então align-items:flex-end da
-         .loadbar cola os dois só embaixo (gap de baixo = padding, ~11px) e sobra um vão bem maior
-         em cima (~33px, a distância até a 1ª linha). margin-top negativo puxa o grupo pra cima até
-         igualar ao padrão apertado de baixo — valor calibrado medindo ao vivo (getBoundingClientRect),
-         não um chute; se o conteúdo do card mudar de altura no futuro, reconferir. -->
+         é o conta-destaque, 2ª linha é este grupo + btnToggleIds). margin-top negativo puxa o grupo
+         pra cima — valor calibrado medindo ao vivo (getBoundingClientRect), não um chute; se o
+         conteúdo do card mudar de altura no futuro, reconferir.
+         13/07 (rodada 2): pedido "centralizar as pílulas pelo meio da altura do retângulo grande"
+         — .loadbar passa de align-items:flex-end pra center (ver CSS) e o valor deste margin-top
+         é recalibrado de -22px pra -70px pra compensar a Conta/Data terem dobrado de fonte (bloco
+         bem mais alto agora). Medido ao vivo: mid do grupo de pílulas (118.8) praticamente igual
+         ao mid do próprio .card.loadbar (119) — sobrepõe verticalmente o bloco da Conta (que é só
+         texto curto à esquerda, sem colidir visualmente com as pílulas à direita). Se a fonte da
+         Conta mudar de novo, reconferir este valor. -->
     <!-- 12/07/2026 (rodada 6): align-items vira "stretch" (era "center") — o card novo "Risco da
          loja" é bem mais raso de conteúdo que o gráfico de risco por item (só rótulo + 1 badge),
          então "center" deixava ele flutuando baixinho, desalinhado. "stretch" + justify-content:
@@ -645,8 +660,8 @@
          alinhamento interno agora é do align-self:stretch da própria seção, ver CSS.] -->
     <!-- 12/07/2026 (rodada 7): gap unificado em 10px nos dois grupos (era 8/14) — mesmo ritmo do
          gap do próprio .loadbar, a fileira inteira respira igual de ponta a ponta. -->
-    <div id="riscoInline" style="margin-left:auto;margin-top:-22px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="margin-top:-22px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <div id="riscoInline" style="margin-left:auto;margin-top:-70px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="margin-top:-70px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
        ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
@@ -1914,7 +1929,10 @@ function edGarantirEstado(l){
     // param de sobrescrever a escolha dele quando ele troca de NC (ver edSetEscopo/edPreencherEscopoPorNc).
     escopoManual: false,
     novoNcAberto: false,
-    novoNc: { texto: cortarAposTagRisco(l.textoOriginal), classificacao: '', risco: '', pontuaExp: false }
+    novoNc: { texto: cortarAposTagRisco(l.textoOriginal), classificacao: '', risco: '', pontuaExp: false },
+    // pedido do Raphael (13/07): "Nota do vistoriador" vira editável (era só leitura, mesmo no modo
+    // de edição das outras 4 hierarquias) — rascunho separado do resto igual todo o resto do ED.
+    textoComplementar: l.textoComplementar || ''
   };
 }
 
@@ -1935,7 +1953,18 @@ function edSujo(l){
   if (ED.novoNcAberto) return true;
   return ED.grupoId !== (l.grupoId || null) || ED.elementoId !== (l.elementoId || null) ||
     ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null) ||
-    ED.classificacao !== (l.classificacaoLinha || null);
+    ED.classificacao !== (l.classificacaoLinha || null) ||
+    ED.textoComplementar !== (l.textoComplementar || '');
+}
+
+// pedido do Raphael (13/07): handler do textarea da Nota do vistoriador (mesma família de
+// edOnGrupo/edOnElemento/etc, só que sem cascata — atualiza o rascunho e re-renderiza só o
+// suficiente pra "dirty"/botão salvar reagirem, sem perder o foco do textarea a cada tecla).
+function edOnNota(v){
+  if (!ED) return;
+  ED.textoComplementar = v;
+  const l = ST.linhas.find((x) => x.id === ED.linhaId);
+  if (l) { const btn = document.getElementById('btnSalvarEd'); if (btn) btn.disabled = !edPodeSalvar(l); }
 }
 
 // Rodada 17: alterna o campo de escopo do rascunho (botão segmentado na tela de detalhe).
@@ -2240,7 +2269,11 @@ function edHtmlTabela(l){
     + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
     + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px;text-align:right"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">Cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
-  html += notaRow;
+  // pedido do Raphael (13/07): "Nota do vistoriador" deixa de ser só-leitura no modo de edição —
+  // vira textarea no mesmo padrão visual/alinhamento das outras linhas do kv (.kv-select genérico,
+  // não é exclusivo de <select>), sempre presente aqui (mesmo vazia) pra permitir preencher uma
+  // nota que o import não capturou, não só corrigir uma que já existe.
+  html += '<tr><td>Nota do vistoriador</td><td><textarea class="kv-select' + (ED.textoComplementar !== (l.textoComplementar || '') ? ' dirty' : '') + '" rows="2" style="font-family:inherit;resize:vertical" oninput="edOnNota(this.value)">' + escapeHtml(ED.textoComplementar || '') + '</textarea></td></tr>';
   html += '</table>';
 
   if (ED.novoNcAberto) html += edHtmlNovoNc();
@@ -2940,6 +2973,7 @@ async function edSalvar(linhaId){
       if (ED.grupoId !== l.grupoId) overrides.grupoDescricaoId = ED.grupoId;
       if (edPrefixoNecessario(l) && ED.prefixoId) overrides.prefixoElementoId = ED.prefixoId;
       if (ED.classificacao !== (l.classificacaoLinha || CLASSIF_LINHA_PADRAO)) overrides.classificacaoLinha = ED.classificacao;
+      if (ED.textoComplementar !== (l.textoComplementar || '')) overrides.textoComplementar = ED.textoComplementar;
       const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(overrides)
       });
