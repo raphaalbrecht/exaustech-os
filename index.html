@@ -3107,6 +3107,18 @@ function renderEstoque(){
     <span style="color:#999;font-size:18px">›</span>`;
   endrBtn.onclick=()=>{ endrReset(); estoqGo('enderecos'); endrCarregarLocais(); };
   wrap.appendChild(endrBtn);
+  /* entrada separada de CONSULTA (13/07/2026, pedido do Raphael): a lista de endereços já
+     cadastrados, dentro do fluxo de cadastro, virou só-leitura — "cadastro" e "gerenciar etiqueta
+     de algo que já existe" são ações diferentes, misturar as duas na mesma tela confundia. Esta
+     entrada reusa o mesmo wizard endr* (endrSt.consulta=true) só pra navegar até o detalhe/etiqueta
+     de um endereço existente, sem o botão "+ Novo endereço" no caminho. */
+  const consBtn=document.createElement('div');
+  consBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+  consBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">🔎</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Consultar endereços</div><div style="font-size:12px;color:#4A5560">Ver ocupação · reimprimir etiqueta · regravar NFC</div></div>
+    <span style="color:#999;font-size:18px">›</span>`;
+  consBtn.onclick=()=>{ endrReset(true); estoqGo('enderecos'); endrCarregarLocais(); };
+  wrap.appendChild(consBtn);
   /* entrada do fluxo de Entradas pendentes (Fase 4, 10/07/2026) — conferência + orientação de
      endereço na recepção de mercadoria. Mesmo gate implícito (canEstoque) da home. */
   const recpBtn=document.createElement('div');
@@ -3127,7 +3139,7 @@ const ENDR_TIPOS=[
   {v:'Bin',icon:'📦'},{v:'Prateleira',icon:'🗄️'},{v:'Armário',icon:'🚪'},
   {v:'Caixa',icon:'📥'},{v:'Espaço Delimitado',icon:'🔲'},{v:'Outro',icon:'❓'},
 ];
-function endrReset(){
+function endrReset(consulta){
   endrSt={
     step:'local', locais:[], _locaisCarregados:false, localId:null, localNome:'',
     enderecosDoLocal:[], _listaCarregada:false,
@@ -3135,6 +3147,9 @@ function endrReset(){
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
     enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
     criando:false, erro:null, retorno:null,
+    /* consulta=true: entrada "🔎 Consultar endereços" da home — mesmo wizard, mas só pra navegar
+       até o detalhe de um endereço já existente (sem "+ Novo endereço" no caminho). */
+    consulta:!!consulta,
   };
 }
 /* ---- modo complementar (chamado pelo recp*, Fase 4): entra direto no passo 'nome', com
@@ -3155,7 +3170,7 @@ function renderEndrWizard(wrap){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
   bk.onclick=()=>{ endrNfcDesativar(); estoqGo('dash'); };
   wrap.appendChild(bk);
-  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📍 Endereços de estoque'; wrap.appendChild(h);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=endrSt.consulta?'🔎 Consultar endereços':'📍 Endereços de estoque'; wrap.appendChild(h);
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
   if(endrSt.step==='local') endrRenderLocal(card);
   else if(endrSt.step==='lista') endrRenderLista(card);
@@ -3272,22 +3287,29 @@ function endrRenderRua(card){
 function endrRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(endrSt.localNome)+'</div>';
   if(endrSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=endrSt.erro; card.appendChild(e); }
-  /* "+ Novo endereço" sobe pra logo abaixo do título — é a ação mais frequente na fase atual de
-     mapeamento (dezenas de endereços em sequência); com a lista de existentes embaixo, o botão não
-     pode depender de rolar a tela inteira pra achar. Lista de existentes vira secundária (consulta/
-     reimpressão de etiqueta), com contador. Pedido do Raphael 13/07/2026, análise Fable. */
-  const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
-  novo.onclick=endrNovoEndereco; card.appendChild(novo);
+  /* 13/07/2026 (pedido do Raphael): "cadastro" e "consultar/gerenciar um endereço que já existe"
+     são ações diferentes — misturar as duas na mesma lista confundia (parecia que tocar num
+     endereço existente era parte do fluxo de criar um novo). Agora bifurca por endrSt.consulta:
+     - cadastro (consulta=false): "+ Novo endereço" em destaque; lista de existentes é só-leitura
+       (sem toque, sem seta), serve só de contexto pra não duplicar sem querer.
+     - consulta (consulta=true, entrada própria "🔎 Consultar endereços" na home): sem botão de
+       criar; cada linha é clicável e leva ao detalhe/etiqueta (endrAbrirDetalhe) — é o único
+       caminho do app pra reabrir um endereço (reimprimir etiqueta, regravar NFC, ver ocupação). */
+  if(!endrSt.consulta){
+    const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
+    novo.onclick=endrNovoEndereco; card.appendChild(novo);
+  }
   if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(l); }
   else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
   else {
-    const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560'; lbl.textContent='Endereços cadastrados ('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
+    const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560';
+    lbl.textContent=(endrSt.consulta?'Toque pra gerenciar — ':'Endereços cadastrados ')+'('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
     endrSt.enderecosDoLocal.forEach(e=>{
-      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
+      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3'+(endrSt.consulta?';cursor:pointer':'');
       const ocupTxt=e.capacidade!=null?(e.ocupacao+'/'+e.capacidade):(''+e.ocupacao);
       const loc=[e.area,e.rua].filter(Boolean).join(' ');
-      row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(e.nome)+'</div><div style="font-size:12px;color:var(--weak)">'+_esc(e.tipo||'')+(loc?' · 📍 '+_esc(loc):'')+' · '+_esc(e.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div></div><span style="color:#999;font-size:18px">›</span>';
-      row.onclick=()=>endrAbrirDetalhe(e.id);
+      row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(e.nome)+'</div><div style="font-size:12px;color:var(--weak)">'+_esc(e.tipo||'')+(loc?' · 📍 '+_esc(loc):'')+' · '+_esc(e.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div></div>'+(endrSt.consulta?'<span style="color:#999;font-size:18px">›</span>':'');
+      if(endrSt.consulta) row.onclick=()=>endrAbrirDetalhe(e.id);
       card.appendChild(row);
     });
   }
@@ -3429,6 +3451,12 @@ function endrRenderDetalhe(card){
     const usar=document.createElement('button'); usar.className='btn btn-brand'; usar.style.cssText='width:100%;height:48px'; usar.textContent='✅ Usar este endereço e voltar à conferência';
     usar.onclick=()=>recpVoltarDoWizard(d);
     card.appendChild(usar);
+  } else if(endrSt.consulta){
+    /* modo consulta (13/07/2026): não é sessão de criação — "criar outro aqui" e "criar em outro
+       local" não fazem sentido aqui, só o caminho de volta pra lista deste local. */
+    const fim=document.createElement('button'); fim.className='btn btn-brand'; fim.style.cssText='width:100%;height:48px'; fim.textContent='‹ Ver lista do local';
+    fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
+    card.appendChild(fim);
   } else {
     /* "criar outro aqui" herda área/rua/tipo do endereço recém-criado (endrNovoEnderecoAqui) —
        é o caminho rápido pro mapeamento em sequência (ex. 20 bins na mesma rua). "Criar em outro

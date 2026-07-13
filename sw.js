@@ -84,7 +84,12 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v101'; // v101 13/07: spinner animado (.ld-spin, CSS puro) substitui todos
+const CACHE = 'exaustech-os-v102'; // v102 13/07: wizard endr* separa "cadastrar" de "consultar" —
+// lista de endereços já existentes dentro do cadastro (mode 'enderecos') virou só-leitura (sem
+// toque, sem seta); nova entrada "🔎 Consultar endereços" na home do Estoque (endrSt.consulta=true)
+// reusa o mesmo wizard só pra navegar até o detalhe/etiqueta de um endereço existente. Pedido do
+// Raphael 13/07/2026, depois de reportar que misturar as duas ações na mesma lista confundia.
+// v101 13/07: spinner animado (.ld-spin, CSS puro) substitui todos
 // os "Carregando…" estáticos do app (endr*/recp*/aprovações/avisos/cadastro/galeria de mídia) — só
 // cosmético, dá a sensação de progresso acontecendo entre uma tela e outra (pedido do Raphael).
 // v100 13/07: wizard endr* — análise de UX (agente Fable) sobre o
