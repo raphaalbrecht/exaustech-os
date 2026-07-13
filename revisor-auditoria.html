@@ -197,7 +197,13 @@
      (19px→26px) e o padding respira um pouco mais (7px 16px 8px → 8px 20px 9px); a altura total da
      barra (.card.loadbar) não muda — medido 114.09px antes/depois, porque o rótulo deixou de quebrar
      linha (ver .l abaixo) e isso compensou o ganho de altura do número. */
-  .trat-tab{flex:1;padding:8px 20px 9px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
+  /* pedido do Raphael (13/07, mesmo dia): fundo diferente pra reforçar o destaque acima de dar mais
+     peso à fonte. Testei borda azul (var(--brand)) primeiro e descartei ao vivo: a mesma cor já
+     significa "filtro ativo" (.stat-ativo usa exatamente esse anel azul), então um "Em aberto"
+     sempre azul se misturaria visualmente com "23 TOTAL ITENS" quando ele estiver selecionado.
+     var(--neu-bg) (cinza claro neutro, já usado nos badges "corrigido"/"manual") separa o placar dos
+     .stat brancos vizinhos sem reaproveitar uma cor que já tem outro significado na tela. */
+  .trat-tab{flex:1;padding:8px 20px 9px;background:var(--neu-bg);border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
   .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
   .trat-tab:hover{background:var(--bg)}
   .trat-tab .big{font-size:26px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
