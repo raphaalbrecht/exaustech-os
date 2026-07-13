@@ -45,8 +45,11 @@
      (inclusive depois do conta-destaque, que virou item de largura cheia), então além do próprio
      line-height, esse gap de 10px somava por cima. margin-bottom negativo cancela esse gap; fonte
      desce mais um degrau (16px) já que o objetivo agora é compacidade, não o tamanho em si. */
-  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;flex:0 0 auto}
-  .conta-destaque .data{font-size:12px;font-weight:500;color:var(--weak)}
+  /* pedido do Raphael (13/07): data sai de ao lado do nome (mesma linha) e vai pra debaixo dele,
+     com fonte maior que antes (12px→15px) pra ganhar destaque próprio — mas sempre um degrau
+     abaixo do nome da conta (16px), que continua sendo o elemento de maior peso visual do bloco. */
+  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:0 0 auto}
+  .conta-destaque .data{font-size:15px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (10/07, rodada 2): "ocupar toda a largura da página" — tira o teto de
      1400px que sobrava como margem morta nas laterais em telas grandes; padding vira % da
      largura (min 20px) em vez de fixo, então a régua ainda respira em telas muito largas sem
