@@ -290,6 +290,17 @@
   /* 13/07/2026: pedido do Raphael — título fixo no topo da coluna de cards, mesma identidade azul
      do app (var(--brand-d)), acima do botão de item manual e da busca. */
   .col-list h2{font-size:14px;font-weight:700;color:var(--brand-d);margin:0 0 8px 0;flex:0 0 auto}
+  /* 13/07/2026: pedido do Raphael — toggle estilo iOS "Ocultar itens com match já confirmado".
+     Checkbox nativo escondido (opacity:0) por trás do slider visual, mesmo truque clássico de
+     toggle switch em CSS puro — sem libs, sem JS além do onchange já existente nos outros controles. */
+  .toggle-row{display:flex;align-items:center;gap:8px;margin:2px 0 10px 0;cursor:pointer;flex:0 0 auto}
+  .toggle-switch{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}
+  .toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+  .toggle-slider{position:absolute;inset:0;background:#D7DEE6;border-radius:20px;transition:background .15s}
+  .toggle-slider:before{content:"";position:absolute;height:16px;width:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .toggle-switch input:checked + .toggle-slider{background:var(--brand)}
+  .toggle-switch input:checked + .toggle-slider:before{transform:translateX(16px)}
+  .toggle-label{font-size:12.5px;color:var(--weak)}
   .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
   /* Rodada 16: a lista deixa de ser uma caixa contígua com borda própria (linhas coladas, separadas
@@ -760,7 +771,10 @@
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getItem('be_tok'); }
 
-let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'' };
+// 13/07/2026: pedido do Raphael — toggle "Ocultar itens com match já confirmado" na coluna de
+// cards (ver .toggle-switch no CSS e toggleOcultarConfirmados()); começa desligado (false), mostra
+// tudo por padrão, igual sempre foi.
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
 // pedido do Raphael (11/07): NCs de combate a incêndio/detecção de gás/detector de fumaça não são
@@ -1414,6 +1428,10 @@ function linhasFiltradas(){
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
   }
+  // 13/07/2026: pedido do Raphael — toggle global "Ocultar itens com match já confirmado" some com
+  // os itens confirmados (matchConfirmado(l)) por cima de QUALQUER filtro/pílula ativo, inclusive
+  // o próprio filtro 'confirmado' (nesse caso a lista fica vazia — comportamento esperado do toggle).
+  if (ST.ocultarConfirmados) base = base.filter(l => !matchConfirmado(l));
   if (!ST.busca.trim()) return base;
   const termo = normalizarBusca(ST.busca);
   return base.filter(l => [l.numeroRelatorio, l.textoOriginal, l.naoConformidadeTexto, l.perguntaTexto]
@@ -1436,6 +1454,13 @@ function proximaLinhaPendente(linhaIdAtual){
 function buscarDigitando(valor){
   ST.busca = valor;
   renderLista(); // só a lista — nunca renderTudo() aqui, senão o campo perde o foco a cada tecla
+}
+
+// 13/07/2026: pedido do Raphael — liga/desliga o toggle "Ocultar itens com match já confirmado".
+// Só a lista precisa re-renderizar (mesmo padrão de buscarDigitando).
+function toggleOcultarConfirmados(){
+  ST.ocultarConfirmados = !ST.ocultarConfirmados;
+  renderLista();
 }
 
 function renderTudo(){
@@ -1608,6 +1633,12 @@ function renderTudo(){
     + '<button class="btn sec" style="width:100%;margin-bottom:10px" onclick="abrirNovoItem()">+ Adicionar item não capturado</button>'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
+    // 13/07/2026: pedido do Raphael — toggle estilo iOS "Ocultar itens com match já confirmado",
+    // liga/desliga via toggleOcultarConfirmados() (some/mostra os itens com matchConfirmado(l) em
+    // QUALQUER filtro ativo — ver linhasFiltradas()).
+    + '<label class="toggle-row"><span class="toggle-switch"><input type="checkbox" id="chkOcultarConfirmados"'
+    + (ST.ocultarConfirmados ? ' checked' : '') + ' onchange="toggleOcultarConfirmados()"><span class="toggle-slider"></span></span>'
+    + '<span class="toggle-label">Ocultar itens com match já confirmado</span></label>'
     + '<div class="lista" id="listaLinhas"></div>'
     + '</div>';
   // pedido do Raphael (10/07, rodada 8): "coluna direita pode afastar um pouco em direção à
