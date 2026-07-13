@@ -329,7 +329,9 @@
      (antes 3px, quase colado); agora abre uma linha em branco de verdade entre os dois blocos. */
   .litem .txt{font-size:12px;color:var(--weak);margin-top:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .litem.nao-lida .txt{font-weight:700;color:var(--txt)}
-  .litem .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+  /* 13/07/2026: pedido do Raphael — abrir uma linha em branco também antes da última linha do card
+     (as pílulas), mantendo o clamp de 2 linhas do texto intacto (era 6px, quase colado). */
+  .litem .tags{margin-top:16px;display:flex;gap:5px;flex-wrap:wrap;align-items:center}
   .badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-block}
   /* pedido do Raphael (12/07, rodada 2): score de match 1 ponto menor que os números vizinhos
      (prefixo da NC no card, valores da tabela), pra ficar discreto e não competir por atenção. */
