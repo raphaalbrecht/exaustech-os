@@ -50,7 +50,11 @@
      abaixo do nome da conta (16px), que continua sendo o elemento de maior peso visual do bloco.
      Rodada seguinte (mesmo dia): "dobre o tamanho da fonte da Conta e da data, cada uma em relação
      ao atual" — 12px→24px e 11px→22px (dobro exato de cada um, não um valor novo calibrado). */
-  .conta-destaque{font-size:24px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:0 0 auto;max-width:100%}
+  /* pedido do Raphael (13/07, mesmo dia): 24px "ficou muito grande" — reduz 2px. Nome de conta
+     longo (ex. "JAPPA DA QUITANDA - UNIDADE BARRA SHOPPING TESTE") estourava a largura da 1ª linha
+     do card e ficava embaixo do bloco de pílulas (que sobe via margin-top negativo em #riscoInline/
+     #summaryInline pra ficar visualmente ao lado do nome) — corrigido junto, ver comentário lá. */
+  .conta-destaque{font-size:22px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:0 0 auto;max-width:100%}
   .conta-destaque .data{font-size:22px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
      (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
@@ -677,8 +681,18 @@
          alinhamento interno agora é do align-self:stretch da própria seção, ver CSS.] -->
     <!-- 12/07/2026 (rodada 7): gap unificado em 10px nos dois grupos (era 8/14) — mesmo ritmo do
          gap do próprio .loadbar, a fileira inteira respira igual de ponta a ponta. -->
-    <div id="riscoInline" style="margin-left:auto;margin-top:-70px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="margin-top:-70px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <!-- 13/07 (rodada 3, mesmo dia): print real com conta "JAPPA DA QUITANDA - UNIDADE BARRA
+         SHOPPING TESTE" — nome comprido esbarrava no gráfico de risco (achado: -70px empurrava as
+         pílulas pra cima o suficiente pra invadir a altura do NOME, que é só 1 linha mas fica bem
+         próxima da borda superior do card). Pedido do Raphael: "baixar um pouco os blocos de texto".
+         Recalibrado ao vivo com o nome comprido de verdade (reproduzido via innerText no console) +
+         Conta em 22px (corte de 2px do mesmo pedido): -70px→-35px zera a sobreposição (gap medido
+         ~7.9px entre o fim do nome e o topo do gráfico). Efeito colateral aceito: nas contas com
+         nome curto (maioria), as pílulas ficam um pouco abaixo do centro vertical do card em vez de
+         perfeitamente no meio (rodada 2 tinha isso) — troca proposital: prioriza nunca mais sobrepor
+         um nome comprido em vez de centralização perfeita no caso comum. -->
+    <div id="riscoInline" style="margin-left:auto;margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <div id="summaryInline" style="margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
        ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
