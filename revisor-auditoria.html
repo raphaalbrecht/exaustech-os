@@ -1297,16 +1297,37 @@ function renderTudo(){
     // client-side, reflete o estado atual da tela e de brinde já exclui fora de escopo. Zero
     // mudança de backend.
     const foraEscopoCount = contagem('fora_escopo');
-    summaryWrap.innerHTML = '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
+    // pedido do Raphael (13/07): abas "Em aberto"/"Tratadas" saem do topo da coluna-lista e entram
+    // nesta mesma barra horizontal de resumo — mesmo componente .trat-tabs, só mudou de casa (ver
+    // remoção equivalente mais abaixo, no innerHTML do .col-list).
+    const abertaCount = contagem('trat_aberta');
+    const emTratativaCount = contagem('em_tratativa');
+    const tratadaCount = contagem('tratada');
+    const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
+    const onTratada = ST.filtro === 'tratada';
+    summaryWrap.innerHTML =
+      // pedido do Raphael (13/07): arquivo vira a 1ª pílula da barra (extremidade esquerda) —
+      // continua .stat-meta (texto simples, sem moldura, já era assim), só mudou de posição.
+      '<div class="stat stat-meta"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
+      + '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
       + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
       + '</div>'
       + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
       + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
-      // 12/07/2026 (rodada 7): arquivo ganha .stat-meta (sem moldura, ver CSS) — é identificação
-      // do lote, não métrica; sai da competição visual com as pílulas clicáveis.
-      + '<div class="stat stat-meta"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
+      + '<div class="trat-tabs">'
+        + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
+          + '<span class="big">' + abertaCount + (emTratativaCount
+            ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
+            : '') + '</span>'
+          + '<span class="l">Em aberto</span>'
+        + '</button>'
+        + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
+          + '<span class="big">' + tratadaCount + '</span>'
+          + '<span class="l">Tratadas</span>'
+        + '</button>'
+      + '</div>'
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
   }
 
@@ -1369,30 +1390,13 @@ function renderTudo(){
   // morar dentro da coluna de registro (ver renderDetalhe). Isso substitui por completo o antigo
   // sincronizarAlturaLista()/ResizeObserver — que existia só pra IMITAR via JS um alinhamento que
   // o CSS grid já garante de graça quando as colunas são irmãs do mesmo container.
-  // abas-placar de tratamento (Proposta 2, escolhida pelo Raphael): "Em aberto" agrega
-  // nao_tratada+em_tratativa (é a pergunta operacional real: "o que ainda precisa de atenção?");
-  // em_tratativa vira sub-contagem clicável dentro dela em vez de botão de 1ª classe (perderia
-  // informação se sumisse de vez, mas não merece o mesmo destaque de "Tratadas").
-  const abertaCount = contagem('trat_aberta');
-  const emTratativaCount = contagem('em_tratativa');
-  const tratadaCount = contagem('tratada');
-  const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
-  const onTratada = ST.filtro === 'tratada';
+  // pedido do Raphael (13/07): as abas "Em aberto"/"Tratadas" (Proposta 2) saíram daqui e foram
+  // pra dentro da barra de resumo (#summaryInline, junto de total/confirmados/sem match/arquivo)
+  // — ver bloco summaryWrap acima. Continuam agregando nao_tratada+em_tratativa em "Em aberto"
+  // e usando setFiltro('trat_aberta'/'em_tratativa'/'tratada'), só mudou de casa no DOM.
 
   h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
   h += '<div class="col-list">'
-    + '<div class="trat-tabs">'
-      + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
-        + '<span class="big">' + abertaCount + (emTratativaCount
-          ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
-          : '') + '</span>'
-        + '<span class="l">Em aberto</span>'
-      + '</button>'
-      + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
-        + '<span class="big">' + tratadaCount + '</span>'
-        + '<span class="l">Tratadas</span>'
-      + '</button>'
-    + '</div>'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
