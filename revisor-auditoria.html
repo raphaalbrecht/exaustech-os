@@ -1891,6 +1891,11 @@ async function renderDetalhe(){
       + badgeStatus(l.status)
     + '</div>'
     + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
+    // pedido do Raphael (13/07, rodada 22): o controle de escopo (Dentro/Fora de escopo Exaustech)
+    // sobe pra logo abaixo da tabela/Nota do vistoriador — antes era depois da reincidência, e a
+    // reincidência acabava competindo pela primeira posição sem ser urgente pra decisão do revisor.
+    // A ordem de leitura agora é: dados do registro → decisão de escopo → evidência histórica.
+    + '<div id="regEscopo">' + edHtmlEscopo(l) + '</div>'
     // pedido do Raphael (10/07, rodada 5): "o texto em azul não precisa existir pois ele já
     // aparece no campo acima da Pergunta" — depois do corte na tag [Rn] (rodada anterior),
     // item-texto ficou 100% redundante com Pergunta+Não-conformidade pra matches Fortes. Removido.
@@ -1905,12 +1910,8 @@ async function renderDetalhe(){
     // (e já pula pra página certa). Foto só entra aqui como registro/evidência DEPOIS do match
     // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
     + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
+    // Rodada 17 (11/07): histórico de reincidência — desce pra depois do escopo (rodada 22 acima).
     + '<div class="hist" id="historico"></div>'
-    // Rodada 17 (11/07): controle segmentado de escopo, ver DECISAO_item-fora-de-escopo.md.
-    // Fica acima do actionbar (que já é o botão terminal "Confirmar match") — o revisor primeiro
-    // decide o escopo, depois confirma; o próprio botão de confirmar reflete a escolha (Proposta 1
-    // do Fable: reusa o botão existente em vez de criar uma ação separada).
-    + '<div id="regEscopo">' + edHtmlEscopo(l) + '</div>'
     // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
     // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Fica entre o escopo
     // e a actionbar (não na tabela, que é "o que o registro É"; não na actionbar, que é sticky e
