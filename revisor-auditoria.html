@@ -312,6 +312,9 @@
   .badge.fraco{background:var(--warn-bg);color:var(--warn-tx)}
   .badge.semmatch{background:var(--err-bg);color:var(--err-tx)}
   .badge.neu{background:var(--neu-bg);color:var(--neu-tx)}
+  /* 13/07: texto pequeno ao lado do badge "corrigido pelo revisor"/"sugestão validada", mostrando o
+     que o matcher automático tinha dito no import — ver faixaMatchCell() no JS. */
+  .match-import-note{font-size:11.5px;color:var(--weak)}
   .badge.confirmada{background:var(--succ-bg);color:var(--succ)}
   /* .badge.trat-* continuam existindo — não são mais usadas no card da lista (substituídas pelo
      trilho + .trat-word), mas badgeStatus() (coluna de registro, pílula de Status) ainda usa
@@ -1201,6 +1204,43 @@ function scoreSpan(score){
   return score != null ? '<span class="score-num" title="Score de similaridade PDF ↔ catálogo (0–100)">' + score + '%</span>' : '';
 }
 
+// pedido do Raphael (13/07), achado via revisão Fable: Faixa_de_Match__c/Score_do_Match__c são o
+// resultado do matcher AUTOMÁTICO, congelado no momento do import — o endpoint /confirmar nunca
+// reescreve esses 2 campos, mesmo quando o revisor troca a Não conformidade inteira pelos selects
+// em cascata. Resultado: um item "Sem match 42.81%" que foi corrigido e confirmado mostrava as 2
+// informações lado a lado na tabela ("Sem match" vermelho + "✓ Match confirmado" verde), lendo como
+// contradição pro Raphael. badgeFaixa()/scoreSpan() continuam existindo pra outros usos (filtros,
+// histórico de reincidência) — esta função só decide COMO apresentar a linha "Faixa do match" na
+// tabela de registro e no card da lista, sem mudar o dado armazenado (schema intacto).
+function faixaMatchCell(l){
+  // item Manual (criado por "+ Adicionar item não capturado") nunca passou pelo matcher automático
+  // — l.faixa/l.score vêm null do Salesforce. Antes disso renderizava um badge vermelho com o
+  // texto literal "null" ao lado de "✓ Match confirmado" (bug próprio, achado na mesma revisão).
+  if (l.origem === 'Manual') return null;
+  if (l.origem === 'Importado + editado') {
+    return '<span class="badge neu">corrigido pelo revisor</span>'
+      + ' <span class="match-import-note">match automático do import: ' + escapeHtml(l.faixa || '—')
+      + (l.score != null ? ' · ' + l.score + '%' : '') + '</span>';
+  }
+  const hist = badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score);
+  if (l.status === 'Pendente proposta' && l.faixa === 'Sem match')
+    return hist + ' <span class="match-import-note">no import — sugestão validada pelo revisor</span>';
+  return hist;
+}
+
+// versão compacta pro card da lista (sem o texto explicativo, que não cabe na largura estreita da
+// coluna) — mantém o badge original quando confirmado SEM edição de propósito: o fundo verde + check
+// do card já dão o contexto de "revisado", então o badge de faixa continua coerente com os filtros
+// Forte/Fraco/Sem match que ainda contam por esse campo.
+function faixaCardBadge(l){
+  if (l.origem === 'Manual') return '<span class="badge neu">manual</span>';
+  if (l.origem === 'Importado + editado') {
+    const tit = 'Match automático do import: ' + escapeHtml(l.faixa || '—') + (l.score != null ? ' · ' + l.score + '%' : '');
+    return '<span class="badge neu" title="' + tit + '">corrigido</span>';
+  }
+  return badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score);
+}
+
 // pedido do Raphael (10/07, rodada 2): "dar mais destaque pro Status" na tabela de registro — vira
 // pílula colorida (verde quando já confirmado, laranja quando ainda pendente) em vez de texto puro.
 function badgeStatus(status){
@@ -1709,7 +1749,7 @@ function renderLista(){
     const naoLida = l.status === 'Pendente de revisão';
     const revisada = !naoLida;
     return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
-      + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</div>'
+      + '<div class="num"><span class="check-icon">' + (revisada ? '✓' : '') + '</span>' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + faixaCardBadge(l) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
@@ -2228,10 +2268,13 @@ function edHtmlTabela(l){
     ? '<tr><td>Texto do PDF</td><td><span class="nota-inline">"' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '"</span></td></tr>'
     : '';
 
+  const faixaCell = faixaMatchCell(l);
+  const faixaRow = faixaCell ? '<tr><td>Faixa do match</td><td>' + faixaCell + '</td></tr>' : '';
+
   if (confirmado) {
     return '<table class="kv">'
       + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
-      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>'
+      + faixaRow
       + '<tr><td>Grupo</td><td>' + escapeHtml((CAT && CAT.grupoPorId[l.grupoId] && CAT.grupoPorId[l.grupoId].nome) || '—') + '</td></tr>'
       + '<tr><td>Elemento</td><td>' + escapeHtml(elementoLabel(l.elementoId, l.grupoId, l.prefixoElementoId) || '—') + '</td></tr>'
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
@@ -2244,7 +2287,7 @@ function edHtmlTabela(l){
   if (!CAT) {
     return '<table class="kv">'
       + '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>'
-      + '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>'
+      + faixaRow
       + '<tr><td>Pergunta</td><td>' + escapeHtml(l.perguntaTexto || '—') + '</td></tr>'
       + '<tr><td>Não conformidade</td><td>' + escapeHtml(l.naoConformidadeTexto || '—') + '</td></tr>'
       + notaRow
@@ -2258,7 +2301,7 @@ function edHtmlTabela(l){
 
   let html = '<table class="kv">';
   html += '<tr><td>Origem</td><td>' + escapeHtml(l.origem || '—') + '</td></tr>';
-  html += '<tr><td>Faixa do match</td><td>' + badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score) + '</td></tr>';
+  html += faixaRow;
   html += '<tr><td>Grupo</td><td><select class="kv-select' + (ED.grupoId !== (l.grupoId || null) ? ' dirty' : '') + '" onchange="edOnGrupo(this.value)">' + edOptGrupos(ED.grupoId) + '</select></td></tr>';
   html += '<tr><td>Elemento</td><td><select class="kv-select' + (ED.elementoId !== (l.elementoId || null) ? ' dirty' : '') + '" onchange="edOnElemento(this.value)">' + edOptElementos(ED.grupoId, ED.elementoId) + '</select></td></tr>';
   // achado #8 da revisão Fable (10/07): o texto completo da Pergunta/NC selecionada só aparecia no
