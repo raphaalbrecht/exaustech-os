@@ -1910,8 +1910,6 @@ async function renderDetalhe(){
     // (e já pula pra página certa). Foto só entra aqui como registro/evidência DEPOIS do match
     // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
     + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
-    // Rodada 17 (11/07): histórico de reincidência — desce pra depois do escopo (rodada 22 acima).
-    + '<div class="hist" id="historico"></div>'
     // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
     // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Fica entre o escopo
     // e a actionbar (não na tabela, que é "o que o registro É"; não na actionbar, que é sticky e
@@ -1923,6 +1921,11 @@ async function renderDetalhe(){
     // actionbar terminal): não é o fluxo principal de revisão, é uma exceção pontual quando a NC
     // precisa que uma equipe vá até o local antes de dar pra propor solução.
     + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
+    // pedido do Raphael (13/07, rodada 23): reincidência vira o ÚLTIMO bloco da coluna (só antes da
+    // actionbar, que é sticky e sempre fica visualmente por último de qualquer forma) — é
+    // informação de apoio/consulta, não faz parte do fluxo de decisão (escopo → contestação →
+    // levantamento) que acontece antes dela.
+    + '<div class="hist" id="historico"></div>'
     + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
   kvAplicarTruncamento(colReg);
 
