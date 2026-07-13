@@ -569,6 +569,20 @@
   </div>
 </div>
 
+<!-- pedido do Raphael (13/07): "Adicionar item" — cadastro manual de uma NC que o Gemini/regex não
+     capturou do PDF. Mesma moldura de overlay/modal do "Nova auditoria" (.nova-aud-overlay/-modal),
+     conteúdo renderizado por JS (renderNovoItem()) porque os selects em cascata dependem do estado
+     NM e precisam re-render a cada onchange — mesmo padrão de edHtmlTabela()/#regSf. -->
+<div class="nova-aud-overlay" id="novoItemOverlay" onclick="if(event.target===this) fecharNovoItem()">
+  <div class="nova-aud-modal">
+    <div class="nova-aud-modal-head">
+      <span>Adicionar item não capturado</span>
+      <button class="modal-close" onclick="fecharNovoItem()">×</button>
+    </div>
+    <div id="novoItemBody" style="padding:16px 18px"></div>
+  </div>
+</div>
+
 <div class="wrap">
   <div id="msgArea"></div>
 
@@ -1400,6 +1414,10 @@ function renderTudo(){
 
   h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
   h += '<div class="col-list">'
+    // pedido do Raphael (13/07): botão pra cadastrar manualmente uma NC que o Gemini/regex não
+    // capturou do PDF — cobre o gap de que a lista só mostra itens que o pipeline conseguiu
+    // segmentar. Largura cheia da coluna, acima da busca (ver abrirNovoItem()).
+    + '<button class="btn sec" style="width:100%;margin-bottom:10px" onclick="abrirNovoItem()">+ Adicionar item não capturado</button>'
     + '<input class="busca-input" id="inBusca" type="text" placeholder="Buscar por número ou texto da não conformidade…" '
     + 'value="' + escapeHtml(ST.busca || '') + '" oninput="buscarDigitando(this.value)">'
     + '<div class="lista" id="listaLinhas"></div>'
@@ -2274,6 +2292,193 @@ function edHtmlAcao(l){
   return '<button class="btn" id="btnSalvarEd"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
     + (fora ? 'Confirmar como fora de escopo' : (sujo ? 'Salvar correções e confirmar' : 'Confirmar match')) + '</button>'
     + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
+}
+
+// ===== "Adicionar item" — cadastro manual de NC não capturada pelo Gemini/regex (13/07) =====
+// Estado ISOLADO de ED de propósito: aquele é edição de uma Linha EXISTENTE, isto aqui é criação de
+// uma linha nova do zero. Reaproveita os helpers de option-list (edOptGrupos/edOptElementos/
+// edOptPerguntas/edOptPrefixos) porque são funções puras (só dependem de CAT + ids selecionados) —
+// só o select de Não conformidade ganha uma variante local (nmOptNc) sem a opção "+ Cadastrar nova
+// não conformidade": cadastrar NC nova no catálogo fica fora do escopo desta 1ª rodada (ver
+// comentário no endpoint /linha-manual em expRoutes.js) — se faltar, o revisor aponta a mais
+// próxima aqui e troca depois pelo editor normal da Linha (que já tem esse cadastro embutido).
+let NM = null; // { grupoId, elementoId, perguntaId, prefixoId, ncId, classificacao, itemAuditado }
+
+function nmEstadoInicial(){
+  return { grupoId: null, elementoId: null, perguntaId: null, prefixoId: null, ncId: null, classificacao: CLASSIF_LINHA_PADRAO, itemAuditado: '' };
+}
+
+async function abrirNovoItem(){
+  if (!ST.auditoriaId || !ST.loteId) { msg('Carregue um lote antes de adicionar um item.', 'err'); return; }
+  NM = nmEstadoInicial();
+  document.getElementById('novoItemOverlay').style.display = 'flex';
+  const body = document.getElementById('novoItemBody');
+  body.innerHTML = '<div style="font-size:12.5px;color:var(--weak)">Carregando catálogo…</div>';
+  try {
+    await carregarCatalogoSeNecessario();
+  } catch (e) {
+    body.innerHTML = '<div class="msg err">Catálogo do checklist não carregou — feche e tente de novo. (' + escapeHtml(e.message) + ')</div>';
+    return;
+  }
+  renderNovoItem();
+}
+
+function fecharNovoItem(){
+  const ov = document.getElementById('novoItemOverlay');
+  if (ov) ov.style.display = 'none';
+  NM = null;
+}
+
+function nmOptNc(perguntaId, selecionado){
+  if (!perguntaId) return '<option value="">— escolha a Pergunta primeiro —</option>';
+  const lista = (CAT.ncsPorPergunta[perguntaId] || []).slice().sort((a, b) => (b.risco || 0) - (a.risco || 0));
+  let html = '<option value="">— selecione —</option>';
+  for (const n of lista) {
+    const txt = 'R' + (n.risco != null ? n.risco : '?') + ' · ' + (n.texto || '');
+    html += '<option value="' + n.id + '"' + (n.id === selecionado ? ' selected' : '') + ' title="' + escapeHtml(n.texto || '') + '">' + escapeHtml(txt) + '</option>';
+  }
+  return html;
+}
+
+function nmOnGrupo(v){
+  NM.grupoId = v || null;
+  if (NM.elementoId && (!CAT.elementoPorId[NM.elementoId] || CAT.elementoPorId[NM.elementoId].grupoId !== NM.grupoId)) {
+    NM.elementoId = null; NM.perguntaId = null; NM.ncId = null;
+  }
+  NM.prefixoId = null;
+  renderNovoItem();
+}
+
+function nmOnElemento(v){
+  NM.elementoId = v || null;
+  if (NM.elementoId && CAT.elementoPorId[NM.elementoId]) NM.grupoId = CAT.elementoPorId[NM.elementoId].grupoId || NM.grupoId;
+  if (NM.perguntaId && (!CAT.perguntaPorId[NM.perguntaId] || CAT.perguntaPorId[NM.perguntaId].elementoId !== NM.elementoId)) {
+    NM.perguntaId = null; NM.ncId = null;
+  }
+  NM.prefixoId = null;
+  renderNovoItem();
+}
+
+function nmOnPergunta(v){
+  NM.perguntaId = v || null;
+  if (NM.perguntaId && CAT.perguntaPorId[NM.perguntaId]) {
+    const p = CAT.perguntaPorId[NM.perguntaId];
+    NM.elementoId = p.elementoId || NM.elementoId;
+    if (NM.elementoId && CAT.elementoPorId[NM.elementoId]) NM.grupoId = CAT.elementoPorId[NM.elementoId].grupoId || NM.grupoId;
+  }
+  if (NM.ncId && (!CAT.ncPorId[NM.ncId] || CAT.ncPorId[NM.ncId].perguntaId !== NM.perguntaId)) NM.ncId = null;
+  renderNovoItem();
+}
+
+function nmOnPrefixo(v){ NM.prefixoId = v || null; renderNovoItem(); }
+
+function nmOnNc(v){
+  NM.ncId = v || null;
+  // pré-preenche escopo pela classificação da NC escolhida (mesma lógica de edPreencherEscopoPorNc,
+  // sem o guard de "não sobrescrever escolha manual anterior" — aqui não existe estado anterior).
+  const nc = NM.ncId && CAT.ncPorId[NM.ncId];
+  NM.classificacao = (nc && nc.classificacao === CLASSIF_FORA_ESCOPO) ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  renderNovoItem();
+}
+
+function nmSetEscopo(foraEscopo){
+  NM.classificacao = foraEscopo ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  renderNovoItem();
+}
+
+function nmOnItemAuditado(v){
+  NM.itemAuditado = v;
+  const btn = document.getElementById('btnSalvarNovoItem');
+  if (btn) btn.disabled = !nmPodeSalvar();
+}
+
+function nmPodeSalvar(){
+  if (!CAT || !NM) return false;
+  if (!(NM.grupoId && NM.elementoId && NM.perguntaId && NM.ncId && NM.classificacao)) return false;
+  if (!NM.itemAuditado || !NM.itemAuditado.trim()) return false;
+  const opcoes = CAT.prefixosPorPar[(NM.elementoId || '') + '|' + (NM.grupoId || '')] || [];
+  if (opcoes.length === 0) return false; // par sem prefixo cadastrado — precisa cadastrar no Salesforce antes
+  if (opcoes.length > 1 && !NM.prefixoId) return false;
+  return true;
+}
+
+function renderNovoItem(){
+  const body = document.getElementById('novoItemBody');
+  if (!body || !NM) return;
+  if (!CAT) {
+    body.innerHTML = '<div class="msg err">Catálogo do checklist não carregou — feche e tente de novo.</div>';
+    return;
+  }
+  const opcoesPrefixo = CAT.prefixosPorPar[(NM.elementoId || '') + '|' + (NM.grupoId || '')] || [];
+  if (opcoesPrefixo.length === 1 && NM.prefixoId !== opcoesPrefixo[0].id) NM.prefixoId = opcoesPrefixo[0].id;
+
+  const dentro = NM.classificacao === CLASSIF_LINHA_PADRAO;
+  const fora = NM.classificacao === CLASSIF_FORA_ESCOPO;
+  const ncSelecionada = NM.ncId && CAT.ncPorId[NM.ncId];
+  const perguntaSelecionada = NM.perguntaId && CAT.perguntaPorId[NM.perguntaId];
+
+  let html = '<div style="font-size:12.5px;color:var(--weak);margin-bottom:12px">Use quando o vistoriador registrou uma não conformidade que não apareceu na lista — o import não conseguiu identificá-la sozinho.</div>';
+  html += '<table class="kv">';
+  html += '<tr><td>Grupo</td><td><select class="kv-select" onchange="nmOnGrupo(this.value)">' + edOptGrupos(NM.grupoId) + '</select></td></tr>';
+  html += '<tr><td>Elemento</td><td><select class="kv-select" onchange="nmOnElemento(this.value)">' + edOptElementos(NM.grupoId, NM.elementoId) + '</select></td></tr>';
+  html += '<tr><td>Pergunta</td><td><select class="kv-select" onchange="nmOnPergunta(this.value)">' + edOptPerguntas(NM.elementoId, NM.perguntaId) + '</select>'
+    + (perguntaSelecionada ? '<div class="kv-select-full">' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
+    + '</td></tr>';
+  if (opcoesPrefixo.length > 1) {
+    html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="nmOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, NM.prefixoId) + '</select></td></tr>';
+  }
+  html += '<tr><td>Não conformidade</td><td><select class="kv-select" onchange="nmOnNc(this.value)">' + nmOptNc(NM.perguntaId, NM.ncId) + '</select>'
+    + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
+    + '</td></tr>';
+  html += '</table>';
+
+  html += '<label style="font-size:11.5px;color:var(--weak);display:block;margin:12px 0 4px">O que foi observado (descrição livre, como aparece no laudo)</label>'
+    + '<textarea rows="3" oninput="nmOnItemAuditado(this.value)">' + escapeHtml(NM.itemAuditado || '') + '</textarea>';
+
+  html += '<div class="escopo-toggle">'
+    + '<button type="button" class="escopo-btn' + (dentro ? ' on' : '') + '" onclick="nmSetEscopo(false)">Dentro do escopo Exaustech</button>'
+    + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="nmSetEscopo(true)">Fora de escopo Exaustech</button>'
+    + '</div>';
+
+  html += '<div style="display:flex;gap:10px;margin-top:16px">'
+    + '<button class="btn" id="btnSalvarNovoItem"' + (nmPodeSalvar() ? '' : ' disabled') + ' onclick="nmSalvar()">Adicionar item</button>'
+    + '<button class="btn sec" onclick="fecharNovoItem()">Cancelar</button>'
+    + '</div>'
+    + '<div id="nmMsg"></div>';
+
+  body.innerHTML = html;
+}
+
+async function nmSalvar(){
+  if (!nmPodeSalvar()) return;
+  const btn = document.getElementById('btnSalvarNovoItem');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adicionando…'; }
+  const nmMsg = document.getElementById('nmMsg');
+  try {
+    const body = {
+      classificacaoLinha: NM.classificacao, elementoId: NM.elementoId, grupoDescricaoId: NM.grupoId,
+      prefixoElementoId: NM.prefixoId || null, perguntaId: NM.perguntaId, naoConformidadeId: NM.ncId,
+      itemAuditado: NM.itemAuditado.trim()
+    };
+    const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/lote/' + ST.loteId + '/linha-manual', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(body)
+    });
+    const j = await r.json();
+    if (!r.ok) {
+      if (nmMsg) nmMsg.innerHTML = '<div class="msg err" style="margin-top:8px">Erro ao adicionar: ' + escapeHtml(j.error || String(r.status)) + '</div>';
+      if (btn) { btn.disabled = false; btn.textContent = 'Adicionar item'; }
+      return;
+    }
+    const novoId = j.id;
+    fecharNovoItem();
+    await carregar();
+    ST.selecionadaId = novoId;
+    renderTudo();
+    msg('Item adicionado e confirmado.', 'info');
+  } catch (e) {
+    if (nmMsg) nmMsg.innerHTML = '<div class="msg err" style="margin-top:8px">Falha de rede: ' + escapeHtml(e.message) + '</div>';
+    if (btn) { btn.disabled = false; btn.textContent = 'Adicionar item'; }
+  }
 }
 
 // ===== Contestação técnica (11/07) — Status_da_contestacao__c / Motivo_da_contestacao__c /
