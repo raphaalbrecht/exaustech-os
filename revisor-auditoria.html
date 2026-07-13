@@ -48,8 +48,11 @@
   /* pedido do Raphael (13/07): data sai de ao lado do nome (mesma linha) e vai pra debaixo dele,
      com fonte maior que antes (12px→15px) pra ganhar destaque próprio — mas sempre um degrau
      abaixo do nome da conta (16px), que continua sendo o elemento de maior peso visual do bloco. */
-  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:0 0 auto}
+  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:0 0 auto;max-width:100%}
   .conta-destaque .data{font-size:15px;font-weight:600;color:var(--weak)}
+  /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
+     (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
+  .conta-destaque .arquivo-sub{font-size:11px;font-weight:400;color:var(--weaker);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   /* pedido do Raphael (10/07, rodada 2): "ocupar toda a largura da página" — tira o teto de
      1400px que sobrava como margem morta nas laterais em telas grandes; padding vira % da
      largura (min 20px) em vez de fixo, então a régua ainda respira em telas muito largas sem
@@ -1282,7 +1285,11 @@ function renderTudo(){
     if (a && (a.contaNome || a.dataInspecao)) {
       contaDestaque.style.display = 'flex';
       contaDestaque.innerHTML = escapeHtml(a.contaNome || 'Conta não identificada')
-        + '<span class="data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>';
+        + '<span class="data">Vistoria em ' + formatarData(a.dataInspecao) + '</span>'
+        // pedido do Raphael (13/07): nome do arquivo sai da barra de pílulas e vira a 3ª linha
+        // deste mesmo bloco, embaixo da data — arquivo é metadado do MESMO lote/vistoria, faz mais
+        // sentido empilhado com conta+data do que competindo com as pílulas de contagem clicáveis.
+        + (l && l.nomeArquivo ? '<span class="arquivo-sub" title="' + escapeHtml(l.nomeArquivo) + '">' + escapeHtml(l.nomeArquivo) + '</span>' : '');
     } else {
       contaDestaque.style.display = 'none';
     }
@@ -1323,10 +1330,10 @@ function renderTudo(){
     const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
     const onTratada = ST.filtro === 'tratada';
     summaryWrap.innerHTML =
-      // pedido do Raphael (13/07): arquivo vira a 1ª pílula da barra (extremidade esquerda) —
-      // continua .stat-meta (texto simples, sem moldura, já era assim), só mudou de posição.
-      '<div class="stat stat-meta"><div class="n arquivo" title="' + escapeHtml(l.nomeArquivo || '') + '">' + escapeHtml(l.nomeArquivo || '—') + '</div><div class="l">arquivo · ' + (l.origem || '') + '</div></div>'
-      + '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
+      // pedido do Raphael (13/07, 2ª rodada): arquivo saiu de vez da barra de pílulas — foi pra
+      // dentro de #contaDestaque, embaixo da data da vistoria (ver bloco acima). A barra volta a
+      // abrir com "total itens".
+      '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
       + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
