@@ -1800,6 +1800,33 @@ function selecionar(id){
 }
 
 function escapeHtml(s){ return String(s || '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+// pedido do Raphael (13/07): o .kv-select-full (achado #8 da revisão Fable, 10/07 — texto completo
+// da Pergunta/NC abaixo do select, porque o <select> nativo corta com ellipsis) aparecia SEMPRE,
+// mesmo quando o texto já cabia inteiro no select — virava uma linha duplicada sem função nesses
+// casos. Agora só aparece quando o texto REALMENTE não coube (medido via canvas, comparando a
+// largura real do texto renderizado com a largura útil do próprio select). A reserva de 28px pro
+// espaço da seta nativa do select é deliberadamente generosa: em caso de dúvida, o código prefere
+// MOSTRAR o texto completo a escondê-lo — nunca perder informação continua sendo o objetivo
+// original do achado #8, só não repeti-la à toa quando não faz falta.
+let _kvCanvasCtx = null;
+function kvLarguraTexto(texto, fonteCss){
+  if (!_kvCanvasCtx) _kvCanvasCtx = document.createElement('canvas').getContext('2d');
+  _kvCanvasCtx.font = fonteCss;
+  return _kvCanvasCtx.measureText(texto).width;
+}
+function kvAplicarTruncamento(raiz){
+  if (!raiz) return;
+  raiz.querySelectorAll('.kv-select-full').forEach((div) => {
+    const select = div.previousElementSibling;
+    const texto = div.dataset.textoCompleto;
+    if (!select || select.tagName !== 'SELECT' || !texto) { div.style.display = 'none'; return; }
+    const cs = getComputedStyle(select);
+    const largura = kvLarguraTexto(texto, cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily);
+    const disponivel = select.clientWidth - 16 - 28; // padding horizontal (8px*2) + reserva da seta nativa
+    div.style.display = largura > disponivel ? '' : 'none';
+  });
+}
 // pedido do Raphael (12/07): primeiro nome do líder na grade de reincidência — só o primeiro termo,
 // cabe no espaço apertado da pílula (46px).
 function primeiroNome(nomeCompleto){ return String(nomeCompleto || '').trim().split(/\s+/)[0] || ''; }
@@ -1896,6 +1923,7 @@ async function renderDetalhe(){
     // precisa que uma equipe vá até o local antes de dar pra propor solução.
     + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
     + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
+  kvAplicarTruncamento(colReg);
 
   if (pdfUrl) {
     try {
@@ -2228,7 +2256,7 @@ function edRerenderTabela(){
   const tabelaWrap = document.getElementById('regSf');
   const acaoWrap = document.getElementById('regAcao');
   const escopoWrap = document.getElementById('regEscopo');
-  if (tabelaWrap) tabelaWrap.innerHTML = edHtmlTabela(l);
+  if (tabelaWrap) { tabelaWrap.innerHTML = edHtmlTabela(l); kvAplicarTruncamento(tabelaWrap); }
   if (escopoWrap) escopoWrap.innerHTML = edHtmlEscopo(l);
   if (acaoWrap) acaoWrap.innerHTML = edHtmlAcao(l);
 }
@@ -2341,14 +2369,14 @@ function edHtmlTabela(l){
   // no hover mostrava o texto inteiro). Div pequeno abaixo do select resolve sem mudar a interação.
   const perguntaSelecionada = ED.perguntaId && CAT.perguntaPorId[ED.perguntaId];
   html += '<tr><td>Pergunta</td><td><select class="kv-select' + (ED.perguntaId !== (l.perguntaId || null) ? ' dirty' : '') + '" onchange="edOnPergunta(this.value)">' + edOptPerguntas(ED.elementoId, ED.perguntaId) + '</select>'
-    + (perguntaSelecionada ? '<div class="kv-select-full">' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
+    + (perguntaSelecionada ? '<div class="kv-select-full" data-texto-completo="' + escapeHtml(perguntaSelecionada.texto || '') + '" style="display:none">Texto completo: ' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
     + '</td></tr>';
   if (opcoesPrefixo.length > 1) {
     html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="edOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, ED.prefixoId) + '</select></td></tr>';
   }
   const ncSelecionada = ED.ncId && CAT.ncPorId[ED.ncId];
   html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
-    + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
+    + (ncSelecionada ? '<div class="kv-select-full" data-texto-completo="' + escapeHtml(ncSelecionada.texto || '') + '" style="display:none">Texto completo: ' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
     + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px;text-align:right"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">Cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
   // pedido do Raphael (13/07): "Nota do vistoriador" deixa de ser só-leitura no modo de edição —
@@ -2558,13 +2586,13 @@ function renderNovoItem(){
   html += '<tr><td>Grupo</td><td><select class="kv-select" onchange="nmOnGrupo(this.value)">' + edOptGrupos(NM.grupoId) + '</select></td></tr>';
   html += '<tr><td>Elemento</td><td><select class="kv-select" onchange="nmOnElemento(this.value)">' + edOptElementos(NM.grupoId, NM.elementoId) + '</select></td></tr>';
   html += '<tr><td>Pergunta</td><td><select class="kv-select" onchange="nmOnPergunta(this.value)">' + edOptPerguntas(NM.elementoId, NM.perguntaId) + '</select>'
-    + (perguntaSelecionada ? '<div class="kv-select-full">' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
+    + (perguntaSelecionada ? '<div class="kv-select-full" data-texto-completo="' + escapeHtml(perguntaSelecionada.texto || '') + '" style="display:none">Texto completo: ' + escapeHtml(perguntaSelecionada.texto || '') + '</div>' : '')
     + '</td></tr>';
   if (opcoesPrefixo.length > 1) {
     html += '<tr><td>Prefixo/numeração</td><td><select class="kv-select" onchange="nmOnPrefixo(this.value)">' + edOptPrefixos(opcoesPrefixo, NM.prefixoId) + '</select></td></tr>';
   }
   html += '<tr><td>Não conformidade</td><td><select class="kv-select" onchange="nmOnNc(this.value)">' + nmOptNc(NM.perguntaId, NM.ncId) + '</select>'
-    + (ncSelecionada ? '<div class="kv-select-full">' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
+    + (ncSelecionada ? '<div class="kv-select-full" data-texto-completo="' + escapeHtml(ncSelecionada.texto || '') + '" style="display:none">Texto completo: ' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
     + '</td></tr>';
   // pedido do Raphael (13/07): o campo de texto livre precisa seguir a mesma padronização de
   // alinhamento/fonte dos 4 campos acima — vira mais uma linha da MESMA tabela .kv (rótulo na
@@ -2592,6 +2620,7 @@ function renderNovoItem(){
     + '<div id="nmMsg"></div>';
 
   body.innerHTML = html;
+  kvAplicarTruncamento(body);
 }
 
 async function nmSalvar(){
