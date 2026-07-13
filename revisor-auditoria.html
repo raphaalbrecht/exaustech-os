@@ -2392,8 +2392,10 @@ function edHtmlTabela(l){
   // cadastro (edHtmlNovoNc) já abre. Reusa edOnNc('__novo__'), o MESMO caminho que a opção
   // "+ Cadastrar nova não conformidade…" do select já dispara — não é mais um atalho
   // "pré-preenchido" com a NC atual (essa diferenciação era exatamente a confusão relatada).
+  // pedido do Raphael (13/07, rodada 25): botão pequeno alinhado à direita — não compete
+  // visualmente com o "Confirmar match" (que agora ocupa a largura toda da actionbar).
   if (ED.perguntaId && !ED.novoNcAberto) {
-    html += '<button class="btn sec" style="width:100%;margin-top:8px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button>';
+    html += '<div style="text-align:right;margin-top:8px"><button class="btn sec" style="padding:6px 12px;font-size:12px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button></div>';
   }
 
   if (ED.novoNcAberto) html += edHtmlNovoNc();
@@ -2455,14 +2457,17 @@ function edHtmlAcao(l){
     return '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Match confirmado</span>'
       + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>';
   }
+  // pedido do Raphael (13/07, rodada 25): "Confirmar match" ocupa a largura toda da coluna —
+  // flex:1 dentro do .actionbar (display:flex): sozinho, enche a linha inteira; com o
+  // "descartar alterações" ao lado, ainda fica bem maior (a ação principal, não a secundária).
   if (!CAT) {
-    return '<button class="btn" id="btnConfirmar" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>';
+    return '<button class="btn" id="btnConfirmar" style="flex:1" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>';
   }
   edGarantirEstado(l);
   const sujo = edSujo(l);
   const podeSalvar = edPodeSalvar(l);
   const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
-  return '<button class="btn" id="btnSalvarEd"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
+  return '<button class="btn" id="btnSalvarEd" style="flex:1"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
     + (fora ? 'Confirmar como fora de escopo' : (sujo ? 'Salvar correções e confirmar' : 'Confirmar match')) + '</button>'
     + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
 }
