@@ -1326,7 +1326,8 @@ function badgeStatus(status){
 // grande da coluna de registro (badgeStatus() acima) — só com rótulo mais curto pra caber no card.
 function badgeStatusMini(status){
   const cls = status === 'Pendente proposta' ? 'confirmada' : status === 'Pendente de revisão' ? 'trat-em' : 'neu';
-  const label = status === 'Pendente proposta' ? '✓ Confirmado' : status === 'Pendente de revisão' ? 'Pendente confirmação' : (status || '—');
+  // 13/07/2026: pedido do Raphael — rótulo em caixa alta "MATCH CONFIRMADO" (era "✓ Confirmado").
+  const label = status === 'Pendente proposta' ? 'MATCH CONFIRMADO' : status === 'Pendente de revisão' ? 'Pendente confirmação' : (status || '—');
   return '<span class="badge ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
 }
 
