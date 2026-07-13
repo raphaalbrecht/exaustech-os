@@ -84,7 +84,17 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v103'; // v103 13/07: nomenclatura Setor-Módulo-Nível-Bin no wizard
+const CACHE = 'exaustech-os-v104'; // v104 13/07: UI de profundidade flexível no wizard endr*
+// (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
+// botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
+// em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).
+// Preview "Código até aqui" ao vivo (endrCodigoPreview) em Setor/Módulo/Nível. Botão Voltar do
+// Tipo usa endrSt.paradaEm pra retornar à tela onde o usuário realmente parou (não mais fixo em
+// 'nivel'). Grade de Tipo ganha grupo "Sugeridos" no topo conforme a profundidade (Setor→Espaço
+// Delimitado/Armário; Módulo→Prateleira/Armário; Nível→Bin/Caixa/Prateleira) — nunca restringe,
+// só reordena. Revisão ganha aviso quando o endereço parou antes do Nível. Zero mudança de
+// backend (sugerirCodigo já tolera módulo/nível vazios desde o v103).
+// v103 13/07: nomenclatura Setor-Módulo-Nível-Bin no wizard
 // endr* (revisão via agente Fable, pedido do Raphael — proposta-wizard-estoque §15). Sem campo
 // novo no Salesforce: Rua__c passa a representar SETOR (rótulo mudou, campo é o mesmo); Módulo e
 // Nível são 2 passos novos do wizard, só vivem dentro do Codigo__c composto pelo backend
