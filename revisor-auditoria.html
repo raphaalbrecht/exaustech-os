@@ -191,11 +191,19 @@
      item da fileira de pílulas de #summaryInline, e aquele margin comia 10px do align-items:stretch
      da linha, deixando .trat-tabs sistematicamente mais baixo que os .stat vizinhos. */
   .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto}
-  .trat-tab{flex:1;padding:7px 16px 8px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
+  /* pedido do Raphael (13/07): "Em aberto"/"Tratadas" tinham perdido o destaque que o comentário
+     acima já pedia ("mais destaque que os filtros") — os 2 cortes de altura da barra (-25%, -15%)
+     comprimiram tudo uniformemente, inclusive este placar. Calibrado ao vivo: .big volta a crescer
+     (19px→26px) e o padding respira um pouco mais (7px 16px 8px → 8px 20px 9px); a altura total da
+     barra (.card.loadbar) não muda — medido 114.09px antes/depois, porque o rótulo deixou de quebrar
+     linha (ver .l abaixo) e isso compensou o ganho de altura do número. */
+  .trat-tab{flex:1;padding:8px 20px 9px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
   .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
   .trat-tab:hover{background:var(--bg)}
-  .trat-tab .big{font-size:19px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
-  .trat-tab .l{display:block;font-size:11px;font-weight:700;color:var(--weak);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .trat-tab .big{font-size:26px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
+  /* white-space:nowrap (13/07): "Em aberto" quebrava em 2 linhas (EM / ABERTO) porque a coluna do
+     tab é mais estreita que "Tratadas" — pedido literal do Raphael pra não quebrar. */
+  .trat-tab .l{display:block;font-size:11px;font-weight:700;color:var(--weak);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
   .trat-tab .mini{font-size:11px;font-weight:700;color:var(--warn-tx);cursor:pointer}
   .trat-tab .mini:hover{text-decoration:underline}
   .trat-tab.tratadas .big{color:var(--succ)}
