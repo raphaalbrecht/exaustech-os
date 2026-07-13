@@ -1311,7 +1311,12 @@ function badgeStatus(status){
   // diferentes pro mesmo estado nesta tela (lista diz "confirmado", actionbar diz "✓ Confirmado").
   // Aqui só troca o RÓTULO exibido — o status técnico continua sendo a fonte (via title, no hover),
   // sem mexer no valor gravado no Salesforce nem em nenhuma lógica de filtro/gate.
-  const label = status === 'Pendente proposta' ? '✓ Confirmado · aguardando proposta' : (status || '—');
+  // 13/07/2026: pedido do Raphael — "Pendente de revisão" (rótulo técnico do Salesforce) confundia
+  // com "revisão já feita, falta só confirmar o match"; troca só o texto exibido, mesmo padrão do
+  // 'Pendente proposta' acima.
+  const label = status === 'Pendente proposta' ? '✓ Confirmado · aguardando proposta'
+    : status === 'Pendente de revisão' ? 'Pendente confirmação de match'
+    : (status || '—');
   return '<span class="badge status-grande ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
 }
 
