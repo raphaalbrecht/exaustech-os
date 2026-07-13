@@ -1290,16 +1290,14 @@ function faixaMatchCell(l){
 }
 
 // versão compacta pro card da lista (sem o texto explicativo, que não cabe na largura estreita da
-// coluna) — mantém o badge original quando confirmado SEM edição de propósito: o fundo verde + check
-// do card já dão o contexto de "revisado", então o badge de faixa continua coerente com os filtros
-// Forte/Fraco/Sem match que ainda contam por esse campo.
+// coluna). 13/07/2026 (2ª correção): depois de confirmado o match, a pílula MATCH CONFIRMADO já
+// entrega todo o contexto — faixa/score/"corrigido" ao lado do número viram ruído redundante, não
+// "a faixa original". Regra final: match confirmado -> nada aparece ao lado do número. Enquanto não
+// confirmado, mantém faixa+score (ou "corrigido" se foi editado manualmente antes da confirmação).
 function faixaCardBadge(l){
+  if (matchConfirmado(l)) return '';
   if (l.origem === 'Manual') return '<span class="badge neu">manual</span>';
-  // 13/07/2026: pedido do Raphael — depois que o match é confirmado, o badge "corrigido" vira ruído
-  // (a pílula MATCH CONFIRMADO já entrega esse contexto); some e volta a mostrar só a faixa/percentual
-  // que já existiam antes da correção (mesmo l.faixa/l.score, que o backend nunca reescreve). Enquanto
-  // ainda não foi confirmado, "corrigido" continua aparecendo — é útil pro revisor em andamento.
-  if (l.origem === 'Importado + editado' && !matchConfirmado(l)) {
+  if (l.origem === 'Importado + editado') {
     const tit = 'Match automático do import: ' + escapeHtml(l.faixa || '—') + (l.score != null ? ' · ' + l.score + '%' : '');
     return '<span class="badge neu" title="' + tit + '">corrigido</span>';
   }
@@ -1844,8 +1842,9 @@ function renderLista(){
     // card ganha fundo azul claro quando já passou pelo olhar humano do revisor. O check-icon que
     // ficava aqui foi removido nesta rodada: virou pílula explícita em tags[] (badgeStatusMini()).
     const naoLida = l.status === 'Pendente de revisão';
+    const faixaTag = faixaCardBadge(l);
     return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
-      + '<div class="num">' + escapeHtml(l.numeroRelatorio || '—') + ' · ' + faixaCardBadge(l) + '</div>'
+      + '<div class="num">' + escapeHtml(l.numeroRelatorio || '—') + (faixaTag ? ' · ' + faixaTag : '') + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
