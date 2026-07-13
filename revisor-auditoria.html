@@ -2228,16 +2228,6 @@ function edOnNc(v){
   edRerenderTabela();
 }
 
-// abre o cadastro de NC nova já pré-preenchido com a NC atualmente selecionada, só trocando o
-// Risco — pedido explícito do Raphael 10/07: "mesma não conformidade porém com risco diferente
-// da que está cadastrada"
-function edAbrirVariacaoRisco(){
-  const nc = CAT.ncPorId[ED.ncId];
-  if (!nc) return;
-  ED.ncId = null; ED.novoNcAberto = true;
-  ED.novoNc = { texto: nc.texto, classificacao: nc.classificacao, risco: '', pontuaExp: nc.pontuaExp };
-  edRerenderTabela();
-}
 
 function edCancelarNovoNc(){
   ED.novoNcAberto = false; ED.ncId = null;
@@ -2377,7 +2367,6 @@ function edHtmlTabela(l){
   const ncSelecionada = ED.ncId && CAT.ncPorId[ED.ncId];
   html += '<tr><td>Não conformidade</td><td><select class="kv-select' + (ED.ncId !== (l.naoConformidadeId || null) ? ' dirty' : '') + '" onchange="edOnNc(this.value)">' + edOptNc(ED.perguntaId, ED.ncId || (ED.novoNcAberto ? '__novo__' : null)) + '</select>'
     + (ncSelecionada ? '<div class="kv-select-full" data-texto-completo="' + escapeHtml(ncSelecionada.texto || '') + '" style="display:none">Texto completo: ' + escapeHtml(ncSelecionada.texto || '') + '</div>' : '')
-    + (ED.ncId && !ED.novoNcAberto ? '<div style="margin-top:4px;text-align:right"><button class="link-btn" style="padding:2px 0" onclick="edAbrirVariacaoRisco()">Cadastrar variação com outro risco</button></div>' : '')
     + '</td></tr>';
   // pedido do Raphael (13/07): "Nota do vistoriador" deixa de ser só-leitura no modo de edição —
   // vira textarea no mesmo padrão visual/alinhamento das outras linhas do kv (.kv-select genérico,
@@ -2385,6 +2374,17 @@ function edHtmlTabela(l){
   // nota que o import não capturou, não só corrigir uma que já existe.
   html += '<tr><td>Nota do vistoriador</td><td><textarea class="kv-select' + (ED.textoComplementar !== (l.textoComplementar || '') ? ' dirty' : '') + '" rows="2" style="font-family:inherit;resize:vertical" oninput="edOnNota(this.value)">' + escapeHtml(ED.textoComplementar || '') + '</textarea></td></tr>';
   html += '</table>';
+
+  // pedido do Raphael (13/07): o link "Cadastrar variação com outro risco" (preso na célula do
+  // select) foi removido — ele prometia um atalho que não existe (abria o MESMO formulário
+  // completo de texto+classificação+risco). Proposta 2 do subagente Fable, escolhida por
+  // Raphael: botão único, honesto, logo abaixo da tabela — mesmo local onde o painel de
+  // cadastro (edHtmlNovoNc) já abre. Reusa edOnNc('__novo__'), o MESMO caminho que a opção
+  // "+ Cadastrar nova não conformidade…" do select já dispara — não é mais um atalho
+  // "pré-preenchido" com a NC atual (essa diferenciação era exatamente a confusão relatada).
+  if (ED.perguntaId && !ED.novoNcAberto) {
+    html += '<button class="btn sec" style="width:100%;margin-top:8px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button>';
+  }
 
   if (ED.novoNcAberto) html += edHtmlNovoNc();
 
