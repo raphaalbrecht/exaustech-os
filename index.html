@@ -3144,6 +3144,12 @@ function endrReset(consulta){
     step:'local', locais:[], _locaisCarregados:false, localId:null, localNome:'',
     enderecosDoLocal:[], _listaCarregada:false,
     areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, rua:'',
+    /* Módulo/Nível (13/07/2026, nomenclatura Setor-Módulo-Nível-Bin — ver §14/§15 da proposta):
+       "rua" acima passa a representar SETOR (mesmo campo Rua__c, só rótulo/uso mudam). Módulo e
+       Nível são SÓ estado do wizard — não viram campo novo no Salesforce, só compõem o
+       Codigo__c (derivar > proliferar). Por isso não vêm do backend ao reabrir um endereço (o
+       Código já os carrega de forma legível: ex. F2-07-B-03). */
+    modulo:'', nivel:'',
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
     enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
     criando:false, erro:null, retorno:null,
@@ -3176,6 +3182,8 @@ function renderEndrWizard(wrap){
   else if(endrSt.step==='lista') endrRenderLista(card);
   else if(endrSt.step==='area') endrRenderArea(card);
   else if(endrSt.step==='rua') endrRenderRua(card);
+  else if(endrSt.step==='modulo') endrRenderModulo(card);
+  else if(endrSt.step==='nivel') endrRenderNivel(card);
   else if(endrSt.step==='tipo') endrRenderTipo(card);
   else if(endrSt.step==='nome') endrRenderNome(card);
   else if(endrSt.step==='capacidade') endrRenderCapacidade(card);
@@ -3230,7 +3238,7 @@ async function endrCarregarLista(){
 }
 function endrNovoEndereco(){
   endrSt.tipo=null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
-  endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua='';
+  endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua=''; endrSt.modulo=''; endrSt.nivel='';
   endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
 }
 /* ---- "criar outro aqui": herda área/rua/tipo do endereço recém-criado, pula direto pro passo
@@ -3241,6 +3249,7 @@ function endrNovoEndereco(){
 function endrNovoEnderecoAqui(d){
   endrSt.tipo=d.tipo||null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
   endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaRequerRua=!!d.rua; endrSt.rua=d.rua||'';
+  endrSt.modulo=d.modulo||''; endrSt.nivel=d.nivel||''; /* mesmo setor/módulo/nível — só o próximo bin/prateleira muda */
   endrSt.erro=null; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo();
 }
 /* ---- passo 2b: Área (nível intermediário, opcional por local — 10/07). Se o local não tiver
@@ -3265,24 +3274,69 @@ function endrRenderArea(card){
   if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   endrSt.areas.forEach(a=>{
     const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
-    b.textContent=a.nome+(a.requerRua?' (Rua obrigatória)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
+    b.textContent=a.nome+(a.requerRua?' (Setor obrigatório)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
   });
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
 }
-/* ---- passo 2c: Rua (obrigatória só quando a área escolhida tem RequerRua__c=true) ---- */
+/* ---- passo 2c: Setor (obrigatório só quando a área escolhida tem RequerRua__c=true) — campo
+   continua sendo Rua__c/endrSt.rua por baixo, só o rótulo virou "Setor" (13/07/2026): identifica
+   qualquer agrupamento físico fixo — parede (PF/PD/PE/PN) ou fileira interna numerada (F1/F2…) —
+   em vez do antigo conceito de "rua entre prateleiras", que não se aplica a este galpão. ---- */
 function endrRenderRua(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Rua — '+_esc(endrSt.areaNome)+'</div>'
-    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Rua</label>'
-    +'<input id="endrRua" type="text" value="'+cadEsc(endrSt.rua)+'" placeholder="Ex.: Rua 1" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Setor — '+_esc(endrSt.areaNome)+'</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Setor</label>'
+    +'<input id="endrRua" type="text" value="'+cadEsc(endrSt.rua)+'" placeholder="Ex.: PF (parede fundo), F2 (fileira 2)" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
     +'<div class="subnote" style="padding:0 0 12px">Obrigatório nesta área.</div>';
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
   cont.onclick=()=>{
     const v=(document.getElementById('endrRua').value||'').trim();
-    if(!v){ toast('⚠️ Informe a rua'); return; }
-    endrSt.rua=v; endrSt.step='tipo'; renderEstoque();
+    if(!v){ toast('⚠️ Informe o setor'); return; }
+    endrSt.rua=v; endrSt.step='modulo'; renderEstoque();
   };
   card.appendChild(cont);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='area'; renderEstoque(); }; card.appendChild(bk);
+}
+/* ---- passo 2d: Módulo (posição sequencial da prateleira/unidade dentro do Setor, ex.: 01, 02…).
+   Só aparece quando o Setor apareceu (mesmo gate areaRequerRua) — sem campo novo no Salesforce,
+   vira só um pedaço do Codigo__c composto no backend. ---- */
+function endrRenderModulo(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Módulo — '+_esc(endrSt.areaNome)+' '+_esc(endrSt.rua)+'</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Módulo</label>'
+    +'<input id="endrModulo" type="text" value="'+cadEsc(endrSt.modulo)+'" placeholder="Ex.: 01, 02, 07…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<div class="subnote" style="padding:0 0 12px">Posição da prateleira/unidade dentro do setor.</div>';
+  const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
+  cont.onclick=()=>{
+    const v=(document.getElementById('endrModulo').value||'').trim();
+    if(!v){ toast('⚠️ Informe o módulo'); return; }
+    endrSt.modulo=v; endrSt.step='nivel'; renderEstoque();
+  };
+  card.appendChild(cont);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='rua'; renderEstoque(); }; card.appendChild(bk);
+}
+/* ---- passo 2e: Nível (andar vertical, de baixo pra cima — A, B, C…). Toques rápidos avançam
+   direto ([[feedback-ux-toque-avanca]]); campo de texto cobre casos fora do A-F comum. ---- */
+function endrEscolherNivel(v){ endrSt.nivel=v; endrSt.step='tipo'; renderEstoque(); }
+function endrRenderNivel(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Nível — '+_esc(endrSt.rua)+' '+_esc(endrSt.modulo)+'</div>'
+    +'<div class="subnote" style="padding:0 0 8px">Andar vertical, de baixo pra cima.</div>';
+  const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px';
+  ['A','B','C','D','E','F'].forEach(l=>{
+    const el=document.createElement('div'); el.style.cssText='background:#F7F9FA;border:1.5px solid #E2E5E9;border-radius:10px;padding:12px 0;text-align:center;cursor:pointer;font-weight:700;font-size:15px;color:#0B2239';
+    el.textContent=l; el.onclick=()=>endrEscolherNivel(l); grid.appendChild(el);
+  });
+  card.appendChild(grid);
+  const outroWrap=document.createElement('div');
+  outroWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Outro nível</label>'
+    +'<input id="endrNivel" type="text" value="'+cadEsc(endrSt.nivel)+'" placeholder="Ex.: G, 2º piso…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
+  card.appendChild(outroWrap);
+  const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px;margin-top:8px'; cont.textContent='Continuar';
+  cont.onclick=()=>{
+    const v=(document.getElementById('endrNivel').value||'').trim();
+    if(!v){ toast('⚠️ Escolha ou digite o nível'); return; }
+    endrEscolherNivel(v);
+  };
+  card.appendChild(cont);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='modulo'; renderEstoque(); }; card.appendChild(bk);
 }
 function endrRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(endrSt.localNome)+'</div>';
@@ -3318,7 +3372,7 @@ function endrRenderLista(card){
 /* ---- passo 3: tipo (toque seleciona e avança) ---- */
 function endrEscolherTipo(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo(); }
 function endrRenderTipo(card){
-  const loc=[endrSt.areaNome,endrSt.rua].filter(Boolean).join(' — ');
+  const loc=[endrSt.areaNome,endrSt.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>'
     +(loc?'<div class="subnote" style="padding:0 0 6px">📍 '+_esc(loc)+'</div>':'');
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px';
@@ -3332,7 +3386,7 @@ function endrRenderTipo(card){
   const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar';
   bkb.onclick=()=>{
     if(endrSt.retorno==='recp'){ recpVoltarDoWizard(null); return; } /* cancela o handoff do recp* */
-    endrSt.step=endrSt.areaRequerRua?'rua':(endrSt.areas.length?'area':'lista'); renderEstoque();
+    endrSt.step=endrSt.areaRequerRua?'nivel':(endrSt.areas.length?'area':'lista'); renderEstoque();
   };
   card.appendChild(bkb);
 }
@@ -3342,12 +3396,16 @@ async function endrSugerirCodigo(){
     let url='/estoque/enderecos/sugestao-codigo?localId='+encodeURIComponent(endrSt.localId)+'&tipo='+encodeURIComponent(endrSt.tipo);
     if(endrSt.areaId) url+='&areaId='+encodeURIComponent(endrSt.areaId);
     if(endrSt.rua) url+='&rua='+encodeURIComponent(endrSt.rua);
+    if(endrSt.modulo) url+='&modulo='+encodeURIComponent(endrSt.modulo);
+    if(endrSt.nivel) url+='&nivel='+encodeURIComponent(endrSt.nivel);
     const d=await beGet(url);
     if(endrSt.step==='nome' && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
 function endrRenderNome(card){
+  const loc2=[endrSt.areaNome,endrSt.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Nomenclatura — '+_esc(endrSt.tipo)+'</div>'
+    +(loc2?'<div class="subnote" style="padding:0 0 6px">📍 '+_esc(loc2)+'</div>':'')
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
     +'<input id="endrNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Código</label>'
@@ -3377,7 +3435,9 @@ function endrRenderRevisao(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Revisão</div>'
     +'<div class="det-row"><span class="det-k">Local</span><span class="det-v">'+_esc(endrSt.localNome)+'</span></div>'
     +(endrSt.areaNome?'<div class="det-row"><span class="det-k">Área</span><span class="det-v">'+_esc(endrSt.areaNome)+'</span></div>':'')
-    +(endrSt.rua?'<div class="det-row"><span class="det-k">Rua</span><span class="det-v">'+_esc(endrSt.rua)+'</span></div>':'')
+    +(endrSt.rua?'<div class="det-row"><span class="det-k">Setor</span><span class="det-v">'+_esc(endrSt.rua)+'</span></div>':'')
+    +(endrSt.modulo?'<div class="det-row"><span class="det-k">Módulo</span><span class="det-v">'+_esc(endrSt.modulo)+'</span></div>':'')
+    +(endrSt.nivel?'<div class="det-row"><span class="det-k">Nível</span><span class="det-v">'+_esc(endrSt.nivel)+'</span></div>':'')
     +'<div class="det-row"><span class="det-k">Tipo</span><span class="det-v">'+_esc(endrSt.tipo)+'</span></div>'
     +'<div class="det-row"><span class="det-k">Nome</span><span class="det-v">'+_esc(endrSt.nome||'—')+'</span></div>'
     +'<div class="det-row"><span class="det-k">Código</span><span class="det-v">'+_esc(endrSt.codigo||'(sugerido automaticamente)')+'</span></div>'
@@ -3396,6 +3456,8 @@ async function endrCriar(){
     if(endrSt.capacidade!=='') body.capacidadeMaxima=Number(endrSt.capacidade);
     if(endrSt.areaId) body.areaId=endrSt.areaId;
     if(endrSt.rua) body.rua=endrSt.rua;
+    if(endrSt.modulo) body.modulo=endrSt.modulo;
+    if(endrSt.nivel) body.nivel=endrSt.nivel;
     const r=await bePost('/estoque/enderecos',body);
     endrSt.criando=false;
     /* fallback pro botão de retorno do modo complementar (recp*) se o GET de detalhe falhar
@@ -3458,13 +3520,16 @@ function endrRenderDetalhe(card){
     fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
     card.appendChild(fim);
   } else {
-    /* "criar outro aqui" herda área/rua/tipo do endereço recém-criado (endrNovoEnderecoAqui) —
-       é o caminho rápido pro mapeamento em sequência (ex. 20 bins na mesma rua). "Criar em outro
+    /* "criar outro aqui" herda área/setor/módulo/nível/tipo do endereço recém-criado
+       (endrNovoEnderecoAqui) — é o caminho rápido pro mapeamento em sequência (ex. vários bins no
+       mesmo nível). Módulo/Nível não voltam do GET (não são campo próprio — só existem dentro do
+       Codigo__c), então usa o estado ainda vivo do wizard (endrSt), não `d`. "Criar em outro
        local/área" continua disponível pro reset completo. Pedido do Raphael 13/07/2026. */
-    const loc=[d.area,d.rua].filter(Boolean).join(' — ');
+    const loc=[d.area,d.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
     const outroAqui=document.createElement('button'); outroAqui.className='btn btn-brand'; outroAqui.style.cssText='width:100%;height:48px';
     outroAqui.textContent='+ Criar outro '+(d.tipo||'endereço')+' aqui'+(loc?' ('+loc+')':'');
-    outroAqui.onclick=()=>endrNovoEnderecoAqui(d); card.appendChild(outroAqui);
+    outroAqui.onclick=()=>endrNovoEnderecoAqui({tipo:d.tipo, areaId:d.areaId, area:d.area, rua:d.rua, modulo:endrSt.modulo, nivel:endrSt.nivel});
+    card.appendChild(outroAqui);
     const outroLugar=document.createElement('button'); outroLugar.className='btn btn-neutral'; outroLugar.style.cssText='width:100%;height:44px;margin-top:8px'; outroLugar.textContent='Criar em outro local/área';
     outroLugar.onclick=endrNovoEndereco; card.appendChild(outroLugar);
     const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Ver lista do local';

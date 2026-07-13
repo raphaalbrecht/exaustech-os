@@ -84,7 +84,17 @@
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
     gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v102'; // v102 13/07: wizard endr* separa "cadastrar" de "consultar" —
+const CACHE = 'exaustech-os-v103'; // v103 13/07: nomenclatura Setor-Módulo-Nível-Bin no wizard
+// endr* (revisão via agente Fable, pedido do Raphael — proposta-wizard-estoque §15). Sem campo
+// novo no Salesforce: Rua__c passa a representar SETOR (rótulo mudou, campo é o mesmo); Módulo e
+// Nível são 2 passos novos do wizard, só vivem dentro do Codigo__c composto pelo backend
+// ([Área-]Setor-Módulo-Nível). Bin (4º segmento opcional) não ganhou campo/passo próprio: é só a
+// consequência de Tipo==='Bin' sempre ganhar sequencial no final do código (ex. F2-07-B-03) — os
+// demais tipos tentam o código "limpo" primeiro (ex. PF-03-B) e só caem pro sequencial se colidir.
+// backend: estoqueRoutes.js sugerirCodigo()/codigoEmUso()/proximoSequencial() reescritos; GET
+// sugestao-codigo e POST /estoque/enderecos aceitam modulo/nivel novos (query/body). Nenhum
+// endereço tinha sido cadastrado de verdade ainda (confirmado pelo Raphael) — sem migração pendente.
+// v102 13/07: wizard endr* separa "cadastrar" de "consultar" —
 // lista de endereços já existentes dentro do cadastro (mode 'enderecos') virou só-leitura (sem
 // toque, sem seta); nova entrada "🔎 Consultar endereços" na home do Estoque (endrSt.consulta=true)
 // reusa o mesmo wizard só pra navegar até o detalhe/etiqueta de um endereço existente. Pedido do
