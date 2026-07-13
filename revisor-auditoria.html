@@ -1273,7 +1273,11 @@ function contagem(faixaOrTag){
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
   // "Sem match" é a única faixa de match que conta pra estatística de tratativa (Fraco/Forte não
   // são exibidos como pílula de "penalidade" hoje) — exclui fora de escopo e contestação procedente.
-  if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l)).length;
+  // 13/07: decisão do Raphael (achado na revisão Fable do bug "Sem match" x "Match confirmado") —
+  // a pílula passa a representar PENDÊNCIAS reais, não mais "qualidade do import" congelada. Exclui
+  // também item já confirmado (matchConfirmado) — o número agora cai conforme o revisor avança,
+  // em vez de continuar contando itens que já foram corrigidos e confirmados.
+  if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)).length;
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
 
@@ -1304,7 +1308,10 @@ function linhasFiltradas(){
     base = ST.linhas.filter(l => l.risco === n);
   } else switch (ST.filtro) {
     case 'Forte': case 'Fraco': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
-    case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l)); break;
+    // mesma regra de contagem() acima (13/07): filtro clicando na pílula segue a mesma definição de
+    // "pendência real" — exclui item já confirmado, senão a lista filtrada mostraria itens que a
+    // pílula ao lado não conta mais.
+    case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)); break;
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
     case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa === ST.filtro); break;
