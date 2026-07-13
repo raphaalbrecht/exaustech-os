@@ -401,7 +401,10 @@
      enquanto o PDF (74vh) ainda estava visível — sticky acompanha o scroll sem mudar a estrutura */
   /* achado #12 da revisão Fable (10/07): actionbar sticky sem separação do conteúdo (histórico)
      que rola por baixo — "some" abruptamente atrás do botão. Borda sutil resolve sem mudar layout. */
-  .actionbar{margin-top:16px;display:flex;gap:10px;position:sticky;bottom:0;background:var(--card);padding:10px 0;border-top:1px solid var(--border)}
+  /* pedido do Raphael (13/07, rodada 24): actionbar sobe pra logo abaixo do escopo — deixou de
+     ser o rodapé fixo da coluna, então position:sticky/bottom:0 saíram (não fazem sentido fora
+     da posição final). */
+  .actionbar{margin-top:16px;display:flex;gap:10px;background:var(--card);padding:10px 0;border-top:1px solid var(--border)}
   /* Rodada 17 (11/07) — "fora de escopo": controle segmentado grande, estilo Salesforce (mesma
      lógica visual do .trat-tabs: par de botões, o ativo ganha fundo colorido). "Dentro" = neutro/
      azul (comportamento padrão); "Fora" = laranja de aviso (--warn), reaproveita o mesmo par de
@@ -1896,6 +1899,13 @@ async function renderDetalhe(){
     // reincidência acabava competindo pela primeira posição sem ser urgente pra decisão do revisor.
     // A ordem de leitura agora é: dados do registro → decisão de escopo → evidência histórica.
     + '<div id="regEscopo">' + edHtmlEscopo(l) + '</div>'
+    // pedido do Raphael (13/07, rodada 24): "Confirmar match" sobe pra logo abaixo de Dentro/Fora
+    // de escopo — decisão de escopo e confirmação são o MESMO passo pro revisor (escolhe escopo,
+    // confirma na sequência), não fazia sentido esse botão ficar lá embaixo depois de contestação/
+    // levantamento/reincidência, que são exceções e informação de apoio. Deixou de ser sticky
+    // (position:sticky/bottom:0 removidos do .actionbar) porque não é mais o rodapé fixo da
+    // coluna — agora é só mais um bloco no fluxo normal, logo após o escopo.
+    + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>'
     // pedido do Raphael (10/07, rodada 5): "o texto em azul não precisa existir pois ele já
     // aparece no campo acima da Pergunta" — depois do corte na tag [Rn] (rodada anterior),
     // item-texto ficou 100% redundante com Pergunta+Não-conformidade pra matches Fortes. Removido.
@@ -1911,22 +1921,18 @@ async function renderDetalhe(){
     // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
     + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
     // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
-    // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Fica entre o escopo
-    // e a actionbar (não na tabela, que é "o que o registro É"; não na actionbar, que é sticky e
-    // reservada às ações terminais do pipeline) — é exceção rara, não deve competir com o fluxo
-    // principal de revisão.
+    // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Contestar/Levantar só
+    // ficam disponíveis DEPOIS do match confirmado (gate já existente), então fazem mais sentido
+    // aqui embaixo da actionbar agora (rodada 24) do que antes dela.
     + '<div class="cont-slot" id="regContestacao">' + ctHtml(l) + '</div>'
     // 12/07/2026: Demanda de Levantamento em campo — ver DECISAO_demanda-levantamento-campo.md.
-    // Mesma lógica de posicionamento da contestação acima (entre o eixo de escopo/disputa e a
-    // actionbar terminal): não é o fluxo principal de revisão, é uma exceção pontual quando a NC
-    // precisa que uma equipe vá até o local antes de dar pra propor solução.
+    // Mesma lógica de posicionamento da contestação acima: exceção pontual quando a NC precisa que
+    // uma equipe vá até o local antes de dar pra propor solução.
     + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
-    // pedido do Raphael (13/07, rodada 23): reincidência vira o ÚLTIMO bloco da coluna (só antes da
-    // actionbar, que é sticky e sempre fica visualmente por último de qualquer forma) — é
-    // informação de apoio/consulta, não faz parte do fluxo de decisão (escopo → contestação →
+    // pedido do Raphael (13/07, rodada 23): reincidência é o ÚLTIMO bloco da coluna — informação de
+    // apoio/consulta, não faz parte do fluxo de decisão (escopo → confirmar → contestação →
     // levantamento) que acontece antes dela.
-    + '<div class="hist" id="historico"></div>'
-    + '<div class="actionbar" id="regAcao">' + edHtmlAcao(l) + '</div>';
+    + '<div class="hist" id="historico"></div>';
   kvAplicarTruncamento(colReg);
 
   if (pdfUrl) {
