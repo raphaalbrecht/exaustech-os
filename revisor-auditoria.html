@@ -2436,7 +2436,13 @@ function renderNovoItem(){
   // coluna esquerda, mesmo estilo/largura de .kv td:first-child) em vez de label+textarea soltos
   // fora da tabela. É o único campo opcional do modal — "(opcional)" no próprio rótulo deixa isso
   // explícito, já que visualmente ele fica lado a lado com os 4 obrigatórios.
-  html += '<tr><td>O que foi observado (opcional)</td><td><textarea rows="3" oninput="nmOnItemAuditado(this.value)">' + escapeHtml(NM.itemAuditado || '') + '</textarea></td></tr>';
+  // achado real (13/07, 2ª rodada): um <textarea> puro, sem classe nenhuma, NÃO herda a fonte da
+  // página (mesmo motivo pelo qual .edit-panel/.cont-card/.lv-card textarea já precisam de
+  // font-family:inherit explícito em CSS) — ficava em fonte/borda de navegador default, destoando
+  // dos 4 <select class="kv-select"> logo acima mesmo estando na mesma linha da tabela. Reaproveita
+  // a própria .kv-select (width/borda/radius/padding/font-size já são genéricos, nada específico
+  // de <select>) + font-family:inherit e resize:vertical inline, igual aos outros textareas do app.
+  html += '<tr><td>O que foi observado (opcional)</td><td><textarea class="kv-select" rows="3" style="font-family:inherit;resize:vertical" oninput="nmOnItemAuditado(this.value)">' + escapeHtml(NM.itemAuditado || '') + '</textarea></td></tr>';
   html += '</table>';
 
   html += '<div class="escopo-toggle">'
