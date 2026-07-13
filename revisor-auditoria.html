@@ -287,6 +287,9 @@
      mais espaço pra tabela+foto+ações), lista fica como estava. */
   .grid.grid-3{grid-template-columns:0.8fr 1.57fr 1.43fr}
   .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
+  /* 13/07/2026: pedido do Raphael — título fixo no topo da coluna de cards, mesma identidade azul
+     do app (var(--brand-d)), acima do botão de item manual e da busca. */
+  .col-list h2{font-size:14px;font-weight:700;color:var(--brand-d);margin:0 0 8px 0;flex:0 0 auto}
   .busca-input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px;flex:0 0 auto}
   .busca-input:focus{outline:none;border-color:var(--brand)}
   /* Rodada 16: a lista deixa de ser uma caixa contígua com borda própria (linhas coladas, separadas
@@ -1598,6 +1601,7 @@ function renderTudo(){
 
   h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
   h += '<div class="col-list">'
+    + '<h2>Não Conformidades</h2>'
     // pedido do Raphael (13/07): botão pra cadastrar manualmente uma NC que o Gemini/regex não
     // capturou do PDF — cobre o gap de que a lista só mostra itens que o pipeline conseguiu
     // segmentar. Largura cheia da coluna, acima da busca (ver abrirNovoItem()).
