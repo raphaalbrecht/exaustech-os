@@ -48,8 +48,8 @@
   /* pedido do Raphael (13/07): data sai de ao lado do nome (mesma linha) e vai pra debaixo dele,
      com fonte maior que antes (12px→15px) pra ganhar destaque próprio — mas sempre um degrau
      abaixo do nome da conta (16px), que continua sendo o elemento de maior peso visual do bloco. */
-  .conta-destaque{font-size:16px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:0 0 auto;max-width:100%}
-  .conta-destaque .data{font-size:15px;font-weight:600;color:var(--weak)}
+  .conta-destaque{font-size:14px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:0 0 auto;max-width:100%}
+  .conta-destaque .data{font-size:13px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
      (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
   .conta-destaque .arquivo-sub{font-size:11px;font-weight:400;color:var(--weaker);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -67,6 +67,11 @@
      #comparativoWrap que ficava entre este card e o .grid (com seu próprio margin-bottom) foi
      junto; margin-bottom sobe de 10px pra 20px aqui pra repor o respiro que existia antes dele. */
   .loadbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;flex:0 0 auto}
+  /* pedido do Raphael (13/07): "reduza em 25% a altura da barra branca superior que abriga as
+     pílulas" — override específico (não mexe em .card genérico, que também serve o comp-card morto)
+     mais os cortes de padding/fonte abaixo (.risco-card/.risco-sec/.risco-col/.stat/.trat-tab).
+     Calibrado ao vivo via getBoundingClientRect: 167.7px → 125.8px (-25.0% exato). */
+  .card.loadbar{padding:6px 16px}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
@@ -131,8 +136,8 @@
      depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
      .stat virar flex-column centralizado faz todas ficarem com a MESMA altura (a da mais alta),
      com o conteúdo das mais curtas centralizado em vez de grudado no topo. */
-  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 18px;min-width:110px;display:flex;flex-direction:column;justify-content:center}
-  .stat .n{font-size:20px;font-weight:600}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 18px;min-width:110px;display:flex;flex-direction:column;justify-content:center}
+  .stat .n{font-size:17px;font-weight:600}
   /* sugestão Fable 10/07: nome do arquivo reusava a fonte de "métrica" (20px bold) e brigava com
      os números de verdade — reduz peso/tamanho e trunca com ellipsis pra não alargar o card */
   .stat .n.arquivo{font-size:12.5px;font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -146,7 +151,7 @@
   .stat.stat-meta{background:transparent;border-color:transparent;padding-left:4px;padding-right:4px}
   /* pedido do Raphael (10/07, rodada 2): progresso visual de "quanto já foi confirmado" — barrinha
      fina embaixo do número, e a pílula inteira vira verde quando bate 100% (sinal de "terminou"). */
-  .stat-barra{margin-top:7px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:90px}
+  .stat-barra{margin-top:5px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:90px}
   .stat-barra-fill{height:100%;background:var(--brand);border-radius:999px}
   .stat.stat-completo{background:var(--succ-bg);border-color:var(--succ-bd)}
   .stat.stat-completo .n{color:var(--succ)}
@@ -171,11 +176,11 @@
      largura toda da coluna, ficam ACIMA dos filtros de match/revisão (é o eixo que sobrevive a
      longo prazo, por isso tem mais destaque que os filtros). */
   .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;margin-bottom:10px;flex:0 0 auto}
-  .trat-tab{flex:1;padding:12px 16px 14px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
+  .trat-tab{flex:1;padding:8px 16px 9px;background:#fff;border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
   .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
   .trat-tab:hover{background:var(--bg)}
-  .trat-tab .big{font-size:26px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
-  .trat-tab .l{display:block;font-size:11px;font-weight:700;color:var(--weak);margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
+  .trat-tab .big{font-size:22px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
+  .trat-tab .l{display:block;font-size:11px;font-weight:700;color:var(--weak);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
   .trat-tab .mini{font-size:11px;font-weight:700;color:var(--warn-tx);cursor:pointer}
   .trat-tab .mini:hover{text-decoration:underline}
   .trat-tab.tratadas .big{color:var(--succ)}
@@ -206,22 +211,22 @@
      fundem num card só, com hairline vertical entre as seções — mesma informação e mesmos
      cliques, uma moldura a menos brigando com as pílulas do resumo. .risco-sec reproduz o
      layout de coluna centralizada que cada card inteiro tinha antes. */
-  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center}
-  .risco-sec{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 14px}
+  .risco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px 14px;display:flex;align-items:center}
+  .risco-sec{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 14px}
   .risco-sec:first-child{padding-left:0}
   .risco-sec:last-child{padding-right:0}
   .risco-sec+.risco-sec{border-left:1px solid var(--border);align-self:stretch}
-  .risco-card-label{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase}
+  .risco-card-label{font-size:9px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase}
   .risco-chart{display:flex;align-items:flex-end;gap:2px}
-  .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:pointer;padding:3px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
+  .risco-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;cursor:pointer;padding:2px 5px;border-radius:6px;border:1px solid transparent;min-width:30px}
   .risco-col:hover{background:var(--bg);border-color:var(--border2)}
   .risco-col:hover .risco-bar{filter:brightness(1.12)}
   .risco-col:hover .risco-num{color:#0176D3}
   .risco-col.ativo{background:var(--brand-l);border-color:var(--brand)}
-  .risco-num{font-size:11.5px;font-weight:700;color:var(--txt);line-height:1;transition:color .12s}
+  .risco-num{font-size:10px;font-weight:700;color:var(--txt);line-height:1;transition:color .12s}
   .risco-bar{width:18px;border-radius:4px 4px 2px 2px;min-height:3px;display:block;transition:filter .12s}
-  .risco-lbl{font-size:10.5px;font-weight:600;color:var(--weak);line-height:1}
-  .risco-legenda{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--weak)}
+  .risco-lbl{font-size:9px;font-weight:600;color:var(--weak);line-height:1}
+  .risco-legenda{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--weak)}
   .risco-legenda-txt{margin:0 3px}
   .risco-legenda-swatch{width:9px;height:9px;border-radius:2px;display:inline-block}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
@@ -1390,7 +1395,9 @@ function renderTudo(){
       secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Distribuição dos riscos</span><div class="risco-chart">' + niveisRisco.map((n) => {
         const cor = RISCO_RAMPA_SF[n];
         const cnt = contagem('risco:' + n);
-        const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 26));
+        // pedido do Raphael (13/07): teto do gráfico cai de 26px pra 18px, parte do corte de 25%
+        // na altura da barra branca superior (junto dos paddings/fontes em .risco-*/.stat/.trat-tab)
+        const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 18));
         const on = ST.filtro === ('risco:' + n);
         return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
           + '<span class="risco-num">' + cnt + '</span>'
