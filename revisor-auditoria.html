@@ -217,6 +217,10 @@
   .trat-tab .mini{font-size:11px;font-weight:700;color:var(--warn-tx);cursor:pointer}
   .trat-tab .mini:hover{text-decoration:underline}
   .trat-tab.tratadas .big{color:var(--succ)}
+  /* pedido do Raphael (13/07): número de "Em aberto" em laranja — var(--warn), mesma cor de aviso já
+     usada nos acentos de tratativa (litem.trat-em, badge Fraco), calibrado ao vivo pra confirmar
+     legibilidade como número grande/bold sobre o fundo cinza (--neu-bg) do placar. */
+  .trat-tab.abertas .big{color:var(--warn)}
   .trat-tab.on{background:var(--brand-l)}
   .trat-tab.on::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--brand)}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
