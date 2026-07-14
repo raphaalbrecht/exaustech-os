@@ -113,7 +113,7 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v110'; // v110 14/07: pré-cadastro de Setor/Posição/Nível + tela Gerenciar estrutura (Gerente+)
+const CACHE = 'exaustech-os-v111'; // v111 14/07: renomeia card da home do Estoque de "Endereços de estoque" para "Criar novo endereço de estoque"
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).

@@ -3104,7 +3104,7 @@ function renderEstoque(){
   const endrBtn=document.createElement('div');
   endrBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:4px';
   endrBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📍</div>
-    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Endereços de estoque</div><div style="font-size:12px;color:#4A5560">Criar Bin/Prateleira/Armário/Caixa · etiqueta NFC</div></div>
+    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Criar novo endereço de estoque</div><div style="font-size:12px;color:#4A5560">Criar Bin/Prateleira/Armário/Caixa · etiqueta NFC</div></div>
     <span style="color:#999;font-size:18px">›</span>`;
   endrBtn.onclick=()=>{ endrReset(); estoqGo('enderecos'); endrCarregarLocais(); };
   wrap.appendChild(endrBtn);
