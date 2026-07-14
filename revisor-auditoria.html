@@ -275,6 +275,24 @@
   .risco-legenda{display:flex;align-items:center;gap:3px;font-size:8px;color:var(--weak)}
   .risco-legenda-txt{margin:0 3px}
   .risco-legenda-swatch{width:9px;height:9px;border-radius:2px;display:inline-block}
+  /* 13/07/2026 (rodada 32): segmented control Toda/Exaustech/Fora de escopo (Proposta A do
+     subagente Fable, escolhida pelo Raphael) — label + segmented dividem a mesma linha
+     (.risco-sec-head), align-self:stretch força essa linha a ocupar a largura toda da seção
+     (o .risco-sec pai é align-items:center, que faria a linha encolher e ficar só centralizada
+     sem isso). Visões recortadas (Exaustech/Fora de escopo) tingem o fundo da seção — sinal
+     visual redundante com o label e o contador "N de M itens", pra nunca deixar esquecer que é
+     um recorte, não a leitura padrão "toda a vistoria". */
+  .risco-sec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;align-self:stretch;margin-bottom:2px}
+  .risco-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;flex:0 0 auto}
+  .risco-seg-btn{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:4px 8px;color:var(--weaker);cursor:pointer;white-space:nowrap}
+  .risco-seg-btn+.risco-seg-btn{border-left:1px solid var(--border2)}
+  .risco-seg-btn.ativo-todos, .risco-seg-btn.ativo-exa{background:var(--brand-d);color:#fff}
+  .risco-seg-btn.ativo-fora{background:var(--warn);color:#fff}
+  .risco-contador{font-size:9px;color:var(--weaker);margin-top:2px}
+  .risco-sec.visao-exa{background:var(--brand-l);border-radius:8px;margin:-2px -10px;padding:4px 10px}
+  .risco-sec.visao-fora{background:var(--warn-bg);border-radius:8px;margin:-2px -10px;padding:4px 10px}
+  .risco-sec.visao-exa .risco-card-label, .risco-sec.visao-exa .risco-contador{color:var(--brand-d)}
+  .risco-sec.visao-fora .risco-card-label, .risco-sec.visao-fora .risco-contador{color:var(--warn-tx)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
      .grid agora ocupa a altura restante da viewport (flex:1 dentro de #conteudo) e cada coluna
      (lista / PDF / registro+reincidência) rola por conta própria (height:100%;overflow-y:auto),
@@ -787,7 +805,10 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 // tudo por padrão, igual sempre foi.
 // 13/07/2026 (rodada 27): filtrosRisco é um Set separado de ST.filtro — permite multi-seleção
 // dos níveis de risco (checkbox-style) sem interferir nas pílulas/abas que continuam de escolha única.
-let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set() };
+// 13/07/2026 (rodada 32): visaoRisco = 'todos'|'exa'|'fora' — leitura do gráfico de risco por
+// escopo (pedido do Raphael: distinguir "risco alto é nosso" de "risco alto é fora do escopo da
+// Exaustech", importante pra conversa comercial com o cliente). Ver Proposta A do subagente Fable.
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set(), visaoRisco:'todos' };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
 // pedido do Raphael (11/07): NCs de combate a incêndio/detecção de gás/detector de fumaça não são
@@ -1260,7 +1281,7 @@ async function carregar(){
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
     ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas; ST.auditoria = j.auditoria || null;
-    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); }
+    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); ST.visaoRisco = 'todos'; }
     ST.comparativo = null; // sempre recarrega — é barato (ver carregarComparativo logo abaixo) e pode ter mudado
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
@@ -1374,6 +1395,16 @@ function badgeStatusMini(status){
   return '<span class="badge ' + cls + '" title="Status no Salesforce: ' + escapeHtml(status || '—') + '">' + escapeHtml(label) + '</span>';
 }
 
+// 13/07/2026 (rodada 32): conta itens de um nível de risco dentro de uma POPULAÇÃO de escopo —
+// 'todos' (default, mesmo que contagem('risco:N')), 'exa' (só o que É responsabilidade da
+// Exaustech, !foraDeEscopo) ou 'fora' (só fora de escopo). Alimenta o segmented control do
+// gráfico de risco (ST.visaoRisco); contagem('risco:N') abaixo continua intocada pro resto da tela.
+function contagemRiscoVisao(n, visao){
+  return ST.linhas.filter(l => l.risco === n && (
+    visao === 'exa' ? !foraDeEscopo(l) : visao === 'fora' ? foraDeEscopo(l) : true
+  )).length;
+}
+
 function contagem(faixaOrTag){
   if (faixaOrTag === 'foto') return ST.linhas.filter(l => l.possuiFoto).length;
   if (faixaOrTag === 'nota') return ST.linhas.filter(l => l.possuiTextoComplementar).length;
@@ -1438,6 +1469,10 @@ function linhasFiltradas(){
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
   }
+  // 13/07/2026 (rodada 32): visão do gráfico de risco por escopo (Toda/Exaustech/Fora de escopo)
+  // também filtra a lista — decisão do Raphael pra número do gráfico e da lista sempre baterem.
+  if (ST.visaoRisco === 'exa') base = base.filter(l => !foraDeEscopo(l));
+  else if (ST.visaoRisco === 'fora') base = base.filter(foraDeEscopo);
   // 13/07/2026 (rodada 27): filtrosRisco (multi-seleção do gráfico de Risco) some por cima de
   // QUALQUER filtro/pílula ativo, igual ocultarConfirmados logo abaixo — combina em AND, não troca
   // ST.filtro. Vazio (nenhuma barra selecionada) = não filtra por risco, mostra tudo.
@@ -1589,15 +1624,34 @@ function renderTudo(){
   // cor do quadradinho. Agora cada nível é uma coluna autocontida (número em cima, barra
   // proporcional no meio, rótulo "Rn" embaixo — os 3 no mesmo eixo vertical), legenda não existe
   // mais. Altura da barra em px (teto 26px) em vez de % pro contêiner não precisar de altura fixa.
-  const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagem('risco:' + n) > 0);
+  // 13/07/2026 (rodada 32): pedido do Raphael — precisa ficar claro pro CLIENTE quando um risco
+  // alto é "nosso" (Exaustech) x quando é achado fora do escopo do serviço prestado (ex. problema
+  // estrutural do prédio, não atribuição da Exaustech consertar). 3 propostas de UI vieram de um
+  // subagente Fable (segmented de 3 pílulas / barras empilhadas / dropdown); Raphael escolheu o
+  // segmented (Proposta A) com o card mudando de cara em cada visão — sinal forte pra nunca deixar
+  // esquecer que "Exaustech"/"Fora de escopo" são um RECORTE, não a leitura padrão. niveisRisco,
+  // maxRisco e a cor das barras agora dependem de ST.visaoRisco (ver setVisaoRisco/toggleRisco).
+  const visaoRisco = ST.visaoRisco;
+  const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagemRiscoVisao(n, visaoRisco) > 0);
   const riscoWrap = document.getElementById('riscoInline');
   if (riscoWrap) {
-    const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagem('risco:' + n)));
-    // legenda mostra a rampa inteira (R0→R5), não só os níveis presentes neste lote — ela explica
-    // a escala de cor em si (fixa), não a distribuição do lote atual (essa já está nas colunas).
+    const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagemRiscoVisao(n, visaoRisco)));
+    const rampa = visaoRisco === 'fora' ? RISCO_RAMPA_FORA : RISCO_RAMPA_SF;
+    // legenda mostra a rampa inteira (R0→R5) da visão ativa — ela explica a escala de cor em si
+    // (fixa por visão), não a distribuição do lote atual (essa já está nas colunas).
     const legenda = '<div class="risco-legenda"><span class="risco-legenda-txt">menor</span>'
-      + RISCO_RAMPA_SF.map((cor) => '<span class="risco-legenda-swatch" style="background:' + cor + '"></span>').join('')
+      + rampa.map((cor) => '<span class="risco-legenda-swatch" style="background:' + cor + '"></span>').join('')
       + '<span class="risco-legenda-txt">maior</span></div>';
+    // segmented control de 3 estados — clique troca ST.visaoRisco (e também filtra a lista de NCs,
+    // ver linhasFiltradas(): decisão do Raphael pra número do gráfico e da lista sempre baterem).
+    const segBtn = (v, label) => '<span class="risco-seg-btn' + (visaoRisco === v ? ' ativo-' + v : '') + '" onclick="setVisaoRisco(\'' + v + '\')">' + label + '</span>';
+    const segmented = '<div class="risco-seg">' + segBtn('todos', 'Toda') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
+    const labelTxt = visaoRisco === 'exa' ? 'Riscos · apenas Exaustech' : visaoRisco === 'fora' ? 'Riscos · fora de escopo' : 'Distribuição dos riscos';
+    // contador "N de M itens" só aparece nas visões recortadas — reforço extra (além da cor do
+    // card e do rótulo) de que não é a leitura padrão "toda a vistoria".
+    const totalGeral = ST.linhas.filter(l => l.risco != null).length;
+    const totalVisao = niveisRisco.reduce((s, n) => s + contagemRiscoVisao(n, visaoRisco), 0);
+    const contador = visaoRisco !== 'todos' ? '<div class="risco-contador">' + totalVisao + ' de ' + totalGeral + ' itens</div>' : '';
     // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
     // diferente do histograma por item acima: é a classificação geral gravada na Auditoria na
     // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
@@ -1605,10 +1659,11 @@ function renderTudo(){
     // .risco-card, separadas por hairline (.risco-sec no CSS) — risco é UM assunto, ganha UMA
     // moldura. Cada seção só existe se tiver dado; os onclick das colunas não mudam.
     const secoesRisco = [];
-    if (niveisRisco.length) {
-      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Distribuição dos riscos</span><div class="risco-chart">' + niveisRisco.map((n) => {
-        const cor = RISCO_RAMPA_SF[n];
-        const cnt = contagem('risco:' + n);
+    if (niveisRisco.length || visaoRisco !== 'todos') {
+      const secClasse = visaoRisco === 'exa' ? 'risco-sec visao-exa' : visaoRisco === 'fora' ? 'risco-sec visao-fora' : 'risco-sec';
+      secoesRisco.push('<div class="' + secClasse + '"><div class="risco-sec-head"><span class="risco-card-label">' + labelTxt + '</span>' + segmented + '</div><div class="risco-chart">' + niveisRisco.map((n) => {
+        const cor = rampa[n];
+        const cnt = contagemRiscoVisao(n, visaoRisco);
         // pedido do Raphael (13/07): teto do gráfico cai de 26px pra 18px (corte de 25%) e depois
         // pra 15px (corte de +15%), parte do encolhimento geral da barra branca superior (junto
         // dos paddings/fontes em .risco-*/.stat/.trat-tab)
@@ -1623,7 +1678,7 @@ function renderTudo(){
           + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
           + '<span class="risco-lbl">R' + n + '</span>'
           + '</div>';
-      }).join('') + '</div>' + legenda + '</div>');
+      }).join('') + '</div>' + legenda + contador + '</div>');
     }
     if (a && a.riscoLoja) {
       const cor = corRiscoLojaTexto(a.riscoLoja);
@@ -1709,6 +1764,12 @@ const RISCO_PALETTE = [
 // (a outra era "estilo Apple"). Substitui a paleta verde→vermelho SÓ nesse componente — os badges
 // de risco no resto da tela continuam usando RISCO_PALETTE, sem mudança.
 const RISCO_RAMPA_SF = ['#AACBFF', '#78B0FD', '#1B96FF', '#0176D3', '#0B5CAB', '#032D60'];
+// 13/07/2026 (rodada 32): pedido do Raphael — leitura de risco por escopo (visão inteira / só
+// Exaustech / só fora de escopo, ver ST.visaoRisco + setVisaoRisco()). Rampa irmã da azul acima,
+// mesma progressão claro→escuro, só que na cor de aviso (--warn) já usada em todo o app pra "fora
+// de escopo" (trilho tracejado do card, palavra "fora de escopo" no rodapé) — reaproveita
+// significado existente em vez de inventar cor nova.
+const RISCO_RAMPA_FORA = ['#FCE7CC', '#FAD1A0', '#F8B673', '#FE9339', '#C96A1D', '#8C4B02'];
 function riscoCor(risco){
   if (risco == null || isNaN(risco)) return { bg: 'var(--neu-bg)', tx: 'var(--neu-tx)' };
   const idx = Math.max(0, Math.min(5, Math.round(risco)));
@@ -1869,6 +1930,15 @@ function setFiltro(f){
 
 // 13/07/2026 (rodada 27): multi-seleção do gráfico de Risco — cada coluna liga/desliga só o seu
 // próprio nível no Set, sem mexer nos demais (ver ST.filtrosRisco e a camada em linhasFiltradas()).
+// 13/07/2026 (rodada 32): troca de visão do gráfico de risco (todos/exa/fora) — também FILTRA a
+// lista de NCs (decisão do Raphael: números do gráfico e da lista sempre batem, senão confunde).
+// Zera filtrosRisco ao trocar de visão pra não empilhar um recorte de nível em cima do de escopo.
+function setVisaoRisco(v){
+  ST.visaoRisco = v;
+  ST.filtrosRisco = new Set();
+  renderTudo();
+}
+
 function toggleRisco(n){
   if (ST.filtrosRisco.has(n)) {
     ST.filtrosRisco.delete(n);
