@@ -2757,7 +2757,14 @@ function edHtmlAcao(l){
     return '<button class="btn" id="btnConfirmar" style="flex:1" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>';
   }
   edGarantirEstado(l);
-  const sujo = edSujo(l);
+  // 14/07/2026 (rodada 44): pedido do Raphael — "descartar alterações" só deve poder aparecer
+  // DEPOIS que o revisor escolhe Dentro/Fora (ED.classificacao preenchido). Sem essa trava, o
+  // simples fato do rascunho começar com classificacao=null (rodada 41) já bastava pra edSujo()
+  // achar "diferença" contra o valor pré-preenchido do catálogo (l.classificacaoLinha) — mostrando
+  // "descartar alterações" mesmo antes de qualquer clique do revisor, o que não faz sentido (não
+  // há nada de fato escolhido ainda pra descartar).
+  const escopoEscolhido = !!ED.classificacao;
+  const sujo = escopoEscolhido && edSujo(l);
   const podeSalvar = edPodeSalvar(l);
   const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
   return '<button class="btn" id="btnSalvarEd" style="flex:1"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
