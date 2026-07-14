@@ -1599,7 +1599,10 @@ function renderTudo(){
         // dos paddings/fontes em .risco-*/.stat/.trat-tab)
         const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 15));
         const on = ST.filtro === ('risco:' + n);
-        return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)" onclick="setFiltro(\'risco:' + n + '\')">'
+        // 13/07/2026: pedido do Raphael — clicar na barra já ativa tinha que "religar" o filtro
+        // (setFiltro só define, nunca desliga). Troca pra toggleFiltroStat, mesma função que já
+        // desliga as pílulas do resumo ao clicar 2x: clique repetido no MESMO nível volta a "Todas".
+        return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)' + (on ? ' · clique para remover o filtro' : '') + '" onclick="toggleFiltroStat(\'risco:' + n + '\')">'
           + '<span class="risco-num">' + cnt + '</span>'
           + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
           + '<span class="risco-lbl">R' + n + '</span>'
