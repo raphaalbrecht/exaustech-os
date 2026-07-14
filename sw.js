@@ -98,8 +98,13 @@
    (v107 14/07 — wizard endr*, tela Área: só as áreas com Setor obrigatório (Almoxarifado,
     Produção, Administração) ficam com cadastro habilitado por enquanto — vêm primeiro na lista,
     destacadas em azul-marca. As outras 7 (sem Setor) ficam cinza/inativas, sem toque, até decisão
-    de liberar depois) */
-const CACHE = 'exaustech-os-v107'; // v107 14/07: só Áreas com Setor ficam clicáveis (azul, primeiro); demais inativas
+    de liberar depois)
+   (v108 14/07 — wizard endr*, tela Local: mesmo tratamento cinza/inativo dos veículos (Cleidson
+    Martins, Dayvson Villela, Marcos Sinésio) — bloqueio de verdade, sem cadastro por ora, igual
+    padrão das Áreas do v107. Escopo só cadastro (!endrSt.consulta): consulta de endereço de
+    veículo já existente e o fluxo recp* (Entradas Pendentes) continuam livres, sem alteração —
+    estoqLocaisAgrupados() ganhou um 4º parâmetro opcional desabilitarVeiculos) */
+const CACHE = 'exaustech-os-v108'; // v108 14/07: veículos inativos/cinza no picker de Local do cadastro endr*, recp* intocado
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).
