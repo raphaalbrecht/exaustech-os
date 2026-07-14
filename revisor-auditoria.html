@@ -838,9 +838,21 @@ const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item 
 // só nunca foi usado no frontend. Ver DECISAO_item-fora-de-escopo.md pro racional completo (Fable 5,
 // 2 propostas, Raphael escolheu a 1: "campo do registro", reusa o botão Confirmar em vez de ação
 // terminal separada).
-const CLASSIF_FORA_ESCOPO = 'Serviço fora do escopo Exaustech';
+const CLASSIF_FORA_ESCOPO = 'Serviço fora do escopo Exaustech'; // legado (dual-write) — ver eixos novos abaixo
 const CLASSIF_LINHA_PADRAO = 'Exaustão - manutenção'; // espelha CLASSIFICACAO_LINHA_DEFAULT do backend
-function foraDeEscopo(l){ return l.classificacaoLinha === CLASSIF_FORA_ESCOPO; }
+// 14/07/2026 (rodada 45) — ver PROPOSTA_escopo-subtipo-nc.md: Escopo (Dentro/Fora) e Sub-tipo
+// (Estrutural/Manutenção) viram 2 eixos independentes, substituindo o picklist único de 3 valores
+// acima no frontend (que segue existindo só pro dual-write no Salesforce, nunca mais escrito
+// diretamente por aqui a partir de agora).
+const ESCOPO_DENTRO = 'Dentro';
+const ESCOPO_FORA = 'Fora';
+const SUBTIPO_ESTRUTURAL = 'Estrutural';
+const SUBTIPO_MANUTENCAO = 'Manutenção';
+// escopo real da Linha: prioriza o campo novo (escopoLinha, já resolvido pelo backend com fallback
+// pro legado quando o Apex de backfill ainda não tocou o registro) — nunca precisa reconsultar
+// classificacaoLinha diretamente daqui em diante.
+function escopoDaLinha(l){ return l.escopoLinha || (l.classificacaoLinha ? (l.classificacaoLinha === CLASSIF_FORA_ESCOPO ? ESCOPO_FORA : ESCOPO_DENTRO) : null); }
+function foraDeEscopo(l){ return escopoDaLinha(l) === ESCOPO_FORA; }
 // Contestação técnica (11/07) — eixo ortogonal ao escopo, ver DECISAO_contestacao-tecnica.md.
 // Contestação Procedente tem o MESMO efeito que fora-de-escopo na estatística de tratativa (some
 // dela, continua no relatório); Pendente/Improcedente continuam contando normalmente.
@@ -2332,20 +2344,26 @@ function edGarantirEstado(l){
     // Rodada 17 (11/07): "fora de escopo" — ver DECISAO_item-fora-de-escopo.md. Guarda a
     // classificação editável junto do resto do rascunho (mesmo padrão de grupoId/elementoId/etc:
     // só grava de verdade quando o revisor confirma/salva).
-    // 14/07/2026 (rodada 41): pedido do Raphael — o rascunho SEMPRE começa com classificacao=null,
-    // mesmo quando o item já tem match (Forte/Fraco) e chega com l.classificacaoLinha pré-preenchido
-    // pelo backend (hidratarCandidatoComNC, rodada 17b). Antes, só o item SEM MATCH começava sem
-    // pré-seleção (rodada 4) — itens com match pulavam a escolha porque o botão "Confirmar match"
-    // já vinha ativo com o valor sugerido do catálogo. Isso contradizia a regra combinada com o
-    // Raphael: confirmar match exige ESCOLHA EXPLÍCITA de Dentro/Fora, sempre, sem exceção pro caso
-    // de já ter um match forte. edPodeSalvar() já bloqueia com classificacao=null (ver linha
-    // abaixo) — agora esse bloqueio vale igual pros 2 casos.
-    classificacao: null,
-    // true assim que o revisor mexe no toggle manualmente — a partir daí edOnNc/edUsarNcExistente
-    // param de sobrescrever a escolha dele quando ele troca de NC (ver edSetEscopo/edPreencherEscopoPorNc).
+    // 14/07/2026 (rodada 41, estendido rodada 45): pedido do Raphael — o rascunho SEMPRE começa com
+    // escopo=null (e sub-tipo=null), mesmo quando o item já tem match (Forte/Fraco) e chega com
+    // l.escopoLinha/l.subTipoLinha pré-preenchidos pelo backend (hidratarCandidatoComNC). Antes, só
+    // o item SEM MATCH começava sem pré-seleção (rodada 4) — itens com match pulavam a escolha
+    // porque o botão "Confirmar match" já vinha ativo com o valor sugerido do catálogo. Isso
+    // contradizia a regra combinada com o Raphael: confirmar match exige ESCOLHA EXPLÍCITA de
+    // Dentro/Fora, sempre, sem exceção pro caso de já ter um match forte. edPodeSalvar() já bloqueia
+    // com escopo=null (ver abaixo) — agora esse bloqueio vale igual pros 2 casos.
+    // Sub-tipo (Estrutural/Manutenção) é eixo INDEPENDENTE (ver PROPOSTA_escopo-subtipo-nc.md): só
+    // precisa de escolha explícita quando a NC ligada é ambígua (2 valores possíveis); quando a NC
+    // tem 1 valor só, o sub-tipo nasce travado nesse valor (edPreencherEscopoPorNc cuida disso).
+    escopo: null,
+    subTipo: null,
+    // true assim que o revisor mexe no toggle de ESCOPO manualmente — a partir daí edOnNc/
+    // edUsarNcExistente param de sobrescrever essa escolha quando ele troca de NC (ver edSetEscopo/
+    // edPreencherEscopoPorNc). Sub-tipo não tem guard equivalente: ele é sempre recalculado pra NC
+    // nova selecionada (faz sentido, já que pertencia à NC anterior).
     escopoManual: false,
     novoNcAberto: false,
-    novoNc: { texto: cortarAposTagRisco(l.textoOriginal), classificacao: '', risco: '', pontuaExp: false },
+    novoNc: { texto: cortarAposTagRisco(l.textoOriginal), escopo: '', subTipos: [], risco: '', pontuaExp: false },
     // pedido do Raphael (13/07): "Nota do vistoriador" vira editável (era só leitura, mesmo no modo
     // de edição das outras 4 hierarquias) — rascunho separado do resto igual todo o resto do ED.
     textoComplementar: l.textoComplementar || ''
@@ -2358,10 +2376,20 @@ function edGarantirEstado(l){
 // selects em cascata. Só o eixo binário dentro/fora é transferido (o toggle não distingue
 // "estrutural" de "manutenção" — ver edHtmlEscopo); não sobrescreve se o revisor já mexeu no
 // toggle manualmente nesta edição.
-function edPreencherEscopoPorNc(ncId){
-  if (ED.escopoManual) return;
+// sub-tipos possíveis da NC (array vazio/1/2 valores) — ver Sub_Tipos_Possiveis__c no catálogo
+function edSubTiposDaNc(ncId){
   const nc = ncId && CAT ? CAT.ncPorId[ncId] : null;
-  ED.classificacao = (nc && nc.classificacao === CLASSIF_FORA_ESCOPO) ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  return (nc && nc.subTiposPossiveis) || [];
+}
+
+function edPreencherEscopoPorNc(ncId){
+  const nc = ncId && CAT ? CAT.ncPorId[ncId] : null;
+  if (!ED.escopoManual) ED.escopo = (nc && nc.escopo === ESCOPO_FORA) ? ESCOPO_FORA : ESCOPO_DENTRO;
+  // sub-tipo sempre recalculado pra NC nova (o valor anterior pertencia à NC anterior, não faz
+  // sentido preservar): trava automático quando só há 1 valor possível; fica vazio (a escolher)
+  // quando a NC é ambígua (2 valores) — ver edHtmlEscopo/edSetSubTipo.
+  const subTipos = edSubTiposDaNc(ncId);
+  ED.subTipo = subTipos.length === 1 ? subTipos[0] : null;
 }
 
 function edSujo(l){
@@ -2369,7 +2397,7 @@ function edSujo(l){
   if (ED.novoNcAberto) return true;
   return ED.grupoId !== (l.grupoId || null) || ED.elementoId !== (l.elementoId || null) ||
     ED.perguntaId !== (l.perguntaId || null) || ED.ncId !== (l.naoConformidadeId || null) ||
-    ED.classificacao !== (l.classificacaoLinha || null) ||
+    ED.escopo !== (l.escopoLinha || null) || ED.subTipo !== (l.subTipoLinha || null) ||
     ED.textoComplementar !== (l.textoComplementar || '');
 }
 
@@ -2383,13 +2411,26 @@ function edOnNota(v){
   if (l) { const btn = document.getElementById('btnSalvarEd'); if (btn) btn.disabled = !edPodeSalvar(l); }
 }
 
-// Rodada 17: alterna o campo de escopo do rascunho (botão segmentado na tela de detalhe).
+// Rodada 17 (estendido rodada 45): alterna SÓ o campo de escopo do rascunho (botão segmentado na
+// tela de detalhe) — nunca toca no sub-tipo, que é eixo independente (ver edSetSubTipo abaixo).
 function edSetEscopo(linhaId, foraEscopo){
   const l = ST.linhas.find((x) => x.id === linhaId);
   if (!l) return;
   edGarantirEstado(l);
-  ED.classificacao = foraEscopo ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  ED.escopo = foraEscopo ? ESCOPO_FORA : ESCOPO_DENTRO;
   ED.escopoManual = true; // a partir daqui, trocar de NC não pisa mais na escolha do revisor
+  edRerenderTabela();
+}
+
+// 14/07/2026 (rodada 45): escolha explícita de sub-tipo — só chamado quando a NC ligada é ambígua
+// (2 valores em Sub_Tipos_Possiveis__c). Quando a NC tem 1 valor só, o sub-tipo já vem travado por
+// edPreencherEscopoPorNc e este controle nem aparece (ver edHtmlEscopo) — decisão do Raphael: "fica
+// travado e ele não precisa escolher", sem override manual nesse caso.
+function edSetSubTipo(linhaId, subTipo){
+  const l = ST.linhas.find((x) => x.id === linhaId);
+  if (!l) return;
+  edGarantirEstado(l);
+  ED.subTipo = subTipo;
   edRerenderTabela();
 }
 
@@ -2405,14 +2446,21 @@ function edPodeSalvar(l){
   if (ED.novoNcAberto) {
     const opcoes = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
     const prefixoOk = opcoes.length === 1 ? true : (opcoes.length > 1 ? !!ED.prefixoId : false);
-    return !!(ED.perguntaId && ED.elementoId && ED.grupoId && prefixoOk &&
-      ED.novoNc.texto && ED.novoNc.texto.trim() && ED.novoNc.classificacao && ED.novoNc.risco !== '' && ED.novoNc.risco != null);
+    // 14/07/2026 (rodada 45): sub-tipo só é obrigatório quando a NC nova é "Dentro" — a checkbox de
+    // sub-tipo(s) precisa ter pelo menos 1 marcado nesse caso (ver edHtmlNovoNc)
+    const subTipoOk = ED.novoNc.escopo === ESCOPO_FORA || (ED.novoNc.subTipos && ED.novoNc.subTipos.length > 0);
+    return !!(ED.perguntaId && ED.elementoId && ED.grupoId && prefixoOk && ED.novoNc.escopo && subTipoOk &&
+      ED.novoNc.texto && ED.novoNc.texto.trim() && ED.novoNc.risco !== '' && ED.novoNc.risco != null);
   }
   if (!(ED.grupoId && ED.elementoId && ED.perguntaId && ED.ncId)) return false;
-  // 12/07/2026 (rodada 4), reforçado 14/07/2026 (rodada 41): TODO item começa com
-  // classificacao=null (ver edGarantirEstado, sem exceção pra quem já tem match) — exige que o
-  // revisor escolha Dentro/Fora explicitamente (clique em edSetEscopo) antes de liberar o Confirmar.
-  if (!ED.classificacao) return false;
+  // 12/07/2026 (rodada 4), reforçado 14/07/2026 (rodada 41, depois rodada 45 c/ eixo de escopo
+  // separado do sub-tipo): TODO item começa com escopo=null (ver edGarantirEstado, sem exceção pra
+  // quem já tem match) — exige que o revisor escolha Dentro/Fora explicitamente antes de liberar o
+  // Confirmar. Quando Dentro E a NC é ambígua (2 sub-tipos possíveis), exige TAMBÉM a escolha do
+  // sub-tipo (edSetSubTipo) — quando a NC tem 1 valor só, o sub-tipo já vem travado/preenchido
+  // (edPreencherEscopoPorNc) e não bloqueia nada.
+  if (!ED.escopo) return false;
+  if (ED.escopo === ESCOPO_DENTRO && edSubTiposDaNc(ED.ncId).length === 2 && !ED.subTipo) return false;
   if (edPrefixoNecessario(l)) {
     const opcoes = CAT.prefixosPorPar[(ED.elementoId || '') + '|' + (ED.grupoId || '')] || [];
     if (opcoes.length > 1 && !ED.prefixoId) return false;
@@ -2527,7 +2575,7 @@ function edOnNc(v){
     ED.ncId = null; ED.novoNcAberto = true;
     if (!ED.novoNc.texto) {
       const l = ST.linhas.find((x) => x.id === ED.linhaId);
-      ED.novoNc = { texto: l ? cortarAposTagRisco(l.textoOriginal) : '', classificacao: '', risco: '', pontuaExp: false };
+      ED.novoNc = { texto: l ? cortarAposTagRisco(l.textoOriginal) : '', escopo: '', subTipos: [], risco: '', pontuaExp: false };
     }
   } else {
     ED.ncId = v || null; ED.novoNcAberto = false;
@@ -2696,19 +2744,49 @@ function edHtmlTabela(l){
   return html;
 }
 
+// 14/07/2026 (rodada 45): escopo/sub-tipo da NC nova — ver PROPOSTA_escopo-subtipo-nc.md. Substitui
+// o antigo select único de 3 valores (Classificação). Sub_Tipos_Possiveis__c é multiselect no
+// Salesforce, então uma NC nova PODE nascer marcada com os 2 valores (caso em que o revisor já sabe
+// de cara que aquela não conformidade cobre tanto "estrutural" quanto "manutenção" — vira ambígua
+// desde o cadastro); o caso comum é marcar só 1.
+function edSetNovoNcEscopo(foraEscopo){
+  ED.novoNc.escopo = foraEscopo ? ESCOPO_FORA : ESCOPO_DENTRO;
+  if (foraEscopo) ED.novoNc.subTipos = []; // fora de escopo não carrega sub-tipo
+  const btn = document.getElementById('btnSalvarEd');
+  if (btn) { const l = ST.linhas.find((x) => x.id === ED.linhaId); if (l) btn.disabled = !edPodeSalvar(l); }
+  edRerenderTabela();
+}
+function edToggleNovoNcSubTipo(subTipo, marcado){
+  const s = new Set(ED.novoNc.subTipos || []);
+  if (marcado) s.add(subTipo); else s.delete(subTipo);
+  ED.novoNc.subTipos = Array.from(s);
+  const btn = document.getElementById('btnSalvarEd');
+  if (btn) { const l = ST.linhas.find((x) => x.id === ED.linhaId); if (l) btn.disabled = !edPodeSalvar(l); }
+}
+
 function edHtmlNovoNc(){
+  const dentro = ED.novoNc.escopo === ESCOPO_DENTRO;
+  const fora = ED.novoNc.escopo === ESCOPO_FORA;
   return '<div class="edit-panel">'
     + '<div style="font-size:12px;color:var(--weak);margin-bottom:8px">Cadastrar nova não conformidade no catálogo (pra esta Pergunta) e apontar esta Linha pra ela.</div>'
     + '<label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Texto da não conformidade</label>'
     + '<textarea rows="3" oninput="edOnNovoNcCampo(\'texto\', this.value)">' + escapeHtml(ED.novoNc.texto || '') + '</textarea>'
     + '<div id="edDupWarning">' + edHtmlDupWarning() + '</div>'
+    + '<label style="font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px">Escopo</label>'
+    + '<div class="escopo-toggle" style="margin-top:0">'
+    + '<button type="button" class="escopo-btn' + (dentro ? ' on' : '') + '" onclick="edSetNovoNcEscopo(false)">Dentro do escopo Exaustech</button>'
+    + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="edSetNovoNcEscopo(true)">Fora de escopo Exaustech</button>'
+    + '</div>'
+    + (dentro
+        ? '<label style="font-size:11.5px;color:var(--weak);display:block;margin:10px 0 4px">Sub-tipo (marque 1, ou os 2 se a NC cobrir ambos os casos)</label>'
+          + '<div style="display:flex;gap:14px;margin-bottom:4px">'
+          + [SUBTIPO_ESTRUTURAL, SUBTIPO_MANUTENCAO].map((st) =>
+              '<label style="font-size:12px;display:flex;align-items:center;gap:6px">'
+              + '<input type="checkbox"' + ((ED.novoNc.subTipos || []).includes(st) ? ' checked' : '') + ' onchange="edToggleNovoNcSubTipo(\'' + st + '\', this.checked)"> ' + st
+              + '</label>').join('')
+          + '</div>'
+        : '')
     + '<div style="display:flex;gap:10px;margin:8px 0">'
-    + '<div style="flex:1"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Classificação</label>'
-    + '<select onchange="edOnNovoNcCampo(\'classificacao\', this.value)">'
-    + '<option value="">— selecione —</option>'
-    + ['Exaustão - estrutural', 'Exaustão - manutenção', 'Serviço fora do escopo Exaustech'].map((c) =>
-        '<option value="' + escapeHtml(c) + '"' + (ED.novoNc.classificacao === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('')
-    + '</select></div>'
     + '<div style="flex:1"><label style="font-size:11.5px;color:var(--weak);display:block;margin-bottom:4px">Risco</label>'
     + '<select onchange="edOnNovoNcCampo(\'risco\', this.value)">'
     + '<option value="">— selecione —</option>'
@@ -2726,23 +2804,46 @@ function edHtmlNovoNc(){
 // DECISAO_item-fora-de-escopo.md. Antes de confirmado, é editável (2 botões grandes); depois de
 // confirmado, vira um aviso só-leitura (mudar exige reverter a confirmação, igual aos outros
 // campos do registro).
+// pedido do Raphael (14/07, rodada 45): controle de Sub-tipo, eixo independente do escopo — só
+// aparece quando Dentro do escopo E a NC ligada é ambígua (2 valores em Sub_Tipos_Possiveis__c).
+// Quando a NC tem 1 valor só, o sub-tipo já vem travado (edPreencherEscopoPorNc) e aparece como
+// badge só-leitura (decisão do Raphael: "fica travado e ele não precisa escolher").
+function edHtmlSubTipo(l){
+  if (ED.escopo !== ESCOPO_DENTRO) return '';
+  const subTipos = edSubTiposDaNc(ED.ncId);
+  if (subTipos.length <= 1) {
+    const valor = subTipos[0] || ED.subTipo;
+    return valor ? '<div style="margin-top:8px;font-size:12px;color:var(--weak)">Sub-tipo: <span class="badge neu">' + escapeHtml(valor) + '</span></div>' : '';
+  }
+  // NC ambígua (2 valores) — escolha explícita obrigatória, mesmo padrão visual do toggle de escopo
+  const estrutural = ED.subTipo === SUBTIPO_ESTRUTURAL;
+  const manutencao = ED.subTipo === SUBTIPO_MANUTENCAO;
+  return '<div style="font-size:11.5px;color:var(--weak);margin:10px 0 4px">Sub-tipo (esta NC é ambígua — escolha qual se aplica)</div>'
+    + '<div class="escopo-toggle" style="margin-top:0">'
+    + '<button type="button" class="escopo-btn' + (estrutural ? ' on' : '') + '" onclick="edSetSubTipo(\'' + l.id + '\', \'' + SUBTIPO_ESTRUTURAL + '\')">' + SUBTIPO_ESTRUTURAL + '</button>'
+    + '<button type="button" class="escopo-btn' + (manutencao ? ' on' : '') + '" onclick="edSetSubTipo(\'' + l.id + '\', \'' + SUBTIPO_MANUTENCAO + '\')">' + SUBTIPO_MANUTENCAO + '</button>'
+    + '</div>';
+}
+
 function edHtmlEscopo(l){
   if (l.status === 'Pendente proposta') {
-    return foraDeEscopo(l)
-      ? '<div class="escopo-ro">⛔ Fora do escopo Exaustech — não entra na estatística de tratativa, mas continua no relatório.</div>'
-      : '';
+    if (foraDeEscopo(l)) return '<div class="escopo-ro">⛔ Fora do escopo Exaustech — não entra na estatística de tratativa, mas continua no relatório.</div>';
+    // 14/07/2026: mostra o sub-tipo confirmado (só-leitura) quando dentro do escopo — mudar exige
+    // reverter a confirmação, igual aos outros campos do registro.
+    return l.subTipoLinha ? '<div style="margin-top:14px;font-size:12px;color:var(--weak)">Sub-tipo: <span class="badge neu">' + escapeHtml(l.subTipoLinha) + '</span></div>' : '';
   }
   if (!CAT) return ''; // fallback sem catálogo carregado — sem editor de escopo, confirmarLinha() manda '{}'
   edGarantirEstado(l);
-  // 12/07/2026 (rodada 4): tri-state — ED.classificacao pode ser null (item sem match, nenhuma
-  // escolha ainda feita), então NENHUM dos 2 botões deve vir com a classe "on" nesse caso (antes
-  // era binário: "não fora" = sempre pintava "Dentro" como pré-selecionado).
-  const dentro = ED.classificacao === CLASSIF_LINHA_PADRAO;
-  const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
+  // 12/07/2026 (rodada 4): tri-state — ED.escopo pode ser null (item sem match, nenhuma escolha
+  // ainda feita), então NENHUM dos 2 botões deve vir com a classe "on" nesse caso (antes era
+  // binário: "não fora" = sempre pintava "Dentro" como pré-selecionado).
+  const dentro = ED.escopo === ESCOPO_DENTRO;
+  const fora = ED.escopo === ESCOPO_FORA;
   return '<div class="escopo-toggle">'
     + '<button type="button" class="escopo-btn' + (dentro ? ' on' : '') + '" onclick="edSetEscopo(\'' + l.id + '\', false)">Dentro do escopo Exaustech</button>'
     + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="edSetEscopo(\'' + l.id + '\', true)">Fora de escopo Exaustech</button>'
-    + '</div>';
+    + '</div>'
+    + edHtmlSubTipo(l);
 }
 
 function edHtmlAcao(l){
@@ -2757,16 +2858,16 @@ function edHtmlAcao(l){
     return '<button class="btn" id="btnConfirmar" style="flex:1" onclick="confirmarLinha(\'' + l.id + '\')">Confirmar match</button>';
   }
   edGarantirEstado(l);
-  // 14/07/2026 (rodada 44): pedido do Raphael — "descartar alterações" só deve poder aparecer
-  // DEPOIS que o revisor escolhe Dentro/Fora (ED.classificacao preenchido). Sem essa trava, o
-  // simples fato do rascunho começar com classificacao=null (rodada 41) já bastava pra edSujo()
-  // achar "diferença" contra o valor pré-preenchido do catálogo (l.classificacaoLinha) — mostrando
+  // 14/07/2026 (rodada 44, atualizado rodada 45): pedido do Raphael — "descartar alterações" só
+  // deve poder aparecer DEPOIS que o revisor escolhe Dentro/Fora (ED.escopo preenchido). Sem essa
+  // trava, o simples fato do rascunho começar com escopo=null (rodada 41) já bastava pra edSujo()
+  // achar "diferença" contra o valor pré-preenchido do catálogo (l.escopoLinha) — mostrando
   // "descartar alterações" mesmo antes de qualquer clique do revisor, o que não faz sentido (não
   // há nada de fato escolhido ainda pra descartar).
-  const escopoEscolhido = !!ED.classificacao;
+  const escopoEscolhido = !!ED.escopo;
   const sujo = escopoEscolhido && edSujo(l);
   const podeSalvar = edPodeSalvar(l);
-  const fora = ED.classificacao === CLASSIF_FORA_ESCOPO;
+  const fora = ED.escopo === ESCOPO_FORA;
   return '<button class="btn" id="btnSalvarEd" style="flex:1"' + (podeSalvar ? '' : ' disabled') + ' onclick="edSalvar(\'' + l.id + '\')">'
     + (fora ? 'Confirmar como fora de escopo' : (sujo ? 'Salvar correções e confirmar match' : 'Confirmar match')) + '</button>'
     + (sujo ? '<button class="btn sec" onclick="edDescartar()">descartar alterações</button>' : '');
@@ -2783,7 +2884,15 @@ function edHtmlAcao(l){
 let NM = null; // { grupoId, elementoId, perguntaId, prefixoId, ncId, classificacao, itemAuditado }
 
 function nmEstadoInicial(){
-  return { grupoId: null, elementoId: null, perguntaId: null, prefixoId: null, ncId: null, classificacao: CLASSIF_LINHA_PADRAO, itemAuditado: '' };
+  // 14/07/2026 (rodada 45): escopo/subTipo eixos independentes — ver PROPOSTA_escopo-subtipo-nc.md
+  // (mesma extensão do rascunho ED, feita em edGarantirEstado).
+  return { grupoId: null, elementoId: null, perguntaId: null, prefixoId: null, ncId: null, escopo: null, subTipo: null, itemAuditado: '' };
+}
+
+// sub-tipos possíveis da NC selecionada em NM (mesma lógica de edSubTiposDaNc)
+function nmSubTiposDaNc(ncId){
+  const nc = ncId && CAT ? CAT.ncPorId[ncId] : null;
+  return (nc && nc.subTiposPossiveis) || [];
 }
 
 async function abrirNovoItem(){
@@ -2852,15 +2961,24 @@ function nmOnPrefixo(v){ NM.prefixoId = v || null; renderNovoItem(); }
 
 function nmOnNc(v){
   NM.ncId = v || null;
-  // pré-preenche escopo pela classificação da NC escolhida (mesma lógica de edPreencherEscopoPorNc,
-  // sem o guard de "não sobrescrever escolha manual anterior" — aqui não existe estado anterior).
+  // pré-preenche escopo/sub-tipo pela NC escolhida (mesma lógica de edPreencherEscopoPorNc, sem o
+  // guard de "não sobrescrever escolha manual anterior" — aqui não existe estado anterior).
   const nc = NM.ncId && CAT.ncPorId[NM.ncId];
-  NM.classificacao = (nc && nc.classificacao === CLASSIF_FORA_ESCOPO) ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  NM.escopo = (nc && nc.escopo === ESCOPO_FORA) ? ESCOPO_FORA : ESCOPO_DENTRO;
+  const subTipos = nmSubTiposDaNc(NM.ncId);
+  NM.subTipo = subTipos.length === 1 ? subTipos[0] : null;
   renderNovoItem();
 }
 
+// alterna SÓ o escopo (nunca o sub-tipo — eixo independente, ver nmSetSubTipo abaixo)
 function nmSetEscopo(foraEscopo){
-  NM.classificacao = foraEscopo ? CLASSIF_FORA_ESCOPO : CLASSIF_LINHA_PADRAO;
+  NM.escopo = foraEscopo ? ESCOPO_FORA : ESCOPO_DENTRO;
+  renderNovoItem();
+}
+
+// escolha explícita de sub-tipo, só usado quando a NC selecionada é ambígua (2 valores possíveis)
+function nmSetSubTipo(subTipo){
+  NM.subTipo = subTipo;
   renderNovoItem();
 }
 
@@ -2874,7 +2992,9 @@ function nmPodeSalvar(){
   if (!CAT || !NM) return false;
   // pedido do Raphael (13/07): "O que foi observado" é OPCIONAL — só os 4 campos do catálogo
   // (Grupo/Elemento/Pergunta/Não conformidade) + prefixo (quando ambíguo) são obrigatórios.
-  if (!(NM.grupoId && NM.elementoId && NM.perguntaId && NM.ncId && NM.classificacao)) return false;
+  if (!(NM.grupoId && NM.elementoId && NM.perguntaId && NM.ncId && NM.escopo)) return false;
+  // 14/07/2026: NC ambígua (2 sub-tipos possíveis) exige escolha explícita também
+  if (NM.escopo === ESCOPO_DENTRO && nmSubTiposDaNc(NM.ncId).length === 2 && !NM.subTipo) return false;
   const opcoes = CAT.prefixosPorPar[(NM.elementoId || '') + '|' + (NM.grupoId || '')] || [];
   if (opcoes.length === 0) return false; // par sem prefixo cadastrado — precisa cadastrar no Salesforce antes
   if (opcoes.length > 1 && !NM.prefixoId) return false;
@@ -2891,8 +3011,8 @@ function renderNovoItem(){
   const opcoesPrefixo = CAT.prefixosPorPar[(NM.elementoId || '') + '|' + (NM.grupoId || '')] || [];
   if (opcoesPrefixo.length === 1 && NM.prefixoId !== opcoesPrefixo[0].id) NM.prefixoId = opcoesPrefixo[0].id;
 
-  const dentro = NM.classificacao === CLASSIF_LINHA_PADRAO;
-  const fora = NM.classificacao === CLASSIF_FORA_ESCOPO;
+  const dentro = NM.escopo === ESCOPO_DENTRO;
+  const fora = NM.escopo === ESCOPO_FORA;
   const ncSelecionada = NM.ncId && CAT.ncPorId[NM.ncId];
   const perguntaSelecionada = NM.perguntaId && CAT.perguntaPorId[NM.perguntaId];
 
@@ -2928,6 +3048,23 @@ function renderNovoItem(){
     + '<button type="button" class="escopo-btn fora' + (fora ? ' on' : '') + '" onclick="nmSetEscopo(true)">Fora de escopo Exaustech</button>'
     + '</div>';
 
+  // 14/07/2026 (rodada 45): sub-tipo — travado (badge) quando a NC tem 1 valor só, escolha
+  // explícita (toggle) quando a NC é ambígua (2 valores) — mesmo padrão de edHtmlSubTipo.
+  if (dentro) {
+    const subTiposNc = nmSubTiposDaNc(NM.ncId);
+    if (subTiposNc.length <= 1) {
+      const valor = subTiposNc[0] || NM.subTipo;
+      if (valor) html += '<div style="margin-top:8px;font-size:12px;color:var(--weak)">Sub-tipo: <span class="badge neu">' + escapeHtml(valor) + '</span></div>';
+    } else {
+      const estrutural = NM.subTipo === SUBTIPO_ESTRUTURAL, manutencao = NM.subTipo === SUBTIPO_MANUTENCAO;
+      html += '<div style="font-size:11.5px;color:var(--weak);margin:10px 0 4px">Sub-tipo (esta NC é ambígua — escolha qual se aplica)</div>'
+        + '<div class="escopo-toggle" style="margin-top:0">'
+        + '<button type="button" class="escopo-btn' + (estrutural ? ' on' : '') + '" onclick="nmSetSubTipo(\'' + SUBTIPO_ESTRUTURAL + '\')">' + SUBTIPO_ESTRUTURAL + '</button>'
+        + '<button type="button" class="escopo-btn' + (manutencao ? ' on' : '') + '" onclick="nmSetSubTipo(\'' + SUBTIPO_MANUTENCAO + '\')">' + SUBTIPO_MANUTENCAO + '</button>'
+        + '</div>';
+    }
+  }
+
   html += '<div style="display:flex;gap:10px;margin-top:16px">'
     + '<button class="btn" id="btnSalvarNovoItem"' + (nmPodeSalvar() ? '' : ' disabled') + ' onclick="nmSalvar()">Adicionar item</button>'
     + '<button class="btn sec" onclick="fecharNovoItem()">Cancelar</button>'
@@ -2945,7 +3082,10 @@ async function nmSalvar(){
   const nmMsg = document.getElementById('nmMsg');
   try {
     const body = {
-      classificacaoLinha: NM.classificacao, elementoId: NM.elementoId, grupoDescricaoId: NM.grupoId,
+      // 14/07/2026 (rodada 45): escopoLinha/subTipoLinha (eixos novos) — o backend deriva o legado
+      // Classificacao_Linha__c sozinho a partir desses 2 (ver /linha-manual em expRoutes.js).
+      escopoLinha: NM.escopo, subTipoLinha: NM.escopo === ESCOPO_DENTRO ? (NM.subTipo || null) : null,
+      elementoId: NM.elementoId, grupoDescricaoId: NM.grupoId,
       prefixoElementoId: NM.prefixoId || null, perguntaId: NM.perguntaId, naoConformidadeId: NM.ncId,
       itemAuditado: NM.itemAuditado.trim()
     };
@@ -3563,13 +3703,27 @@ async function edSalvar(linhaId){
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   try {
     if (ED.novoNcAberto) {
+      // 14/07/2026 (rodada 45): NC nova já nasce nos 2 eixos (escopoNC/subTipoNC) — ver
+      // PROPOSTA_escopo-subtipo-nc.md. classificacaoNC (legado) ainda é obrigatório no backend
+      // (dual-write pros rollups do Salesforce), então derivamos ele daqui: quando a NC nasce
+      // ambígua (2 sub-tipos marcados), o legado só suporta 1 valor — usa Estrutural como
+      // representante nesse caso raro (o eixo novo, Sub_Tipos_Possiveis__c, continua com os 2).
+      const escopoNovoNc = ED.novoNc.escopo;
+      const subTiposNovoNc = ED.novoNc.subTipos || [];
+      const classificacaoNC = escopoNovoNc === ESCOPO_FORA ? CLASSIF_FORA_ESCOPO
+        : (subTiposNovoNc.includes(SUBTIPO_ESTRUTURAL) ? 'Exaustão - estrutural' : 'Exaustão - manutenção');
       const body = {
         perguntaId: ED.perguntaId, elementoId: ED.elementoId, grupoDescricaoId: ED.grupoId,
         prefixoElementoId: ED.prefixoId, textoNovo: ED.novoNc.texto.trim(),
-        classificacaoNC: ED.novoNc.classificacao, riscoNC: ED.novoNc.risco, pontuaExp: !!ED.novoNc.pontuaExp,
-        // achado da revisão Fable (11/07): sem isso o backend cai no default (CLASSIFICACAO_LINHA_DEFAULT)
-        // e apaga silenciosamente uma marcação de "fora de escopo" ao cadastrar NC nova nessa linha.
-        classificacaoLinha: ED.classificacao
+        classificacaoNC, riscoNC: ED.novoNc.risco, pontuaExp: !!ED.novoNc.pontuaExp,
+        escopoNC: escopoNovoNc, subTipoNC: subTiposNovoNc.join(';'),
+        // Linha herda o mesmo escopo da NC recém-criada; sub-tipo da Linha usa o 1º marcado (se a
+        // NC nasceu ambígua com os 2, o revisor pode revisar depois pelo editor normal — a NC já
+        // vai aparecer como ambígua no catálogo e oferecer a escolha explícita, ver edHtmlSubTipo).
+        escopoLinha: escopoNovoNc, subTipoLinha: subTiposNovoNc[0] || null,
+        // achado da revisão Fable (11/07): mantido pro dual-write legado — sem isso o backend cai no
+        // default (CLASSIFICACAO_LINHA_DEFAULT) e apaga silenciosamente uma marcação de "fora de escopo".
+        classificacaoLinha: classificacaoNC
       };
       const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/novo-item-catalogo', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(body)
@@ -3577,7 +3731,11 @@ async function edSalvar(linhaId){
       const j = await r.json();
       if (!r.ok) { msg('Erro ao cadastrar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar match'; } return; }
       if (CAT && j.naoConformidadeId) {
-        const novaNc = { id: j.naoConformidadeId, texto: body.textoNovo, classificacao: body.classificacaoNC, risco: Number(body.riscoNC), pontuaExp: body.pontuaExp, perguntaId: body.perguntaId };
+        const novaNc = {
+          id: j.naoConformidadeId, texto: body.textoNovo, classificacao: body.classificacaoNC,
+          escopo: body.escopoNC, subTiposPossiveis: subTiposNovoNc,
+          risco: Number(body.riscoNC), pontuaExp: body.pontuaExp, perguntaId: body.perguntaId
+        };
         CAT.ncs.push(novaNc); CAT.ncPorId[novaNc.id] = novaNc;
         (CAT.ncsPorPergunta[body.perguntaId] || (CAT.ncsPorPergunta[body.perguntaId] = [])).push(novaNc);
       }
@@ -3588,7 +3746,13 @@ async function edSalvar(linhaId){
       if (ED.elementoId !== l.elementoId) overrides.elementoId = ED.elementoId;
       if (ED.grupoId !== l.grupoId) overrides.grupoDescricaoId = ED.grupoId;
       if (edPrefixoNecessario(l) && ED.prefixoId) overrides.prefixoElementoId = ED.prefixoId;
-      if (ED.classificacao !== (l.classificacaoLinha || CLASSIF_LINHA_PADRAO)) overrides.classificacaoLinha = ED.classificacao;
+      // 14/07/2026 (rodada 45): escopoLinha/subTipoLinha (eixos novos) substituem classificacaoLinha
+      // — o backend deriva o legado sozinho a partir desses 2 (ver derivarClassificacaoLegada em
+      // expRoutes.js). subTipoLinha só entra quando Dentro do escopo: quando Fora, NUNCA manda um
+      // valor (mesmo que ED.subTipo tenha ficado com um resquício de uma NC anterior) — o backend já
+      // limpa Sub_Tipo_Linha__c sozinho nesse caso (ver "else if escopoNovo === 'Fora'" no /confirmar).
+      if (ED.escopo !== (l.escopoLinha || null)) overrides.escopoLinha = ED.escopo;
+      if (ED.escopo === ESCOPO_DENTRO && ED.subTipo !== (l.subTipoLinha || null)) overrides.subTipoLinha = ED.subTipo;
       if (ED.textoComplementar !== (l.textoComplementar || '')) overrides.textoComplementar = ED.textoComplementar;
       const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/confirmar', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: JSON.stringify(overrides)
