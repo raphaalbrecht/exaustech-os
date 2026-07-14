@@ -1358,9 +1358,11 @@ function faixaMatchCell(l){
   // — l.faixa/l.score vêm null do Salesforce. Antes disso renderizava um badge vermelho com o
   // texto literal "null" ao lado de "✓ Match confirmado" (bug próprio, achado na mesma revisão).
   if (l.origem === 'Manual') return null;
+  // 14/07/2026 (rodada 43): pedido do Raphael — removido o badge "corrigido pelo revisor" daqui;
+  // a linha "Origem: Importado + editado" (kv logo acima) já diz a mesma coisa, virava informação
+  // duplicada ao lado uma da outra.
   if (l.origem === 'Importado + editado') {
-    return '<span class="badge neu">corrigido pelo revisor</span>'
-      + ' <span class="match-import-note">match automático do import: ' + escapeHtml(l.faixa || '—')
+    return '<span class="match-import-note">match automático do import: ' + escapeHtml(l.faixa || '—')
       + (l.score != null ? ' · ' + l.score + '%' : '') + '</span>';
   }
   const hist = badgeFaixa(l.faixa) + ' ' + scoreSpan(l.score);
