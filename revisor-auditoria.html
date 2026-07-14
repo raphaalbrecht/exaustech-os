@@ -1669,8 +1669,8 @@ function renderTudo(){
     // segmented control de 3 estados — clique troca ST.visaoRisco (e também filtra a lista de NCs,
     // ver linhasFiltradas(): decisão do Raphael pra número do gráfico e da lista sempre baterem).
     const segBtn = (v, label) => '<span class="risco-seg-btn' + (visaoRisco === v ? ' ativo-' + v : '') + '" onclick="setVisaoRisco(\'' + v + '\')">' + label + '</span>';
-    const segmented = '<div class="risco-seg">' + segBtn('todos', 'Todos') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
-    const labelTxt = visaoRisco === 'exa' ? 'Riscos · apenas Exaustech' : visaoRisco === 'fora' ? 'Riscos · fora de escopo' : 'Distribuição dos riscos';
+    const segmented = '<div class="risco-seg">' + segBtn('todos', 'Tudo') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
+    const labelTxt = visaoRisco === 'exa' ? 'Riscos · apenas Exaustech' : visaoRisco === 'fora' ? 'Riscos · fora de escopo' : 'Distribuição por risco';
     // contador "N de M itens" — reforço extra (além da cor do card e do rótulo) de que a visão
     // ativa é um RECORTE, não a leitura padrão "toda a vistoria". 13/07/2026 (rodada 33): pedido
     // do Raphael — o card mudava de ALTURA conforme a pílula (a linha do contador só existia nas
