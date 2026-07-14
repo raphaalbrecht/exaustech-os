@@ -2000,7 +2000,11 @@ function toggleRisco(n){
 
 // pedido do Raphael (13/07, rodada 27): pílula "total itens" vira o botão de reset geral — precisa
 // limpar também filtrosRisco, senão "total itens" continuaria mostrando lista filtrada por risco.
-function limparFiltros(){ ST.filtro = 'todas'; ST.filtrosRisco = new Set(); renderTudo(); }
+// 13/07/2026 (rodada 38): pedido do Raphael — clicar na pílula "N TOTAL ITENS" (reset geral)
+// também precisa desligar "Ocultar itens com match já confirmado", senão "mostrar tudo" ficava
+// mentiroso (itens com match confirmado continuavam escondidos por baixo). Mesmo racional das
+// rodadas 30/31 (risco e pílula confirmado), agora aplicado ao reset total.
+function limparFiltros(){ ST.filtro = 'todas'; ST.filtrosRisco = new Set(); ST.ocultarConfirmados = false; renderTudo(); }
 
 // pedido do Raphael (10/07, rodada 6): pílulas do resumo (total/confirmados/sem match) viram
 // clicáveis — aplicam o filtro correspondente na lista e o fundo destaca (mesmo ST.filtro que já
