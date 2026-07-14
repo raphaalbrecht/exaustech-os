@@ -2059,9 +2059,17 @@ function renderLista(){
     // ficava aqui foi removido nesta rodada: virou pílula explícita em tags[] (badgeStatusMini()).
     const naoLida = l.status === 'Pendente de revisão';
     const faixaTag = faixaCardBadge(l);
+    // 13/07/2026 (rodada 39): pedido do Raphael — canto superior direito do card ficava vazio
+    // depois do match confirmado (faixaCardBadge() devolve '' de propósito, achado #227: "nada ao
+    // lado do número quando match confirmado" — a faixa de match deixa de ser relevante quando já
+    // está confirmado). Preenche esse espaço com o Risco do item (Rn), colorido pela mesma rampa
+    // 0-5 do gráfico de risco (riscoCor) — mantém a moldura vazia útil em vez de só decorativa.
+    const riscoTag = (!faixaTag && matchConfirmado(l) && l.risco != null)
+      ? (() => { const c = riscoCor(l.risco); return '<span class="badge" style="background:' + c.bg + ';color:' + c.tx + '" title="Risco ' + l.risco + '">R' + l.risco + '</span>'; })()
+      : '';
     return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
       + '<div class="num"><span>' + escapeHtml(l.numeroRelatorio || '—') + '</span>'
-      + (faixaTag ? '<span class="faixa-match">Faixa do match: ' + faixaTag + '</span>' : '') + '</div>'
+      + (faixaTag ? '<span class="faixa-match">Faixa do match: ' + faixaTag + '</span>' : (riscoTag ? '<span class="faixa-match">' + riscoTag + '</span>' : '')) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
       + '<div class="tags">' + tags.join('') + '</div>'
       + '</div>';
