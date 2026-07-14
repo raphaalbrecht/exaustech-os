@@ -89,8 +89,13 @@
     compostos e as linhas "📍 ..." ad hoc; segmento atual vira pill que atualiza ao vivo enquanto
     digita; rótulo "Módulo" renomeado pra "Posição" (fonte única ENDR_NIVEL_LABEL usada por título/
     botão/breadcrumb); botão "+ Novo endereço" na lista do Local vira "+ Novo Setor" (só no modo
-    cadastro, consulta mantém o texto antigo); desenhado com o agente Fable) */
-const CACHE = 'exaustech-os-v105'; // v105 14/07: breadcrumb uniforme Local›Área›Setor›Posição›Nível + rótulo Posição
+    cadastro, consulta mantém o texto antigo); desenhado com o agente Fable)
+   (v106 14/07 — wizard endr* (cadastro): tela "lista" pulada ao escolher o Local — ela ficava
+    sempre vazia no 1º endereço (nada criado ainda), só servia de trampolim pro botão "+ Novo
+    Setor". Agora clicar no Local já cai direto na Área/Tipo; "lista" continua existindo pro modo
+    consulta e pro botão "Ver lista do local" no Detalhe pós-criação, onde já tem conteúdo real.
+    Botões "‹ Voltar" ajustados pra não apontar mais pra uma tela "lista" nunca carregada) */
+const CACHE = 'exaustech-os-v106'; // v106 14/07: pula a tela "lista" vazia no cadastro, vai direto pra Área/Tipo
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).

@@ -3229,7 +3229,21 @@ async function endrCarregarLocais(){
     renderEstoque();
   }catch(e){ endrSt._locaisCarregados=true; endrSt.erro='Erro ao carregar locais: '+e.message; renderEstoque(); }
 }
-function endrEscolherLocal(l){ endrSt.localId=l.id; endrSt.localNome=l.nome; endrSt.step='lista'; endrSt.enderecosDoLocal=[]; endrSt._listaCarregada=false; endrSt.erro=null; renderEstoque(); endrCarregarLista(); }
+/* 14/07/2026 (pedido do Raphael): no fluxo de CADASTRO a tela "lista" ficava sempre vazia no 1º
+   endereço do local (nada criado ainda) — só servia de trampolim pro botão "+ Novo Setor". Agora
+   pula direto pro próximo passo real (Área/Tipo, via endrNovoEndereco). A tela "lista" continua
+   existindo — modo CONSULTA ainda precisa dela pra navegar os endereços já existentes, e o botão
+   "Ver lista do local" no Detalhe (pós-criação) também a usa quando já há pelo menos 1 endereço
+   criado, onde ela deixa de ser um estado vazio e passa a ter conteúdo real. */
+function endrEscolherLocal(l){
+  endrSt.localId=l.id; endrSt.localNome=l.nome; endrSt.erro=null;
+  if(endrSt.consulta){
+    endrSt.step='lista'; endrSt.enderecosDoLocal=[]; endrSt._listaCarregada=false;
+    renderEstoque(); endrCarregarLista();
+  } else {
+    endrNovoEndereco();
+  }
+}
 function endrRenderLocal(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Local de estoque</div>';
   if(endrSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(endrSt.erro)+'</div>'; return; }
@@ -3286,7 +3300,12 @@ function endrRenderArea(card){
     const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
     b.textContent=a.nome+(a.requerRua?' (Setor obrigatório)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
   });
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='lista'; renderEstoque(); }; card.appendChild(bk);
+  /* 14/07/2026: em cadastro, "lista" foi pulada ao entrar (endrEscolherLocal) — Voltar daqui tem
+     que ir pro Local, não pra uma tela "lista" nunca carregada. Consulta continua indo pra lista
+     normalmente (é o caminho real dela). */
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar';
+  bk.onclick=()=>{ endrSt.step=endrSt.consulta?'lista':'local'; renderEstoque(); };
+  card.appendChild(bk);
 }
 /* ---- passo 2c: Setor (obrigatório só quando a área escolhida tem RequerRua__c=true) — campo
    continua sendo Rua__c/endrSt.rua por baixo, só o rótulo virou "Setor" (13/07/2026): identifica
@@ -3499,8 +3518,12 @@ function endrRenderTipo(card){
     if(endrSt.areaRequerRua){
       /* volta pra tela em que ele realmente parou, não pro fim fixo da cadeia — pilha visitada */
       endrSt.step=endrSt.paradaEm==='nivel'?'nivel':endrSt.paradaEm==='modulo'?'modulo':'rua';
+    } else if(endrSt.areas.length){
+      endrSt.step='area';
     } else {
-      endrSt.step=endrSt.areas.length?'area':'lista';
+      /* sem nenhuma Área no local: "lista" foi pulada ao entrar (14/07/2026) — volta pro Local em
+         cadastro; consulta continua indo pra lista, que é o caminho real dela. */
+      endrSt.step=endrSt.consulta?'lista':'local';
     }
     renderEstoque();
   };
