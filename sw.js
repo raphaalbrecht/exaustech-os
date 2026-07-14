@@ -103,8 +103,11 @@
     Martins, Dayvson Villela, Marcos Sinésio) — bloqueio de verdade, sem cadastro por ora, igual
     padrão das Áreas do v107. Escopo só cadastro (!endrSt.consulta): consulta de endereço de
     veículo já existente e o fluxo recp* (Entradas Pendentes) continuam livres, sem alteração —
-    estoqLocaisAgrupados() ganhou um 4º parâmetro opcional desabilitarVeiculos) */
-const CACHE = 'exaustech-os-v108'; // v108 14/07: veículos inativos/cinza no picker de Local do cadastro endr*, recp* intocado
+    estoqLocaisAgrupados() ganhou um 4º parâmetro opcional desabilitarVeiculos)
+   (v109 14/07 — ajuste no v108: Galpão Penha (única opção clicável na tela Local quando veículos
+    estão bloqueados) ganha o mesmo destaque azul-marca das Áreas habilitadas, em vez de ficar
+    neutro — reforça visualmente qual é a opção ativa, pedido do Raphael) */
+const CACHE = 'exaustech-os-v109'; // v109 14/07: Galpão Penha em azul-marca (opção ativa) na tela Local, veículos cinza/inativos
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).

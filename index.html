@@ -3211,6 +3211,12 @@ function estoqLocaisAgrupados(card, locais, onEscolher, desabilitarVeiculos){
     if(desabilitado){
       b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;background:#F2F3F4;border-radius:12px;margin-top:8px;font-weight:600;color:#A7AEB5;cursor:default';
       b.innerHTML=_esc(l.nome)+(l.identificacao?('<div style="font-weight:400;font-size:11.5px;color:#B9C1C9;margin-top:2px">'+_esc(l.identificacao)+'</div>'):'');
+    } else if(desabilitarVeiculos){
+      /* mesmo destaque azul-marca usado nas Áreas habilitadas (v107), pra reforçar visualmente
+         que esta é a única opção realmente clicável nesta tela quando os veículos estão bloqueados */
+      b.style.cssText='padding:12px;border:1.5px solid #3E7EB0;background:rgba(62,126,176,.08);border-radius:12px;margin-top:8px;cursor:pointer;font-weight:700;color:#3E7EB0';
+      b.innerHTML=_esc(l.nome)+(l.identificacao?('<div style="font-weight:400;font-size:11.5px;color:#3E7EB0;margin-top:2px">'+_esc(l.identificacao)+'</div>'):'');
+      b.onclick=()=>onEscolher(l);
     } else {
       b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
       b.innerHTML=_esc(l.nome)+(l.identificacao?('<div style="font-weight:400;font-size:11.5px;color:var(--weak);margin-top:2px">'+_esc(l.identificacao)+'</div>'):'');
