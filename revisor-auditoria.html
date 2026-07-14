@@ -1669,7 +1669,7 @@ function renderTudo(){
     // segmented control de 3 estados — clique troca ST.visaoRisco (e também filtra a lista de NCs,
     // ver linhasFiltradas(): decisão do Raphael pra número do gráfico e da lista sempre baterem).
     const segBtn = (v, label) => '<span class="risco-seg-btn' + (visaoRisco === v ? ' ativo-' + v : '') + '" onclick="setVisaoRisco(\'' + v + '\')">' + label + '</span>';
-    const segmented = '<div class="risco-seg">' + segBtn('todos', 'Toda') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
+    const segmented = '<div class="risco-seg">' + segBtn('todos', 'Todos') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
     const labelTxt = visaoRisco === 'exa' ? 'Riscos · apenas Exaustech' : visaoRisco === 'fora' ? 'Riscos · fora de escopo' : 'Distribuição dos riscos';
     // contador "N de M itens" — reforço extra (além da cor do card e do rótulo) de que a visão
     // ativa é um RECORTE, não a leitura padrão "toda a vistoria". 13/07/2026 (rodada 33): pedido
@@ -1961,6 +1961,14 @@ function setFiltro(f){
   // filtrosRisco pelo mesmo motivo de setVisaoRisco: não empilhar recorte de nível em cima do de
   // escopo.
   if (f === 'fora_escopo') { ST.visaoRisco = 'fora'; ST.filtrosRisco = new Set(); }
+  // 13/07/2026 (rodada 37): pedido do Raphael — desligar essa MESMA pílula (clicar de novo, via
+  // toggleFiltroStat, que chama setFiltro('todas')) precisa voltar o segmented control do gráfico
+  // pra "Toda" também, senão o gráfico ficava travado em "Fora de escopo" com a lista já mostrando
+  // tudo de novo — mesma dessincronia do fix da rodada 36, só que na direção contrária. Só reseta
+  // quando quem estava ativo ERA a pílula fora_escopo (não mexe se o usuário tiver ido pra 'todas'
+  // vindo de outro filtro qualquer, tipo 'confirmado'/'Sem match', que não têm relação com o
+  // gráfico).
+  else if (f === 'todas' && ST.filtro === 'fora_escopo') { ST.visaoRisco = 'todos'; }
   ST.filtro = f; renderTudo();
 }
 
