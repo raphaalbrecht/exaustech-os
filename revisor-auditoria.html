@@ -283,6 +283,15 @@
      visual redundante com o label e o contador "N de M itens", pra nunca deixar esquecer que é
      um recorte, não a leitura padrão "toda a vistoria". */
   .risco-sec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;align-self:stretch;margin-bottom:2px}
+  /* 13/07/2026 (rodada 35): o label do head TROCA DE TEXTO por visão ("Distribuição dos riscos" /
+     "Riscos · apenas Exaustech" / "Riscos · fora de escopo") — comprimentos diferentes (a versão
+     "apenas Exaustech" é a mais longa). Isso sozinho já bastava pra empurrar a largura do head (e
+     por tabela a largura de TODA a seção, já que ela é a mais larga entre head/gráfico/legenda) —
+     mesmo com niveisRisco fixo (rodada 34), o card ainda "respirava" de largura ao trocar de
+     pílula. width fixo (não min-width) trava a contribuição do label pro cálculo de largura do
+     flex, independente de qual das 3 frases está ativa — nowrap porque widht fixo sozinho não
+     impede quebra de linha.*/
+  .risco-sec-head .risco-card-label{width:150px;white-space:nowrap;flex:0 0 auto}
   .risco-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;flex:0 0 auto}
   .risco-seg-btn{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:4px 8px;color:var(--weaker);cursor:pointer;white-space:nowrap}
   .risco-seg-btn+.risco-seg-btn{border-left:1px solid var(--border2)}
