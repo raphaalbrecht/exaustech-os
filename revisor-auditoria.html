@@ -235,7 +235,10 @@
      cor da barra com a cor da legenda pra descobrir qual nível era qual. Rodada 12c: cada risco
      vira uma coluna autocontida — número em cima, barra proporcional no meio, rótulo "Rn" embaixo,
      tudo alinhado no mesmo eixo vertical, sem legenda separada. Clique em qualquer parte da coluna
-     filtra (setFiltro('risco:N')); a ativa ganha fundo+borda azul, mesmo padrão das pílulas .stat.
+     filtra; a ativa ganha fundo+borda azul, mesmo padrão das pílulas .stat.
+     13/07/2026 (rodada 27): Raphael pediu multi-seleção (ver ST.filtrosRisco/toggleRisco) — clique
+     simples ACUMULA (estilo checkbox), cada barra alterna independente das demais, em vez de
+     substituir ST.filtro como antes (isso só funcionava pra 1 nível por vez).
      Rodada 12d: Raphael pediu 2 propostas de identidade visual (Salesforce x Apple, geradas por
      subagente Fable como mockups separados) e escolheu a Salesforce — aplicada aqui só na carinha
      do gráfico (cor + hover + raio de canto), sem virar um card SLDS completo (isso quebraria o
@@ -776,7 +779,9 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 // 13/07/2026: pedido do Raphael — toggle "Ocultar itens com match já confirmado" na coluna de
 // cards (ver .toggle-switch no CSS e toggleOcultarConfirmados()); começa desligado (false), mostra
 // tudo por padrão, igual sempre foi.
-let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false };
+// 13/07/2026 (rodada 27): filtrosRisco é um Set separado de ST.filtro — permite multi-seleção
+// dos níveis de risco (checkbox-style) sem interferir nas pílulas/abas que continuam de escolha única.
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set() };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 
 // pedido do Raphael (11/07): NCs de combate a incêndio/detecção de gás/detector de fumaça não são
@@ -1249,7 +1254,7 @@ async function carregar(){
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
     ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas; ST.auditoria = j.auditoria || null;
-    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; }
+    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); }
     ST.comparativo = null; // sempre recarrega — é barato (ver carregarComparativo logo abaixo) e pode ter mudado
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
@@ -1412,10 +1417,7 @@ function normalizarBusca(s){
 
 function linhasFiltradas(){
   let base;
-  if (ST.filtro.indexOf('risco:') === 0) {
-    const n = Number(ST.filtro.slice(6));
-    base = ST.linhas.filter(l => l.risco === n);
-  } else switch (ST.filtro) {
+  switch (ST.filtro) {
     case 'Forte': case 'Fraco': base = ST.linhas.filter(l => l.faixa === ST.filtro); break;
     // mesma regra de contagem() acima (13/07): filtro clicando na pílula segue a mesma definição de
     // "pendência real" — exclui item já confirmado, senão a lista filtrada mostraria itens que a
@@ -1430,6 +1432,10 @@ function linhasFiltradas(){
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
   }
+  // 13/07/2026 (rodada 27): filtrosRisco (multi-seleção do gráfico de Risco) some por cima de
+  // QUALQUER filtro/pílula ativo, igual ocultarConfirmados logo abaixo — combina em AND, não troca
+  // ST.filtro. Vazio (nenhuma barra selecionada) = não filtra por risco, mostra tudo.
+  if (ST.filtrosRisco.size) base = base.filter(l => ST.filtrosRisco.has(l.risco));
   // 13/07/2026: pedido do Raphael — toggle global "Ocultar itens com match já confirmado" some com
   // os itens confirmados (matchConfirmado(l)) por cima de QUALQUER filtro/pílula ativo, inclusive
   // o próprio filtro 'confirmado' (nesse caso a lista fica vazia — comportamento esperado do toggle).
@@ -1515,7 +1521,9 @@ function renderTudo(){
     // pedido do Raphael (10/07, rodada 6): as 3 pílulas com número (total/confirmados/sem match)
     // viram clicáveis — aplicam o filtro respectivo na lista à esquerda e o fundo destaca (classe
     // stat-ativo); clicar de novo limpa. "arquivo" não vira filtro (não é uma contagem).
-    const ativoTodas = ST.filtro === 'todas';
+    // 13/07/2026 (rodada 27): "total itens" só acende quando NENHUM filtro está ativo, incluindo
+    // filtrosRisco — senão ficaria "ativa" mesmo com uma seleção de risco filtrando a lista.
+    const ativoTodas = ST.filtro === 'todas' && !ST.filtrosRisco.size;
     const ativoConfirmado = ST.filtro === 'confirmado';
     const ativoSemMatch = ST.filtro === 'Sem match';
     const ativoForaEscopo = ST.filtro === 'fora_escopo';
@@ -1537,7 +1545,7 @@ function renderTudo(){
       // pedido do Raphael (13/07, 2ª rodada): arquivo saiu de vez da barra de pílulas — foi pra
       // dentro de #contaDestaque, embaixo da data da vistoria (ver bloco acima). A barra volta a
       // abrir com "total itens".
-      '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'todas\')"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
+      '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="limparFiltros()"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
       + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
@@ -1598,11 +1606,12 @@ function renderTudo(){
         // pra 15px (corte de +15%), parte do encolhimento geral da barra branca superior (junto
         // dos paddings/fontes em .risco-*/.stat/.trat-tab)
         const alturaPx = Math.max(3, Math.round(cnt / maxRisco * 15));
-        const on = ST.filtro === ('risco:' + n);
-        // 13/07/2026: pedido do Raphael — clicar na barra já ativa tinha que "religar" o filtro
-        // (setFiltro só define, nunca desliga). Troca pra toggleFiltroStat, mesma função que já
-        // desliga as pílulas do resumo ao clicar 2x: clique repetido no MESMO nível volta a "Todas".
-        return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)' + (on ? ' · clique para remover o filtro' : '') + '" onclick="toggleFiltroStat(\'risco:' + n + '\')">'
+        const on = ST.filtrosRisco.has(n);
+        // 13/07/2026 (rodada 27): pedido do Raphael — poder selecionar mais de um nível ao mesmo
+        // tempo. Clique simples ACUMULA (toggleRisco troca só ESTE nível no Set, os outros ficam
+        // como estavam) em vez de substituir ST.filtro — por isso cada coluna liga/desliga
+        // independente das demais, sem precisar de Ctrl/Cmd.
+        return '<div class="risco-col' + (on ? ' ativo' : '') + '" title="Risco ' + n + ' · ' + cnt + ' item(ns)' + (on ? ' · clique para remover da seleção' : ' · clique para adicionar à seleção (pode escolher mais de um)') + '" onclick="toggleRisco(' + n + ')">'
           + '<span class="risco-num">' + cnt + '</span>'
           + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
           + '<span class="risco-lbl">R' + n + '</span>'
@@ -1842,6 +1851,17 @@ async function toggleHistExpand(i){
 }
 
 function setFiltro(f){ ST.filtro = f; renderTudo(); }
+
+// 13/07/2026 (rodada 27): multi-seleção do gráfico de Risco — cada coluna liga/desliga só o seu
+// próprio nível no Set, sem mexer nos demais (ver ST.filtrosRisco e a camada em linhasFiltradas()).
+function toggleRisco(n){
+  if (ST.filtrosRisco.has(n)) ST.filtrosRisco.delete(n); else ST.filtrosRisco.add(n);
+  renderTudo();
+}
+
+// pedido do Raphael (13/07, rodada 27): pílula "total itens" vira o botão de reset geral — precisa
+// limpar também filtrosRisco, senão "total itens" continuaria mostrando lista filtrada por risco.
+function limparFiltros(){ ST.filtro = 'todas'; ST.filtrosRisco = new Set(); renderTudo(); }
 
 // pedido do Raphael (10/07, rodada 6): pílulas do resumo (total/confirmados/sem match) viram
 // clicáveis — aplicam o filtro correspondente na lista e o fundo destaca (mesmo ST.filtro que já
