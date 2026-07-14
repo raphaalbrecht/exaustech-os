@@ -3066,7 +3066,7 @@ function renderEstoque(){
      entrada de estoque não são por dia). Escondidos só nesses modos. */
   const schedTop=document.querySelector('#scr-estoque .sched-top');
   const dayLabel=document.getElementById('estoqDayLabel');
-  const emTelaCheia=(estoqView.mode==='enderecos' || estoqView.mode==='recebimentos');
+  const emTelaCheia=(estoqView.mode==='enderecos' || estoqView.mode==='recebimentos' || estoqView.mode==='estrutura');
   if(schedTop) schedTop.style.display=emTelaCheia?'none':'';
   if(dayLabel) dayLabel.style.display=emTelaCheia?'none':'';
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
@@ -3075,6 +3075,7 @@ function renderEstoque(){
   if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
   if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); return; }
   if(estoqView.mode==='recebimentos'){ renderRecpFluxo(wrap); return; }
+  if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); return; }
   /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
   const seps=sepListAll(), sepsDia=sepListDia();
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
@@ -3128,6 +3129,18 @@ function renderEstoque(){
     <span style="color:#999;font-size:18px">›</span>`;
   recpBtn.onclick=()=>{ recpReset(); estoqGo('recebimentos'); recpCarregarLista(); };
   wrap.appendChild(recpBtn);
+  /* entrada de gestão de estrutura (gest*, 14/07/2026 — ver DECISAO_pre-cadastro-setor-posicao-
+     nivel.md): só Gerente+ (canGerenciarEstoque) vê este card. Área/Setor/Posição/Nível deixam de
+     ser semeados só por script Apex — ganham CRUD leve dentro do próprio app. */
+  if(canGerenciarEstoque(ROLE)){
+    const gestBtn=document.createElement('div');
+    gestBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+    gestBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">⚙️</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Gerenciar estrutura</div><div style="font-size:12px;color:#4A5560">Área · Setor · Posição · Nível — Gerente ou Sócio</div></div>
+      <span style="color:#999;font-size:18px">›</span>`;
+    gestBtn.onclick=()=>{ gestReset(); estoqGo('estrutura'); gestCarregarLocais(); };
+    wrap.appendChild(gestBtn);
+  }
 }
 /* ===== ENDEREÇO DE ESTOQUE (wizard endr* — Fase 3, 09/07/2026): criação guiada
    (local→lista→tipo→nome→capacidade→revisão→criação) + provisionamento de etiqueta NFC
@@ -3156,6 +3169,15 @@ function endrReset(consulta){
        cadeia Setor/Módulo/Nível o usuário decidiu "cadastrar aqui" — usado pro botão Voltar do
        Tipo saber pra onde retornar, e pra agrupar "Sugeridos" na grade de Tipo. */
     areaPrefixo:'', paradaEm:null,
+    /* 14/07/2026 — Setor/Posição/Nível viram pré-cadastro real (SetorEstoque__c/PosicaoEstoque__c/
+       NivelEstoque__c, ver DECISAO_pre-cadastro-setor-posicao-nivel.md): rua/modulo/nivel acima
+       continuam guardando o Name (exibição + persistido em Rua__c); ruaCod/moduloCod/nivelCod
+       guardam o Codigo__c curto do registro escolhido (usado na composição do Codigo__c do
+       endereço). setorId/posicaoId guardam o Id do registro escolhido, só pra buscar os filhos
+       (Posições/Níveis) — nunca persistidos no endereço em si (sem lookup novo, decisão B do
+       Fable: "código congela", pré-cadastro só alimenta o wizard). */
+    setorId:null, posicaoId:null, ruaCod:'', moduloCod:'', nivelCod:'',
+    setores:[], _setoresCarregadas:false, posicoes:[], _posicoesCarregadas:false, niveis:[], _niveisCarregados:false,
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
     enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
     criando:false, erro:null, retorno:null,
@@ -3286,6 +3308,8 @@ function endrNovoEnderecoAqui(d){
   endrSt.tipo=d.tipo||null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
   endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaRequerRua=!!d.rua; endrSt.rua=d.rua||'';
   endrSt.modulo=d.modulo||''; endrSt.nivel=d.nivel||''; /* mesmo setor/módulo/nível — só o próximo bin/prateleira muda */
+  /* 14/07/2026 — segmentos curtos do pré-cadastro herdam junto (senão o código sairia sem eles) */
+  endrSt.ruaCod=d.ruaCod||''; endrSt.moduloCod=d.moduloCod||''; endrSt.nivelCod=d.nivelCod||'';
   endrSt.areaPrefixo=d.areaPrefixo||endrSt.areaPrefixo||''; endrSt.paradaEm=d.paradaEm||endrSt.paradaEm||null;
   endrSt.erro=null; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo();
 }
@@ -3303,9 +3327,41 @@ async function endrCarregarAreas(){
   }
 }
 function endrEscolherArea(a){
-  endrSt.areaId=a.id; endrSt.areaNome=a.nome; endrSt.areaRequerRua=!!a.requerRua; endrSt.rua='';
-  endrSt.areaPrefixo=a.prefixo||''; endrSt.modulo=''; endrSt.nivel=''; endrSt.paradaEm=null;
-  endrSt.step=endrSt.areaRequerRua?'rua':'tipo'; renderEstoque();
+  endrSt.areaId=a.id; endrSt.areaNome=a.nome; endrSt.areaRequerRua=!!a.requerRua; endrSt.rua=''; endrSt.ruaCod='';
+  endrSt.areaPrefixo=a.prefixo||''; endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm=null;
+  endrSt.setorId=null; endrSt.posicaoId=null;
+  endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false; endrSt.niveis=[]; endrSt._niveisCarregados=false;
+  if(endrSt.areaRequerRua){ endrSt.step='rua'; renderEstoque(); endrCarregarSetores(); }
+  else { endrSt.step='tipo'; renderEstoque(); }
+}
+/* ---- carrega os Setores/Posições/Níveis pré-cadastrados (14/07/2026) — mesma origem de dados
+   usada pela tela de gestão (gest*), só que aqui é sempre leitura (?incluirInativos nunca é
+   passado: Estoquista só deve ver o que está ativo). ---- */
+async function endrCarregarSetores(){
+  endrSt._setoresCarregadas=false; renderEstoque();
+  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(endrSt.areaId)); endrSt.setores=d.setores||[]; endrSt._setoresCarregadas=true; renderEstoque(); }
+  catch(e){ endrSt._setoresCarregadas=true; endrSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
+}
+async function endrCarregarPosicoes(){
+  endrSt._posicoesCarregadas=false; renderEstoque();
+  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(endrSt.setorId)); endrSt.posicoes=d.posicoes||[]; endrSt._posicoesCarregadas=true; renderEstoque(); }
+  catch(e){ endrSt._posicoesCarregadas=true; endrSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
+}
+async function endrCarregarNiveis(){
+  endrSt._niveisCarregados=false; renderEstoque();
+  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(endrSt.posicaoId)); endrSt.niveis=d.niveis||[]; endrSt._niveisCarregados=true; renderEstoque(); }
+  catch(e){ endrSt._niveisCarregados=true; endrSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
+}
+function endrEscolherSetor(s){
+  endrSt.rua=s.nome; endrSt.ruaCod=s.codigo||''; endrSt.setorId=s.id;
+  endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.posicaoId=null;
+  endrSt.posicoes=[]; endrSt._posicoesCarregadas=false; endrSt.niveis=[]; endrSt._niveisCarregados=false;
+  endrSt.step='modulo'; renderEstoque(); endrCarregarPosicoes();
+}
+function endrEscolherPosicao(p){
+  endrSt.modulo=p.nome; endrSt.moduloCod=p.codigo||''; endrSt.posicaoId=p.id;
+  endrSt.nivel=''; endrSt.nivelCod=''; endrSt.niveis=[]; endrSt._niveisCarregados=false;
+  endrSt.step='nivel'; renderEstoque(); endrCarregarNiveis();
 }
 /* 14/07/2026 (pedido do Raphael): só as Áreas com Setor/Posição/Nível (RequerRua__c=true) têm
    cadastro habilitado por enquanto — as demais aparecem cinza/inativas, sem toque, até ele decidir
@@ -3340,11 +3396,16 @@ function endrRenderArea(card){
    continua sendo Rua__c/endrSt.rua por baixo, só o rótulo virou "Setor" (13/07/2026): identifica
    qualquer agrupamento físico fixo — parede (PF/PD/PE/PN) ou fileira interna numerada (F1/F2…) —
    em vez do antigo conceito de "rua entre prateleiras", que não se aplica a este galpão. ---- */
-/* ---- preview ao vivo do código parcial (13/07/2026 — UI de profundidade flexível): mostra o que
-   o Codigo__c vai virar SE o usuário parar naquela tela, atualizado a cada tecla. `extra` é o
-   valor ainda não commitado da tela atual (lido direto do input, antes do onclick). ---- */
-function endrCodigoPreview(...extra){
-  const partes=[endrSt.areaPrefixo, endrSt.rua, endrSt.modulo, ...extra].map(p=>(p||'').trim()).filter(Boolean);
+/* ---- preview do código parcial (13/07/2026, UI de profundidade flexível; ajustado 14/07/2026 pro
+   pré-cadastro): mostra o que o Codigo__c vai virar SE o usuário parar naquele nível. Usa o
+   Codigo__c curto do pré-cadastro (ruaCod/moduloCod/nivelCod) quando existe — é o valor que o
+   backend realmente usa pra compor (ver sugerirCodigo no estoqueRoutes.js) — com fallback pro Name
+   (rua/modulo/nivel) se o registro escolhido não tiver segmento próprio cadastrado. `extraCod` é
+   opcional: passa o segmento do item que está prestes a ser escolhido nesta tela (ainda não
+   commitado em endrSt), pra mostrar o preview antes do toque confirmar. ---- */
+function endrCodigoPreview(extraCod){
+  const partes=[endrSt.areaPrefixo, endrSt.ruaCod||endrSt.rua, endrSt.moduloCod||endrSt.modulo, extraCod]
+    .map(p=>(p||'').trim()).filter(Boolean);
   return partes.length?partes.join('-'):'—';
 }
 /* ---- breadcrumb uniforme da cadeia (14/07/2026, pedido do Raphael — análise Fable):
@@ -3386,98 +3447,74 @@ function endrBreadcrumbHTML(atualStep){
 /* chamar logo após atribuir card.innerHTML nas telas que usam breadcrumb — ancora o scroll
    horizontal à direita (segmento atual sempre visível sem precisar arrastar) */
 function endrBcScroll(card){ const el=card.querySelector('#endrBc'); if(el) el.scrollLeft=el.scrollWidth; }
+/* ---- passo 2c/2d/2e: Setor/Posição/Nível (14/07/2026 — viraram pré-cadastro real, ver
+   DECISAO_pre-cadastro-setor-posicao-nivel.md; antes eram campo de texto livre). Agora é lista de
+   toque-seleciona-e-avança ([[feedback-ux-toque-avanca]]) alimentada por SetorEstoque__c/
+   PosicaoEstoque__c/NivelEstoque__c. Setor continua sem "Cadastrar aqui" (RequerRua__c=true torna
+   Setor obrigatório, como antes); Posição/Nível mantêm o botão "✓ Cadastrar aqui" (v104, parar em
+   qualquer profundidade) — só que agora ele para no NÍVEL ATUAL sem exigir escolher um filho, não
+   mais "digitar e confirmar". Se a lista de filhos vier vazia, mostra aviso + só o botão de
+   parar (nada pra tocar) — sem trava: Estoquista sempre consegue seguir o cadastro mesmo se o
+   Gerente ainda não cadastrou Posição/Nível pra aquele Setor. */
 function endrRenderRua(card){
-  card.innerHTML=endrBreadcrumbHTML('rua')+'<div class="sec-title2" style="margin-top:0">Setor</div>'
-    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Setor</label>'
-    +'<input id="endrRua" type="text" value="'+cadEsc(endrSt.rua)+'" placeholder="Ex.: PF (parede fundo), F2 (fileira 2)" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
-    +'<div class="subnote" style="padding:0 0 8px">Dá pra parar em qualquer nível — o código sai só com o que você preencher.</div>'
-    +'<div class="subnote" id="endrCodPrev" style="padding:0 0 12px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.rua))+'</div>';
+  card.innerHTML=endrBreadcrumbHTML('rua')+'<div class="sec-title2" style="margin-top:0">Setor</div>';
   endrBcScroll(card);
-  const input=card.querySelector('#endrRua');
-  input.oninput=()=>{
-    card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
-    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.rua;
-  };
-  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar '+ENDR_NIVEL_LABEL.modulo+' ›';
-  prim.onclick=()=>{
-    const v=(document.getElementById('endrRua').value||'').trim();
-    if(!v){ toast('⚠️ Informe o setor'); return; }
-    endrSt.rua=v; endrSt.step='modulo'; renderEstoque();
-  };
-  card.appendChild(prim);
-  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:8px'; parar.textContent='✓ Cadastrar aqui';
-  parar.onclick=()=>{
-    const v=(document.getElementById('endrRua').value||'').trim();
-    if(!v){ toast('⚠️ Informe o setor'); return; }
-    endrSt.rua=v; endrSt.modulo=''; endrSt.nivel=''; endrSt.paradaEm='rua'; endrSt.step='tipo'; renderEstoque();
-  };
-  card.appendChild(parar);
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='area'; renderEstoque(); }; card.appendChild(bk);
+  if(!endrSt._setoresCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!endrSt.setores.length){
+    card.innerHTML+='<div class="subnote">Nenhum setor cadastrado ainda nesta área. Peça a um Gerente pra cadastrar em "⚙️ Gerenciar estrutura".</div>';
+  } else {
+    endrSt.setores.forEach(s=>{
+      const b=document.createElement('div');
+      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+      b.innerHTML=_esc(s.nome)+(s.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(s.codigo)+')</span>':'');
+      b.onclick=()=>endrEscolherSetor(s);
+      card.appendChild(b);
+    });
+  }
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='area'; renderEstoque(); }; card.appendChild(bk);
 }
-/* ---- passo 2d: Módulo (posição sequencial da prateleira/unidade dentro do Setor, ex.: 01, 02…).
-   Só aparece quando o Setor apareceu (mesmo gate areaRequerRua) — sem campo novo no Salesforce,
-   vira só um pedaço do Codigo__c composto no backend. ---- */
 function endrRenderModulo(card){
   card.innerHTML=endrBreadcrumbHTML('modulo')+'<div class="sec-title2" style="margin-top:0">Posição</div>'
-    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Posição</label>'
-    +'<input id="endrModulo" type="text" value="'+cadEsc(endrSt.modulo)+'" placeholder="Ex.: 01, 02, 07…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
-    +'<div class="subnote" style="padding:0 0 8px">Posição da prateleira/unidade dentro do setor.</div>'
-    +'<div class="subnote" id="endrCodPrev" style="padding:0 0 12px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.modulo))+'</div>';
+    +'<div class="subnote" style="padding:0 0 8px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview())+'</div>';
   endrBcScroll(card);
-  const input=card.querySelector('#endrModulo');
-  input.oninput=()=>{
-    card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
-    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.modulo;
-  };
-  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar '+ENDR_NIVEL_LABEL.nivel+' ›';
-  prim.onclick=()=>{
-    const v=(document.getElementById('endrModulo').value||'').trim();
-    if(!v){ toast('⚠️ Informe a posição'); return; }
-    endrSt.modulo=v; endrSt.step='nivel'; renderEstoque();
-  };
-  card.appendChild(prim);
-  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:8px'; parar.textContent='✓ Cadastrar aqui';
-  parar.onclick=()=>{
-    const v=(document.getElementById('endrModulo').value||'').trim();
-    if(!v){ toast('⚠️ Informe a posição'); return; }
-    endrSt.modulo=v; endrSt.nivel=''; endrSt.paradaEm='modulo'; endrSt.step='tipo'; renderEstoque();
-  };
+  if(!endrSt._posicoesCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!endrSt.posicoes.length){
+    card.innerHTML+='<div class="subnote">Nenhuma posição cadastrada ainda neste setor.</div>';
+  } else {
+    endrSt.posicoes.forEach(p=>{
+      const b=document.createElement('div');
+      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+      b.innerHTML=_esc(p.nome)+(p.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(p.codigo)+')</span>':'');
+      b.onclick=()=>endrEscolherPosicao(p);
+      card.appendChild(b);
+    });
+  }
+  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
+  parar.onclick=()=>{ endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm='rua'; endrSt.step='tipo'; renderEstoque(); };
   card.appendChild(parar);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='rua'; renderEstoque(); }; card.appendChild(bk);
 }
-/* ---- passo 2e: Nível (andar vertical, de baixo pra cima — A, B, C…). Toques rápidos avançam
-   direto ([[feedback-ux-toque-avanca]]); campo de texto cobre casos fora do A-F comum. ---- */
-/* Nível é o último degrau da cadeia — sem botão "cadastrar aqui" separado: escolher um nível JÁ
-   é "parar aqui" (não tem próximo nível pra oferecer; Bin, quando for o caso, é automático via
-   Tipo='Bin', não um degrau à parte — ver §15 da proposta). */
-function endrEscolherNivel(v){ endrSt.nivel=v; endrSt.paradaEm='nivel'; endrSt.step='tipo'; renderEstoque(); }
 function endrRenderNivel(card){
   card.innerHTML=endrBreadcrumbHTML('nivel')+'<div class="sec-title2" style="margin-top:0">Nível</div>'
-    +'<div class="subnote" style="padding:0 0 8px">Andar vertical, de baixo pra cima.</div>';
+    +'<div class="subnote" style="padding:0 0 8px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview())+'</div>';
   endrBcScroll(card);
-  const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px';
-  ['A','B','C','D','E','F'].forEach(l=>{
-    const el=document.createElement('div'); el.style.cssText='background:#F7F9FA;border:1.5px solid #E2E5E9;border-radius:10px;padding:12px 0;text-align:center;cursor:pointer;font-weight:700;font-size:15px;color:#0B2239';
-    el.textContent=l; el.onclick=()=>endrEscolherNivel(l); grid.appendChild(el);
-  });
-  card.appendChild(grid);
-  const outroWrap=document.createElement('div');
-  outroWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Outro nível</label>'
-    +'<input id="endrNivel" type="text" value="'+cadEsc(endrSt.nivel)+'" placeholder="Ex.: G, 2º piso…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
-    +'<div class="subnote" id="endrCodPrev" style="padding:0 0 4px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.nivel))+'</div>';
-  card.appendChild(outroWrap);
-  const input=outroWrap.querySelector('#endrNivel');
-  input.oninput=()=>{
-    outroWrap.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
-    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.nivel;
-  };
-  const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px;margin-top:8px'; cont.textContent='Continuar';
-  cont.onclick=()=>{
-    const v=(document.getElementById('endrNivel').value||'').trim();
-    if(!v){ toast('⚠️ Escolha ou digite o nível'); return; }
-    endrEscolherNivel(v);
-  };
-  card.appendChild(cont);
+  if(!endrSt._niveisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!endrSt.niveis.length){
+    card.innerHTML+='<div class="subnote">Nenhum nível cadastrado ainda nesta posição.</div>';
+  } else {
+    endrSt.niveis.forEach(n=>{
+      const b=document.createElement('div');
+      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+      b.innerHTML=_esc(n.nome)+(n.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(n.codigo)+')</span>':'');
+      /* Nível é o último degrau — escolher JÁ é "parar aqui" (não tem próximo nível; Bin, quando
+         for o caso, é automático via Tipo='Bin', não um degrau à parte — ver §15 da proposta). */
+      b.onclick=()=>{ endrSt.nivel=n.nome; endrSt.nivelCod=n.codigo||''; endrSt.paradaEm='nivel'; endrSt.step='tipo'; renderEstoque(); };
+      card.appendChild(b);
+    });
+  }
+  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
+  parar.onclick=()=>{ endrSt.paradaEm='modulo'; endrSt.step='tipo'; renderEstoque(); };
+  card.appendChild(parar);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='modulo'; renderEstoque(); }; card.appendChild(bk);
 }
 function endrRenderLista(card){
@@ -3566,6 +3603,11 @@ async function endrSugerirCodigo(){
     if(endrSt.rua) url+='&rua='+encodeURIComponent(endrSt.rua);
     if(endrSt.modulo) url+='&modulo='+encodeURIComponent(endrSt.modulo);
     if(endrSt.nivel) url+='&nivel='+encodeURIComponent(endrSt.nivel);
+    /* 14/07/2026 — segmentos curtos do pré-cadastro (Codigo__c de Setor/Posição/Nível), usados de
+       verdade na composição; rua/modulo/nivel acima ficam só de fallback (ver estoqueRoutes.js). */
+    if(endrSt.ruaCod) url+='&ruaCod='+encodeURIComponent(endrSt.ruaCod);
+    if(endrSt.moduloCod) url+='&moduloCod='+encodeURIComponent(endrSt.moduloCod);
+    if(endrSt.nivelCod) url+='&nivelCod='+encodeURIComponent(endrSt.nivelCod);
     const d=await beGet(url);
     if(endrSt.step==='nome' && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
@@ -3630,6 +3672,10 @@ async function endrCriar(){
     if(endrSt.rua) body.rua=endrSt.rua;
     if(endrSt.modulo) body.modulo=endrSt.modulo;
     if(endrSt.nivel) body.nivel=endrSt.nivel;
+    /* 14/07/2026 — segmentos curtos do pré-cadastro, usados de verdade na composição do Codigo__c */
+    if(endrSt.ruaCod) body.ruaCod=endrSt.ruaCod;
+    if(endrSt.moduloCod) body.moduloCod=endrSt.moduloCod;
+    if(endrSt.nivelCod) body.nivelCod=endrSt.nivelCod;
     const r=await bePost('/estoque/enderecos',body);
     endrSt.criando=false;
     /* fallback pro botão de retorno do modo complementar (recp*) se o GET de detalhe falhar
@@ -3700,7 +3746,7 @@ function endrRenderDetalhe(card){
     const loc=[d.area,d.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
     const outroAqui=document.createElement('button'); outroAqui.className='btn btn-brand'; outroAqui.style.cssText='width:100%;height:48px';
     outroAqui.textContent='+ Criar outro '+(d.tipo||'endereço')+' aqui'+(loc?' ('+loc+')':'');
-    outroAqui.onclick=()=>endrNovoEnderecoAqui({tipo:d.tipo, areaId:d.areaId, area:d.area, rua:d.rua, modulo:endrSt.modulo, nivel:endrSt.nivel, areaPrefixo:endrSt.areaPrefixo, paradaEm:endrSt.paradaEm});
+    outroAqui.onclick=()=>endrNovoEnderecoAqui({tipo:d.tipo, areaId:d.areaId, area:d.area, rua:d.rua, modulo:endrSt.modulo, nivel:endrSt.nivel, ruaCod:endrSt.ruaCod, moduloCod:endrSt.moduloCod, nivelCod:endrSt.nivelCod, areaPrefixo:endrSt.areaPrefixo, paradaEm:endrSt.paradaEm});
     card.appendChild(outroAqui);
     const outroLugar=document.createElement('button'); outroLugar.className='btn btn-neutral'; outroLugar.style.cssText='width:100%;height:44px;margin-top:8px'; outroLugar.textContent='Criar em outro local/área';
     outroLugar.onclick=endrNovoEndereco; card.appendChild(outroLugar);
@@ -3777,6 +3823,205 @@ async function endrImprimirEtiqueta(){
   if(dev){ try{ await zebraEnviar(dev, endrEtqZPL(d, et.url)); toast('🖨️ Enviado pra Zebra'); return; }catch(e){ toast('⚠️ Zebra falhou, gerando PDF: '+e.message); } }
   endrEtqPDF(d, et.url);
 }
+/* ===== GERENCIAR ESTRUTURA (gest* — 14/07/2026): CRUD leve de Área/Setor/Posição/Nível, restrito
+   a Gerente+ (canGerenciarEstoque). Ver DECISAO_pre-cadastro-setor-posicao-nivel.md. Área já existia
+   como pré-cadastro (só via Apex até hoje); Setor/Posição/Nível são pré-cadastro novo (objetos
+   SetorEstoque__c/PosicaoEstoque__c/NivelEstoque__c). Navegação em cascata Local>Área>Setor>Posição>
+   Nível, nunca deleta de verdade (só Ativo__c=false) — endereços antigos referenciam o texto
+   congelado. Namespace isolado do wizard endr* (cadastro de endereço em si não muda de gate). */
+let gestSt=null;
+function gestReset(){
+  gestSt={
+    step:'local', erro:null,
+    locais:[], _locaisCarregados:false, localId:null, localNome:'',
+    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, areaPrefixo:'',
+    setores:[], _setoresCarregadas:false, setorId:null, setorNome:'', setorCodigo:'',
+    posicoes:[], _posicoesCarregadas:false, posicaoId:null, posicaoNome:'', posicaoCodigo:'',
+    niveis:[], _niveisCarregados:false,
+  };
+}
+function gestBreadcrumb(){
+  const partes=[...arguments].filter(Boolean);
+  return '<div class="subnote" style="padding:0 0 10px;font-weight:600;color:#4A5560">'+partes.map(_esc).join(' › ')+'</div>';
+}
+/* linha genérica de item (Área/Setor/Posição/Nível) — nome + código opcional, badge "Inativo",
+   botão Ativar/Desativar sempre presente, botões extra opcionais (usado só por Área hoje, pro
+   toggle de "Setor obrigatório"). onEscolher null = nível-folha (Nível não tem próximo degrau). */
+function gestLinhaItem(card, item, {onEscolher, onToggle, extraBotoes}){
+  const row=document.createElement('div');
+  row.style.cssText='padding:12px;border:1.5px solid '+(item.ativo?'#E2E5E9':'#F2F3F4')+';border-radius:12px;margin-top:8px'+(item.ativo?'':';background:#F8F9FA');
+  const top=document.createElement('div'); top.style.cssText='display:flex;align-items:center;gap:10px';
+  const info=document.createElement('div'); info.style.cssText='flex:1;min-width:0'+(onEscolher?';cursor:pointer':'');
+  info.innerHTML='<div style="font-weight:700;color:'+(item.ativo?'#0B2239':'#A7AEB5')+'">'+_esc(item.nome)+(item.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(item.codigo)+')</span>':'')+'</div>'
+    +(item.ativo?'':'<div style="font-size:11.5px;color:#A7AEB5;margin-top:2px">Inativo</div>');
+  if(onEscolher) info.onclick=()=>onEscolher(item);
+  top.appendChild(info);
+  if(onEscolher){ const seta=document.createElement('span'); seta.style.cssText='color:#999;font-size:18px;cursor:pointer'; seta.textContent='›'; seta.onclick=()=>onEscolher(item); top.appendChild(seta); }
+  row.appendChild(top);
+  const acoes=document.createElement('div'); acoes.style.cssText='display:flex;gap:6px;margin-top:8px;flex-wrap:wrap';
+  const btnAtivo=document.createElement('button'); btnAtivo.className='btn btn-neutral'; btnAtivo.style.cssText='height:32px;padding:0 10px;font-size:11.5px'; btnAtivo.textContent=item.ativo?'Desativar':'Ativar';
+  btnAtivo.onclick=(ev)=>{ ev.stopPropagation(); onToggle(item); };
+  acoes.appendChild(btnAtivo);
+  (extraBotoes||[]).forEach(eb=>{ const b=document.createElement('button'); b.className='btn btn-neutral'; b.style.cssText='height:32px;padding:0 10px;font-size:11.5px'; b.textContent=eb.label; b.onclick=(ev)=>{ ev.stopPropagation(); eb.onClick(item); }; acoes.appendChild(b); });
+  row.appendChild(acoes);
+  card.appendChild(row);
+}
+/* form simples de "+ Novo X" (Setor/Posição/Nível — só nome+código; Área tem form próprio por
+   causa do prefixo obrigatório + checkbox "Requer Setor"). */
+function gestFormNovoSimples(card, {label, onSalvar}){
+  const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
+  wrap.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:12.5px">+ Novo '+_esc(label)+'</div>'
+    +'<input id="gestNovoNome" type="text" placeholder="Nome (ex.: Rua 1)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
+    +'<input id="gestNovoCodigo" type="text" placeholder="Código do segmento (opcional, ex.: R1)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">';
+  const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar '+label;
+  btn.onclick=()=>{
+    const nome=document.getElementById('gestNovoNome').value, codigo=document.getElementById('gestNovoCodigo').value;
+    onSalvar(nome, codigo);
+  };
+  wrap.appendChild(btn); card.appendChild(wrap);
+}
+
+function renderGestEstrutura(wrap){
+  if(!gestSt) gestReset();
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
+  bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='⚙️ Gerenciar estrutura'; wrap.appendChild(h);
+  const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
+  if(!canGerenciarEstoque(ROLE)){ card.innerHTML='<div class="subnote">Acesso restrito a Gerente ou Sócio.</div>'; return; }
+  if(gestSt.erro) card.innerHTML='<div class="subnote" style="color:#C4451B">'+_esc(gestSt.erro)+'</div>';
+  if(gestSt.step==='local') return gestRenderLocal(card);
+  if(gestSt.step==='area') return gestRenderArea(card);
+  if(gestSt.step==='setor') return gestRenderSetor(card);
+  if(gestSt.step==='posicao') return gestRenderPosicao(card);
+  if(gestSt.step==='nivel') return gestRenderNivel(card);
+}
+
+/* ---- passo 1: Local (reaproveita GET /estoque/locais; sem disable de veículo — gestão não é o
+   fluxo de cadastro de endereço, Gerente pode organizar estrutura de qualquer local) ---- */
+async function gestCarregarLocais(){
+  gestSt._locaisCarregados=false; renderEstoque();
+  try{ const d=await beGet('/estoque/locais'); gestSt.locais=d.locais||[]; gestSt._locaisCarregados=true; renderEstoque(); }
+  catch(e){ gestSt._locaisCarregados=true; gestSt.erro='Erro ao carregar locais: '+e.message; renderEstoque(); }
+}
+function gestEscolherLocal(l){ gestSt.localId=l.id; gestSt.localNome=l.nome; gestSt.step='area'; gestSt.erro=null; renderEstoque(); gestCarregarAreas(); }
+function gestRenderLocal(card){
+  card.innerHTML+='<div class="sec-title2" style="margin-top:0">Local de estoque</div>';
+  if(!gestSt._locaisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
+  gestSt.locais.forEach(l=>{
+    const b=document.createElement('div');
+    b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+    b.textContent=l.nome+(l.tipo==='Veículo'?' 🚐':'');
+    b.onclick=()=>gestEscolherLocal(l);
+    card.appendChild(b);
+  });
+}
+
+/* ---- passo 2: Área (já existia como pré-cadastro; ganha CRUD real aqui pela 1ª vez — antes só
+   Apex direto criava) ---- */
+async function gestCarregarAreas(){
+  gestSt._areasCarregadas=false; renderEstoque();
+  try{ const d=await beGet('/estoque/areas?localId='+encodeURIComponent(gestSt.localId)+'&incluirInativos=1'); gestSt.areas=d.areas||[]; gestSt._areasCarregadas=true; renderEstoque(); }
+  catch(e){ gestSt._areasCarregadas=true; gestSt.erro='Erro ao carregar áreas: '+e.message; renderEstoque(); }
+}
+function gestEscolherArea(a){ gestSt.areaId=a.id; gestSt.areaNome=a.nome; gestSt.areaRequerRua=a.requerRua; gestSt.areaPrefixo=a.prefixo; gestSt.step='setor'; gestSt.erro=null; renderEstoque(); gestCarregarSetores(); }
+async function gestToggleAreaAtivo(a){ try{ await bePatch('/estoque/areas/'+a.id,{ativo:!a.ativo}); toast(a.ativo?'Área desativada':'Área ativada'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestToggleAreaRequerRua(a){ try{ await bePatch('/estoque/areas/'+a.id,{requerRua:!a.requerRua}); toast(a.requerRua?'Setor deixou de ser obrigatório':'Setor agora é obrigatório'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestCriarArea(nome,prefixo,requerRua){
+  if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
+  if(!String(prefixo||'').trim()){ toast('⚠️ Informe o prefixo do código'); return; }
+  try{ await bePost('/estoque/areas',{localId:gestSt.localId, nome:nome.trim(), prefixo:prefixo.trim(), requerRua:!!requerRua}); toast('✅ Área criada'); gestCarregarAreas(); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+function gestRenderArea(card){
+  card.innerHTML+=gestBreadcrumb(gestSt.localNome,'Área');
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar ao Local'; bk.onclick=()=>{ gestSt.step='local'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
+  if(!gestSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.areas.length) card.innerHTML+='<div class="subnote">Nenhuma área cadastrada ainda neste local.</div>';
+  gestSt.areas.forEach(a=>{
+    gestLinhaItem(card, {id:a.id, nome:a.nome, codigo:a.prefixo, ativo:a.ativo}, {
+      onEscolher:()=>gestEscolherArea(a),
+      onToggle:()=>gestToggleAreaAtivo(a),
+      extraBotoes:[{label:a.requerRua?'Setor: obrigatório ✓':'Setor: opcional', onClick:()=>gestToggleAreaRequerRua(a)}],
+    });
+  });
+  const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
+  wrap.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:12.5px">+ Nova Área</div>'
+    +'<input id="gestNovoNome" type="text" placeholder="Nome (ex.: Casinha 4)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
+    +'<input id="gestNovoCodigo" type="text" placeholder="Prefixo do código (ex.: CAS4)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4A5560;margin-bottom:10px"><input id="gestNovoRequerRua" type="checkbox"> Exige Setor (Posição/Nível)</label>';
+  const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar Área';
+  btn.onclick=()=>{
+    gestCriarArea(document.getElementById('gestNovoNome').value, document.getElementById('gestNovoCodigo').value, document.getElementById('gestNovoRequerRua').checked);
+  };
+  wrap.appendChild(btn); card.appendChild(wrap);
+}
+
+/* ---- passo 3: Setor (pré-cadastro novo — SetorEstoque__c) ---- */
+async function gestCarregarSetores(){
+  gestSt._setoresCarregadas=false; renderEstoque();
+  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(gestSt.areaId)+'&incluirInativos=1'); gestSt.setores=d.setores||[]; gestSt._setoresCarregadas=true; renderEstoque(); }
+  catch(e){ gestSt._setoresCarregadas=true; gestSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
+}
+function gestEscolherSetor(s){ gestSt.setorId=s.id; gestSt.setorNome=s.nome; gestSt.setorCodigo=s.codigo; gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); gestCarregarPosicoes(); }
+async function gestToggleSetorAtivo(s){ try{ await bePatch('/estoque/setores/'+s.id,{ativo:!s.ativo}); toast(s.ativo?'Setor desativado':'Setor ativado'); gestCarregarSetores(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestCriarSetor(nome,codigo){
+  if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
+  try{ await bePost('/estoque/setores',{areaId:gestSt.areaId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Setor criado'); gestCarregarSetores(); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+function gestRenderSetor(card){
+  card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, 'Setor');
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Área'; bk.onclick=()=>{ gestSt.step='area'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
+  if(!gestSt._setoresCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.setores.length) card.innerHTML+='<div class="subnote">Nenhum setor cadastrado ainda nesta área.</div>';
+  gestSt.setores.forEach(s=>gestLinhaItem(card, s, { onEscolher:()=>gestEscolherSetor(s), onToggle:()=>gestToggleSetorAtivo(s) }));
+  gestFormNovoSimples(card, {label:'Setor', onSalvar:gestCriarSetor});
+}
+
+/* ---- passo 4: Posição (pré-cadastro novo — PosicaoEstoque__c) ---- */
+async function gestCarregarPosicoes(){
+  gestSt._posicoesCarregadas=false; renderEstoque();
+  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(gestSt.setorId)+'&incluirInativos=1'); gestSt.posicoes=d.posicoes||[]; gestSt._posicoesCarregadas=true; renderEstoque(); }
+  catch(e){ gestSt._posicoesCarregadas=true; gestSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
+}
+function gestEscolherPosicao(p){ gestSt.posicaoId=p.id; gestSt.posicaoNome=p.nome; gestSt.posicaoCodigo=p.codigo; gestSt.step='nivel'; gestSt.erro=null; renderEstoque(); gestCarregarNiveis(); }
+async function gestTogglePosicaoAtivo(p){ try{ await bePatch('/estoque/posicoes/'+p.id,{ativo:!p.ativo}); toast(p.ativo?'Posição desativada':'Posição ativada'); gestCarregarPosicoes(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestCriarPosicao(nome,codigo){
+  if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
+  try{ await bePost('/estoque/posicoes',{setorId:gestSt.setorId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Posição criada'); gestCarregarPosicoes(); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+function gestRenderPosicao(card){
+  card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, gestSt.setorNome, 'Posição');
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar ao Setor'; bk.onclick=()=>{ gestSt.step='setor'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
+  if(!gestSt._posicoesCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.posicoes.length) card.innerHTML+='<div class="subnote">Nenhuma posição cadastrada ainda neste setor.</div>';
+  gestSt.posicoes.forEach(p=>gestLinhaItem(card, p, { onEscolher:()=>gestEscolherPosicao(p), onToggle:()=>gestTogglePosicaoAtivo(p) }));
+  gestFormNovoSimples(card, {label:'Posição', onSalvar:gestCriarPosicao});
+}
+
+/* ---- passo 5: Nível (pré-cadastro novo — NivelEstoque__c; folha, sem próximo degrau) ---- */
+async function gestCarregarNiveis(){
+  gestSt._niveisCarregados=false; renderEstoque();
+  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(gestSt.posicaoId)+'&incluirInativos=1'); gestSt.niveis=d.niveis||[]; gestSt._niveisCarregados=true; renderEstoque(); }
+  catch(e){ gestSt._niveisCarregados=true; gestSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
+}
+async function gestToggleNivelAtivo(n){ try{ await bePatch('/estoque/niveis/'+n.id,{ativo:!n.ativo}); toast(n.ativo?'Nível desativado':'Nível ativado'); gestCarregarNiveis(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestCriarNivel(nome,codigo){
+  if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
+  try{ await bePost('/estoque/niveis',{posicaoId:gestSt.posicaoId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Nível criado'); gestCarregarNiveis(); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+function gestRenderNivel(card){
+  card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, gestSt.setorNome, gestSt.posicaoNome, 'Nível');
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Posição'; bk.onclick=()=>{ gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
+  if(!gestSt._niveisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.niveis.length) card.innerHTML+='<div class="subnote">Nenhum nível cadastrado ainda nesta posição.</div>';
+  gestSt.niveis.forEach(n=>gestLinhaItem(card, n, { onEscolher:null, onToggle:()=>gestToggleNivelAtivo(n) }));
+  gestFormNovoSimples(card, {label:'Nível', onSalvar:gestCriarNivel});
+}
+
 /* ===== ENTRADAS PENDENTES (recp* — Fase 4, 10/07/2026): conferência item a item do
    RecebimentoCompra__c + orientação de endereço (sugestão habitual/última entrada/vago) + alerta
    de excedente (dividir / criar ponto complementar via wizard endr* / forçar) + scan-to-confirm
@@ -4744,8 +4989,16 @@ function estoqueFerrSections(wrap){
 function canAloc(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
 /* solicitar/confirmar Autorização de Serviço: só Coordenador pra cima (inclusive) */
 function canAS(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
-/* módulo Estoque (aba do bottom nav): só Estoquista e Sócio */
-function canEstoque(r){ return ['Estoquista','Sócio'].includes(r); }
+/* módulo Estoque (aba do bottom nav): Estoquista e Sócio, + Gerente (14/07 — precisa entrar pra
+   gerenciar a estrutura de Setor/Posição/Nível). Supervisor/Coordenador continuam de fora, decisão
+   deliberada — não é alinhamento total com o gate do backend (esse é mais permissivo). */
+function canEstoque(r){ return ['Estoquista','Sócio'].includes(r) || canGerenciarEstoque(r); }
+/* comparação hierárquica (14/07, pré-cadastro Setor/Posição/Nível): primeira vez que o app precisa
+   de "papel X ou superior" em vez de lista literal — os demais canX ficam como estão (não são
+   todos rank-based; canEstoque por ex. inclui Estoquista e exclui Supervisor de propósito). */
+function roleAtLeast(r,min){ return ROLES.indexOf(r)>=ROLES.indexOf(min); }
+/* Gerenciar estrutura (Área/Setor/Posição/Nível do Estoque): Gerente ou Sócio. */
+function canGerenciarEstoque(r){ return roleAtLeast(r,'Gerente'); }
 /* módulo Cadastro de Ativos: Supervisor pra cima (Auxiliar/Líder de MPP não cadastram) */
 function canCadastrar(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
 /* módulo Bipar (custódia física, Frente B): Supervisor bipa retirada na base (Marcos), Líder de

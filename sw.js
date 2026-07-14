@@ -106,8 +106,14 @@
     estoqLocaisAgrupados() ganhou um 4º parâmetro opcional desabilitarVeiculos)
    (v109 14/07 — ajuste no v108: Galpão Penha (única opção clicável na tela Local quando veículos
     estão bloqueados) ganha o mesmo destaque azul-marca das Áreas habilitadas, em vez de ficar
-    neutro — reforça visualmente qual é a opção ativa, pedido do Raphael) */
-const CACHE = 'exaustech-os-v109'; // v109 14/07: Galpão Penha em azul-marca (opção ativa) na tela Local, veículos cinza/inativos
+    neutro — reforça visualmente qual é a opção ativa, pedido do Raphael)
+   (v110 14/07 — pré-cadastro real de Setor/Posição/Nível (SetorEstoque__c/PosicaoEstoque__c/
+    NivelEstoque__c, ver DECISAO_pre-cadastro-setor-posicao-nivel.md): wizard endr* troca os 3
+    campos de texto livre por listas de toque-seleciona-e-avança; tela nova "⚙️ Gerenciar
+    estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
+    sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
+    criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
+const CACHE = 'exaustech-os-v110'; // v110 14/07: pré-cadastro de Setor/Posição/Nível + tela Gerenciar estrutura (Gerente+)
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).
