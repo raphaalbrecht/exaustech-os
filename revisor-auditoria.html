@@ -1861,7 +1861,17 @@ function setFiltro(f){ ST.filtro = f; renderTudo(); }
 // 13/07/2026 (rodada 27): multi-seleção do gráfico de Risco — cada coluna liga/desliga só o seu
 // próprio nível no Set, sem mexer nos demais (ver ST.filtrosRisco e a camada em linhasFiltradas()).
 function toggleRisco(n){
-  if (ST.filtrosRisco.has(n)) ST.filtrosRisco.delete(n); else ST.filtrosRisco.add(n);
+  if (ST.filtrosRisco.has(n)) {
+    ST.filtrosRisco.delete(n);
+  } else {
+    ST.filtrosRisco.add(n);
+    // 13/07/2026 (rodada 30): pedido do Raphael — ao LIGAR um nível de risco, força desligar
+    // "Ocultar itens com match já confirmado". Sem isso, selecionar um risco onde todos os itens já
+    // estão com match confirmado deixava a lista vazia sem nenhuma pista visual do porquê (as duas
+    // camadas de filtro combinam em AND — ver linhasFiltradas()). Só reage a LIGAR o risco; desligar
+    // (deselecionar) não mexe no toggle, que o usuário pode ter religado por outro motivo.
+    ST.ocultarConfirmados = false;
+  }
   renderTudo();
 }
 
