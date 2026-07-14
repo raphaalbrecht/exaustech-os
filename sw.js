@@ -83,8 +83,14 @@
     da confirmação final atômica; zero endpoint novo, backend já pronto desde a Fase 2. Desenhado
     com o agente Fable (proposta-fase4-entradas-pendentes.md); revisão de código encontrou e
     corrigiu 3 bugs reais antes de publicar (cancelar+forçar após handoff, remoção da linha-base,
-    gate de confirmação sem checar persistência)) */
-const CACHE = 'exaustech-os-v104'; // v104 13/07: UI de profundidade flexível no wizard endr*
+    gate de confirmação sem checar persistência))
+   (v105 14/07 — wizard endr*: breadcrumb uniforme Local › Área › Setor › Posição › Nível em todas
+    as telas da cadeia (Área/Setor/Posição/Nível/Tipo/Nome/Capacidade), substituindo os títulos
+    compostos e as linhas "📍 ..." ad hoc; segmento atual vira pill que atualiza ao vivo enquanto
+    digita; rótulo "Módulo" renomeado pra "Posição" (fonte única ENDR_NIVEL_LABEL usada por título/
+    botão/breadcrumb); botão "+ Novo endereço" na lista do Local vira "+ Novo Setor" (só no modo
+    cadastro, consulta mantém o texto antigo); desenhado com o agente Fable) */
+const CACHE = 'exaustech-os-v105'; // v105 14/07: breadcrumb uniforme Local›Área›Setor›Posição›Nível + rótulo Posição
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).

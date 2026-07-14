@@ -3279,7 +3279,8 @@ function endrEscolherArea(a){
   endrSt.step=endrSt.areaRequerRua?'rua':'tipo'; renderEstoque();
 }
 function endrRenderArea(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Área</div>';
+  card.innerHTML=endrBreadcrumbHTML('area')+'<div class="sec-title2" style="margin-top:0">Área</div>';
+  endrBcScroll(card);
   if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   endrSt.areas.forEach(a=>{
     const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
@@ -3298,15 +3299,58 @@ function endrCodigoPreview(...extra){
   const partes=[endrSt.areaPrefixo, endrSt.rua, endrSt.modulo, ...extra].map(p=>(p||'').trim()).filter(Boolean);
   return partes.length?partes.join('-'):'—';
 }
+/* ---- breadcrumb uniforme da cadeia (14/07/2026, pedido do Raphael — análise Fable):
+   Local > Área > Setor > Posição > Nível > Bin. Fonte única de rótulo por nível (título das
+   telas, botões "Adicionar X ›" e o próprio breadcrumb usam ENDR_NIVEL_LABEL, pra nunca dessincronizar
+   um do outro numa renomeação futura). "Módulo" virou rótulo visual "Posição" — a variável interna
+   continua endrSt.modulo por baixo (derivar > proliferar, não vale a pena renomear o estado todo
+   só por causa do rótulo).
+   endrBreadcrumbSegments monta a trilha a partir do caminho EFETIVAMENTE percorrido (nunca a cadeia
+   teórica completa) — se o local não tem Área, ou a Área não exige Setor, os segmentos correspondentes
+   simplesmente não aparecem (nunca um placeholder tipo "Área: —"). atualStep marca qual segmento é
+   "o de agora" (vira pill) e mostra no máximo 1 próximo nível como "futuro" (cinza claro); atualStep
+   null = trilha "fechada" (Tipo/Nome/Capacidade/Revisão), tudo preenchido, sem pill nem futuro. ---- */
+const ENDR_NIVEL_LABEL={ area:'Área', rua:'Setor', modulo:'Posição', nivel:'Nível' };
+function endrBreadcrumbSegments(atualStep){
+  const segs=[{state:'fill', value:endrSt.localNome}];
+  if(atualStep==='area'){ segs.push({state:'atual', label:ENDR_NIVEL_LABEL.area}); }
+  else if(endrSt.areaNome){ segs.push({state:'fill', value:endrSt.areaNome}); }
+  if(atualStep==='rua'){ segs.push({state:'atual', label:ENDR_NIVEL_LABEL.rua, value:endrSt.rua}); segs.push({state:'futuro', label:ENDR_NIVEL_LABEL.modulo}); }
+  else if(endrSt.rua){ segs.push({state:'fill', value:endrSt.rua}); }
+  if(atualStep==='modulo'){ segs.push({state:'atual', label:ENDR_NIVEL_LABEL.modulo, value:endrSt.modulo}); segs.push({state:'futuro', label:ENDR_NIVEL_LABEL.nivel}); }
+  else if(endrSt.modulo){ segs.push({state:'fill', value:endrSt.modulo}); }
+  if(atualStep==='nivel'){ segs.push({state:'atual', label:ENDR_NIVEL_LABEL.nivel, value:endrSt.nivel}); }
+  else if(endrSt.nivel){ segs.push({state:'fill', value:endrSt.nivel}); }
+  return segs;
+}
+function endrBreadcrumbHTML(atualStep){
+  const segs=endrBreadcrumbSegments(atualStep);
+  let html='<div id="endrBc" style="display:flex;align-items:center;gap:2px;overflow-x:auto;white-space:nowrap;padding-bottom:6px;margin-bottom:10px;font-size:12.5px">';
+  segs.forEach((s,i)=>{
+    if(i>0) html+='<span style="color:#C9CFD6;flex-shrink:0;padding:0 2px">›</span>';
+    if(s.state==='atual') html+='<span id="endrBcAtual" style="background:rgba(62,126,176,.12);color:#3E7EB0;font-weight:700;padding:2px 10px;border-radius:999px;flex-shrink:0">'+_esc(s.value||s.label)+'</span>';
+    else if(s.state==='futuro') html+='<span style="color:#B9C1C9;flex-shrink:0">'+_esc(s.label)+'</span>';
+    else html+='<span style="color:#4A5560;font-weight:600;flex-shrink:0;max-width:96px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:bottom" title="'+_esc(s.value)+'">'+_esc(s.value)+'</span>';
+  });
+  html+='</div>';
+  return html;
+}
+/* chamar logo após atribuir card.innerHTML nas telas que usam breadcrumb — ancora o scroll
+   horizontal à direita (segmento atual sempre visível sem precisar arrastar) */
+function endrBcScroll(card){ const el=card.querySelector('#endrBc'); if(el) el.scrollLeft=el.scrollWidth; }
 function endrRenderRua(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Setor — '+_esc(endrSt.areaNome)+'</div>'
+  card.innerHTML=endrBreadcrumbHTML('rua')+'<div class="sec-title2" style="margin-top:0">Setor</div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Setor</label>'
     +'<input id="endrRua" type="text" value="'+cadEsc(endrSt.rua)+'" placeholder="Ex.: PF (parede fundo), F2 (fileira 2)" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
     +'<div class="subnote" style="padding:0 0 8px">Dá pra parar em qualquer nível — o código sai só com o que você preencher.</div>'
     +'<div class="subnote" id="endrCodPrev" style="padding:0 0 12px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.rua))+'</div>';
+  endrBcScroll(card);
   const input=card.querySelector('#endrRua');
-  input.oninput=()=>{ card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value); };
-  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar Módulo ›';
+  input.oninput=()=>{
+    card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
+    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.rua;
+  };
+  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar '+ENDR_NIVEL_LABEL.modulo+' ›';
   prim.onclick=()=>{
     const v=(document.getElementById('endrRua').value||'').trim();
     if(!v){ toast('⚠️ Informe o setor'); return; }
@@ -3326,24 +3370,28 @@ function endrRenderRua(card){
    Só aparece quando o Setor apareceu (mesmo gate areaRequerRua) — sem campo novo no Salesforce,
    vira só um pedaço do Codigo__c composto no backend. ---- */
 function endrRenderModulo(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Módulo — '+_esc(endrSt.areaNome)+' '+_esc(endrSt.rua)+'</div>'
-    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Módulo</label>'
+  card.innerHTML=endrBreadcrumbHTML('modulo')+'<div class="sec-title2" style="margin-top:0">Posição</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Posição</label>'
     +'<input id="endrModulo" type="text" value="'+cadEsc(endrSt.modulo)+'" placeholder="Ex.: 01, 02, 07…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
     +'<div class="subnote" style="padding:0 0 8px">Posição da prateleira/unidade dentro do setor.</div>'
     +'<div class="subnote" id="endrCodPrev" style="padding:0 0 12px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.modulo))+'</div>';
+  endrBcScroll(card);
   const input=card.querySelector('#endrModulo');
-  input.oninput=()=>{ card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value); };
-  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar Nível ›';
+  input.oninput=()=>{
+    card.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
+    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.modulo;
+  };
+  const prim=document.createElement('button'); prim.className='btn btn-brand'; prim.style.cssText='width:100%;height:48px'; prim.textContent='Adicionar '+ENDR_NIVEL_LABEL.nivel+' ›';
   prim.onclick=()=>{
     const v=(document.getElementById('endrModulo').value||'').trim();
-    if(!v){ toast('⚠️ Informe o módulo'); return; }
+    if(!v){ toast('⚠️ Informe a posição'); return; }
     endrSt.modulo=v; endrSt.step='nivel'; renderEstoque();
   };
   card.appendChild(prim);
   const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:8px'; parar.textContent='✓ Cadastrar aqui';
   parar.onclick=()=>{
     const v=(document.getElementById('endrModulo').value||'').trim();
-    if(!v){ toast('⚠️ Informe o módulo'); return; }
+    if(!v){ toast('⚠️ Informe a posição'); return; }
     endrSt.modulo=v; endrSt.nivel=''; endrSt.paradaEm='modulo'; endrSt.step='tipo'; renderEstoque();
   };
   card.appendChild(parar);
@@ -3356,8 +3404,9 @@ function endrRenderModulo(card){
    Tipo='Bin', não um degrau à parte — ver §15 da proposta). */
 function endrEscolherNivel(v){ endrSt.nivel=v; endrSt.paradaEm='nivel'; endrSt.step='tipo'; renderEstoque(); }
 function endrRenderNivel(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Nível — '+_esc(endrSt.rua)+' '+_esc(endrSt.modulo)+'</div>'
+  card.innerHTML=endrBreadcrumbHTML('nivel')+'<div class="sec-title2" style="margin-top:0">Nível</div>'
     +'<div class="subnote" style="padding:0 0 8px">Andar vertical, de baixo pra cima.</div>';
+  endrBcScroll(card);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px';
   ['A','B','C','D','E','F'].forEach(l=>{
     const el=document.createElement('div'); el.style.cssText='background:#F7F9FA;border:1.5px solid #E2E5E9;border-radius:10px;padding:12px 0;text-align:center;cursor:pointer;font-weight:700;font-size:15px;color:#0B2239';
@@ -3370,7 +3419,10 @@ function endrRenderNivel(card){
     +'<div class="subnote" id="endrCodPrev" style="padding:0 0 4px;font-weight:600">Código até aqui: '+_esc(endrCodigoPreview(endrSt.nivel))+'</div>';
   card.appendChild(outroWrap);
   const input=outroWrap.querySelector('#endrNivel');
-  input.oninput=()=>{ outroWrap.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value); };
+  input.oninput=()=>{
+    outroWrap.querySelector('#endrCodPrev').textContent='Código até aqui: '+endrCodigoPreview(input.value);
+    const bc=card.querySelector('#endrBcAtual'); if(bc) bc.textContent=input.value||ENDR_NIVEL_LABEL.nivel;
+  };
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px;margin-top:8px'; cont.textContent='Continuar';
   cont.onclick=()=>{
     const v=(document.getElementById('endrNivel').value||'').trim();
@@ -3392,11 +3444,11 @@ function endrRenderLista(card){
        criar; cada linha é clicável e leva ao detalhe/etiqueta (endrAbrirDetalhe) — é o único
        caminho do app pra reabrir um endereço (reimprimir etiqueta, regravar NFC, ver ocupação). */
   if(!endrSt.consulta){
-    const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
+    const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo Setor';
     novo.onclick=endrNovoEndereco; card.appendChild(novo);
   }
   if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(l); }
-  else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
+  else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent=(endrSt.consulta?'Nenhum endereço cadastrado ainda neste local.':'Nenhum setor cadastrado ainda neste local.'); card.appendChild(e); }
   else {
     const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560';
     lbl.textContent=(endrSt.consulta?'Toque pra gerenciar — ':'Endereços cadastrados ')+'('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
@@ -3428,9 +3480,8 @@ function endrRenderTipoGrid(card, lista){
   card.appendChild(grid);
 }
 function endrRenderTipo(card){
-  const loc=[endrSt.areaNome,endrSt.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>'
-    +(loc?'<div class="subnote" style="padding:0 0 6px">📍 '+_esc(loc)+'</div>':'');
+  card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>';
+  endrBcScroll(card);
   const sugeridosNomes=endrSt.paradaEm?(ENDR_SUGESTAO_TIPO[endrSt.paradaEm]||[]):[];
   if(sugeridosNomes.length){
     const sugeridos=ENDR_TIPOS.filter(t=>sugeridosNomes.includes(t.v));
@@ -3468,14 +3519,13 @@ async function endrSugerirCodigo(){
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
 function endrRenderNome(card){
-  const loc2=[endrSt.areaNome,endrSt.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Nomenclatura — '+_esc(endrSt.tipo)+'</div>'
-    +(loc2?'<div class="subnote" style="padding:0 0 6px">📍 '+_esc(loc2)+'</div>':'')
+  card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Nomenclatura — '+_esc(endrSt.tipo)+'</div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
     +'<input id="endrNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Código</label>'
     +'<input id="endrCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
     +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>';
+  endrBcScroll(card);
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
   cont.onclick=()=>{
     endrSt.nome=(document.getElementById('endrNome').value||'').trim();
@@ -3487,9 +3537,10 @@ function endrRenderNome(card){
 }
 /* ---- passo 5: capacidade (opcional, D1: genérica por endereço) ---- */
 function endrRenderCapacidade(card){
-  card.innerHTML='<div class="sec-title2" style="margin-top:0">Capacidade máxima (opcional)</div>'
+  card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Capacidade máxima (opcional)</div>'
     +'<div class="subnote" style="padding:0 0 8px">Limite genérico de ocupação deste endereço (mesma unidade do saldo). Deixe em branco se não quiser controlar.</div>'
     +'<input id="endrCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 14px;box-sizing:border-box">';
+  endrBcScroll(card);
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
   cont.onclick=()=>{ endrSt.capacidade=(document.getElementById('endrCap').value||'').trim(); endrSt.step='revisao'; renderEstoque(); };
   card.appendChild(cont);
@@ -3501,7 +3552,7 @@ function endrRenderRevisao(card){
     +'<div class="det-row"><span class="det-k">Local</span><span class="det-v">'+_esc(endrSt.localNome)+'</span></div>'
     +(endrSt.areaNome?'<div class="det-row"><span class="det-k">Área</span><span class="det-v">'+_esc(endrSt.areaNome)+'</span></div>':'')
     +(endrSt.rua?'<div class="det-row"><span class="det-k">Setor</span><span class="det-v">'+_esc(endrSt.rua)+'</span></div>':'')
-    +(endrSt.modulo?'<div class="det-row"><span class="det-k">Módulo</span><span class="det-v">'+_esc(endrSt.modulo)+'</span></div>':'')
+    +(endrSt.modulo?'<div class="det-row"><span class="det-k">Posição</span><span class="det-v">'+_esc(endrSt.modulo)+'</span></div>':'')
     +(endrSt.nivel?'<div class="det-row"><span class="det-k">Nível</span><span class="det-v">'+_esc(endrSt.nivel)+'</span></div>':'')
     +'<div class="det-row"><span class="det-k">Tipo</span><span class="det-v">'+_esc(endrSt.tipo)+'</span></div>'
     +'<div class="det-row"><span class="det-k">Nome</span><span class="det-v">'+_esc(endrSt.nome||'—')+'</span></div>'
@@ -3509,8 +3560,8 @@ function endrRenderRevisao(card){
     +'<div class="det-row"><span class="det-k">Capacidade</span><span class="det-v">'+_esc(endrSt.capacidade||'sem limite')+'</span></div>';
   /* aviso de profundidade (13/07/2026): só quando parou antes do fim da cadeia — quem foi até o
      Nível não precisa de aviso nenhum (é o caminho comum). Mitigação de "parar cedo sem perceber". */
-  if(endrSt.paradaEm==='rua') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Setor (sem módulo/nível).</div>';
-  else if(endrSt.paradaEm==='modulo') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Módulo (sem nível).</div>';
+  if(endrSt.paradaEm==='rua') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Setor (sem posição/nível).</div>';
+  else if(endrSt.paradaEm==='modulo') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Posição (sem nível).</div>';
   if(endrSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B;padding-top:8px">'+_esc(endrSt.erro)+'</div>';
   const criar=document.createElement('button'); criar.className='btn btn-brand'; criar.style.cssText='width:100%;height:48px;margin-top:14px';
   criar.textContent=endrSt.criando?'Criando…':'✅ Criar endereço'; criar.disabled=!!endrSt.criando;
