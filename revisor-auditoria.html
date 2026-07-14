@@ -2052,8 +2052,13 @@ function renderLista(){
     const fora = foraDeEscopo(l);
     const trat = labelTratativa(l.statusTratativa || 'nao_tratada');
     const tratCls = fora ? 'trat-fora' : trat.cls;
+    // 14/07/2026 (rodada 40): pedido do Raphael — cards com match ainda PENDENTE não devem
+    // exibir "não tratada". Tratativa só faz sentido depois que o match está confirmado (antes
+    // disso não há o que "tratar" ainda); "não tratada" num item pendente é ruído, não
+    // informação. Some o trat-word inteiro nesse caso (mantém "em tratativa"/"tratada" visíveis
+    // se por algum motivo já existirem antes da confirmação).
     if (fora) tags.push('<span class="trat-word fora">fora de escopo</span>');
-    else { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
+    else if (matchConfirmado(l) || trat.cls !== 'trat-nao') { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
     // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal — e o
     // card ganha fundo azul claro quando já passou pelo olhar humano do revisor. O check-icon que
     // ficava aqui foi removido nesta rodada: virou pílula explícita em tags[] (badgeStatusMini()).
