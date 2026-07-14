@@ -1443,8 +1443,9 @@ function linhasFiltradas(){
   // ST.filtro. Vazio (nenhuma barra selecionada) = não filtra por risco, mostra tudo.
   if (ST.filtrosRisco.size) base = base.filter(l => ST.filtrosRisco.has(l.risco));
   // 13/07/2026: pedido do Raphael — toggle global "Ocultar itens com match já confirmado" some com
-  // os itens confirmados (matchConfirmado(l)) por cima de QUALQUER filtro/pílula ativo, inclusive
-  // o próprio filtro 'confirmado' (nesse caso a lista fica vazia — comportamento esperado do toggle).
+  // os itens confirmados (matchConfirmado(l)) por cima de QUALQUER filtro/pílula ativo. O caso
+  // "próprio filtro 'confirmado' + toggle ligado" (que sempre dava lista vazia) não é mais possível
+  // na prática: setFiltro() força o toggle a desligar ao ativar 'confirmado' (rodada 31, ver acima).
   if (ST.ocultarConfirmados) base = base.filter(l => !matchConfirmado(l));
   if (!ST.busca.trim()) return base;
   const termo = normalizarBusca(ST.busca);
@@ -1856,7 +1857,15 @@ async function toggleHistExpand(i){
   }
 }
 
-function setFiltro(f){ ST.filtro = f; renderTudo(); }
+function setFiltro(f){
+  // 13/07/2026 (rodada 31): mesmo pedido do Raphael já aplicado ao gráfico de Risco (toggleRisco) —
+  // a pílula "X/Y CONFIRMADOS" filtra por matchConfirmado(l), que é EXATAMENTE o que o toggle
+  // "Ocultar itens com match já confirmado" esconde: as duas condições juntas garantiam lista
+  // vazia sempre (não só às vezes, como no caso do risco). Força desligar o toggle ao LIGAR esse
+  // filtro, pelo mesmo motivo.
+  if (f === 'confirmado') ST.ocultarConfirmados = false;
+  ST.filtro = f; renderTudo();
+}
 
 // 13/07/2026 (rodada 27): multi-seleção do gráfico de Risco — cada coluna liga/desliga só o seu
 // próprio nível no Set, sem mexer nos demais (ver ST.filtrosRisco e a camada em linhasFiltradas()).
