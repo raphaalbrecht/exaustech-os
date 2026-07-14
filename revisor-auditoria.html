@@ -290,8 +290,17 @@
   .risco-seg-btn.ativo-fora{background:var(--warn);color:#fff}
   .risco-contador{font-size:9px;color:var(--weaker);margin-top:2px}
   .risco-contador-oculto{visibility:hidden}
-  .risco-sec.visao-exa{background:var(--brand-l);border-radius:8px;margin:-2px -10px;padding:4px 10px}
-  .risco-sec.visao-fora{background:var(--warn-bg);border-radius:8px;margin:-2px -10px;padding:4px 10px}
+  /* 13/07/2026 (rodada 34): bleed SÓ pra esquerda (onde é a borda do próprio .risco-card, ninguém
+     ali) — margin-left negativo + padding-left igual em módulo mantém o conteúdo (label/colunas)
+     no mesmo lugar visual, só o FUNDO colorido estica até a borda esquerda do card. Bleed à
+     DIREITA foi removido (era margin-right:-10px + padding-right:10px): o fundo colorido pintava
+     10px além do próprio slot do flex item, por cima do hairline que separa esta seção da seção
+     "Risco da loja" ao lado — o Raphael reportou isso como o card "crescendo pra direita e
+     invadindo a área do Risco da loja". padding-right:14px aqui (igual ao .risco-sec base, não ao
+     valor "apertado" de 10px usado nas outras 3 bordas) garante que a borda direita do conteúdo
+     não se mexa nem 1px entre visão tingida e visão "Toda" (sem tingimento).      */
+  .risco-sec.visao-exa{background:var(--brand-l);border-radius:8px 0 0 8px;margin:-2px 0 -2px -10px;padding:4px 14px 4px 10px}
+  .risco-sec.visao-fora{background:var(--warn-bg);border-radius:8px 0 0 8px;margin:-2px 0 -2px -10px;padding:4px 14px 4px 10px}
   .risco-sec.visao-exa .risco-card-label, .risco-sec.visao-exa .risco-contador{color:var(--brand-d)}
   .risco-sec.visao-fora .risco-card-label, .risco-sec.visao-fora .risco-contador{color:var(--warn-tx)}
   /* pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
@@ -1630,10 +1639,15 @@ function renderTudo(){
   // estrutural do prédio, não atribuição da Exaustech consertar). 3 propostas de UI vieram de um
   // subagente Fable (segmented de 3 pílulas / barras empilhadas / dropdown); Raphael escolheu o
   // segmented (Proposta A) com o card mudando de cara em cada visão — sinal forte pra nunca deixar
-  // esquecer que "Exaustech"/"Fora de escopo" são um RECORTE, não a leitura padrão. niveisRisco,
-  // maxRisco e a cor das barras agora dependem de ST.visaoRisco (ver setVisaoRisco/toggleRisco).
+  // esquecer que "Exaustech"/"Fora de escopo" são um RECORTE, não a leitura padrão. maxRisco e a
+  // cor das barras dependem de ST.visaoRisco (ver setVisaoRisco/toggleRisco), mas niveisRisco NÃO
+  // — 13/07/2026 (rodada 34): pedido do Raphael, o conjunto de colunas (R0..R5 presentes) é
+  // calculado SEMPRE contra a visão 'todos', fixo, pra área do gráfico nunca mudar de LARGURA ao
+  // trocar de pílula (antes cada visão filtrava seu próprio conjunto de níveis>0, então uma visão
+  // recortada com menos níveis presentes tinha menos colunas => card mais estreito/mais largo
+  // conforme a pílula, chegando a invadir visualmente a seção "Risco da loja" ao lado).
   const visaoRisco = ST.visaoRisco;
-  const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagemRiscoVisao(n, visaoRisco) > 0);
+  const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagemRiscoVisao(n, 'todos') > 0);
   const riscoWrap = document.getElementById('riscoInline');
   if (riscoWrap) {
     const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagemRiscoVisao(n, visaoRisco)));
