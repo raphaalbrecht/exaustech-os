@@ -1954,6 +1954,13 @@ function setFiltro(f){
   // vazia sempre (não só às vezes, como no caso do risco). Força desligar o toggle ao LIGAR esse
   // filtro, pelo mesmo motivo.
   if (f === 'confirmado') ST.ocultarConfirmados = false;
+  // 13/07/2026 (rodada 36): pedido do Raphael — clicar na pílula "N FORA DE ESCOPO" (barra de
+  // resumo) também precisa acender a pílula "Fora de escopo" no segmented control do gráfico de
+  // risco, não só filtrar a lista por baixo. Sem isso o número da pílula e o gráfico ficavam
+  // dessincronizados (lista mostrando só fora de escopo, gráfico ainda na visão "Toda"). Zera
+  // filtrosRisco pelo mesmo motivo de setVisaoRisco: não empilhar recorte de nível em cima do de
+  // escopo.
+  if (f === 'fora_escopo') { ST.visaoRisco = 'fora'; ST.filtrosRisco = new Set(); }
   ST.filtro = f; renderTudo();
 }
 
