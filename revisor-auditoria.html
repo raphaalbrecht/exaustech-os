@@ -58,8 +58,10 @@
   .conta-destaque .data{font-size:22px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07, rodada 26): número do registro no Salesforce (Auditoria_tecnica__c.
      Name, autonumber "AUDTEC {000000}" — já vinha no GET lote como auditoria.nome, sem uso até
-     agora) — empilha logo abaixo da data. Fonte dobrada (12px→24px) no mesmo pedido, mesma rodada. */
-  .conta-destaque .audtec-sub{font-size:24px;font-weight:600;color:var(--weak)}
+     agora) — empilha logo abaixo da data. Fonte dobrada (12px→24px) na rodada 26; reduzida de volta
+     (24px→13px) depois — competia demais com conta/data no mesmo tamanho, virou identificador
+     discreto de novo. */
+  .conta-destaque .audtec-sub{font-size:13px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
      (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
   .conta-destaque .arquivo-sub{font-size:10px;font-weight:400;color:var(--weaker);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
