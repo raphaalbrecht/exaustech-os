@@ -289,6 +289,7 @@
   .risco-seg-btn.ativo-todos, .risco-seg-btn.ativo-exa{background:var(--brand-d);color:#fff}
   .risco-seg-btn.ativo-fora{background:var(--warn);color:#fff}
   .risco-contador{font-size:9px;color:var(--weaker);margin-top:2px}
+  .risco-contador-oculto{visibility:hidden}
   .risco-sec.visao-exa{background:var(--brand-l);border-radius:8px;margin:-2px -10px;padding:4px 10px}
   .risco-sec.visao-fora{background:var(--warn-bg);border-radius:8px;margin:-2px -10px;padding:4px 10px}
   .risco-sec.visao-exa .risco-card-label, .risco-sec.visao-exa .risco-contador{color:var(--brand-d)}
@@ -1647,11 +1648,16 @@ function renderTudo(){
     const segBtn = (v, label) => '<span class="risco-seg-btn' + (visaoRisco === v ? ' ativo-' + v : '') + '" onclick="setVisaoRisco(\'' + v + '\')">' + label + '</span>';
     const segmented = '<div class="risco-seg">' + segBtn('todos', 'Toda') + segBtn('exa', 'Exaustech') + segBtn('fora', 'Fora de escopo') + '</div>';
     const labelTxt = visaoRisco === 'exa' ? 'Riscos · apenas Exaustech' : visaoRisco === 'fora' ? 'Riscos · fora de escopo' : 'Distribuição dos riscos';
-    // contador "N de M itens" só aparece nas visões recortadas — reforço extra (além da cor do
-    // card e do rótulo) de que não é a leitura padrão "toda a vistoria".
+    // contador "N de M itens" — reforço extra (além da cor do card e do rótulo) de que a visão
+    // ativa é um RECORTE, não a leitura padrão "toda a vistoria". 13/07/2026 (rodada 33): pedido
+    // do Raphael — o card mudava de ALTURA conforme a pílula (a linha do contador só existia nas
+    // visões recortadas), empurrando "Risco da loja" pra ficar espremido na visão "Toda" (mais
+    // baixa) e arejado nas outras. Fix: o <div> do contador SEMPRE existe (reserva o espaço da
+    // linha), só o texto/visibilidade mudam — .risco-contador-oculto (visibility:hidden, não
+    // display:none) mantém a altura igual nas 3 visões sem período de layout shift.
     const totalGeral = ST.linhas.filter(l => l.risco != null).length;
     const totalVisao = niveisRisco.reduce((s, n) => s + contagemRiscoVisao(n, visaoRisco), 0);
-    const contador = visaoRisco !== 'todos' ? '<div class="risco-contador">' + totalVisao + ' de ' + totalGeral + ' itens</div>' : '';
+    const contador = '<div class="risco-contador' + (visaoRisco === 'todos' ? ' risco-contador-oculto' : '') + '">' + totalVisao + ' de ' + totalGeral + ' itens</div>';
     // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
     // diferente do histograma por item acima: é a classificação geral gravada na Auditoria na
     // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
