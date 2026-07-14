@@ -3292,13 +3292,27 @@ function endrEscolherArea(a){
   endrSt.areaPrefixo=a.prefixo||''; endrSt.modulo=''; endrSt.nivel=''; endrSt.paradaEm=null;
   endrSt.step=endrSt.areaRequerRua?'rua':'tipo'; renderEstoque();
 }
+/* 14/07/2026 (pedido do Raphael): só as Áreas com Setor/Posição/Nível (RequerRua__c=true) têm
+   cadastro habilitado por enquanto — as demais aparecem cinza/inativas, sem toque, até ele decidir
+   liberar. Vêm sempre primeiro na lista (ativas), destacadas em azul-marca. */
 function endrRenderArea(card){
-  card.innerHTML=endrBreadcrumbHTML('area')+'<div class="sec-title2" style="margin-top:0">Área</div>';
+  card.innerHTML=endrBreadcrumbHTML('area')+'<div class="sec-title2" style="margin-top:0">Área</div>'
+    +'<div class="subnote" style="padding:0 0 8px">Em azul: cadastro habilitado (tem Setor). As demais ainda não têm cadastro liberado.</div>';
   endrBcScroll(card);
   if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  endrSt.areas.forEach(a=>{
-    const b=document.createElement('div'); b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
-    b.textContent=a.nome+(a.requerRua?' (Setor obrigatório)':''); b.onclick=()=>endrEscolherArea(a); card.appendChild(b);
+  const ativas=endrSt.areas.filter(a=>a.requerRua).sort((x,y)=>x.nome.localeCompare(y.nome));
+  const inativas=endrSt.areas.filter(a=>!a.requerRua).sort((x,y)=>x.nome.localeCompare(y.nome));
+  ativas.concat(inativas).forEach(a=>{
+    const b=document.createElement('div');
+    if(a.requerRua){
+      b.style.cssText='padding:12px;border:1.5px solid #3E7EB0;background:rgba(62,126,176,.08);border-radius:12px;margin-top:8px;cursor:pointer;font-weight:700;color:#3E7EB0';
+      b.textContent=a.nome+' (Setor obrigatório)';
+      b.onclick=()=>endrEscolherArea(a);
+    } else {
+      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;background:#F2F3F4;border-radius:12px;margin-top:8px;font-weight:600;color:#A7AEB5;cursor:default';
+      b.textContent=a.nome;
+    }
+    card.appendChild(b);
   });
   /* 14/07/2026: em cadastro, "lista" foi pulada ao entrar (endrEscolherLocal) — Voltar daqui tem
      que ir pro Local, não pra uma tela "lista" nunca carregada. Consulta continua indo pra lista

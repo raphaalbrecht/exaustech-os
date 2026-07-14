@@ -94,8 +94,12 @@
     sempre vazia no 1º endereço (nada criado ainda), só servia de trampolim pro botão "+ Novo
     Setor". Agora clicar no Local já cai direto na Área/Tipo; "lista" continua existindo pro modo
     consulta e pro botão "Ver lista do local" no Detalhe pós-criação, onde já tem conteúdo real.
-    Botões "‹ Voltar" ajustados pra não apontar mais pra uma tela "lista" nunca carregada) */
-const CACHE = 'exaustech-os-v106'; // v106 14/07: pula a tela "lista" vazia no cadastro, vai direto pra Área/Tipo
+    Botões "‹ Voltar" ajustados pra não apontar mais pra uma tela "lista" nunca carregada)
+   (v107 14/07 — wizard endr*, tela Área: só as áreas com Setor obrigatório (Almoxarifado,
+    Produção, Administração) ficam com cadastro habilitado por enquanto — vêm primeiro na lista,
+    destacadas em azul-marca. As outras 7 (sem Setor) ficam cinza/inativas, sem toque, até decisão
+    de liberar depois) */
+const CACHE = 'exaustech-os-v107'; // v107 14/07: só Áreas com Setor ficam clicáveis (azul, primeiro); demais inativas
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).
