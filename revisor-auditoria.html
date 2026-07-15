@@ -739,7 +739,10 @@
           </div>
           <div>
             <label>Tipo</label>
-            <select id="naTipo" onchange="naAtualizarOpcoesRisco()"><option value="FTR">FTR</option><option value="ARPLAC">ARPLAC</option></select>
+            <select id="naTipo" onchange="naAtualizarOpcoesRisco(); naAtualizarBotaoCriar()">
+              <option value="" disabled selected>Selecione…</option>
+              <option value="FTR">FTR</option><option value="ARPLAC">ARPLAC</option>
+            </select>
           </div>
           <div>
             <label>Data da vistoria</label>
@@ -747,7 +750,8 @@
           </div>
           <div>
             <label>Classificação da cocção <span id="naCocaoTag"></span></label>
-            <select id="naCocao">
+            <select id="naCocao" onchange="naAtualizarBotaoCriar()">
+              <option value="" disabled selected>Selecione…</option>
               <option value="Leve">Leve</option>
               <option value="Moderado / Severo">Moderado / Severo</option>
               <option value="Combustível sólido">Combustível sólido</option>
@@ -755,13 +759,9 @@
           </div>
           <div>
             <label>Classificação de risco <span id="naRiscoTag"></span></label>
-            <select id="naRisco">
-              <option value="Risco 0">Risco 0</option><option value="Risco 1">Risco 1</option>
-              <option value="Risco 2">Risco 2</option><option value="Risco 3">Risco 3</option>
-              <option value="Risco 4">Risco 4</option><option value="Risco 5">Risco 5</option>
-            </select>
+            <select id="naRisco" onchange="naAtualizarBotaoCriar()"></select>
           </div>
-          <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, data da vistoria e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
+          <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, tipo, data, cocção, risco e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
         </div>
         <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
              em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
@@ -1035,6 +1035,8 @@ function toggleNovaAuditoria(){
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
+    document.getElementById('naTipo').value = ''; // 15/07/2026: reabrir sempre volta ao placeholder "Selecione…"
+    document.getElementById('naCocao').value = '';
     document.getElementById('naCocaoTag').innerHTML = '';
     document.getElementById('naRiscoTag').innerHTML = '';
     document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF à esquerda e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.';
@@ -1056,7 +1058,10 @@ function naAtualizarOpcoesRisco(valorAtual){
   const sel = document.getElementById('naRisco');
   const tipo = document.getElementById('naTipo').value;
   const opcoes = tipo === 'ARPLAC' ? ['Baixo', 'Médio', 'Alto'] : ['Risco 0', 'Risco 1', 'Risco 2', 'Risco 3', 'Risco 4', 'Risco 5'];
-  sel.innerHTML = opcoes.map((o) => '<option value="' + o + '"' + (o === valorAtual ? ' selected' : '') + '>' + o + '</option>').join('');
+  // 15/07/2026 (pedido do Raphael): nasce em branco (placeholder "Selecione…") em vez de já vir com
+  // o 1º valor da lista marcado — só fica preenchido quando a IA lê o PDF ou o revisor escolhe na mão.
+  sel.innerHTML = '<option value="" disabled' + (valorAtual ? '' : ' selected') + '>Selecione…</option>'
+    + opcoes.map((o) => '<option value="' + o + '"' + (o === valorAtual ? ' selected' : '') + '>' + o + '</option>').join('');
 }
 
 function naArquivoSelecionado(input){
@@ -1113,7 +1118,13 @@ function naTrocarArquivo(){
 // não o mecanismo principal de validação.
 function naAtualizarBotaoCriar(){
   const dataInspecao = document.getElementById('naData').value;
-  const habilitado = !!(NA.contaId && dataInspecao && NA.arquivo);
+  // 15/07/2026: Tipo/Cocção/Risco agora nascem em branco (antes já vinham com um valor default) —
+  // por isso entraram no gate do botão junto com conta/data/PDF, senão dava pra criar a auditoria
+  // sem ter escolhido (ou revisado a sugestão da IA para) nenhum dos 3.
+  const tipo = document.getElementById('naTipo').value;
+  const cocao = document.getElementById('naCocao').value;
+  const risco = document.getElementById('naRisco').value;
+  const habilitado = !!(NA.contaId && dataInspecao && NA.arquivo && tipo && cocao && risco);
   document.getElementById('btnCriarAuditoria').disabled = !habilitado;
 }
 
@@ -1375,6 +1386,11 @@ async function naCriarEImportar(){
   const dataInspecao = document.getElementById('naData').value;
   if (!dataInspecao) { naMsg('Informe a data da vistoria.', 'err'); return; }
   if (!NA.arquivo) { naMsg('Selecione o PDF do relatório.', 'err'); return; }
+  // 15/07/2026: Tipo/Cocção/Risco nascem em branco agora — rede de segurança igual às 3 checagens
+  // acima, caso o botão seja acionado por algum caminho que não passe por naAtualizarBotaoCriar().
+  if (!document.getElementById('naTipo').value) { naMsg('Selecione o Tipo (FTR/ARPLAC).', 'err'); return; }
+  if (!document.getElementById('naCocao').value) { naMsg('Selecione a Classificação da cocção.', 'err'); return; }
+  if (!document.getElementById('naRisco').value) { naMsg('Selecione a Classificação de risco.', 'err'); return; }
   const btn = document.getElementById('btnCriarAuditoria');
   btn.disabled = true; btn.textContent = 'Criando…';
   naMsg('');
@@ -4053,6 +4069,7 @@ function abrirViaParametrosDeUrl(){
   history.replaceState(null, '', location.pathname); // um refresh não deve reabrir o modal sozinho
 }
 
+naAtualizarOpcoesRisco(); // monta as opções de risco (em branco) já no carregamento da página, antes de qualquer abertura do modal
 if (initSessao()) abrirViaParametrosDeUrl();
 </script>
 </body>
