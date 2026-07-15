@@ -113,7 +113,11 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v114'; // v114 15/07: Fase 2 do plano de correções — hub "Novo endereço" + gaveta
+const CACHE = 'exaustech-os-v115'; // v115 15/07: HOTFIX — v114 não carregava em aparelho nenhum ("não
+// consigo carregar no cel"): ENDR_CADEIA (const nova da Fase 2) lia ENDR_NIVEL_LABEL.area na carga do
+// script, mas a const ENDR_NIVEL_LABEL só era declarada ~370 linhas depois (temporal dead zone) →
+// ReferenceError no boot matava o <script> principal inteiro. Declaração movida pra antes de ENDR_CADEIA.
+// (v114 15/07: Fase 2 do plano de correções — hub "Novo endereço" + gaveta
 // (bottom-sheet) substitui as 8 telas cheias do fluxo de criação (área→rua→modulo→nivel→tipo→nome→
 // capacidade→revisao) por 1 tela única + gaveta por nível. Toda área/setor/posição preenchida vira
 // linha tocável pra trocar; opcional (Posição/Nível quando o pai aceita armazenamento) ganha atalho

@@ -3472,6 +3472,13 @@ function endrEscolherPosicao(p){
 
 // aplicavel/opcionalAgora/pular espelham exatamente a regra de negócio que já existia nas telas
 // antigas (endrRenderModulo/Nivel) — só migrou de lugar, não mudou.
+/* 15/07/2026 (hotfix v115): ENDR_NIVEL_LABEL PRECISA vir antes de ENDR_CADEIA — os dois são const
+   do mesmo <script> e o inicializador de ENDR_CADEIA lê ENDR_NIVEL_LABEL.area NA CARGA da página.
+   No v114 a declaração ficou ~370 linhas abaixo (junto do breadcrumb), dentro da temporal dead zone:
+   "Cannot access 'ENDR_NIVEL_LABEL' before initialization" matava o <script> principal inteiro no
+   boot — o app não carregava em lugar nenhum. Declaração movida pra cá; o comentário original dela
+   (fonte única de rótulo por nível) continua lá embaixo, junto de endrBreadcrumbSegments. */
+const ENDR_NIVEL_LABEL={ area:'Área', rua:'Setor', modulo:'Posição', nivel:'Nível' };
 const ENDR_CADEIA=[
   { key:'area', label:ENDR_NIVEL_LABEL.area,
     temValor:()=>!!endrSt.areaId, valor:()=>endrSt.areaNome,
@@ -3841,8 +3848,9 @@ function endrCodigoPreview(extraCod){
    teórica completa) — se o local não tem Área, ou a Área não exige Setor, os segmentos correspondentes
    simplesmente não aparecem (nunca um placeholder tipo "Área: —"). atualStep marca qual segmento é
    "o de agora" (vira pill) e mostra no máximo 1 próximo nível como "futuro" (cinza claro); atualStep
-   null = trilha "fechada" (Tipo/Nome/Capacidade/Revisão), tudo preenchido, sem pill nem futuro. ---- */
-const ENDR_NIVEL_LABEL={ area:'Área', rua:'Setor', modulo:'Posição', nivel:'Nível' };
+   null = trilha "fechada" (Tipo/Nome/Capacidade/Revisão), tudo preenchido, sem pill nem futuro.
+   Obs. 15/07 (hotfix v115): a declaração de ENDR_NIVEL_LABEL subiu pra logo antes de ENDR_CADEIA
+   (que a lê na carga do script) — ver comentário lá. ---- */
 function endrBreadcrumbSegments(atualStep){
   const segs=[{state:'fill', value:endrSt.localNome}];
   if(atualStep==='area'){ segs.push({state:'atual', label:ENDR_NIVEL_LABEL.area}); }
