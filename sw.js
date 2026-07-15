@@ -113,7 +113,16 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v117'; // v117 15/07: Modelo de Caixa BIN + volume no Produto
+const CACHE = 'exaustech-os-v118'; // v118 15/07: HOTFIX — "clicar em Modelos de caixa BIN não
+// fazia nada". Causa: várias funções gest*/endr* faziam elemento.innerHTML+= LOGO DEPOIS de
+// appendChild(filhoComOnclick) no mesmo elemento — innerHTML+= serializa e reparseia TODO o
+// conteúdo atual, recriando os nós já anexados e destruindo os handlers JS deles (handler não
+// sobrevive a serialização HTML). Corrigido em gestRenderLocal (o card "📦 Modelos de caixa BIN"
+// nascia com onclick morto), endrHubRenderSecaoEndereco (o <select> de modelo no hub nascia com
+// onchange morto — Bin ficava impossível de criar), gestRenderModeloBin e
+// gestRenderArea/Setor/Posicao/Nivel (botão "‹ Voltar" morto durante loading/lista vazia). Trocado
+// por createElement+appendChild ou insertAdjacentHTML (que não recria nós existentes).
+// v117 15/07: Modelo de Caixa BIN + volume no Produto
 // (DECISAO_modelo_caixa_bin.md, doc original + Revisão 15/07 R1-R10) — catálogo ModeloCaixaBin__c
 // (gest*), select obrigatório de modelo no hub/handoff recp (endr*), e cálculo volumétrico no
 // recebimento (recp*): régua de volume (min de peças×volume) ao lado da de peças, hint proativo

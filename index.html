@@ -3699,7 +3699,12 @@ function endrHubRenderSecaoEndereco(card){
       }).join('');
       sel.onchange=()=>endrEscolherModeloBin(sel.value);
       secModelo.appendChild(sel);
-      if(!endrSt.modeloBinId) secModelo.innerHTML+='<div class="subnote" style="padding:0 0 4px;color:#8a6d1f">Obrigatório pra endereços do tipo Bin.</div>';
+      /* Bug (15/07/2026, mesma classe do de gestRenderLocal): esta nota entrava por
+         secModelo.innerHTML+= DEPOIS do appendChild(sel) — reparseava a seção e matava o onchange
+         do select. Como a nota só aparece enquanto NENHUM modelo foi escolhido, o select nascia
+         sempre morto e o modelo nunca podia ser selecionado (Criar ficava travado pra Bin).
+         insertAdjacentHTML não recria os nós já existentes. */
+      if(!endrSt.modeloBinId) secModelo.insertAdjacentHTML('beforeend','<div class="subnote" style="padding:0 0 4px;color:#8a6d1f">Obrigatório pra endereços do tipo Bin.</div>');
     }
     sec.appendChild(secModelo);
   }
@@ -4513,9 +4518,14 @@ function gestRenderLocal(card){
   cardModelo.innerHTML='<span style="font-size:18px">📦</span><span style="flex:1">Modelos de caixa BIN</span><span style="color:#999">›</span>';
   cardModelo.onclick=()=>{ gestSt.step='modeloBin'; gestSt.erro=null; renderEstoque(); gestCarregarModelosBin(); };
   card.appendChild(cardModelo);
-  card.innerHTML+='<div class="sec-title2" style="margin-top:0">Local de estoque</div>';
-  if(!gestSt._locaisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
+  /* Bug (15/07/2026, "clicar em Modelos de caixa BIN não faz nada"): daqui pra baixo era
+     card.innerHTML+= — que serializa e reparseia o card INTEIRO, recriando os nós e destruindo o
+     onclick do cardModelo recém-anexado acima (handler JS não sobrevive à serialização HTML).
+     Mesma classe do bug já documentado em endrRenderGaveta/endrHubRenderSecaoEndereco: nunca
+     innerHTML+= em container que já tem filho com handler — sempre nó novo via appendChild. */
+  const tit=document.createElement('div'); tit.className='sec-title2'; tit.style.marginTop='0'; tit.textContent='Local de estoque'; card.appendChild(tit);
+  if(!gestSt._locaisCarregados){ const n=document.createElement('div'); n.className='subnote'; n.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(n); return; }
+  if(!gestSt.locais.length){ const n=document.createElement('div'); n.className='subnote'; n.textContent='Nenhum local de estoque ativo encontrado.'; card.appendChild(n); return; }
   gestSt.locais.forEach(l=>{
     const b=document.createElement('div');
     b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
@@ -4556,8 +4566,11 @@ async function gestCriarArea(nome,prefixo,aceitaArmazenamento){
 function gestRenderArea(card){
   card.innerHTML+=gestBreadcrumb(gestSt.localNome,'Área');
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar ao Local'; bk.onclick=()=>{ gestSt.step='local'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
-  if(!gestSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.areas.length) card.innerHTML+='<div class="subnote">Nenhuma área cadastrada ainda neste local.</div>';
+  /* Bug (15/07/2026, mesma classe do de gestRenderLocal): estas duas linhas eram card.innerHTML+=
+     DEPOIS do appendChild(bk) — matavam o onclick do "‹ Voltar" na tela de loading e, pior, de
+     forma persistente quando a lista vinha vazia. Idem nas telas Setor/Posição/Nível abaixo. */
+  if(!gestSt._areasCarregadas){ card.insertAdjacentHTML('beforeend','<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  if(!gestSt.areas.length) card.insertAdjacentHTML('beforeend','<div class="subnote">Nenhuma área cadastrada ainda neste local.</div>');
   gestSt.areas.forEach(a=>{
     gestLinhaItem(card, {id:a.id, nome:a.nome, codigo:a.prefixo, ativo:a.ativo}, {
       onEscolher:()=>gestEscolherArea(a),
@@ -4605,8 +4618,8 @@ async function gestCriarSetor(nome,codigo){
 function gestRenderSetor(card){
   card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, 'Setor');
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Área'; bk.onclick=()=>{ gestSt.step='area'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
-  if(!gestSt._setoresCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.setores.length) card.innerHTML+='<div class="subnote">Nenhum setor cadastrado ainda nesta área.</div>';
+  if(!gestSt._setoresCarregadas){ card.insertAdjacentHTML('beforeend','<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  if(!gestSt.setores.length) card.insertAdjacentHTML('beforeend','<div class="subnote">Nenhum setor cadastrado ainda nesta área.</div>');
   gestSt.setores.forEach(s=>gestLinhaItem(card, s, { onEscolher:()=>gestEscolherSetor(s), onToggle:()=>gestToggleSetorAtivo(s), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearSetor(s)}] }));
   gestFormNovoSimples(card, {label:'Setor', onSalvar:gestCriarSetor});
 }
@@ -4637,8 +4650,8 @@ async function gestCriarPosicao(nome,codigo){
 function gestRenderPosicao(card){
   card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, gestSt.setorNome, 'Posição');
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar ao Setor'; bk.onclick=()=>{ gestSt.step='setor'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
-  if(!gestSt._posicoesCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.posicoes.length) card.innerHTML+='<div class="subnote">Nenhuma posição cadastrada ainda neste setor.</div>';
+  if(!gestSt._posicoesCarregadas){ card.insertAdjacentHTML('beforeend','<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  if(!gestSt.posicoes.length) card.insertAdjacentHTML('beforeend','<div class="subnote">Nenhuma posição cadastrada ainda neste setor.</div>');
   gestSt.posicoes.forEach(p=>gestLinhaItem(card, p, { onEscolher:()=>gestEscolherPosicao(p), onToggle:()=>gestTogglePosicaoAtivo(p), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearPosicao(p)}] }));
   gestFormNovoSimples(card, {label:'Posição', onSalvar:gestCriarPosicao});
 }
@@ -4666,8 +4679,8 @@ async function gestCriarNivel(nome,codigo){
 function gestRenderNivel(card){
   card.innerHTML+=gestBreadcrumb(gestSt.localNome, gestSt.areaNome, gestSt.setorNome, gestSt.posicaoNome, 'Nível');
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Posição'; bk.onclick=()=>{ gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
-  if(!gestSt._niveisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.niveis.length) card.innerHTML+='<div class="subnote">Nenhum nível cadastrado ainda nesta posição.</div>';
+  if(!gestSt._niveisCarregados){ card.insertAdjacentHTML('beforeend','<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  if(!gestSt.niveis.length) card.insertAdjacentHTML('beforeend','<div class="subnote">Nenhum nível cadastrado ainda nesta posição.</div>');
   gestSt.niveis.forEach(n=>gestLinhaItem(card, n, { onEscolher:null, onToggle:()=>gestToggleNivelAtivo(n), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearNivel(n)}] }));
   gestFormNovoSimples(card, {label:'Nível', onSalvar:gestCriarNivel});
 }
@@ -4724,10 +4737,12 @@ function gestModeloBinVolumePreview(){
 }
 function gestRenderModeloBin(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ gestSt.step='local'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
-  card.innerHTML+='<div class="sec-title2" style="margin-top:0">📦 Modelos de caixa BIN</div>'
-    +'<div class="subnote" style="margin-bottom:10px">Cadastre os modelos de caixa que a empresa usa. Ao criar um endereço do tipo Bin, o modelo passa a ser obrigatório.</div>';
-  if(!gestSt._modelosBinCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!gestSt.modelosBin.length) card.innerHTML+='<div class="subnote">Nenhum modelo cadastrado ainda.</div>';
+  /* Bug (15/07/2026, mesma classe do de gestRenderLocal): era card.innerHTML+= DEPOIS do
+     appendChild(bk) — matava o onclick do "‹ Voltar". insertAdjacentHTML não recria os nós. */
+  card.insertAdjacentHTML('beforeend','<div class="sec-title2" style="margin-top:0">📦 Modelos de caixa BIN</div>'
+    +'<div class="subnote" style="margin-bottom:10px">Cadastre os modelos de caixa que a empresa usa. Ao criar um endereço do tipo Bin, o modelo passa a ser obrigatório.</div>');
+  if(!gestSt._modelosBinCarregados){ card.insertAdjacentHTML('beforeend','<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  if(!gestSt.modelosBin.length) card.insertAdjacentHTML('beforeend','<div class="subnote">Nenhum modelo cadastrado ainda.</div>');
   gestSt.modelosBin.forEach(m=>{
     const medidas=(m.comprimentoCm!=null&&m.larguraCm!=null&&m.alturaCm!=null)
       ? m.comprimentoCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+'×'+m.larguraCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+'×'+m.alturaCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+' cm'
