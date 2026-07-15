@@ -174,6 +174,17 @@
   .na-conta-lista{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:220px;overflow-y:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.08)}
   .na-conta-item{padding:8px 10px;font-size:13px;cursor:pointer}
   .na-conta-item:hover{background:var(--brand-l)}
+  /* 15/07/2026: lista de Auditorias Técnicas da Conta escolhida na busca que substituiu o "Acessar
+     por Id" (ver buSelecionarConta/buAbrirAuditoria) — mesmo estilo de dropdown da .na-conta-lista,
+     só que cada linha tem 2 níveis de texto (nome da auditoria + metadados: data/tipo/risco/lote). */
+  .bu-aud-lista{position:absolute;top:100%;left:0;min-width:360px;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:280px;overflow-y:auto;z-index:29;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .bu-aud-item{padding:8px 10px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--border)}
+  .bu-aud-item:last-child{border-bottom:none}
+  .bu-aud-item:hover{background:var(--brand-l)}
+  .bu-aud-item.sem-lote{cursor:default;color:var(--weaker)}
+  .bu-aud-item.sem-lote:hover{background:none}
+  .bu-aud-nome{font-weight:600;color:var(--txt)}
+  .bu-aud-meta{color:var(--weak);margin-top:2px}
   .btn{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
   .btn:hover{background:var(--brand-d)}
   .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
@@ -795,24 +806,25 @@
          de conta+data (fonte azul grande) sai de fora do card e vira a 1ª linha do próprio card
          branco (largura cheia, antes do resto do conteúdo do loadbar). -->
     <div class="conta-destaque" id="contaDestaque" style="display:none;width:100%"></div>
-    <!-- pedido do Raphael (10/07, rodada 4): os campos de Id são via de acesso manual/secundária —
-         o caminho normal é "+ Nova auditoria" (upload). Ficam escondidos por padrão atrás do link
-         "Acessar por Id", em vez de serem a primeira coisa que a tela mostra.
-         15/07/2026: o auto-carregamento do último lote que existia aqui foi removido (ver
-         initSessao()) — a página agora SEMPRE abre vazia; o último lote vira só um link opcional
-         dentro do #estadoVazio (ver #linkUltimoLote). -->
-    <div id="idsManual" style="display:none;gap:10px;align-items:flex-end">
-      <div>
-        <label>Auditoria (Id)</label>
-        <input id="inAuditoria" placeholder="a7Ybe000000R9OzEAK">
-      </div>
-      <div>
-        <label>Lote (Id)</label>
-        <input id="inLote" placeholder="a1nbe00000BxX6TAAV">
-      </div>
-      <button class="btn" id="btnCarregar" onclick="carregar()">Carregar lote</button>
+    <!-- 15/07/2026 (pedido do Raphael): "Acessar por Id" (colar Ids do Salesforce na mão) removido
+         de vez — vira busca por Conta + Auditoria Técnica (ver buBuscarConta/buSelecionarConta/
+         buAbrirAuditoria abaixo). #inAuditoria/#inLote CONTINUAM existindo — o resto do arquivo
+         inteiro usa esses 2 inputs como "o lote atual" (carregar() lê deles, ~15 call-sites depois
+         de confirmar/contestar/editar chamam carregar() de novo pra atualizar contadores do MESMO
+         lote) — só que agora ficam escondidos pra sempre; quem escreve neles é buAbrirAuditoria(),
+         nunca mais o próprio revisor digitando. -->
+    <div id="idsManual" style="display:none">
+      <input id="inAuditoria">
+      <input id="inLote">
+      <button id="btnCarregar" onclick="carregar()">Carregar lote</button>
     </div>
-    <button class="link-btn" id="btnToggleIds" onclick="toggleIdsManual()" style="padding:9px 0">Acessar por Id</button>
+    <div class="bu-busca-wrap" style="position:relative">
+      <label>Buscar auditoria</label>
+      <input id="buConta" placeholder="Digite o nome do shopping/cliente…" autocomplete="off"
+        oninput="buBuscarConta(this.value)" onfocus="buReabrirListaSeHouver()">
+      <div id="buContaLista" class="na-conta-lista" style="display:none"></div>
+      <div id="buAuditoriasLista" class="bu-aud-lista" style="display:none"></div>
+    </div>
     <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, no mesmo card —
          eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava vazia à direita
          depois que a página passou a ocupar a largura toda.
@@ -863,7 +875,7 @@
        um último lote salvo neste navegador (revisor_last) — vira um link de acesso rápido que só
        carrega ao ser CLICADO, nunca sozinho. -->
   <div id="estadoVazio" class="placeholder-col" style="display:none;margin-top:14px;flex:1 1 auto">
-    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="toggleIdsManual();return false" style="color:var(--brand);font-weight:600">acesse por Id</a> um lote já existente.<span id="linkUltimoLote"></span>
+    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="document.getElementById('buConta').focus();return false" style="color:var(--brand);font-weight:600">busque por conta</a> uma auditoria já existente.<span id="linkUltimoLote"></span>
   </div>
 
   <div id="conteudo"></div>
@@ -1007,15 +1019,74 @@ function elementoLabel(elementoId, grupoId, prefixoIdEspecifico){
   return codigo ? (codigo + ' - ' + nome) : nome;
 }
 
-// pedido do Raphael (10/07, rodada 4): campos de Id escondidos por padrão atrás deste toggle —
-// ver comentário no HTML de #idsManual.
-function toggleIdsManual(){
-  const el = document.getElementById('idsManual');
-  const btn = document.getElementById('btnToggleIds');
-  const mostrando = el.style.display !== 'none';
-  el.style.display = mostrando ? 'none' : 'flex';
-  btn.textContent = mostrando ? 'Acessar por Id' : 'Ocultar';
-  if (!mostrando) document.getElementById('inAuditoria').focus();
+// 15/07/2026 (pedido do Raphael): busca de auditoria por Conta, substitui de vez o "Acessar por Id"
+// (colar Ids do Salesforce na mão). Mesmo padrão de autocomplete da busca de Conta do modal "Nova
+// auditoria" (naBuscarConta/naSelecionarConta) — debounce de 300ms + lista de sugestões — só que ao
+// escolher a Conta o próximo passo é escolher a AUDITORIA (não confirmar direto), porque uma conta
+// pode ter várias auditorias/vistorias ao longo do tempo.
+let BU = { buscaTimer: null };
+function buBuscarConta(valor){
+  clearTimeout(BU.buscaTimer);
+  const termo = valor.trim();
+  const lista = document.getElementById('buContaLista');
+  document.getElementById('buAuditoriasLista').style.display = 'none'; // qualquer edição no texto invalida a lista de auditorias anterior
+  if (termo.length < 2) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  BU.buscaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND + '/exp/contas?q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const contas = await r.json();
+      if (!r.ok || !Array.isArray(contas) || !contas.length) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+      lista.innerHTML = contas.map((c) => '<div class="na-conta-item" onclick="buSelecionarConta(\'' + c.id + '\',\'' + escapeHtml(c.nome).replace(/'/g, "\\'") + '\')">' + escapeHtml(c.nome) + '</div>').join('');
+      lista.style.display = 'block';
+    } catch (e) { /* best-effort: busca de conta não trava o resto da tela */ }
+  }, 300);
+}
+
+// só reabre a lista de conta (não a de auditorias — precisa buscar de novo, o revisor pode ter
+// clicado fora só pra ver outra coisa e volta pro mesmo campo com o texto ainda lá)
+function buReabrirListaSeHouver(){
+  const campo = document.getElementById('buConta');
+  if (campo.value.trim().length >= 2) buBuscarConta(campo.value);
+}
+
+const BU_TIPO_LABEL = { FTR: 'FTR', ARPLAC: 'ARPLAC' };
+function buFmtData(iso){
+  const p = String(iso || '').split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '—';
+}
+async function buSelecionarConta(contaId, contaNome){
+  document.getElementById('buConta').value = contaNome;
+  const listaConta = document.getElementById('buContaLista');
+  listaConta.style.display = 'none'; listaConta.innerHTML = '';
+  const listaAud = document.getElementById('buAuditoriasLista');
+  listaAud.innerHTML = '<div class="bu-aud-item sem-lote">Buscando auditorias…</div>';
+  listaAud.style.display = 'block';
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/buscar?contaId=' + encodeURIComponent(contaId), { headers: { Authorization: 'Bearer ' + beTok() } });
+    const auditorias = await r.json();
+    if (!r.ok) { listaAud.innerHTML = '<div class="bu-aud-item sem-lote">Erro ao buscar: ' + escapeHtml(auditorias.error || r.status) + '</div>'; return; }
+    if (!Array.isArray(auditorias) || !auditorias.length) { listaAud.innerHTML = '<div class="bu-aud-item sem-lote">Nenhuma auditoria cadastrada nesta conta ainda.</div>'; return; }
+    listaAud.innerHTML = auditorias.map((a) => {
+      const temLote = !!a.loteId;
+      const meta = [buFmtData(a.dataInspecao), BU_TIPO_LABEL[a.tipo] || a.tipo || '—', a.risco || '—',
+        temLote ? (a.loteStatus || 'lote sem status') + (a.loteTotalItens != null ? ' · ' + a.loteTotalItens + ' itens' : '') : 'sem PDF importado ainda'
+      ].join(' · ');
+      return '<div class="bu-aud-item' + (temLote ? '' : ' sem-lote') + '"'
+        + (temLote ? ' onclick="buAbrirAuditoria(\'' + a.id + '\',\'' + a.loteId + '\')"' : '') + '>'
+        + '<div class="bu-aud-nome">' + escapeHtml(a.nome) + '</div>'
+        + '<div class="bu-aud-meta">' + escapeHtml(meta) + '</div>'
+      + '</div>';
+    }).join('');
+  } catch (e) {
+    listaAud.innerHTML = '<div class="bu-aud-item sem-lote">Falha de rede: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function buAbrirAuditoria(auditoriaId, loteId){
+  document.getElementById('inAuditoria').value = auditoriaId;
+  document.getElementById('inLote').value = loteId;
+  document.getElementById('buAuditoriasLista').style.display = 'none';
+  carregar();
 }
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
@@ -1485,11 +1556,12 @@ function initSessao(){
   // (só existiam pra servir o auto-load).
   const last = JSON.parse(localStorage.getItem('revisor_last') || 'null');
   if (last && last.auditoriaId && last.loteId) {
-    // Conveniências que SOBRAM do último lote (nenhuma carrega nada sozinha):
-    // 1) os campos de "Acessar por Id" já vêm preenchidos (o revisor só clica "Carregar lote");
-    // 2) um link discreto no próprio estado vazio pra continuar a última revisão com 1 clique —
-    //    só dispara carregar() quando CLICADO. Se existir rascunho de edição não salvo daquele
-    //    lote (ver edRascunhoLer), o link avisa, pro revisor saber que tem trabalho a recuperar.
+    // Conveniência que SOBRA do último lote (não carrega nada sozinha): um link discreto no
+    // próprio estado vazio pra continuar a última revisão com 1 clique — só dispara carregar()
+    // quando CLICADO. #inAuditoria/#inLote (escondidos, ver comentário no HTML) já vêm preenchidos
+    // com o último lote, então o link só precisa chamar carregar() direto. Se existir rascunho de
+    // edição não salvo daquele lote (ver edRascunhoLer), o link avisa, pro revisor saber que tem
+    // trabalho a recuperar.
     document.getElementById('inAuditoria').value = last.auditoriaId;
     document.getElementById('inLote').value = last.loteId;
     const rasc = edRascunhoLer();
