@@ -3213,6 +3213,9 @@ function endrReset(consulta){
     setorAceitaArmazenamento:true, posicaoAceitaArmazenamento:true,
     setores:[], _setoresCarregadas:false, posicoes:[], _posicoesCarregadas:false, niveis:[], _niveisCarregados:false,
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
+    // Modelo de Caixa BIN (15/07/2026, DECISAO_modelo_caixa_bin.md §5): obrigatório só quando
+    // tipo==='Bin'. modelosBin é cache por sessão do wizard (carrega 1x no primeiro Bin escolhido).
+    modeloBinId:null, modeloBinNome:'', modelosBin:[], _modelosBinCarregados:false,
     enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
     criando:false, erro:null, retorno:null,
     /* consulta=true: entrada "🔎 Consultar endereços" da home — mesmo wizard, mas só pra navegar
@@ -3240,6 +3243,9 @@ function endrAbrirComplementar(pre){
   endrSt.areaId=pre.areaId||null; endrSt.areaNome=pre.areaNome||''; endrSt.rua=pre.rua||'';
   endrSt.tipo=pre.tipo||'Bin'; endrSt.codigo=pre.codigo||''; endrSt.codigoSugerido=!!pre.codigo;
   endrSt.capacidade=(pre.capacidade!=null?String(pre.capacidade):'');
+  // Modelo de Caixa BIN (15/07/2026): herda do endereço cheio quando existir. Se o cheio é Bin
+  // legado sem modelo (null), a tela 'nome' abaixo oferece o mesmo select inline — nunca trava.
+  endrSt.modeloBinId=pre.modeloBinId||null; endrSt.modeloBinNome=pre.modeloBinNome||'';
   endrSt.retorno='recp';
   endrSt.step='nome';
   renderEstoque();
@@ -3638,7 +3644,12 @@ function endrEscolherTipoHub(v){
   const n=document.getElementById('endrHubNome'), c=document.getElementById('endrHubCap');
   if(n) endrSt.nome=(n.value||'').trim();
   if(c) endrSt.capacidade=(c.value||'').trim();
-  endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; renderEstoque(); endrSugerirCodigo();
+  endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false;
+  // Modelo de Caixa BIN (15/07/2026): só faz sentido pra tipo Bin — trocar PRA outro tipo limpa a
+  // escolha (não persiste modelo em tipo não-Bin); trocar PRO Bin carrega o catálogo (1x, cache).
+  if(v==='Bin') endrCarregarModelosBin();
+  else { endrSt.modeloBinId=null; endrSt.modeloBinNome=''; }
+  renderEstoque(); endrSugerirCodigo();
 }
 function endrHubRenderSecaoEndereco(card){
   const sec=document.createElement('div');
@@ -3660,6 +3671,38 @@ function endrHubRenderSecaoEndereco(card){
   });
   sec.appendChild(grid);
   if(!endrSt.tipo){ card.appendChild(sec); return; } // resto só aparece depois de escolher o tipo
+  // Modelo de Caixa BIN (15/07/2026, DECISAO_modelo_caixa_bin.md §5b): obrigatório ANTES do Nome
+  // quando tipo==='Bin'. Select nativo, não gaveta — catálogo pequeno, não é degrau de ENDR_CADEIA.
+  if(endrSt.tipo==='Bin'){
+    const secModelo=document.createElement('div'); secModelo.style.cssText='margin-top:12px';
+    secModelo.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Modelo da caixa *</label>';
+    if(!endrSt._modelosBinCarregados){
+      secModelo.innerHTML+='<div class="subnote" style="padding:6px 0"><span class="ld-spin"></span>Carregando modelos…</div>';
+    } else if(!endrSt.modelosBin.length){
+      const gerente=canGerenciarEstoque(ROLE);
+      secModelo.innerHTML+='<div class="subnote" style="padding:4px 0 8px;color:#C4451B">Nenhum modelo de caixa cadastrado ainda.'+(gerente?'':' Peça a um Gerente pra cadastrar em "⚙️ Gerenciar estrutura".')+'</div>';
+      if(gerente){
+        const btnG=document.createElement('button'); btnG.className='btn btn-neutral';
+        btnG.style.cssText='width:100%;height:42px;margin-bottom:8px;color:var(--brand);border-color:var(--brand);font-weight:700';
+        btnG.textContent='⚙️ Cadastrar em Gerenciar estrutura';
+        btnG.onclick=()=>{ gestReset(); estoqGo('estrutura'); gestCarregarLocais(); };
+        secModelo.appendChild(btnG);
+      }
+    } else {
+      const sel=document.createElement('select');
+      sel.id='endrHubModeloBin';
+      sel.style.cssText='width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;margin:4px 0 4px;box-sizing:border-box;background:#fff';
+      sel.innerHTML='<option value="">Selecione…</option>'+endrSt.modelosBin.map(m=>{
+        const vol=m.volumeLitros!=null?' — '+m.volumeLitros.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L':'';
+        const sel_=(m.id===endrSt.modeloBinId)?' selected':'';
+        return '<option value="'+_esc(m.id)+'"'+sel_+'>'+_esc(m.nome)+vol+'</option>';
+      }).join('');
+      sel.onchange=()=>endrEscolherModeloBin(sel.value);
+      secModelo.appendChild(sel);
+      if(!endrSt.modeloBinId) secModelo.innerHTML+='<div class="subnote" style="padding:0 0 4px;color:#8a6d1f">Obrigatório pra endereços do tipo Bin.</div>';
+    }
+    sec.appendChild(secModelo);
+  }
   const form=document.createElement('div'); form.style.cssText='margin-top:12px';
   form.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
     +'<input id="endrHubNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
@@ -3680,8 +3723,12 @@ function endrHubRenderSecaoEndereco(card){
   else if(endrSt.paradaEm==='modulo') notasHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Posição (sem nível).</div>';
   if(endrSt.erro) notasHTML+='<div class="subnote" style="color:#C4451B;padding:0 0 8px">'+_esc(endrSt.erro)+'</div>';
   if(notasHTML){ const notas=document.createElement('div'); notas.innerHTML=notasHTML; sec.appendChild(notas); }
+  // Modelo de Caixa BIN (15/07/2026): obrigatoriedade sem exceção — botão desabilitado, o 400 do
+  // backend fica só de rede de segurança, não é a UX principal.
+  const faltaModeloBin=(endrSt.tipo==='Bin' && !endrSt.modeloBinId);
   const criar=document.createElement('button'); criar.className='btn btn-brand'; criar.style.cssText='width:100%;height:48px;margin-top:6px';
-  criar.textContent=endrSt.criando?'Criando…':'✅ Criar endereço'; criar.disabled=!!endrSt.criando;
+  criar.textContent=endrSt.criando?'Criando…':(faltaModeloBin?'Escolha o modelo da caixa acima':'✅ Criar endereço');
+  criar.disabled=!!endrSt.criando||faltaModeloBin;
   criar.onclick=()=>{
     endrSt.nome=(document.getElementById('endrHubNome').value||'').trim();
     endrSt.codigo=(document.getElementById('endrHubCodigo').value||'').trim();
@@ -3807,6 +3854,17 @@ function endrRenderGaveta(wrap){
 // mesmo pai imediato, reusando GET /estoque/enderecos?localId= já carregado (endrCarregarLista) —
 // sem endpoint novo. ----
 function endrHubCarregarEnderecosDoLocal(){ if(!endrSt._listaCarregada) endrCarregarLista(); }
+// Modelo de Caixa BIN (15/07/2026): carrega 1x por sessão do wizard, no primeiro Bin escolhido —
+// só modelos ATIVOS (modelo desativado não deve aparecer como opção pra endereço novo).
+async function endrCarregarModelosBin(){
+  if(endrSt._modelosBinCarregados) return;
+  try{ const d=await beGet('/estoque/modelos-bin'); endrSt.modelosBin=d.modelos||[]; endrSt._modelosBinCarregados=true; renderEstoque(); }
+  catch(e){ endrSt._modelosBinCarregados=true; endrSt.erro='Erro ao carregar modelos de caixa: '+e.message; renderEstoque(); }
+}
+function endrEscolherModeloBin(id){
+  const m=(endrSt.modelosBin||[]).find(x=>x.id===id);
+  endrSt.modeloBinId=id||null; endrSt.modeloBinNome=m?m.nome:''; renderEstoque();
+}
 function endrHubUltimoIrmao(){
   const pref=endrCodigoPreview(endrSt.nivelCod||endrSt.nivel);
   if(pref==='—') return null;
@@ -3823,6 +3881,16 @@ function endrHubAplicarDefaults(){
   let herdou=false;
   if(!endrSt.tipo && u.tipo){ endrSt.tipo=u.tipo; herdou=true; endrSugerirCodigo(); }
   if(endrSt.capacidade==='' && u.capacidade!=null){ endrSt.capacidade=String(u.capacidade); herdou=true; }
+  // Modelo de Caixa BIN (15/07/2026, item 12 estendido): herda também o modelo do último irmão,
+  // quando o tipo herdado/escolhido é Bin — evita N toques extras ao criar vários bins iguais
+  // em sequência. Só aplica se o irmão realmente tinha modelo (Bins legados ficam sem herança).
+  if((endrSt.tipo==='Bin'||u.tipo==='Bin') && !endrSt.modeloBinId && u.modeloBinId){
+    endrSt.modeloBinId=u.modeloBinId; herdou=true;
+    endrCarregarModelosBin().then(()=>{
+      const m=(endrSt.modelosBin||[]).find(x=>x.id===u.modeloBinId);
+      if(m){ endrSt.modeloBinNome=m.nome; renderEstoque(); }
+    });
+  }
   if(herdou) endrSt.hub.defaultsHerdados=true;
 }
 
@@ -4098,6 +4166,30 @@ function endrRenderNome(card){
     +'<input id="endrCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
     +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>';
   endrBcScroll(card);
+  // Modelo de Caixa BIN (15/07/2026, §5c): esta tela é usada pelo handoff recp* (Entradas
+  // Pendentes), que entra direto aqui pulando o hub — se veio sem modelo herdado (Bin legado sem
+  // modelo cadastrado), oferece o mesmo select aqui, nunca trava sem oferecer a escolha.
+  if(endrSt.tipo==='Bin'){
+    if(!endrSt._modelosBinCarregados) endrCarregarModelosBin();
+    const secModelo=document.createElement('div'); secModelo.style.cssText='margin-bottom:12px';
+    secModelo.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Modelo da caixa *</label>';
+    if(!endrSt._modelosBinCarregados){
+      secModelo.innerHTML+='<div class="subnote" style="padding:6px 0"><span class="ld-spin"></span>Carregando modelos…</div>';
+    } else if(!endrSt.modelosBin.length){
+      secModelo.innerHTML+='<div class="subnote" style="padding:4px 0;color:#C4451B">Nenhum modelo de caixa cadastrado ainda — peça a um Gerente pra cadastrar em "⚙️ Gerenciar estrutura".</div>';
+    } else {
+      const sel=document.createElement('select'); sel.id='endrModeloBin';
+      sel.style.cssText='width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;margin:4px 0 4px;box-sizing:border-box;background:#fff';
+      sel.innerHTML='<option value="">Selecione…</option>'+endrSt.modelosBin.map(m=>{
+        const vol=m.volumeLitros!=null?' — '+m.volumeLitros.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L':'';
+        const sel_=(m.id===endrSt.modeloBinId)?' selected':'';
+        return '<option value="'+_esc(m.id)+'"'+sel_+'>'+_esc(m.nome)+vol+'</option>';
+      }).join('');
+      sel.onchange=()=>endrEscolherModeloBin(sel.value);
+      secModelo.appendChild(sel);
+    }
+    card.appendChild(secModelo);
+  }
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
   cont.onclick=()=>{
     endrSt.nome=(document.getElementById('endrNome').value||'').trim();
@@ -4127,6 +4219,7 @@ function endrRenderRevisao(card){
     +(endrSt.modulo?'<div class="det-row"><span class="det-k">Posição</span><span class="det-v">'+_esc(endrSt.modulo)+'</span></div>':'')
     +(endrSt.nivel?'<div class="det-row"><span class="det-k">Nível</span><span class="det-v">'+_esc(endrSt.nivel)+'</span></div>':'')
     +'<div class="det-row"><span class="det-k">Tipo</span><span class="det-v">'+_esc(endrSt.tipo)+'</span></div>'
+    +(endrSt.tipo==='Bin'?'<div class="det-row"><span class="det-k">Modelo da caixa</span><span class="det-v">'+_esc(endrSt.modeloBinNome||'⚠️ não escolhido')+'</span></div>':'')
     +'<div class="det-row"><span class="det-k">Nome</span><span class="det-v">'+_esc(endrSt.nome||'—')+'</span></div>'
     +'<div class="det-row"><span class="det-k">Código</span><span class="det-v">'+_esc(endrSt.codigo||'(sugerido automaticamente)')+'</span></div>'
     +'<div class="det-row"><span class="det-k">Capacidade</span><span class="det-v">'+_esc(endrSt.capacidade||'sem limite')+'</span></div>';
@@ -4135,8 +4228,10 @@ function endrRenderRevisao(card){
   if(endrSt.paradaEm==='rua') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Setor (sem posição/nível).</div>';
   else if(endrSt.paradaEm==='modulo') card.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding-top:6px">Endereço registrado no nível Posição (sem nível).</div>';
   if(endrSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B;padding-top:8px">'+_esc(endrSt.erro)+'</div>';
+  const faltaModeloBin=(endrSt.tipo==='Bin' && !endrSt.modeloBinId);
   const criar=document.createElement('button'); criar.className='btn btn-brand'; criar.style.cssText='width:100%;height:48px;margin-top:14px';
-  criar.textContent=endrSt.criando?'Criando…':'✅ Criar endereço'; criar.disabled=!!endrSt.criando;
+  criar.textContent=endrSt.criando?'Criando…':(faltaModeloBin?'Volte e escolha o modelo da caixa':'✅ Criar endereço');
+  criar.disabled=!!endrSt.criando||faltaModeloBin;
   criar.onclick=endrCriar; card.appendChild(criar);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='capacidade'; renderEstoque(); }; card.appendChild(bk);
 }
@@ -4154,14 +4249,18 @@ async function endrCriar(){
     if(endrSt.ruaCod) body.ruaCod=endrSt.ruaCod;
     if(endrSt.moduloCod) body.moduloCod=endrSt.moduloCod;
     if(endrSt.nivelCod) body.nivelCod=endrSt.nivelCod;
+    // Modelo de Caixa BIN (15/07/2026): obrigatório pro backend só quando tipo==='Bin' — o app já
+    // desabilita o botão antes disso, então chegar aqui sem modelo só acontece se algo escapou
+    // (ex. chamada direta); o 400 do backend seria a rede de segurança nesse caso.
+    if(endrSt.tipo==='Bin' && endrSt.modeloBinId) body.modeloBinId=endrSt.modeloBinId;
     const r=await bePost('/estoque/enderecos',body);
     endrSt.criando=false;
     /* fallback pro botão de retorno do modo complementar (recp*) se o GET de detalhe falhar
        logo em seguida (rede) — o endereço já existe, só falta o app confirmar */
-    endrSt.enderecoCriado={ id:r.id, codigo:r.codigo, nome:r.nome, tipo:r.tipo, capacidade:r.capacidade, ocupacao:0, areaId:r.areaId, area:r.area, rua:r.rua };
+    endrSt.enderecoCriado={ id:r.id, codigo:r.codigo, nome:r.nome, tipo:r.tipo, capacidade:r.capacidade, ocupacao:0, areaId:r.areaId, area:r.area, rua:r.rua, modeloBinId:r.modeloBinId||null, modeloBin:endrSt.modeloBinNome||null };
     // 15/07/2026 (Fase 2, item 12 — defaults herdados): entra na lista em memória já, sem refetch —
     // "criar outro aqui" em sequência (ex. 20 bins da mesma rua) já herda do que acabou de sair do forno.
-    if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal.push({ id:r.id, codigo:r.codigo, tipo:r.tipo, capacidade:r.capacidade, areaId:r.areaId, rua:r.rua, criadoEm:new Date().toISOString() });
+    if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal.push({ id:r.id, codigo:r.codigo, tipo:r.tipo, capacidade:r.capacidade, areaId:r.areaId, rua:r.rua, criadoEm:new Date().toISOString(), modeloBinId:r.modeloBinId||null });
     toast('✅ Endereço '+(r.codigo||'')+' criado');
     endrAbrirDetalhe(r.id);
   }catch(e){ endrSt.criando=false; endrSt.erro='Erro ao criar: '+e.message; renderEstoque(); }
@@ -4181,9 +4280,14 @@ function endrRenderDetalhe(card){
   if(!d){ card.innerHTML='<div class="subnote">'+(endrSt.erro?_esc(endrSt.erro):'<span class="ld-spin"></span>Carregando…')+'</div>'; return; }
   const ocupTxt=d.capacidade!=null?(d.ocupacao+' / '+d.capacidade):(''+d.ocupacao);
   const dloc=[d.area,d.rua].filter(Boolean).join(' ');
+  // Modelo de Caixa BIN (15/07/2026): informativo — Bins legados sem modelo não mostram nada
+  // (sem badge de pendência, mesma postura do resto da feature: não é dívida do operador).
+  const modeloTxt=(d.modeloBin)?' · 📦 '+_esc(d.modeloBin)+(d.modeloBinVolumeL!=null?' ('+d.modeloBinVolumeL.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L)':''):'';
+  /* volume ocupado (R8 item 6): só quando há modelo+saldo, informativo, "≥" se parcial */
+  const volOcupTxt=(d.modeloBin && d.volumeOcupadoL!=null && d.volumeOcupadoL>0)?' · '+(d.volumeParcial?'≥':'~')+d.volumeOcupadoL.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L ocupados':'';
   card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:4px">✅</div>'
     +'<div style="text-align:center;font-size:16px;font-weight:700;color:#0B2239">'+_esc(d.nome)+'</div>'
-    +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:4px 0 16px">'+_esc(d.tipo||'')+(dloc?' · 📍 '+_esc(dloc):'')+' · '+_esc(d.codigo||'')+' · ocupação '+_esc(ocupTxt)+'</div>';
+    +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:4px 0 16px">'+_esc(d.tipo||'')+(dloc?' · 📍 '+_esc(dloc):'')+' · '+_esc(d.codigo||'')+' · ocupação '+_esc(ocupTxt)+modeloTxt+volOcupTxt+'</div>';
   const et=endrSt.etiqueta||{status:'idle'};
   const box=document.createElement('div'); box.style.cssText='text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px';
   let h='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
@@ -4323,6 +4427,9 @@ function gestReset(){
     setores:[], _setoresCarregadas:false, setorId:null, setorNome:'', setorCodigo:'',
     posicoes:[], _posicoesCarregadas:false, posicaoId:null, posicaoNome:'', posicaoCodigo:'',
     niveis:[], _niveisCarregados:false,
+    // Modelo de Caixa BIN (15/07/2026, DECISAO_modelo_caixa_bin.md): catálogo flat/global, entra
+    // ANTES de escolher Local (não é degrau da cascata Local→Área→Setor→Posição→Nível).
+    modelosBin:[], _modelosBinCarregados:false,
     _loadSeq:0, // bug #7 (auditoria 14/07) — mesmo token monotônico do endr*
   };
 }
@@ -4333,12 +4440,15 @@ function gestBreadcrumb(){
 /* linha genérica de item (Área/Setor/Posição/Nível) — nome + código opcional, badge "Inativo",
    botão Ativar/Desativar sempre presente, botões extra opcionais (usado só por Área hoje, pro
    toggle de "Setor obrigatório"). onEscolher null = nível-folha (Nível não tem próximo degrau). */
-function gestLinhaItem(card, item, {onEscolher, onToggle, extraBotoes}){
+function gestLinhaItem(card, item, {onEscolher, onToggle, extraBotoes, sub}){
   const row=document.createElement('div');
   row.style.cssText='padding:12px;border:1.5px solid '+(item.ativo?'#E2E5E9':'#F2F3F4')+';border-radius:12px;margin-top:8px'+(item.ativo?'':';background:#F8F9FA');
   const top=document.createElement('div'); top.style.cssText='display:flex;align-items:center;gap:10px';
   const info=document.createElement('div'); info.style.cssText='flex:1;min-width:0'+(onEscolher?';cursor:pointer':'');
   info.innerHTML='<div style="font-weight:700;color:'+(item.ativo?'#0B2239':'#A7AEB5')+'">'+_esc(item.nome)+(item.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(item.codigo)+')</span>':'')+'</div>'
+    // sub (15/07/2026, Modelo de Caixa BIN): linha opcional de detalhe (ex.: "34×22×17,5 cm · 12,3 L") —
+    // aditivo, não afeta os outros usos de gestLinhaItem que não passam esse parâmetro.
+    +(sub?'<div style="font-size:12px;color:var(--weak);margin-top:2px">'+_esc(sub)+'</div>':'')
     +(item.ativo?'':'<div style="font-size:11.5px;color:#A7AEB5;margin-top:2px">Inativo</div>');
   if(onEscolher) info.onclick=()=>onEscolher(item);
   top.appendChild(info);
@@ -4384,6 +4494,7 @@ function renderGestEstrutura(wrap){
   if(gestSt.step==='setor') return gestRenderSetor(card);
   if(gestSt.step==='posicao') return gestRenderPosicao(card);
   if(gestSt.step==='nivel') return gestRenderNivel(card);
+  if(gestSt.step==='modeloBin') return gestRenderModeloBin(card);
 }
 
 /* ---- passo 1: Local (reaproveita GET /estoque/locais; sem disable de veículo — gestão não é o
@@ -4395,6 +4506,13 @@ async function gestCarregarLocais(){
 }
 function gestEscolherLocal(l){ gestSt.localId=l.id; gestSt.localNome=l.nome; gestSt.step='area'; gestSt.erro=null; renderEstoque(); gestCarregarAreas(); }
 function gestRenderLocal(card){
+  // Modelo de Caixa BIN (15/07/2026): catálogo global, entra antes do Local — não pertence a
+  // nenhum local específico.
+  const cardModelo=document.createElement('div');
+  cardModelo.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-bottom:14px;cursor:pointer;font-weight:600;color:#0B2239;display:flex;align-items:center;gap:8px';
+  cardModelo.innerHTML='<span style="font-size:18px">📦</span><span style="flex:1">Modelos de caixa BIN</span><span style="color:#999">›</span>';
+  cardModelo.onclick=()=>{ gestSt.step='modeloBin'; gestSt.erro=null; renderEstoque(); gestCarregarModelosBin(); };
+  card.appendChild(cardModelo);
   card.innerHTML+='<div class="sec-title2" style="margin-top:0">Local de estoque</div>';
   if(!gestSt._locaisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!gestSt.locais.length){ card.innerHTML+='<div class="subnote">Nenhum local de estoque ativo encontrado.</div>'; return; }
@@ -4554,6 +4672,103 @@ function gestRenderNivel(card){
   gestFormNovoSimples(card, {label:'Nível', onSalvar:gestCriarNivel});
 }
 
+/* ===== Modelo de Caixa BIN (15/07/2026 — DECISAO_modelo_caixa_bin.md) =====
+   Catálogo flat/global (sem Local/Área/Setor como pai) — entra direto no step 'local' da tela
+   Gerenciar estrutura, não como mais um degrau da cascata. Volume é sempre calculado (formula no
+   Salesforce), nunca digitado — o preview aqui no front é só client-side pra feedback imediato,
+   o valor de verdade vem do backend depois de salvar. */
+async function gestCarregarModelosBin(){
+  gestSt._modelosBinCarregados=false; renderEstoque();
+  const seq=++gestSt._loadSeq;
+  try{ const d=await beGet('/estoque/modelos-bin?incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.modelosBin=d.modelos||[]; gestSt._modelosBinCarregados=true; renderEstoque(); }
+  catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._modelosBinCarregados=true; gestSt.erro='Erro ao carregar modelos de caixa: '+e.message; renderEstoque(); }
+}
+async function gestToggleModeloBinAtivo(m){ try{ await bePatch('/estoque/modelos-bin/'+m.id,{ativo:!m.ativo}); toast(m.ativo?'Modelo desativado':'Modelo ativado'); gestCarregarModelosBin(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestRenomearModeloBin(m){
+  const novo=window.prompt('Novo nome do modelo:', m.nome); if(novo===null) return;
+  const nome=String(novo).trim(); if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  if(nome===m.nome) return;
+  try{ await bePatch('/estoque/modelos-bin/'+m.id,{nome}); toast('✅ Modelo renomeado'); gestCarregarModelosBin(); }catch(e){ toast('⚠️ '+e.message); }
+}
+// Editar medidas (prompt-like simples, mesmo padrão de gestRenomear*, encadeando 3 perguntas) —
+// aviso explícito porque muda um dado usado em cálculo de capacidade pros bins já vinculados.
+async function gestEditarMedidasModeloBin(m){
+  if(!window.confirm('Alterar as medidas de "'+m.nome+'" afeta o volume calculado de TODOS os bins que já usam este modelo. Continuar?')) return;
+  const c=window.prompt('Comprimento (cm):', m.comprimentoCm); if(c===null) return;
+  const l=window.prompt('Largura (cm):', m.larguraCm); if(l===null) return;
+  const a=window.prompt('Altura (cm):', m.alturaCm); if(a===null) return;
+  try{
+    await bePatch('/estoque/modelos-bin/'+m.id,{comprimentoCm:c, larguraCm:l, alturaCm:a});
+    toast('✅ Medidas atualizadas'); gestCarregarModelosBin();
+  }catch(e){ toast('⚠️ '+e.message); }
+}
+async function gestCriarModeloBin(nome,codigo,comprimentoCm,larguraCm,alturaCm,observacao){
+  if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
+  for(const [rotulo,v] of [['comprimento',comprimentoCm],['largura',larguraCm],['altura',alturaCm]]){
+    const n=Number(v);
+    if(!Number.isFinite(n) || n<=0){ toast('⚠️ Informe um '+rotulo+' válido (em cm)'); return; }
+  }
+  try{
+    await bePost('/estoque/modelos-bin',{nome:nome.trim(), codigo:(codigo||'').trim(), comprimentoCm, larguraCm, alturaCm, observacao:(observacao||'').trim()});
+    toast('✅ Modelo criado'); gestCarregarModelosBin();
+  }catch(e){ toast('⚠️ '+e.message); }
+}
+function gestModeloBinVolumePreview(){
+  const c=Number(document.getElementById('gestModeloComp')?.value);
+  const l=Number(document.getElementById('gestModeloLarg')?.value);
+  const a=Number(document.getElementById('gestModeloAlt')?.value);
+  const out=document.getElementById('gestModeloVolPreview'); if(!out) return;
+  if(Number.isFinite(c) && Number.isFinite(a) && Number.isFinite(l) && c>0 && l>0 && a>0){
+    out.textContent='= '+((c*l*a)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L';
+  } else out.textContent='';
+}
+function gestRenderModeloBin(card){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ gestSt.step='local'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
+  card.innerHTML+='<div class="sec-title2" style="margin-top:0">📦 Modelos de caixa BIN</div>'
+    +'<div class="subnote" style="margin-bottom:10px">Cadastre os modelos de caixa que a empresa usa. Ao criar um endereço do tipo Bin, o modelo passa a ser obrigatório.</div>';
+  if(!gestSt._modelosBinCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!gestSt.modelosBin.length) card.innerHTML+='<div class="subnote">Nenhum modelo cadastrado ainda.</div>';
+  gestSt.modelosBin.forEach(m=>{
+    const medidas=(m.comprimentoCm!=null&&m.larguraCm!=null&&m.alturaCm!=null)
+      ? m.comprimentoCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+'×'+m.larguraCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+'×'+m.alturaCm.toLocaleString('pt-BR',{maximumFractionDigits:1})+' cm'
+      : null;
+    const vol=m.volumeLitros!=null ? m.volumeLitros.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L' : null;
+    const sub=[medidas,vol].filter(Boolean).join(' · ')+(m.observacao?' · '+m.observacao:'');
+    gestLinhaItem(card, m, {
+      onEscolher:null, onToggle:()=>gestToggleModeloBinAtivo(m), sub,
+      extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearModeloBin(m)}, {label:'Editar medidas', onClick:()=>gestEditarMedidasModeloBin(m)}],
+    });
+  });
+
+  const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
+  wrap.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:12.5px">+ Novo modelo</div>'
+    // Diagrama de referência (15/07/2026): imagem real, não SVG gerado — ver DECISAO_modelo_caixa_bin.md.
+    +'<div style="text-align:center;margin:6px 0 12px"><img src="caixa-medidas-final.png" alt="Diagrama de uma caixa BIN com legendas Altura, Largura e Profundidade indicando cada campo de medida" style="max-width:240px;width:100%;height:auto"></div>'
+    +'<input id="gestModeloNome" type="text" placeholder="Nome (ex.: Gaveteiro BIN 07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
+    +'<input id="gestModeloCodigo" type="text" placeholder="Código (opcional, ex.: BIN07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
+    +'<div style="display:flex;gap:8px;margin-bottom:4px">'
+    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Comprimento (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
+    +'<input id="gestModeloLarg" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Largura (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
+    +'<input id="gestModeloAlt" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Altura (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
+    +'</div>'
+    +'<div id="gestModeloVolPreview" style="font-size:12.5px;color:var(--weak);margin:2px 0 10px;min-height:16px"></div>'
+    +'<input id="gestModeloObs" type="text" placeholder="Observação (opcional — material, cor, fabricante)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 10px;box-sizing:border-box">';
+  const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar modelo';
+  btn.onclick=()=>{
+    if(btn.disabled) return;
+    btn.disabled=true; const txtOrig=btn.textContent; btn.textContent='Salvando…';
+    Promise.resolve(gestCriarModeloBin(
+      document.getElementById('gestModeloNome').value, document.getElementById('gestModeloCodigo').value,
+      document.getElementById('gestModeloComp').value, document.getElementById('gestModeloLarg').value, document.getElementById('gestModeloAlt').value,
+      document.getElementById('gestModeloObs').value
+    )).finally(()=>{ btn.disabled=false; btn.textContent=txtOrig; });
+  };
+  wrap.appendChild(btn); card.appendChild(wrap);
+  ['gestModeloComp','gestModeloLarg','gestModeloAlt'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.addEventListener('input', gestModeloBinVolumePreview);
+  });
+}
+
 /* ===== ENTRADAS PENDENTES (recp* — Fase 4, 10/07/2026): conferência item a item do
    RecebimentoCompra__c + orientação de endereço (sugestão habitual/última entrada/vago) + alerta
    de excedente (dividir / criar ponto complementar via wizard endr* / forçar) + scan-to-confirm
@@ -4662,11 +4877,19 @@ function recpCandidato(id){ return (recpSt.rec&&recpSt.rec.candidatos||[]).find(
 /* normaliza um endereço vindo do wizard endr* (mapEndereco completo ou o fallback do POST) pro
    mesmo shape usado em rec.candidatos — protege o resto do código de checar campo por campo. */
 function recpNormalizarCandidato(e){
+  /* modeloBin/volume (15/07/2026, R8): null-safe — endereço recém-criado pelo wizard endr* traz
+     modeloBinVolumeL só quando veio de um GET completo (endrAbrirDetalhe); senão fica null e a
+     régua de volume desliga sozinha pra esse candidato, mesma degradação de sempre (R5). */
+  const volumeModeloL=e.modeloBinVolumeL!=null?e.modeloBinVolumeL:null;
+  const volumeOcupadoL=e.volumeOcupadoL!=null?e.volumeOcupadoL:(volumeModeloL!=null?0:null);
   return { id:e.id, name:e.name||e.codigo, codigo:e.codigo, nome:e.nome||e.codigo, tipo:e.tipo||null,
     localId:e.localId||(recpSt.rec&&recpSt.rec.localId)||null, capacidade:e.capacidade!=null?e.capacidade:null,
     ocupacao:e.ocupacao||0,
     espacoLivre: e.espacoLivre!=null?e.espacoLivre:(e.capacidade!=null?Math.max(0,e.capacidade-(e.ocupacao||0)):null),
-    areaId:e.areaId||null, area:e.area||null, rua:e.rua||null };
+    areaId:e.areaId||null, area:e.area||null, rua:e.rua||null,
+    modeloBinId:e.modeloBinId||null, modeloBin:e.modeloBin||null, modeloBinVolumeL:volumeModeloL,
+    volumeOcupadoL, volumeParcial:!!e.volumeParcial,
+    volumeLivreL: volumeModeloL!=null?Math.max(0,volumeModeloL-(volumeOcupadoL||0)):null };
 }
 function recpStatusComposto(item){
   const c=recpSt.conf[item.id];
@@ -4742,6 +4965,69 @@ function recpAtualizaResumoSoma(){
   el.style.color=bate?'#1D9E75':'#C4451B';
   el.textContent='Total alocado: '+soma+' de '+(c.quantidade||0);
 }
+/* recomendação proativa de fracionamento (R8 item 3, DECISAO_modelo_caixa_bin.md) — calcula se a
+   linha[idx] estoura a capacidade EFETIVA (min peças/volume) e monta a sugestão de "cabe X aqui +
+   Y no endereço complementar (caixas fechadas quando o produto tem QuantidadePadraoEmbalagem__c)".
+   Retorna null quando cabe tudo, quando a linha ainda não tem endereço, ou quando já forçada
+   (forçar já é decisão tomada — não faz sentido sugerir de novo). */
+function recpHintInfo(idx){
+  const linha=recpSt.itemAloc[idx]; if(!linha||!linha.enderecoId||linha.forcado) return null;
+  const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  const cap=recpCapacidadeEfetiva(linha.enderecoId, idx);
+  const limite=Math.min(cap.livrePecas, cap.cabemPorVolume);
+  const qtd=Number(linha.quantidade)||0;
+  if(!(limite<Infinity) || qtd<=limite+0.001) return null;
+  const cabe=Math.max(0, Math.round(limite*100)/100);
+  const falta=Math.round((qtd-cabe)*100)/100;
+  const usados=new Set(recpSt.itemAloc.map(l=>l.enderecoId));
+  const melhor=(recpSt.rec.candidatos||[]).filter(c=>!usados.has(c.id))
+    .map(c=>({c, livre:recpCapacidadeMin(c.id,-1)}))
+    .sort((a,b)=>((b.livre>=falta)-(a.livre>=falta))||(b.livre-a.livre))[0];
+  const volTxt=cap.livreVolumeL!=null?(' ('+(cap.parcial?'≥':'')+Math.max(0,Math.round(cap.livreVolumeL*100)/100)+' L livres)'):'';
+  let texto='Cabem '+cabe+' das '+qtd+' aqui'+volTxt, complemento=falta, destino=null;
+  if(melhor){
+    destino=melhor.c;
+    const N=item&&item.qtdPadraoEmbalagem>1?item.qtdPadraoEmbalagem:null;
+    let rotuloCaixas='';
+    if(N){ const arred=Math.ceil(falta/N)*N; if(melhor.livre===Infinity||arred<=melhor.livre){ complemento=arred; rotuloCaixas=' ('+Math.round(complemento/N)+' caixas fechadas de '+N+')'; } }
+    texto+=' — sugestão: '+cabe+' fracionadas aqui + '+complemento+' em '+destino.codigo+rotuloCaixas;
+  } else {
+    texto+=' — faltam '+falta+', nenhum outro endereço comporta agora: crie um ponto complementar';
+  }
+  return { texto, cabe, falta, complemento, destino };
+}
+/* monta (ou limpa) o hint dentro do container — chamado no render inicial e de novo no oninput,
+   sem depender de re-render da tela toda (perderia o foco do campo de quantidade). */
+function recpAtualizaHint(idx){
+  const el=document.getElementById('recpHint'+idx); if(el) recpMontarHint(idx, el);
+}
+function recpMontarHint(idx, container){
+  container.innerHTML='';
+  const info=recpHintInfo(idx); if(!info) return;
+  container.style.marginTop='8px';
+  const hint=document.createElement('div'); hint.style.cssText='padding:10px;background:#FFF7E8;border:1px solid #F0D9A6;border-radius:10px;font-size:12.5px;color:#7A5B12';
+  hint.textContent=info.texto;
+  container.appendChild(hint);
+  const btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;align-items:center;gap:12px;margin-top:6px';
+  if(info.destino){
+    const apl=document.createElement('button'); apl.className='btn btn-brand'; apl.style.cssText='width:auto;height:36px;margin:0;padding:0 12px;font-size:12px'; apl.textContent='Aplicar sugestão';
+    apl.onclick=()=>{
+      recpSt.itemAloc[idx].quantidade=info.cabe;
+      recpSt.itemAloc.push({ enderecoId:info.destino.id, quantidade:info.complemento, enderecoSugeridoId:null, forcado:false, verificado:null });
+      renderEstoque();
+    };
+    btnRow.appendChild(apl);
+  }
+  const outras=document.createElement('div'); outras.style.cssText='font-size:12px;color:#3E7EB0;font-weight:700;cursor:pointer';
+  outras.textContent='outras opções…';
+  outras.onclick=()=>{
+    const cap=recpCapacidadeEfetiva(recpSt.itemAloc[idx].enderecoId, idx);
+    recpSt.excedente={ idx, falta:info.falta, limitante:cap.limitante, escolhendoDestino:false };
+    renderEstoque();
+  };
+  btnRow.appendChild(outras);
+  container.appendChild(btnRow);
+}
 function recpRenderItem(card){
   const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
   if(!item){ card.innerHTML='<div class="subnote">Item não encontrado.</div>'; return; }
@@ -4779,14 +5065,19 @@ function recpRenderItem(card){
       }
       const loc=cand?[cand.area,cand.rua].filter(Boolean).join(' '):'';
       const ocupTxt=cand?(cand.capacidade!=null?(cand.ocupacao+' / '+cand.capacidade):(cand.ocupacao+' · sem limite')):'';
+      /* régua de volume (R8 item 2): linha extra só quando calculável — nunca aparece se produto
+         ou bin não tiverem dado, mesmo silêncio de sempre (R5). */
+      const cap=cand?recpCapacidadeEfetiva(linha.enderecoId, idx):null;
+      const volTxt=(cap&&cap.livreVolumeL!=null)?('<div style="font-size:12px;color:#686868;margin-top:2px">🧊 '+(cap.parcial?'≥':'')+Math.max(0,Math.round(cap.livreVolumeL*100)/100).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L livres de '+(cand.modeloBinVolumeL!=null?cand.modeloBinVolumeL.toLocaleString('pt-BR',{maximumFractionDigits:1}):'?')+' L</div>'):'';
       box.innerHTML='<div style="font-weight:800;font-size:15px;color:#0B2239">'+_esc(cand?cand.codigo:'— escolha o endereço —')+origemBadge+'</div>'
         +(cand?('<div style="font-size:12px;color:#686868;margin-top:2px">'+(loc?'📍 '+_esc(loc)+' · ':'')+_esc(ocupTxt)+'</div>'):'')
+        +volTxt
         +(linha.forcado?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#a15c00;background:#fff2df;padding:2px 8px;border-radius:8px">⚠️ acima da capacidade</span></div>':'')
         +(linha.verificado==='ok'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ verificado na prateleira</span></div>':'')
         +(linha.verificado==='corrigido'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ corrigido na prateleira</span></div>':'');
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px';
       const inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.step='0.01'; inp.value=linha.quantidade; inp.style.cssText='flex:1;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box';
-      inp.oninput=()=>{ recpSt.itemAloc[idx].quantidade=Number(inp.value)||0; recpAtualizaResumoSoma(); };
+      inp.oninput=()=>{ recpSt.itemAloc[idx].quantidade=Number(inp.value)||0; recpAtualizaResumoSoma(); recpAtualizaHint(idx); };
       row.appendChild(inp);
       const vb=document.createElement('button'); vb.className='btn btn-neutral'; vb.style.cssText='width:auto;height:42px;margin:0;padding:0 12px;font-size:12px'; vb.textContent='📶 Verificar';
       vb.onclick=()=>recpVerificarLinha(idx);
@@ -4797,6 +5088,11 @@ function recpRenderItem(card){
         row.appendChild(rm);
       }
       box.appendChild(row);
+      /* hint proativo de fracionamento (R8 item 3) — o coração do pedido: aparece ANTES do modal
+         de excedente, assim que a quantidade digitada estoura a capacidade efetiva da linha. */
+      const hintBox=document.createElement('div'); hintBox.id='recpHint'+idx; hintBox.style.marginTop='0';
+      box.appendChild(hintBox);
+      recpMontarHint(idx, hintBox);
       secB.appendChild(box);
     });
     const alt=document.createElement('div'); alt.style.cssText='margin-top:4px';
@@ -4851,20 +5147,57 @@ function recpValidarItem(){
   if(Math.abs(soma-(c.quantidade||0))>0.001) return {ok:false, msg:'Faltam alocar '+(Math.round((c.quantidade-soma)*100)/100)+' de '+c.quantidade+'.'};
   return {ok:true};
 }
-/* espaço livre efetivo (§3.1): desconta alocações do MESMO recebimento (já fechadas em aloc{} de
-   outros itens, ou ainda em edição nas outras linhas de itemAloc) — senão 2 itens caberiam "cada
-   um sozinho" no mesmo bin e estourariam juntos na prateleira real, já que nenhum dos dois foi
-   pro Salesforce ainda (o POST final é atômico, no fim de tudo). */
-function recpEspacoLivreEfetivo(enderecoId, excluirIdxAtual){
+/* capacidade efetiva (§3.1 original + R8 da revisão 15/07): desconta alocações do MESMO
+   recebimento (já fechadas em aloc{} de outros itens, ou ainda em edição nas outras linhas de
+   itemAloc) — senão 2 itens caberiam "cada um sozinho" no mesmo bin e estourariam juntos na
+   prateleira real, já que nenhum dos dois foi pro Salesforce ainda (o POST final é atômico, no
+   fim de tudo). Generalizada (R8 item 1) pra trazer também a régua de VOLUME, quando calculável,
+   ao lado da régua de peças de sempre — nunca no lugar dela.
+   Retorna { livrePecas, livreVolumeL, cabemPorVolume, parcial, limitante }:
+   - livrePecas: espaço livre por contagem (Infinity se sem CapacidadeMaxima__c) — igual sempre foi.
+   - livreVolumeL: litros livres no bin (null se endereço sem modelo/não-Bin).
+   - cabemPorVolume: quantas UNIDADES do produto cabem pela régua de volume (Infinity quando a
+     régua não é calculável pra este item/endereço — assim min(livrePecas,cabemPorVolume) nunca
+     é limitado por uma régua que não existe, R3/R5).
+   - parcial: true quando outro produto no MESMO bin não tem volume cadastrado — aí volume vira
+     só piso conhecido/aviso, nunca decide sozinho (R3/R5).
+   - limitante: 'volume' ou 'pecas' — qual régua é a mais restritiva agora (só usado pra rótulo). */
+function recpCapacidadeEfetiva(enderecoId, excluirIdxAtual){
   const cand=recpCandidato(enderecoId);
-  if(!cand) return 0;
-  let livre = cand.capacidade==null ? Infinity : (cand.espacoLivre!=null?cand.espacoLivre:Math.max(0,cand.capacidade-(cand.ocupacao||0)));
+  if(!cand) return { livrePecas:0, livreVolumeL:null, cabemPorVolume:Infinity, parcial:false, limitante:'pecas' };
+  const itemAtual=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  const volUnitAtual = itemAtual && itemAtual.volumeUnitarioL!=null ? itemAtual.volumeUnitarioL : null;
+  let livrePecas = cand.capacidade==null ? Infinity : (cand.espacoLivre!=null?cand.espacoLivre:Math.max(0,cand.capacidade-(cand.ocupacao||0)));
+  let livreVolumeL = cand.volumeLivreL!=null ? cand.volumeLivreL : null;
+  const parcial = !!cand.volumeParcial;
   Object.keys(recpSt.aloc).forEach(itId=>{
     if(itId===recpSt.itemId) return;
-    (recpSt.aloc[itId]||[]).forEach(l=>{ if(l.enderecoId===enderecoId) livre-=(Number(l.quantidade)||0); });
+    const itemOutro=(recpSt.rec.itens||[]).find(i=>i.id===itId);
+    const volUnitOutro = itemOutro && itemOutro.volumeUnitarioL!=null ? itemOutro.volumeUnitarioL : null;
+    (recpSt.aloc[itId]||[]).forEach(l=>{
+      if(l.enderecoId!==enderecoId) return;
+      const q=Number(l.quantidade)||0;
+      livrePecas-=q;
+      if(livreVolumeL!=null && volUnitOutro!=null) livreVolumeL-=q*volUnitOutro;
+    });
   });
-  recpSt.itemAloc.forEach((l,i)=>{ if(i!==excluirIdxAtual && l.enderecoId===enderecoId) livre-=(Number(l.quantidade)||0); });
-  return livre;
+  recpSt.itemAloc.forEach((l,i)=>{
+    if(i===excluirIdxAtual || l.enderecoId!==enderecoId) return;
+    const q=Number(l.quantidade)||0;
+    livrePecas-=q;
+    if(livreVolumeL!=null && volUnitAtual!=null) livreVolumeL-=q*volUnitAtual;
+  });
+  const volumeCalculavel = livreVolumeL!=null && volUnitAtual!=null && !parcial;
+  const cabemPorVolume = volumeCalculavel ? Math.max(0, Math.floor((livreVolumeL/volUnitAtual)*100)/100) : Infinity;
+  const limitante = (volumeCalculavel && cabemPorVolume<livrePecas) ? 'volume' : 'pecas';
+  return { livrePecas, livreVolumeL, cabemPorVolume, parcial, limitante };
+}
+/* atalho numérico — a régua mais restritiva das duas (peças sempre manda quando volume não
+   calcula, min() decide quando as duas calculam, R1/R3). Usado em todo lugar que hoje só
+   perguntava "quanto cabe" por contagem. */
+function recpCapacidadeMin(enderecoId, excluirIdxAtual){
+  const cap=recpCapacidadeEfetiva(enderecoId, excluirIdxAtual);
+  return Math.min(cap.livrePecas, cap.cabemPorVolume);
 }
 async function recpConfirmarItem(){
   const v=recpValidarItem();
@@ -4873,9 +5206,10 @@ async function recpConfirmarItem(){
   for(let i=0;i<recpSt.itemAloc.length;i++){
     const l=recpSt.itemAloc[i];
     if(l.forcado) continue;
-    const livre=recpEspacoLivreEfetivo(l.enderecoId, i);
+    const cap=recpCapacidadeEfetiva(l.enderecoId, i);
+    const livre=Math.min(cap.livrePecas, cap.cabemPorVolume);
     if(Number(l.quantidade) > livre){
-      recpSt.excedente={ idx:i, falta:Math.round((Number(l.quantidade)-Math.max(0,livre))*100)/100, escolhendoDestino:false };
+      recpSt.excedente={ idx:i, falta:Math.round((Number(l.quantidade)-Math.max(0,livre))*100)/100, limitante:cap.limitante, escolhendoDestino:false };
       renderEstoque(); return;
     }
   }
@@ -4898,8 +5232,17 @@ function recpRenderExcedente(wrap){
   const overlay=document.createElement('div'); overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
   const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:480px;max-height:85vh;overflow:auto;box-sizing:border-box';
   const cabe=Math.max(0, Math.round((Number(linha.quantidade)-ex.falta)*100)/100);
-  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:6px">⚠️ '+_esc(cand?cand.codigo:'')+' não comporta essa quantidade</div>'
-    +'<div class="subnote" style="padding:0 0 14px">Capacidade '+_esc(cand&&cand.capacidade!=null?cand.capacidade:'sem limite')+' · cabem <b>'+cabe+'</b> — faltam <b>'+ex.falta+'</b>.</div>';
+  /* bilíngue (R8 item 4): o cabeçalho diz QUAL régua limitou — volume só quando 100% calculável
+     (R5); a régua de peças continua sendo a rede de segurança padrão. */
+  const capEx=recpCapacidadeEfetiva(linha.enderecoId, ex.idx);
+  const porVolume=ex.limitante==='volume';
+  const itemAtualVol=((recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId)||{}).volumeUnitarioL;
+  const tituloTxt=porVolume?'não comporta por volume':'não comporta essa quantidade';
+  const subTxt=porVolume
+    ? ('('+(capEx.livreVolumeL||0).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L livres — precisa '+((Number(linha.quantidade)*(itemAtualVol||0))).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L)')
+    : ('Capacidade '+_esc(cand&&cand.capacidade!=null?cand.capacidade:'sem limite')+' · cabem <b>'+cabe+'</b> — faltam <b>'+ex.falta+'</b>.');
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:6px">⚠️ '+_esc(cand?cand.codigo:'')+' '+tituloTxt+'</div>'
+    +'<div class="subnote" style="padding:0 0 14px">'+subTxt+'</div>';
   if(!ex.escolhendoDestino){
     const btnDividir=document.createElement('button'); btnDividir.className='btn btn-brand'; btnDividir.style.cssText='width:100%;height:48px;margin-bottom:8px'; btnDividir.textContent='Dividir com outro endereço';
     btnDividir.onclick=recpExcedenteDividir;
@@ -4912,11 +5255,12 @@ function recpRenderExcedente(wrap){
     const tit=document.createElement('div'); tit.className='sec-title2'; tit.textContent='Escolha o endereço complementar'; modal.appendChild(tit);
     const usados=new Set(recpSt.itemAloc.map(l=>l.enderecoId));
     const lista=(recpSt.rec.candidatos||[]).filter(c=>!usados.has(c.id))
-      .map(c=>({c, livre:recpEspacoLivreEfetivo(c.id,-1)}))
+      .map(c=>({c, cap:recpCapacidadeEfetiva(c.id,-1), livre:recpCapacidadeMin(c.id,-1)}))
       .sort((a,b)=>((b.livre>=ex.falta)-(a.livre>=ex.falta)) || (b.livre-a.livre));
-    lista.forEach(({c:cnd,livre})=>{
+    lista.forEach(({c:cnd,cap,livre})=>{
       const row=document.createElement('div'); row.style.cssText='padding:10px;border:1.5px solid '+(livre>=ex.falta?'#1D9E75':'#E2E5E9')+';border-radius:10px;margin-top:6px;cursor:pointer;font-size:13px';
-      row.innerHTML='<b>'+_esc(cnd.codigo)+'</b> — '+(livre===Infinity?'sem limite':('cabem '+Math.max(0,Math.round(livre*100)/100)));
+      const volTxt=cap.livreVolumeL!=null?(' · 🧊 '+(cap.parcial?'≥':'')+Math.max(0,Math.round(cap.livreVolumeL*100)/100)+' L livres'):'';
+      row.innerHTML='<b>'+_esc(cnd.codigo)+'</b> — '+(livre===Infinity?'sem limite':('cabem '+Math.max(0,Math.round(livre*100)/100)))+volTxt;
       row.onclick=()=>recpExcedenteEscolherDestino(cnd);
       modal.appendChild(row);
     });
@@ -4928,14 +5272,20 @@ function recpRenderExcedente(wrap){
 }
 function recpExcedenteDividir(){
   const ex=recpSt.excedente; const linha=recpSt.itemAloc[ex.idx];
-  const livre=recpEspacoLivreEfetivo(linha.enderecoId, ex.idx);
+  const livre=recpCapacidadeMin(linha.enderecoId, ex.idx); /* R8 item 5: min(peças,volume), não só peças */
   linha.quantidade=Math.max(0,Math.round(livre*100)/100);
   recpSt.excedente.escolhendoDestino=true;
   renderEstoque();
 }
 function recpExcedenteEscolherDestino(cand){
   const ex=recpSt.excedente;
-  recpSt.itemAloc.push({ enderecoId:cand.id, quantidade:ex.falta, enderecoSugeridoId:recpSt.itemAloc[ex.idx].enderecoSugeridoId, forcado:false, verificado:null });
+  /* caixas fechadas (R4/R8 item 5): arredonda o complemento pro múltiplo de
+     QuantidadePadraoEmbalagem__c quando o produto tem — o resto sempre editável na tela. */
+  const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  const N=item&&item.qtdPadraoEmbalagem>1?item.qtdPadraoEmbalagem:null;
+  let qtd=ex.falta;
+  if(N){ qtd=Math.ceil(ex.falta/N)*N; const livreDest=recpCapacidadeMin(cand.id,-1); if(livreDest!==Infinity && qtd>livreDest) qtd=ex.falta; }
+  recpSt.itemAloc.push({ enderecoId:cand.id, quantidade:qtd, enderecoSugeridoId:recpSt.itemAloc[ex.idx].enderecoSugeridoId, forcado:false, verificado:null });
   recpSt.excedente=null;
   renderEstoque();
 }
@@ -4948,7 +5298,7 @@ function recpExcedenteForcar(){
 /* ---- handoff pro wizard endr* em modo complementar (§5 da proposta) ---- */
 function recpAbrirWizardComplementar(){
   const ex=recpSt.excedente; const linha=recpSt.itemAloc[ex.idx]; const cand=recpCandidato(linha.enderecoId);
-  const livre=recpEspacoLivreEfetivo(linha.enderecoId, ex.idx);
+  const livre=recpCapacidadeMin(linha.enderecoId, ex.idx);
   const qtdOriginal=Number(linha.quantidade);
   linha.quantidade=Math.max(0,Math.round(livre*100)/100); /* reduz pro que cabe ANTES de sair — coerente se o usuário cancelar e escolher "dividir" depois */
   recpSt.wizard={ itemId:recpSt.itemId, enderecoBaseId:linha.enderecoId, falta:ex.falta, idx:ex.idx, qtdOriginal };
@@ -4957,6 +5307,7 @@ function recpAbrirWizardComplementar(){
     localId: recpSt.rec.localId, localNome: recpSt.localNome,
     areaId: cand?cand.areaId:null, areaNome: cand?cand.area:'', rua: cand?cand.rua:'',
     tipo: cand?cand.tipo:'Bin', capacidade: cand?cand.capacidade:null,
+    modeloBinId: cand?cand.modeloBinId:null, modeloBinNome: cand?cand.modeloBin:'',
     codigo,
   });
   estoqGo('enderecos');

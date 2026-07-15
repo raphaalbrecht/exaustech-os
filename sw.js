@@ -113,7 +113,12 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v116'; // v116 15/07: botão "Renomear" em Área/Setor/Posição/Nível (tela
+const CACHE = 'exaustech-os-v117'; // v117 15/07: Modelo de Caixa BIN + volume no Produto
+// (DECISAO_modelo_caixa_bin.md, doc original + Revisão 15/07 R1-R10) — catálogo ModeloCaixaBin__c
+// (gest*), select obrigatório de modelo no hub/handoff recp (endr*), e cálculo volumétrico no
+// recebimento (recp*): régua de volume (min de peças×volume) ao lado da de peças, hint proativo
+// de fracionar com caixas fechadas (QuantidadePadraoEmbalagem__c), modal de excedente bilíngue.
+// v116 15/07: botão "Renomear" em Área/Setor/Posição/Nível (tela
 // Gerenciar estrutura) — corrige grafia sem precisar desativar+recriar. Só muda o registro em si
 // (Name), endereços/etiquetas NFC já criados sob ele ficam com o texto congelado de sempre.
 // v115 15/07: HOTFIX — v114 não carregava em aparelho nenhum ("não consigo carregar no cel"):
