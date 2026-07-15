@@ -749,9 +749,11 @@
          branco (largura cheia, antes do resto do conteúdo do loadbar). -->
     <div class="conta-destaque" id="contaDestaque" style="display:none;width:100%"></div>
     <!-- pedido do Raphael (10/07, rodada 4): os campos de Id são via de acesso manual/secundária —
-         o caminho normal é "+ Nova auditoria" (upload) ou o auto-carregamento do último lote (ver
-         initSessao()). Ficam escondidos por padrão atrás do link "Acessar por Id", em vez de serem
-         a primeira coisa que a tela mostra. -->
+         o caminho normal é "+ Nova auditoria" (upload). Ficam escondidos por padrão atrás do link
+         "Acessar por Id", em vez de serem a primeira coisa que a tela mostra.
+         15/07/2026: o auto-carregamento do último lote que existia aqui foi removido (ver
+         initSessao()) — a página agora SEMPRE abre vazia; o último lote vira só um link opcional
+         dentro do #estadoVazio (ver #linkUltimoLote). -->
     <div id="idsManual" style="display:none;gap:10px;align-items:flex-end">
       <div>
         <label>Auditoria (Id)</label>
@@ -807,10 +809,14 @@
     <div id="riscoInline" style="margin-left:auto;margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
     <div id="summaryInline" style="margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
   </div>
-  <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita (sem lote carregado
-       ainda e sem último lote salvo) — sem isso a página ficava só com a barra em branco embaixo. -->
+  <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita — sem isso a página
+       ficava só com a barra em branco embaixo.
+       15/07/2026: desde a remoção do auto-carregamento (ver initSessao()) este estado vazio é o que
+       TODO carregamento da página mostra. O span #linkUltimoLote é preenchido via JS quando existe
+       um último lote salvo neste navegador (revisor_last) — vira um link de acesso rápido que só
+       carrega ao ser CLICADO, nunca sozinho. -->
   <div id="estadoVazio" class="placeholder-col" style="display:none;margin-top:14px;flex:1 1 auto">
-    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="toggleIdsManual();return false" style="color:var(--brand);font-weight:600">acesse por Id</a> um lote já existente.
+    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="toggleIdsManual();return false" style="color:var(--brand);font-weight:600">acesse por Id</a> um lote já existente.<span id="linkUltimoLote"></span>
   </div>
 
   <div id="conteudo"></div>
@@ -880,6 +886,43 @@ function podeAbrirExcecao(l){ return matchConfirmado(l) && !foraDeEscopo(l); }
 // ST.linhas, a linha está "suja" e precisa salvar antes de trocar de item).
 let CAT = null;
 let ED = null; // { linhaId, grupoId, elementoId, perguntaId, prefixoId, ncId, novoNcAberto, novoNc:{texto,classificacao,risco,pontuaExp} }
+
+// ---- autosave do rascunho de edição (15/07/2026, pedido do Raphael): "caso o usuário interrompa
+// o preenchimento no meio, os dados já preenchidos não se perdem". ED vive só em memória — fechar
+// a aba / recarregar no meio de uma edição não confirmada perdia tudo. Agora TODA mudança no ED
+// espelha o rascunho no localStorage (chave única REVISOR_RASCUNHO_KEY, separada de revisor_last),
+// e edGarantirEstado() restaura ao reabrir a MESMA linha do MESMO lote. Deliberado:
+// - 1 rascunho por vez (não um por linha): ED só representa 1 item por vez hoje, e trocar de item
+//   sem salvar JÁ descarta o rascunho anterior com confirm() explícito (ver selecionar()) — então
+//   guardar mais de 1 seria guardar algo que a própria tela já declarou descartado. Bônus: a chave
+//   única nunca acumula lixo de lotes antigos (cada gravação sobrescreve a anterior).
+// - o rascunho NUNCA carrega lote/linha sozinho: ele só é lido quando o revisor já abriu aquele
+//   item por conta própria (via link do estado vazio, "Acessar por Id" ou clique no card) — não
+//   contradiz a regra "a página sempre abre vazia" (ver initSessao()).
+const REVISOR_RASCUNHO_KEY = 'revisor_rascunho';
+
+function edRascunhoLer(){
+  try { return JSON.parse(localStorage.getItem(REVISOR_RASCUNHO_KEY) || 'null'); }
+  catch (e) { return null; } // JSON corrompido = sem rascunho (não pode travar a página)
+}
+
+function edRascunhoLimpar(){ localStorage.removeItem(REVISOR_RASCUNHO_KEY); }
+
+// Espelha o ED atual no localStorage — chamada em todos os pontos que mexem no ED (fim de
+// edRerenderTabela cobre os selects em cascata + escopo/sub-tipo; edOnNota/edOnNovoNcCampo/
+// edToggleNovoNcSubTipo não re-renderizam a tabela, então chamam direto). Só persiste quando o
+// rascunho está SUJO (diverge do gravado, ver edSujo): rascunho limpo não tem nada a recuperar,
+// e manter a chave nesse caso faria um rascunho velho "ressuscitar" depois do item já ter voltado
+// ao estado gravado.
+function edRascunhoSalvar(){
+  try {
+    const l = ED ? ST.linhas.find((x) => x.id === ED.linhaId) : null;
+    if (!l || !edSujo(l)) { edRascunhoLimpar(); return; }
+    localStorage.setItem(REVISOR_RASCUNHO_KEY, JSON.stringify({
+      auditoriaId: ST.auditoriaId, loteId: ST.loteId, salvoEm: new Date().toISOString(), ed: ED
+    }));
+  } catch (e) { console.warn('[rascunho] falha ao persistir (quota?):', e.message); } // best-effort: nunca quebra a edição
+}
 
 async function carregarCatalogoSeNecessario(){
   if (CAT) return CAT;
@@ -1278,51 +1321,31 @@ function initSessao(){
     return false;
   }
   chip.textContent = nome + (funcao ? ' · ' + funcao : '');
+  // 15/07/2026: REVERTIDO o auto-carregamento do último lote (rodada 4 de 10/07, ajustado na
+  // rodada 46 de 14/07 pra pular lotes "Concluído"). O Raphael testou a rodada 46 e pediu pra
+  // REMOVER de vez: "não adianta nada" — além de ter gerado bug de lista vazia, o requisito real
+  // nunca foi reabrir o lote sozinho, e sim NÃO PERDER o preenchimento de uma análise interrompida
+  // no meio (isso agora é o autosave de rascunho, ver edRascunhoSalvar/edGarantirEstado). Regra
+  // atual, não negociável: a página SEMPRE abre vazia (#estadoVazio), nunca pré-carrega lote
+  // sozinha. As funções carregarUltimoSeEmAndamento()/voltarEstadoVazio() foram removidas junto
+  // (só existiam pra servir o auto-load).
   const last = JSON.parse(localStorage.getItem('revisor_last') || 'null');
   if (last && last.auditoriaId && last.loteId) {
-    // pedido do Raphael (10/07, rodada 4): último lote carrega sozinho ao abrir a página — os
-    // campos de Id ficam preenchidos mas escondidos (ver #idsManual), só aparecem se o revisor
-    // clicar em "Acessar por Id" pra trocar de lote.
-    // 14/07/2026 (rodada 46): pedido do Raphael — essa conveniência só faz sentido enquanto a
-    // revisão está em andamento. Se o lote já foi 100% confirmado, abrir a página do zero não deve
-    // reexibir ele sozinho (a expectativa nesse caso é começar vazio, esperando um upload novo) —
-    // ver carregarUltimoSeEmAndamento() logo abaixo.
+    // Conveniências que SOBRAM do último lote (nenhuma carrega nada sozinha):
+    // 1) os campos de "Acessar por Id" já vêm preenchidos (o revisor só clica "Carregar lote");
+    // 2) um link discreto no próprio estado vazio pra continuar a última revisão com 1 clique —
+    //    só dispara carregar() quando CLICADO. Se existir rascunho de edição não salvo daquele
+    //    lote (ver edRascunhoLer), o link avisa, pro revisor saber que tem trabalho a recuperar.
     document.getElementById('inAuditoria').value = last.auditoriaId;
     document.getElementById('inLote').value = last.loteId;
-    carregarUltimoSeEmAndamento();
-  } else {
-    // primeira visita (ou localStorage limpo): nenhum lote pra carregar sozinho — mostra o
-    // estado vazio orientando pro "+ Nova auditoria" ou pro acesso manual por Id.
-    document.getElementById('estadoVazio').style.display = 'flex';
+    const rasc = edRascunhoLer();
+    const temRascunho = !!(rasc && rasc.auditoriaId === last.auditoriaId && rasc.loteId === last.loteId);
+    document.getElementById('linkUltimoLote').innerHTML =
+      ' Ou <a href="#" onclick="carregar();return false" style="color:var(--brand);font-weight:600">continue a última revisão aberta neste navegador</a>'
+      + (temRascunho ? ' <strong>(há um rascunho de edição não salvo nela)</strong>' : '') + '.';
   }
-  return true;
-}
-
-// 14/07/2026 (rodada 46): carrega o último lote (mesmo fetch de sempre) e só MANTÉM carregado se
-// ele ainda estiver em andamento — lote.status vem de Status_do_Lote__c (backend, recalcularLote):
-// vira "Concluído" só quando 100% dos itens saíram de "Pendente de revisão". Se já terminou,
-// desfaz o carregamento e volta pro estado vazio (ver voltarEstadoVazio) — o revisor ainda consegue
-// reabrir esse mesmo lote manualmente via "Acessar por Id" se quiser conferir algo depois.
-async function carregarUltimoSeEmAndamento(){
-  await carregar();
-  if (ST.lote && ST.lote.status === 'Concluído') voltarEstadoVazio();
-}
-
-// desfaz um auto-carregamento (ver acima): limpa o estado em memória e a tela, sem tocar no
-// localStorage — não é uma "troca de lote" que o revisor pediu, é a página decidindo não mostrar
-// sozinha um lote que já terminou.
-function voltarEstadoVazio(){
-  ST.auditoriaId = null; ST.loteId = null; ST.lote = null; ST.linhas = []; ST.auditoria = null;
-  ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); ST.visaoRisco = 'todos';
-  ST.comparativo = null;
-  document.getElementById('conteudo').innerHTML = '';
-  const contaDestaque = document.getElementById('contaDestaque');
-  if (contaDestaque) contaDestaque.style.display = 'none';
-  const riscoInline = document.getElementById('riscoInline');
-  if (riscoInline) riscoInline.innerHTML = '';
-  const summaryInline = document.getElementById('summaryInline');
-  if (summaryInline) summaryInline.innerHTML = '';
   document.getElementById('estadoVazio').style.display = 'flex';
+  return true;
 }
 
 async function carregar(){
@@ -1343,7 +1366,17 @@ async function carregar(){
     const j = await r.json();
     if (!r.ok) { msg('Erro: ' + (j.error || r.status), 'err'); return; }
     ST.auditoriaId = auditoriaId; ST.loteId = loteId; ST.lote = j.lote; ST.linhas = j.linhas; ST.auditoria = j.auditoria || null;
-    if (!mesmoLote) { ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); ST.visaoRisco = 'todos'; }
+    if (!mesmoLote) {
+      ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); ST.visaoRisco = 'todos';
+      // 15/07/2026 (autosave de rascunho): troca de lote de verdade — o ED em memória (se havia)
+      // pertencia ao lote anterior e não pode vazar pra cá. O rascunho PERSISTIDO só é apagado se
+      // for de OUTRO lote (troca deliberada = abandono); quando ele é exatamente do lote que está
+      // sendo carregado agora (ex.: recuperação após fechar o navegador no meio de uma edição),
+      // ele fica — é ele que edGarantirEstado() vai restaurar quando o revisor reabrir o item.
+      ED = null;
+      const rasc = edRascunhoLer();
+      if (rasc && (rasc.loteId !== loteId || rasc.auditoriaId !== auditoriaId)) edRascunhoLimpar();
+    }
     ST.comparativo = null; // sempre recarrega — é barato (ver carregarComparativo logo abaixo) e pode ter mudado
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
@@ -2134,6 +2167,10 @@ function selecionar(id){
   if (id === ST.selecionadaId) return;
   const atual = ST.selecionadaId ? ST.linhas.find((l) => l.id === ST.selecionadaId) : null;
   if (atual && edSujo(atual) && !confirm('Há correções não salvas neste item. Descartar e trocar de item?')) return;
+  // 15/07/2026: o revisor confirmou o descarte no diálogo acima — o rascunho persistido do item
+  // que ele abandonou tem que sumir junto (senão ele "ressuscitaria" na próxima visita ao item,
+  // desfazendo uma decisão explícita). Sem sujeira não há rascunho salvo, então limpar é barato.
+  if (atual && edSujo(atual)) edRascunhoLimpar();
   ST.selecionadaId = id;
   renderTudo();
 }
@@ -2399,6 +2436,25 @@ function edGarantirEstado(l){
     // de edição das outras 4 hierarquias) — rascunho separado do resto igual todo o resto do ED.
     textoComplementar: l.textoComplementar || ''
   };
+  // 15/07/2026: recuperação do rascunho persistido (ver edRascunhoSalvar, perto da declaração do
+  // ED) — se o navegador fechou/recarregou no meio de uma edição não confirmada, ao REABRIR esta
+  // mesma linha (mesma auditoria+lote+linha) o preenchimento volta sozinho. Guardas, na ordem:
+  // - trinca auditoria/lote/linha tem que bater exata (rascunho de outro item nunca vaza pra cá);
+  // - linha já confirmada (matchConfirmado) descarta o rascunho — alguém confirmou nesse meio
+  //   tempo (outra aba/máquina), o rascunho perdeu a razão de existir;
+  // - rascunho restaurado que NÃO está mais sujo (edSujo) também é descartado: se ele coincide com
+  //   o que está gravado, restaurá-lo só serviria pra pular a escolha explícita de Dentro/Fora
+  //   (regra da rodada 41: escopo sempre começa null) sem devolver trabalho nenhum.
+  const rasc = edRascunhoLer();
+  if (rasc && rasc.ed && rasc.ed.linhaId === l.id &&
+      rasc.auditoriaId === ST.auditoriaId && rasc.loteId === ST.loteId) {
+    if (matchConfirmado(l)) { edRascunhoLimpar(); return; }
+    const edNovo = ED;
+    ED = rasc.ed;
+    if (!edSujo(l)) { ED = edNovo; edRascunhoLimpar(); return; }
+    msg('Rascunho de edição não salvo recuperado neste item (interrompido em '
+      + new Date(rasc.salvoEm).toLocaleString('pt-BR') + '). Confirme o match pra gravar, ou use "descartar alterações".', 'info');
+  }
 }
 
 // Rodada 17b (11/07): pedido do Raphael — pré-preencher "fora de escopo" automaticamente quando o
@@ -2440,6 +2496,7 @@ function edOnNota(v){
   ED.textoComplementar = v;
   const l = ST.linhas.find((x) => x.id === ED.linhaId);
   if (l) { const btn = document.getElementById('btnSalvarEd'); if (btn) btn.disabled = !edPodeSalvar(l); }
+  edRascunhoSalvar(); // 15/07/2026: autosave — este handler não passa por edRerenderTabela (não perder foco do textarea)
 }
 
 // Rodada 17 (estendido rodada 45): alterna SÓ o campo de escopo do rascunho (botão segmentado na
@@ -2636,6 +2693,11 @@ function edRerenderTabela(){
   if (tabelaWrap) { tabelaWrap.innerHTML = edHtmlTabela(l); kvAplicarTruncamento(tabelaWrap); }
   if (escopoWrap) escopoWrap.innerHTML = edHtmlEscopo(l);
   if (acaoWrap) acaoWrap.innerHTML = edHtmlAcao(l);
+  // 15/07/2026: autosave — todo mutador de ED que re-renderiza (selects em cascata, escopo,
+  // sub-tipo, NC nova aberta/fechada) passa por aqui, então este é o ponto único de persistência
+  // pra eles. Os handlers que NÃO re-renderizam (edOnNota/edOnNovoNcCampo/edToggleNovoNcSubTipo)
+  // chamam edRascunhoSalvar() por conta própria.
+  edRascunhoSalvar();
 }
 
 // -------- similaridade client-side (Dice/bigrama), pra avisar "já existe NC parecida" --------
@@ -2672,6 +2734,7 @@ function edOnNovoNcCampo(campo, valor){
   if (dupWrap) dupWrap.innerHTML = edHtmlDupWarning();
   const btn = document.getElementById('btnSalvarEd');
   if (btn) { const l = ST.linhas.find((x) => x.id === ED.linhaId); if (l) btn.disabled = !edPodeSalvar(l); }
+  edRascunhoSalvar(); // 15/07/2026: autosave — handler sem edRerenderTabela (não perder foco do textarea/select)
 }
 
 function edHtmlDupWarning(){
@@ -2793,6 +2856,7 @@ function edToggleNovoNcSubTipo(subTipo, marcado){
   ED.novoNc.subTipos = Array.from(s);
   const btn = document.getElementById('btnSalvarEd');
   if (btn) { const l = ST.linhas.find((x) => x.id === ED.linhaId); if (l) btn.disabled = !edPodeSalvar(l); }
+  edRascunhoSalvar(); // 15/07/2026: autosave — handler sem edRerenderTabela (não desmarcar o checkbox sob o mouse)
 }
 
 function edHtmlNovoNc(){
@@ -3724,6 +3788,7 @@ async function cotCancelarDemanda(demandaId){
 
 function edDescartar(){
   ED = null;
+  edRascunhoLimpar(); // 15/07/2026: descarte explícito também apaga o rascunho persistido (autosave)
   renderDetalhe();
 }
 
@@ -3792,6 +3857,7 @@ async function edSalvar(linhaId){
       if (!r.ok) { msg('Erro ao confirmar: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar correções e confirmar match'; } return; }
     }
     ED = null;
+    edRascunhoLimpar(); // 15/07/2026: match confirmado no Salesforce — o rascunho persistido (autosave) já cumpriu o papel
     await carregar(); // filtro/busca preservados (achado #1)
     ST.selecionadaId = proximaLinhaPendente(linhaId) || linhaId; renderTudo(); // auto-avança (achado #2)
     msg('Alterações salvas e item confirmado.', 'info');
@@ -3835,10 +3901,10 @@ document.addEventListener('keydown', (e) => {
 
 // Lançamento contextual a partir de um botão na página de Conta do Salesforce (11/07) —
 // campo.exaustech.com.br/revisor-auditoria.html?contaId=XXX&contaNome=YYY abre "Nova auditoria"
-// já com a conta selecionada. IGNORA de propósito o auto-load do último lote feito por
-// initSessao(): quem clicou o botão na Conta quer cadastrar uma auditoria NOVA pra essa conta
-// específica, não continuar revisando o que estava aberto antes — por isso roda depois de
-// initSessao() (que já tratou o caminho padrão) e abre o modal por cima.
+// já com a conta selecionada. Quem clicou o botão na Conta quer cadastrar uma auditoria NOVA pra
+// essa conta específica — roda depois de initSessao() (que já tratou o caminho padrão) e abre o
+// modal por cima do estado vazio. [15/07/2026: a menção antiga a "ignorar o auto-load do último
+// lote" saiu — o auto-load foi removido de vez, ver initSessao().]
 function abrirViaParametrosDeUrl(){
   const params = new URLSearchParams(location.search);
   const contaId = params.get('contaId');
