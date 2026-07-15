@@ -1283,15 +1283,46 @@ function initSessao(){
     // pedido do Raphael (10/07, rodada 4): último lote carrega sozinho ao abrir a página — os
     // campos de Id ficam preenchidos mas escondidos (ver #idsManual), só aparecem se o revisor
     // clicar em "Acessar por Id" pra trocar de lote.
+    // 14/07/2026 (rodada 46): pedido do Raphael — essa conveniência só faz sentido enquanto a
+    // revisão está em andamento. Se o lote já foi 100% confirmado, abrir a página do zero não deve
+    // reexibir ele sozinho (a expectativa nesse caso é começar vazio, esperando um upload novo) —
+    // ver carregarUltimoSeEmAndamento() logo abaixo.
     document.getElementById('inAuditoria').value = last.auditoriaId;
     document.getElementById('inLote').value = last.loteId;
-    carregar();
+    carregarUltimoSeEmAndamento();
   } else {
     // primeira visita (ou localStorage limpo): nenhum lote pra carregar sozinho — mostra o
     // estado vazio orientando pro "+ Nova auditoria" ou pro acesso manual por Id.
     document.getElementById('estadoVazio').style.display = 'flex';
   }
   return true;
+}
+
+// 14/07/2026 (rodada 46): carrega o último lote (mesmo fetch de sempre) e só MANTÉM carregado se
+// ele ainda estiver em andamento — lote.status vem de Status_do_Lote__c (backend, recalcularLote):
+// vira "Concluído" só quando 100% dos itens saíram de "Pendente de revisão". Se já terminou,
+// desfaz o carregamento e volta pro estado vazio (ver voltarEstadoVazio) — o revisor ainda consegue
+// reabrir esse mesmo lote manualmente via "Acessar por Id" se quiser conferir algo depois.
+async function carregarUltimoSeEmAndamento(){
+  await carregar();
+  if (ST.lote && ST.lote.status === 'Concluído') voltarEstadoVazio();
+}
+
+// desfaz um auto-carregamento (ver acima): limpa o estado em memória e a tela, sem tocar no
+// localStorage — não é uma "troca de lote" que o revisor pediu, é a página decidindo não mostrar
+// sozinha um lote que já terminou.
+function voltarEstadoVazio(){
+  ST.auditoriaId = null; ST.loteId = null; ST.lote = null; ST.linhas = []; ST.auditoria = null;
+  ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set(); ST.visaoRisco = 'todos';
+  ST.comparativo = null;
+  document.getElementById('conteudo').innerHTML = '';
+  const contaDestaque = document.getElementById('contaDestaque');
+  if (contaDestaque) contaDestaque.style.display = 'none';
+  const riscoInline = document.getElementById('riscoInline');
+  if (riscoInline) riscoInline.innerHTML = '';
+  const summaryInline = document.getElementById('summaryInline');
+  if (summaryInline) summaryInline.innerHTML = '';
+  document.getElementById('estadoVazio').style.display = 'flex';
 }
 
 async function carregar(){
