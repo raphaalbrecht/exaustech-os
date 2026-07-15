@@ -113,7 +113,10 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v121'; // v121 15/07: form "+ Novo modelo" (Modelo de Caixa BIN) ganha
+const CACHE = 'exaustech-os-v122'; // v122 15/07: badges de medida ao vivo (Modelo de Caixa BIN)
+// com fonte dobrada (20px) + badge da Largura deslocado pra direita (ancorado por `right`, não
+// `left`) pra não sobrepor o texto fixo "LARGURA" da imagem.
+// v121 15/07: form "+ Novo modelo" (Modelo de Caixa BIN) ganha
 // medida ao vivo sobreposta ao desenho de referência — badge junto de cada legenda
 // (ALTURA/PROFUNDIDADE/LARGURA) mostra o valor digitado em cm, atualiza no oninput junto do
 // preview de volume; placeholder do campo volta a "Profundidade (cm)".

@@ -4774,9 +4774,12 @@ function gestRenderModeloBin(card){
     // enquanto o usuário digita — nunca editam o arquivo de imagem em si, só sobrepõem texto.
     +'<div style="text-align:center;margin:6px 0 12px"><div style="position:relative;display:inline-block;max-width:240px;width:100%">'
     +'<img src="caixa-medidas-final.png" alt="Diagrama de uma caixa BIN com legendas Altura, Largura e Profundidade indicando cada campo de medida" style="width:100%;height:auto;display:block">'
-    +'<span id="gestDiagAltura" style="position:absolute;left:14%;top:37%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
-    +'<span id="gestDiagProfundidade" style="position:absolute;left:23%;top:84%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
-    +'<span id="gestDiagLargura" style="position:absolute;left:73%;top:70%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    +'<span id="gestDiagAltura" style="position:absolute;left:14%;top:37%;font-size:20px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    +'<span id="gestDiagProfundidade" style="position:absolute;left:23%;top:84%;font-size:20px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    /* Largura deslocada mais pra direita (pedido do Raphael, 15/07/2026): fonte dobrada precisava
+       de mais respiro pra não cobrir o "LARGURA" fixo da imagem — ancorado por `right` (não `left`)
+       pra continuar dentro da imagem mesmo com o texto maior. */
+    +'<span id="gestDiagLargura" style="position:absolute;right:2%;top:70%;font-size:20px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
     +'</div></div>'
     +'<input id="gestModeloNome" type="text" placeholder="Nome (ex.: Gaveteiro BIN 07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
     +'<input id="gestModeloCodigo" type="text" placeholder="Código (opcional, ex.: BIN07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
