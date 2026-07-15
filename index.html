@@ -3756,8 +3756,17 @@ function endrGavetaContextoPai(){
 }
 // ordenação numérica de verdade ("Rua 10" depois de "Rua 2", não antes) + normalização de acento
 // pro filtro (comparar sem acento/maiúscula, sem mudar o que é exibido).
-function endrGavetaOrdenar(lista){
-  return lista.slice().sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true,sensitivity:'base'}));
+// `fixarPrimeiro` (15/07/2026, pedido do Raphael): "Almoxarifado" é a Área mais usada no dia a dia
+// — sobe pro topo da gaveta em vez de ficar onde a ordem alfabética manda, só na cascata de Área
+// (Rua/Módulo/Nível continuam 100% alfabéticos). Sem efeito se o item não existir na lista.
+function endrGavetaOrdenar(lista, fixarPrimeiro){
+  const ordenado=lista.slice().sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true,sensitivity:'base'}));
+  if(fixarPrimeiro){
+    const alvo=endrGavetaNormalizar(fixarPrimeiro);
+    const idx=ordenado.findIndex(i=>endrGavetaNormalizar(i.nome)===alvo);
+    if(idx>0){ const [item]=ordenado.splice(idx,1); ordenado.unshift(item); }
+  }
+  return ordenado;
 }
 function endrGavetaNormalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 // contador do card: filhos (backend, exato, via ?comContagem=1) + endereços (client-side, a partir
@@ -3805,7 +3814,7 @@ function endrGavetaVazio(corpo, cfg){
 function endrGavetaPintarLista(cfg){
   const ul=document.getElementById('endrGvLista'); if(!ul) return;
   const termo=endrGavetaNormalizar(endrSt.hub.filtro);
-  let itens=endrGavetaOrdenar(cfg.lista());
+  let itens=endrGavetaOrdenar(cfg.lista(), cfg.key==='area'?'Almoxarifado':null);
   if(termo) itens=itens.filter(i=>endrGavetaNormalizar(i.nome+' '+(i.codigo||'')).indexOf(termo)>=0);
   if(!itens.length){ ul.innerHTML='<div class="subnote" style="padding:4px 0">Nada encontrado.</div>'; return; }
   ul.innerHTML='';
