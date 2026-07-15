@@ -182,6 +182,9 @@
   .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px}
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
+  /* 15/07/2026: aviso NÃO-bloqueante (histórico de riscos da capa ≠ Salesforce) — é aviso, não
+     erro, então usa os tokens --warn já existentes em vez do vermelho de .msg.err */
+  .msg.warn{background:var(--warn-bg);color:var(--warn-tx);border:1px solid var(--warn-bd)}
   #conteudo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
   .summary{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}
   /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
@@ -1017,7 +1020,9 @@ function toggleIdsManual(){
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
-let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null };
+// 15/07/2026: historicoRiscos = auditorias anteriores impressas na capa do FTR (lidas na pré-análise),
+// conferidas contra o Salesforce em naChecarHistoricoRisco() quando a Conta é selecionada.
+let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[] };
 
 function toggleNovaAuditoria(){
   const overlay = document.getElementById('novaAudOverlay');
@@ -1026,7 +1031,7 @@ function toggleNovaAuditoria(){
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
     if (NA.previewUrl) URL.revokeObjectURL(NA.previewUrl); // 15/07/2026: libera a memória do blob local da prévia
-    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null };
+    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[] };
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
@@ -1258,6 +1263,10 @@ async function naAnalisarPdf(){
 
     document.getElementById('naTipo').value = j.tipo === 'ARPLAC' ? 'ARPLAC' : 'FTR';
 
+    // 15/07/2026: guarda as auditorias anteriores impressas na capa (FTR) ANTES da auto-seleção de
+    // conta logo abaixo — naSelecionarConta() é quem dispara a conferência contra o Salesforce
+    NA.historicoRiscos = j.historicoRiscos || [];
+
     if (j.cabecalhoIndisponivel) {
       naAtualizarOpcoesRisco();
       status.textContent = 'Tipo detectado: ' + j.tipo + '. Não deu pra ler o resto do cabeçalho automaticamente' + (j.cabecalhoErro ? ' (' + j.cabecalhoErro + ')' : '') + ' — confira os campos abaixo.';
@@ -1318,6 +1327,47 @@ function naSelecionarConta(id, nome){
   const lista = document.getElementById('naContaLista');
   lista.style.display = 'none'; lista.innerHTML = '';
   naAtualizarBotaoCriar();
+  // 15/07/2026: com a Conta definida (auto-sugestão da IA OU escolha manual na busca — este é o
+  // funil comum dos dois caminhos), confere o histórico de auditorias impresso na capa do FTR
+  // contra o Salesforce. Fire-and-forget: é async e best-effort, não segura a seleção da conta.
+  if (NA.historicoRiscos && NA.historicoRiscos.length) naChecarHistoricoRisco();
+}
+
+// 15/07/2026 — pedido do Raphael (fotos do laudo FTR): a capa imprime as últimas auditorias
+// anteriores ("DD/MM/AAAA HH:MM - Risco N") logo abaixo da barra azul "Vistoria realizada em...".
+// Esta função manda essas datas+riscos (lidos pelo Gemini na pré-análise) pro backend confrontar
+// com as Auditoria_tecnica__c já cadastradas da Conta escolhida. Se houver data SEM auditoria no
+// Salesforce ('ausente') ou com risco diferente ('divergente'), mostra um AVISO em #naMsg — mesmo
+// elemento do diálogo de duplicata (fluxos sequenciais, sobrescrever é ok) e mesmo padrão de HTML
+// de verdade de naMostrarDuplicata() (não passa por naMsg(), que escapa tudo). 100% INFORMATIVO:
+// nunca desabilita o botão "Criar auditoria e importar PDF" nem trava o preenchimento do form —
+// mesmo padrão "IA nunca trava o cadastro" do resto do projeto.
+async function naChecarHistoricoRisco(){
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/checar-historico-risco', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ contaId: NA.contaId, historico: NA.historicoRiscos })
+    });
+    const j = await r.json();
+    if (!r.ok || !j || !Array.isArray(j.itens)) return;
+    const problemas = j.itens.filter((it) => it.status !== 'ok');
+    if (!problemas.length) return; // tudo bate com o Salesforce — nenhum aviso a mostrar
+    const fmtData = (iso) => { const p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : (iso || '—'); };
+    const linhas = problemas.map((it) => it.status === 'ausente'
+      ? '<li>Nenhuma auditoria encontrada no Salesforce com vistoria em <b>' + escapeHtml(fmtData(it.dataISO)) + '</b> (PDF indica ' + escapeHtml(it.riscoPdf || '—') + ').</li>'
+      : '<li>Divergência de risco na vistoria de <b>' + escapeHtml(fmtData(it.dataISO)) + '</b>: PDF indica ' + escapeHtml(it.riscoPdf || '—') + ', Salesforce tem ' + escapeHtml(it.riscoSF || '—') + '.</li>'
+    ).join('');
+    const el = document.getElementById('naMsg');
+    if (!el) return;
+    el.innerHTML = '<div class="msg warn" style="margin-top:10px">'
+      + '<div style="margin-bottom:8px"><b>Histórico de auditorias da capa do PDF não bate com o Salesforce:</b>'
+      + '<ul style="margin:6px 0 0 18px;padding:0">' + linhas + '</ul></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        + '<span>Aviso informativo — não impede o cadastro da auditoria atual.</span>'
+        + '<button type="button" class="btn sec" onclick="naMsg(\'\')">Entendi</button>'
+      + '</div>'
+    + '</div>';
+  } catch (e) { /* best-effort, mesmo padrão do resto do form: falha de rede/permissão não mostra nada e não trava nada */ }
 }
 
 async function naCriarEImportar(){
