@@ -113,7 +113,10 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v119'; // v119 15/07: HOTFIX — campo "Altura (cm)" vazava pra fora da
+const CACHE = 'exaustech-os-v120'; // v120 15/07: rótulo do campo "Comprimento" no form de Modelo
+// de Caixa BIN trocado pra "Profundidade" — alinha com a legenda do diagrama de referência
+// (ALTURA/PROFUNDIDADE/LARGURA), que já usa esse nome; campo interno (comprimentoCm) intocado.
+// v119 15/07: HOTFIX — campo "Altura (cm)" vazava pra fora da
 // tela no form "+ Novo modelo" (Modelos de caixa BIN). Causa: `flex:1` sozinho não encolhe abaixo
 // do tamanho do CONTEÚDO (placeholder longo "Comprimento (cm)"), pois item flex tem min-width:auto
 // por padrão. Trocado o row de 3 inputs por CSS grid de 3 colunas iguais + min-width:0 + placeholders

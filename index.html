@@ -4707,7 +4707,7 @@ async function gestRenomearModeloBin(m){
 // aviso explícito porque muda um dado usado em cálculo de capacidade pros bins já vinculados.
 async function gestEditarMedidasModeloBin(m){
   if(!window.confirm('Alterar as medidas de "'+m.nome+'" afeta o volume calculado de TODOS os bins que já usam este modelo. Continuar?')) return;
-  const c=window.prompt('Comprimento (cm):', m.comprimentoCm); if(c===null) return;
+  const c=window.prompt('Profundidade (cm):', m.comprimentoCm); if(c===null) return;
   const l=window.prompt('Largura (cm):', m.larguraCm); if(l===null) return;
   const a=window.prompt('Altura (cm):', m.alturaCm); if(a===null) return;
   try{
@@ -4767,7 +4767,7 @@ function gestRenderModeloBin(card){
        com min-width:0 (permite encolher) + grid de 3 colunas iguais em vez de flex, mais previsível
        em telas estreitas; placeholders encurtados pra caber sem trunca feio. */
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
-    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Compr. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
+    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Profundidade" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'<input id="gestModeloLarg" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Larg. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'<input id="gestModeloAlt" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Alt. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'</div>'
