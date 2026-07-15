@@ -3175,7 +3175,7 @@ function endrReset(consulta){
   endrSt={
     step:'local', locais:[], _locaisCarregados:false, localId:null, localNome:'',
     enderecosDoLocal:[], _listaCarregada:false,
-    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, rua:'',
+    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaAceitaArmazenamento:true, rua:'',
     /* Módulo/Nível (13/07/2026, nomenclatura Setor-Módulo-Nível-Bin — ver §14/§15 da proposta):
        "rua" acima passa a representar SETOR (mesmo campo Rua__c, só rótulo/uso mudam). Módulo e
        Nível são SÓ estado do wizard — não viram campo novo no Salesforce, só compõem o
@@ -3196,6 +3196,10 @@ function endrReset(consulta){
        (Posições/Níveis) — nunca persistidos no endereço em si (sem lookup novo, decisão B do
        Fable: "código congela", pré-cadastro só alimenta o wizard). */
     setorId:null, posicaoId:null, ruaCod:'', moduloCod:'', nivelCod:'',
+    /* 14/07/2026 (Fase 1 — AceitaArmazenamento): flag do Setor/Posição ESCOLHIDO, captada em
+       endrEscolherSetor/endrEscolherPosicao — controla se o botão "✓ Cadastrar aqui" aparece na
+       tela seguinte (endrRenderModulo/endrRenderNivel). Default true = sempre aparecia antes. */
+    setorAceitaArmazenamento:true, posicaoAceitaArmazenamento:true,
     setores:[], _setoresCarregadas:false, posicoes:[], _posicoesCarregadas:false, niveis:[], _niveisCarregados:false,
     tipo:null, nome:'', codigo:'', codigoSugerido:false, capacidade:'',
     enderecoId:null, enderecoDetalhe:null, enderecoCriado:null, etiqueta:{status:'idle'},
@@ -3320,7 +3324,7 @@ async function endrCarregarLista(){
 }
 function endrNovoEndereco(){
   endrSt.tipo=null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
-  endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua=''; endrSt.modulo=''; endrSt.nivel='';
+  endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaAceitaArmazenamento=true; endrSt.rua=''; endrSt.modulo=''; endrSt.nivel='';
   endrSt.areaPrefixo=''; endrSt.paradaEm=null;
   /* Bug #5 (auditoria 14/07): faltava zerar os campos do pré-cadastro (ruaCod/moduloCod/nivelCod/
      setorId/posicaoId/setores/posicoes/niveis) — em Locais sem Área (endrCarregarAreas pula pro
@@ -3328,6 +3332,7 @@ function endrNovoEndereco(){
      (que é quem normalmente limpa isso), deixando ruaCod/moduloCod/nivelCod de um endereço
      ANTERIOR vazarem pro código do novo endereço — que depois congela errado pra sempre. */
   endrSt.ruaCod=''; endrSt.moduloCod=''; endrSt.nivelCod=''; endrSt.setorId=null; endrSt.posicaoId=null;
+  endrSt.setorAceitaArmazenamento=true; endrSt.posicaoAceitaArmazenamento=true;
   endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false;
   endrSt.niveis=[]; endrSt._niveisCarregados=false;
   endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
@@ -3339,7 +3344,7 @@ function endrNovoEndereco(){
    Pedido do Raphael 13/07/2026, análise de UX feita com o agente Fable. ---- */
 function endrNovoEnderecoAqui(d){
   endrSt.tipo=d.tipo||null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
-  endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaRequerRua=!!d.rua; endrSt.rua=d.rua||'';
+  endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaAceitaArmazenamento=!d.rua; endrSt.rua=d.rua||'';
   endrSt.modulo=d.modulo||''; endrSt.nivel=d.nivel||''; /* mesmo setor/módulo/nível — só o próximo bin/prateleira muda */
   /* 14/07/2026 — segmentos curtos do pré-cadastro herdam junto (senão o código sairia sem eles) */
   endrSt.ruaCod=d.ruaCod||''; endrSt.moduloCod=d.moduloCod||''; endrSt.nivelCod=d.nivelCod||'';
@@ -3363,11 +3368,16 @@ async function endrCarregarAreas(){
   }
 }
 function endrEscolherArea(a){
-  endrSt.areaId=a.id; endrSt.areaNome=a.nome; endrSt.areaRequerRua=!!a.requerRua; endrSt.rua=''; endrSt.ruaCod='';
+  endrSt.areaId=a.id; endrSt.areaNome=a.nome; endrSt.areaAceitaArmazenamento=!!a.aceitaArmazenamento; endrSt.rua=''; endrSt.ruaCod='';
   endrSt.areaPrefixo=a.prefixo||''; endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm=null;
-  endrSt.setorId=null; endrSt.posicaoId=null;
+  endrSt.setorId=null; endrSt.posicaoId=null; endrSt.setorAceitaArmazenamento=true; endrSt.posicaoAceitaArmazenamento=true;
   endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false; endrSt.niveis=[]; endrSt._niveisCarregados=false;
-  if(endrSt.areaRequerRua){ endrSt.step='rua'; renderEstoque(); endrCarregarSetores(); }
+  /* 14/07/2026 (Fase 1 — AceitaArmazenamento, ver PLANO_implementacao_correcoes_redesign.md):
+     área que ACEITA armazenamento vira ponto de parada direto (pula pro Tipo); a que não aceita
+     continua exigindo Setor. Este "else" antes nunca era alcançado de verdade (bug #8/#4 do
+     audit — endrRenderArea só deixava tocar em área com RequerRua__c=true), então nenhuma área
+     hoje é ponto de parada de fato — corrigido junto com o render abaixo. */
+  if(!endrSt.areaAceitaArmazenamento){ endrSt.step='rua'; renderEstoque(); endrCarregarSetores(); }
   else { endrSt.step='tipo'; renderEstoque(); }
 }
 /* ---- carrega os Setores/Posições/Níveis pré-cadastrados (14/07/2026) — mesma origem de dados
@@ -3393,35 +3403,40 @@ async function endrCarregarNiveis(){
 }
 function endrEscolherSetor(s){
   endrSt.rua=s.nome; endrSt.ruaCod=s.codigo||''; endrSt.setorId=s.id;
+  // 14/07/2026 (Fase 1) — flag do Setor escolhido: controla se "✓ Cadastrar aqui" aparece na
+  // tela de Posição (endrRenderModulo). Default true reproduz o comportamento de sempre.
+  endrSt.setorAceitaArmazenamento=s.aceitaArmazenamento===undefined?true:!!s.aceitaArmazenamento;
   endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.posicaoId=null;
   endrSt.posicoes=[]; endrSt._posicoesCarregadas=false; endrSt.niveis=[]; endrSt._niveisCarregados=false;
   endrSt.step='modulo'; renderEstoque(); endrCarregarPosicoes();
 }
 function endrEscolherPosicao(p){
   endrSt.modulo=p.nome; endrSt.moduloCod=p.codigo||''; endrSt.posicaoId=p.id;
+  // 14/07/2026 (Fase 1) — flag da Posição escolhida: controla se "✓ Cadastrar aqui" aparece na
+  // tela de Nível (endrRenderNivel). Default true reproduz o comportamento de sempre.
+  endrSt.posicaoAceitaArmazenamento=p.aceitaArmazenamento===undefined?true:!!p.aceitaArmazenamento;
   endrSt.nivel=''; endrSt.nivelCod=''; endrSt.niveis=[]; endrSt._niveisCarregados=false;
   endrSt.step='nivel'; renderEstoque(); endrCarregarNiveis();
 }
-/* 14/07/2026 (pedido do Raphael): só as Áreas com Setor/Posição/Nível (RequerRua__c=true) têm
-   cadastro habilitado por enquanto — as demais aparecem cinza/inativas, sem toque, até ele decidir
-   liberar. Vêm sempre primeiro na lista (ativas), destacadas em azul-marca. */
+/* 14/07/2026 (Fase 1 — corrige bug #8/#4 do audit): TODA área ativa é clicável agora — antes só
+   as com RequerRua__c=true tinham onclick (else de endrEscolherArea era código morto, nunca
+   alcançado). aceitaArmazenamento só decide o DESTINO do toque (parar aqui x ir pro Setor), nunca
+   se dá pra tocar — ver mapArea/AceitaArmazenamento__c no backend. */
 function endrRenderArea(card){
   card.innerHTML=endrBreadcrumbHTML('area')+'<div class="sec-title2" style="margin-top:0">Área</div>'
-    +'<div class="subnote" style="padding:0 0 8px">Em azul: cadastro habilitado (tem Setor). As demais ainda não têm cadastro liberado.</div>';
+    +'<div class="subnote" style="padding:0 0 8px">Em azul: cadastro direto aqui. As demais levam ao Setor.</div>';
   endrBcScroll(card);
   if(!endrSt._areasCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  const ativas=endrSt.areas.filter(a=>a.requerRua).sort((x,y)=>x.nome.localeCompare(y.nome));
-  const inativas=endrSt.areas.filter(a=>!a.requerRua).sort((x,y)=>x.nome.localeCompare(y.nome));
-  ativas.concat(inativas).forEach(a=>{
+  endrSt.areas.slice().sort((x,y)=>x.nome.localeCompare(y.nome)).forEach(a=>{
     const b=document.createElement('div');
-    if(a.requerRua){
+    if(a.aceitaArmazenamento){
       b.style.cssText='padding:12px;border:1.5px solid #3E7EB0;background:rgba(62,126,176,.08);border-radius:12px;margin-top:8px;cursor:pointer;font-weight:700;color:#3E7EB0';
-      b.textContent=a.nome+' (Setor obrigatório)';
-      b.onclick=()=>endrEscolherArea(a);
+      b.textContent=a.nome+' (cadastro direto)';
     } else {
-      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;background:#F2F3F4;border-radius:12px;margin-top:8px;font-weight:600;color:#A7AEB5;cursor:default';
-      b.textContent=a.nome;
+      b.style.cssText='padding:12px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239';
+      b.textContent=a.nome+' (Setor obrigatório)';
     }
+    b.onclick=()=>endrEscolherArea(a);
     card.appendChild(b);
   });
   /* 14/07/2026: em cadastro, "lista" foi pulada ao entrar (endrEscolherLocal) — Voltar daqui tem
@@ -3528,9 +3543,13 @@ function endrRenderModulo(card){
       card.appendChild(b);
     });
   }
-  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
-  parar.onclick=()=>{ endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm='rua'; endrSt.step='tipo'; renderEstoque(); };
-  card.appendChild(parar);
+  // 14/07/2026 (Fase 1) — "✓ Cadastrar aqui" (parar no Setor) só aparece se o Setor escolhido
+  // aceita armazenamento (antes aparecia sempre — default true reproduz esse comportamento).
+  if(endrSt.setorAceitaArmazenamento){
+    const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
+    parar.onclick=()=>{ endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm='rua'; endrSt.step='tipo'; renderEstoque(); };
+    card.appendChild(parar);
+  }
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='rua'; renderEstoque(); }; card.appendChild(bk);
 }
 function endrRenderNivel(card){
@@ -3551,9 +3570,13 @@ function endrRenderNivel(card){
       card.appendChild(b);
     });
   }
-  const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
-  parar.onclick=()=>{ endrSt.paradaEm='modulo'; endrSt.step='tipo'; renderEstoque(); };
-  card.appendChild(parar);
+  // 14/07/2026 (Fase 1) — "✓ Cadastrar aqui" (parar na Posição) só aparece se a Posição escolhida
+  // aceita armazenamento (antes aparecia sempre — default true reproduz esse comportamento).
+  if(endrSt.posicaoAceitaArmazenamento){
+    const parar=document.createElement('button'); parar.className='btn btn-neutral'; parar.style.cssText='width:100%;height:44px;margin-top:14px'; parar.textContent='✓ Cadastrar aqui';
+    parar.onclick=()=>{ endrSt.paradaEm='modulo'; endrSt.step='tipo'; renderEstoque(); };
+    card.appendChild(parar);
+  }
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='modulo'; renderEstoque(); }; card.appendChild(bk);
 }
 function endrRenderLista(card){
@@ -3623,7 +3646,7 @@ function endrRenderTipo(card){
   const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar';
   bkb.onclick=()=>{
     if(endrSt.retorno==='recp'){ recpVoltarDoWizard(null); return; } /* cancela o handoff do recp* */
-    if(endrSt.areaRequerRua){
+    if(endrSt.areaId && !endrSt.areaAceitaArmazenamento){
       /* volta pra tela em que ele realmente parou, não pro fim fixo da cadeia — pilha visitada */
       endrSt.step=endrSt.paradaEm==='nivel'?'nivel':endrSt.paradaEm==='modulo'?'modulo':'rua';
     } else if(endrSt.areas.length){
@@ -3882,7 +3905,7 @@ function gestReset(){
   gestSt={
     step:'local', erro:null,
     locais:[], _locaisCarregados:false, localId:null, localNome:'',
-    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaRequerRua:false, areaPrefixo:'',
+    areas:[], _areasCarregadas:false, areaId:null, areaNome:'', areaPrefixo:'',
     setores:[], _setoresCarregadas:false, setorId:null, setorNome:'', setorCodigo:'',
     posicoes:[], _posicoesCarregadas:false, posicaoId:null, posicaoNome:'', posicaoCodigo:'',
     niveis:[], _niveisCarregados:false,
@@ -3978,13 +4001,15 @@ async function gestCarregarAreas(){
   try{ const d=await beGet('/estoque/areas?localId='+encodeURIComponent(gestSt.localId)+'&incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.areas=d.areas||[]; gestSt._areasCarregadas=true; renderEstoque(); }
   catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._areasCarregadas=true; gestSt.erro='Erro ao carregar áreas: '+e.message; renderEstoque(); }
 }
-function gestEscolherArea(a){ gestSt.areaId=a.id; gestSt.areaNome=a.nome; gestSt.areaRequerRua=a.requerRua; gestSt.areaPrefixo=a.prefixo; gestSt.step='setor'; gestSt.erro=null; renderEstoque(); gestCarregarSetores(); }
+function gestEscolherArea(a){ gestSt.areaId=a.id; gestSt.areaNome=a.nome; gestSt.areaPrefixo=a.prefixo; gestSt.step='setor'; gestSt.erro=null; renderEstoque(); gestCarregarSetores(); }
 async function gestToggleAreaAtivo(a){ try{ await bePatch('/estoque/areas/'+a.id,{ativo:!a.ativo}); toast(a.ativo?'Área desativada':'Área ativada'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
-async function gestToggleAreaRequerRua(a){ try{ await bePatch('/estoque/areas/'+a.id,{requerRua:!a.requerRua}); toast(a.requerRua?'Setor deixou de ser obrigatório':'Setor agora é obrigatório'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
-async function gestCriarArea(nome,prefixo,requerRua){
+// 14/07/2026 (Fase 1) — substitui gestToggleAreaRequerRua: RequerRua__c fica no schema sem uso,
+// AceitaArmazenamento__c é a fonte de verdade nova (ver mapArea/estoqueRoutes.js).
+async function gestToggleAreaAceitaArmazenamento(a){ try{ await bePatch('/estoque/areas/'+a.id,{aceitaArmazenamento:!a.aceitaArmazenamento}); toast(a.aceitaArmazenamento?'Cadastro direto desativado — agora exige Setor':'Cadastro direto ativado'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
+async function gestCriarArea(nome,prefixo,aceitaArmazenamento){
   if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
   if(!String(prefixo||'').trim()){ toast('⚠️ Informe o prefixo do código'); return; }
-  try{ await bePost('/estoque/areas',{localId:gestSt.localId, nome:nome.trim(), prefixo:prefixo.trim(), requerRua:!!requerRua}); toast('✅ Área criada'); gestCarregarAreas(); }
+  try{ await bePost('/estoque/areas',{localId:gestSt.localId, nome:nome.trim(), prefixo:prefixo.trim(), aceitaArmazenamento:!!aceitaArmazenamento}); toast('✅ Área criada'); gestCarregarAreas(); }
   catch(e){ toast('⚠️ '+e.message); }
 }
 function gestRenderArea(card){
@@ -3996,20 +4021,20 @@ function gestRenderArea(card){
     gestLinhaItem(card, {id:a.id, nome:a.nome, codigo:a.prefixo, ativo:a.ativo}, {
       onEscolher:()=>gestEscolherArea(a),
       onToggle:()=>gestToggleAreaAtivo(a),
-      extraBotoes:[{label:a.requerRua?'Setor: obrigatório ✓':'Setor: opcional', onClick:()=>gestToggleAreaRequerRua(a)}],
+      extraBotoes:[{label:a.aceitaArmazenamento?'Cadastro direto ✓':'Exige Setor', onClick:()=>gestToggleAreaAceitaArmazenamento(a)}],
     });
   });
   const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
   wrap.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:12.5px">+ Nova Área</div>'
     +'<input id="gestNovoNome" type="text" placeholder="Nome (ex.: Casinha 4)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
     +'<input id="gestNovoCodigo" type="text" placeholder="Prefixo do código (ex.: CAS4)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
-    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4A5560;margin-bottom:10px"><input id="gestNovoRequerRua" type="checkbox"> Exige Setor (Posição/Nível)</label>';
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4A5560;margin-bottom:10px"><input id="gestNovoAceitaArmazenamento" type="checkbox"> Permite cadastrar endereço direto aqui (sem exigir Setor)</label>';
   const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar Área';
   /* Bug #6 (auditoria 14/07): mesma guarda de duplo-toque do form de Setor/Posição/Nível. */
   btn.onclick=()=>{
     if(btn.disabled) return;
     btn.disabled=true; const txtOrig=btn.textContent; btn.textContent='Salvando…';
-    Promise.resolve(gestCriarArea(document.getElementById('gestNovoNome').value, document.getElementById('gestNovoCodigo').value, document.getElementById('gestNovoRequerRua').checked)).finally(()=>{ btn.disabled=false; btn.textContent=txtOrig; });
+    Promise.resolve(gestCriarArea(document.getElementById('gestNovoNome').value, document.getElementById('gestNovoCodigo').value, document.getElementById('gestNovoAceitaArmazenamento').checked)).finally(()=>{ btn.disabled=false; btn.textContent=txtOrig; });
   };
   wrap.appendChild(btn); card.appendChild(wrap);
 }
