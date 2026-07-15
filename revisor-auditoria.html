@@ -98,13 +98,45 @@
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
      altura que o card ocupava no topo da página, mesmo recolhido. */
   .nova-aud-overlay{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:70px 20px;overflow-y:auto}
+  /* 15/07/2026 (pedido do Raphael): quando o modal cresce pra mostrar a prévia do PDF (ver
+     .tem-preview abaixo), o overlay muda de "cai do topo com respiro grande" pra "centralizado com
+     respiro pequeno" — senão o modal alto+largo esbarra no padding de 70px e fica apertado. Classe
+     alternada via JS em naAtualizarPreviewPdf(), mesmo padrão imperativo do resto do arquivo (em vez
+     de :has() em CSS). */
+  .nova-aud-overlay.overlay-grande{align-items:center;padding:24px}
   /* pedido do Raphael (10/07): modal um pouco maior (640→760) + campo de upload passa a ocupar a
      largura toda da linha (antes ficava espremido do lado do botão Analisar, sobrando espaço). */
   .nova-aud-modal{background:var(--card);border-radius:10px;max-width:760px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  /* 15/07/2026 (pedido do Raphael, mockup aprovado em chat antes de codar): com PDF anexado, o modal
+     ganha uma coluna fixa à esquerda com a prévia (capa legível) na altura toda + a coluna de campos
+     à direita também cresce (pedido em 2 rodadas: primeiro só a prévia, depois "aumentar a largura
+     da coluna da direita também") — max-width salta de 760 pra 1180. */
+  .nova-aud-modal.tem-preview{max-width:1180px}
+  .nova-aud-cols{display:flex;min-height:0}
+  .nova-aud-modal.tem-preview .nova-aud-cols{min-height:min(72vh,600px)}
   .nova-aud-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--brand-d)}
   .modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--weak);padding:2px 8px}
   .modal-close:hover{color:var(--txt)}
-  #novaAudBody{padding:16px 18px}
+  /* coluna de prévia: largura fixa, 2 estados mutuamente exclusivos (vazio = clique pra anexar,
+     preenchido = iframe nativo do navegador apontado pro arquivo local via blob URL — mesma técnica
+     já usada no visualizador de PDF da revisão, .pdf-viewer, só que num objeto local em vez de uma
+     URL do Drive). */
+  .na-preview-col{flex:0 0 330px;border-right:1px solid var(--border);background:var(--bg);box-sizing:border-box;display:flex;min-width:0}
+  .na-preview-vazio{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:24px;text-align:center;cursor:pointer;box-sizing:border-box}
+  .na-preview-vazio:hover{background:var(--brand-l)}
+  .na-preview-vazio input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .na-preview-capa{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px;gap:6px;min-width:0;min-height:0;box-sizing:border-box}
+  .na-preview-capa iframe{width:100%;flex:1 1 auto;border:1px solid var(--border2);border-radius:4px;background:#fff;min-height:0}
+  .na-preview-nome{font-size:12px;font-weight:500;color:var(--txt);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:4px 0 0}
+  .na-preview-trocar{font-size:11.5px;color:var(--brand);font-weight:600;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline;font-family:inherit}
+  #novaAudBody{flex:1 1 auto;min-width:0;padding:16px 18px;overflow-y:auto}
+  /* telas estreitas (a área de trabalho hoje é desktop-only, mas isso evita quebrar de vez se
+     alguém abrir numa janela pequena): empilha em vez de colunas lado a lado. */
+  @media (max-width:900px){
+    .nova-aud-cols{flex-direction:column}
+    .na-preview-col{flex:0 0 auto;border-right:none;border-bottom:1px solid var(--border);max-height:280px}
+    .nova-aud-modal.tem-preview .nova-aud-cols{min-height:0}
+  }
   /* rodada 13 (10/07) — pedido do Raphael "os textos superiores estão adensados... arejar", 2
      propostas do Fable (Salesforce vs Apple), Raphael escolheu a A (Salesforce Lightning): a etapa
      de upload/análise vira um card próprio rotulado "Etapa 1", com a mensagem de status em formato
@@ -113,9 +145,8 @@
   .etapa-card{border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:14px}
   .etapa-label{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase;margin:0 0 12px}
   .etapa-divider{border-top:1px solid var(--border);margin:0 0 12px;padding-top:14px}
-  .na-upload-row{display:flex;gap:10px;align-items:flex-end;width:100%}
-  .na-upload-row>div:first-child{flex:1 1 auto;min-width:0}
-  .na-upload-row input[type="file"]{width:100%;box-sizing:border-box}
+  /* .na-upload-row removida (15/07/2026) — o input de arquivo saiu da Etapa 1 e virou a coluna de
+     prévia (.na-preview-col); a Etapa 1 hoje só tem o botão "Pré-preencher com IA" sozinho. */
   /* pedido do Raphael (11/07): Etapa 1 ganha identidade de "assistente de IA" — tinta azul que
      esvai pro branco + sparkle Einstein no rótulo e no botão. O contraste com a Etapa 2 (neutra)
      é o que comunica os DOIS modos de entrada: o card tintado é o acelerador opcional, o
@@ -662,66 +693,79 @@
      um modal disparado pelo botão "+ Nova auditoria" do header, com position:fixed (não conta pra
      altura de nada) por cima do resto da tela. Mesmos ids internos, só a moldura mudou. -->
 <div class="nova-aud-overlay" id="novaAudOverlay" onclick="if(event.target===this) toggleNovaAuditoria()">
-  <div class="nova-aud-modal">
+  <div class="nova-aud-modal" id="novaAudModal">
     <div class="nova-aud-modal-head">
       <span>Nova auditoria (cadastrar e importar PDF)</span>
       <button class="modal-close" onclick="toggleNovaAuditoria()">×</button>
     </div>
-    <div id="novaAudBody">
-      <div class="etapa-card etapa-card-ia">
-        <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · PDF do laudo + pré-preenchimento com IA (opcional)</p>
-        <div class="na-upload-row" style="margin-bottom:36px">
-          <div>
-            <label>PDF do relatório</label>
-            <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
+    <div class="nova-aud-cols">
+      <!-- 15/07/2026 (pedido do Raphael, mockup aprovado em chat): coluna de prévia do PDF, altura
+           igual à do modal — 2 estados mutuamente exclusivos (ver naAtualizarPreviewPdf()).
+           #naPreviewVazio é um <label for="naArquivo"> (clique em qualquer parte abre o seletor de
+           arquivo nativo, sem precisar de handler de clique separado); o <input> mora escondido
+           dentro dele. -->
+      <div class="na-preview-col">
+        <label class="na-preview-vazio" id="naPreviewVazio" for="naArquivo">
+          <input id="naArquivo" type="file" accept="application/pdf" onchange="naArquivoSelecionado(this)">
+          <span style="font-size:13px;font-weight:600;color:var(--brand)">+ Anexar PDF do relatório</span>
+          <span style="font-size:11.5px;color:var(--weaker)">A capa aparece aqui pra conferir antes de importar</span>
+        </label>
+        <div class="na-preview-capa" id="naPreviewCapa" style="display:none">
+          <iframe id="naCapaFrame" title="Prévia do PDF anexado"></iframe>
+          <p class="na-preview-nome" id="naPreviewNome"></p>
+          <button type="button" class="na-preview-trocar" onclick="naTrocarArquivo()">Trocar arquivo</button>
+        </div>
+      </div>
+      <div id="novaAudBody">
+        <div class="etapa-card etapa-card-ia">
+          <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · Pré-preenchimento com IA (opcional)</p>
+          <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled style="margin-bottom:14px"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
+          <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF à esquerda e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.</div>
+          <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
+            <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
+            <div class="na-progress-pct" id="naProgressPct">0%</div>
           </div>
-          <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
         </div>
-        <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.</div>
-        <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
-          <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
-          <div class="na-progress-pct" id="naProgressPct">0%</div>
-        </div>
-      </div>
 
-      <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria <span class="etapa-hint">— preencha na mão ou revise o que a IA sugeriu</span></p>
-      <div class="loadbar" style="margin-bottom:10px">
-        <div style="position:relative">
-          <label>Conta (shopping/cliente)</label>
-          <input id="naConta" placeholder="Digite pra buscar…" autocomplete="off" oninput="naBuscarConta(this.value)">
-          <div id="naContaLista" class="na-conta-lista" style="display:none"></div>
+        <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria <span class="etapa-hint">— preencha na mão ou revise o que a IA sugeriu</span></p>
+        <div class="loadbar" style="margin-bottom:10px">
+          <div style="position:relative">
+            <label>Conta (shopping/cliente)</label>
+            <input id="naConta" placeholder="Digite pra buscar…" autocomplete="off" oninput="naBuscarConta(this.value)">
+            <div id="naContaLista" class="na-conta-lista" style="display:none"></div>
+          </div>
+          <div>
+            <label>Tipo</label>
+            <select id="naTipo" onchange="naAtualizarOpcoesRisco()"><option value="FTR">FTR</option><option value="ARPLAC">ARPLAC</option></select>
+          </div>
+          <div>
+            <label>Data da vistoria</label>
+            <input id="naData" type="date" oninput="naAtualizarBotaoCriar()">
+          </div>
+          <div>
+            <label>Classificação da cocção <span id="naCocaoTag"></span></label>
+            <select id="naCocao">
+              <option value="Leve">Leve</option>
+              <option value="Moderado / Severo">Moderado / Severo</option>
+              <option value="Combustível sólido">Combustível sólido</option>
+            </select>
+          </div>
+          <div>
+            <label>Classificação de risco <span id="naRiscoTag"></span></label>
+            <select id="naRisco">
+              <option value="Risco 0">Risco 0</option><option value="Risco 1">Risco 1</option>
+              <option value="Risco 2">Risco 2</option><option value="Risco 3">Risco 3</option>
+              <option value="Risco 4">Risco 4</option><option value="Risco 5">Risco 5</option>
+            </select>
+          </div>
+          <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, data da vistoria e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
         </div>
-        <div>
-          <label>Tipo</label>
-          <select id="naTipo" onchange="naAtualizarOpcoesRisco()"><option value="FTR">FTR</option><option value="ARPLAC">ARPLAC</option></select>
-        </div>
-        <div>
-          <label>Data da vistoria</label>
-          <input id="naData" type="date" oninput="naAtualizarBotaoCriar()">
-        </div>
-        <div>
-          <label>Classificação da cocção <span id="naCocaoTag"></span></label>
-          <select id="naCocao">
-            <option value="Leve">Leve</option>
-            <option value="Moderado / Severo">Moderado / Severo</option>
-            <option value="Combustível sólido">Combustível sólido</option>
-          </select>
-        </div>
-        <div>
-          <label>Classificação de risco <span id="naRiscoTag"></span></label>
-          <select id="naRisco">
-            <option value="Risco 0">Risco 0</option><option value="Risco 1">Risco 1</option>
-            <option value="Risco 2">Risco 2</option><option value="Risco 3">Risco 3</option>
-            <option value="Risco 4">Risco 4</option><option value="Risco 5">Risco 5</option>
-          </select>
-        </div>
-        <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, data da vistoria e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
+        <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
+             em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
+             usuário clicava "Criar auditoria" com campo faltando e a mensagem de erro ficava
+             invisível atrás do próprio modal. #naMsg vive DENTRO do modal pra esse fluxo específico. -->
+        <div id="naMsg"></div>
       </div>
-      <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
-           em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
-           usuário clicava "Criar auditoria" com campo faltando e a mensagem de erro ficava
-           invisível atrás do próprio modal. #naMsg vive DENTRO do modal pra esse fluxo específico. -->
-      <div id="naMsg"></div>
     </div>
   </div>
 </div>
@@ -973,7 +1017,7 @@ function toggleIdsManual(){
 
 // ---- cadastro de nova auditoria + import de PDF (usa endpoints que já existiam no backend,
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
-let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null };
+let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null };
 
 function toggleNovaAuditoria(){
   const overlay = document.getElementById('novaAudOverlay');
@@ -981,14 +1025,21 @@ function toggleNovaAuditoria(){
   overlay.style.display = abrindo ? 'flex' : 'none';
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
-    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null };
+    if (NA.previewUrl) URL.revokeObjectURL(NA.previewUrl); // 15/07/2026: libera a memória do blob local da prévia
+    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null };
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
     document.getElementById('naCocaoTag').innerHTML = '';
     document.getElementById('naRiscoTag').innerHTML = '';
-    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.';
+    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF à esquerda e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.';
     document.getElementById('btnAnalisarPdf').disabled = true;
+    // 15/07/2026: volta a coluna de prévia pro estado vazio e o modal pro tamanho compacto
+    document.getElementById('naPreviewVazio').style.display = 'flex';
+    document.getElementById('naPreviewCapa').style.display = 'none';
+    document.getElementById('naCapaFrame').src = '';
+    document.getElementById('novaAudModal').classList.remove('tem-preview');
+    overlay.classList.remove('overlay-grande');
     naAtualizarOpcoesRisco();
     naProgressoParar(); // fecha/reabre não pode deixar barra de progresso travada de uma tentativa anterior
     naMsg(''); // idem pra mensagem de erro (achado #4) — não pode sobrar de uma tentativa anterior
@@ -1011,6 +1062,43 @@ function naArquivoSelecionado(input){
   naMsg('');
   document.getElementById('btnAnalisarPdf').disabled = !NA.arquivo;
   naAtualizarBotaoCriar();
+  naAtualizarPreviewPdf();
+}
+
+// 15/07/2026 (pedido do Raphael, mockup aprovado em chat antes de codar): mostra a capa do PDF
+// anexado na coluna fixa à esquerda do modal, em altura legível — em vez de renderizar a página 1
+// numa lib de PDF (pdf.js, custo/risco maior), reaproveita a MESMA técnica já usada no visualizador
+// de PDF da tela de revisão (ver renderDetalhe, iframe.pdf-viewer): um <iframe> apontado pro próprio
+// arquivo local via URL.createObjectURL(), com #page=1&navpanes=0&toolbar=0 pra abrir direto na
+// capa sem o chrome do plugin nativo do navegador. Isso também deixa o PDF navegável de verdade
+// (não é só uma imagem estática), o que ajuda ainda mais a "dar leitura dos dados da capa".
+function naAtualizarPreviewPdf(){
+  const vazio = document.getElementById('naPreviewVazio');
+  const capa = document.getElementById('naPreviewCapa');
+  const modal = document.getElementById('novaAudModal');
+  const overlay = document.getElementById('novaAudOverlay');
+  if (NA.previewUrl) { URL.revokeObjectURL(NA.previewUrl); NA.previewUrl = null; } // sempre libera a URL anterior antes de trocar/limpar
+  if (!NA.arquivo) {
+    vazio.style.display = 'flex';
+    capa.style.display = 'none';
+    document.getElementById('naCapaFrame').src = '';
+    modal.classList.remove('tem-preview');
+    overlay.classList.remove('overlay-grande');
+    return;
+  }
+  NA.previewUrl = URL.createObjectURL(NA.arquivo);
+  document.getElementById('naCapaFrame').src = NA.previewUrl + '#page=1&navpanes=0&toolbar=0';
+  document.getElementById('naPreviewNome').textContent = NA.arquivo.name;
+  vazio.style.display = 'none';
+  capa.style.display = 'flex';
+  modal.classList.add('tem-preview');
+  overlay.classList.add('overlay-grande');
+}
+
+// "Trocar arquivo" (link dentro da prévia) — reabre o seletor de arquivo nativo sem precisar voltar
+// pro estado vazio primeiro; o onchange de #naArquivo (naArquivoSelecionado) cuida do resto.
+function naTrocarArquivo(){
+  document.getElementById('naArquivo').click();
 }
 
 // pedido do Raphael (11/07): o botão "Criar auditoria e importar PDF" ficava sempre clicável e só
