@@ -3325,11 +3325,18 @@ async function endrCarregarLocais(){
    "Ver lista do local" no Detalhe (pós-criação) também a usa quando já há pelo menos 1 endereço
    criado, onde ela deixa de ser um estado vazio e passa a ter conteúdo real. */
 function endrEscolherLocal(l){
+  /* Fase 2 (revisão pós-v115): no cadastro, trocar de Local pela linha do hub mantinha
+     enderecosDoLocal/_listaCarregada do local ANTERIOR (só o modo consulta resetava) — os
+     contadores "N endereços" das gavetas e o "herdar do último irmão" liam dados do local errado.
+     Reset condicionado à troca real, pra não jogar fora o push do endrCriar quando o usuário
+     re-escolhe o mesmo local. */
+  const trocouLocal=endrSt.localId!==null && endrSt.localId!==l.id;
   endrSt.localId=l.id; endrSt.localNome=l.nome; endrSt.erro=null;
   if(endrSt.consulta){
     endrSt.step='lista'; endrSt.enderecosDoLocal=[]; endrSt._listaCarregada=false;
     renderEstoque(); endrCarregarLista();
   } else {
+    if(trocouLocal){ endrSt.enderecosDoLocal=[]; endrSt._listaCarregada=false; }
     endrNovoEndereco();
   }
 }
@@ -3552,6 +3559,11 @@ function endrHubAposEscolher(nivelKey, proximaGaveta){
   endrSt.step='hub';
   endrSt.hub.filtro=''; endrSt.hub.gavetaAnimada=false;
   endrSt.hub.defaultsAplicados=false; endrSt.hub.defaultsHerdados=false; // cadeia mudou, recalcula herdados
+  /* revisão pós-v115: código SUGERIDO pertence à cadeia que o gerou — mudou a cadeia (trocar Área/
+     Setor/Posição/Nível já escolhido), a sugestão velha morre, senão o guard !endrSt.codigo do
+     endrSugerirCodigo impedia re-sugerir e o endereço saía com o prefixo da cadeia ANTERIOR.
+     Código digitado à mão (codigoSugerido=false) nunca é tocado. */
+  if(endrSt.codigoSugerido){ endrSt.codigo=''; endrSt.codigoSugerido=false; }
   if(proximaGaveta){
     endrSt.hub.gaveta=proximaGaveta;
     renderEstoque();
@@ -3559,7 +3571,11 @@ function endrHubAposEscolher(nivelKey, proximaGaveta){
     if(cfg && !cfg.carregada()) cfg.carregar();
   } else {
     endrSt.hub.gaveta=null;
-    if(endrHubCadeiaResolvida()) endrHubAplicarDefaults();
+    if(endrHubCadeiaResolvida()){
+      const tinhaTipo=!!endrSt.tipo;
+      endrHubAplicarDefaults(); // se herdar tipo agora, ele mesmo dispara endrSugerirCodigo
+      if(tinhaTipo && !endrSt.codigo) endrSugerirCodigo(); // tipo já escolhido antes: re-sugere pra cadeia nova
+    }
     renderEstoque();
   }
 }
@@ -3614,7 +3630,16 @@ function endrRenderHub(card){
 }
 
 // ---- seção Endereço inline (funde tipo+nome+código+capacidade+criar, sem virar mais uma gaveta) ----
-function endrEscolherTipoHub(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; renderEstoque(); endrSugerirCodigo(); }
+function endrEscolherTipoHub(v){
+  /* revisão pós-v115: no hub os chips de tipo e os inputs coexistem na MESMA tela (no fluxo antigo
+     eram telas separadas, commit no "Continuar") — sem commitar aqui, trocar o tipo re-renderizava
+     e apagava o Nome/Capacidade que o usuário já tinha digitado. Código é resetado de propósito
+     (a sugestão depende do tipo). */
+  const n=document.getElementById('endrHubNome'), c=document.getElementById('endrHubCap');
+  if(n) endrSt.nome=(n.value||'').trim();
+  if(c) endrSt.capacidade=(c.value||'').trim();
+  endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; renderEstoque(); endrSugerirCodigo();
+}
 function endrHubRenderSecaoEndereco(card){
   const sec=document.createElement('div');
   sec.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F3';
@@ -3644,10 +3669,17 @@ function endrHubRenderSecaoEndereco(card){
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional)</label>'
     +'<input id="endrHubCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
   sec.appendChild(form);
-  if(endrSt.hub.defaultsHerdados) sec.innerHTML+='<div class="subnote" style="padding:0 0 8px;color:var(--brand)">Tipo/capacidade herdados do último endereço criado aqui — pode trocar.</div>';
-  if(endrSt.paradaEm==='rua') sec.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Setor (sem posição/nível).</div>';
-  else if(endrSt.paradaEm==='modulo') sec.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Posição (sem nível).</div>';
-  if(endrSt.erro) sec.innerHTML+='<div class="subnote" style="color:#C4451B;padding:0 0 8px">'+_esc(endrSt.erro)+'</div>';
+  /* Bug (revisão pós-v115): estas notas entravam por sec.innerHTML+= — que serializa e reparseia a
+     seção inteira, destruindo o onclick dos chips de tipo já anexados acima (mesma classe do bug
+     do corpo da gaveta, ver comentário em endrRenderGaveta). Sempre que alguma nota aparecia
+     (paradaEm rua/modulo, herança aplicada ou erro), trocar o Tipo parava de responder. Agora as
+     notas entram num nó próprio via appendChild — nunca innerHTML+= em container com handlers. */
+  let notasHTML='';
+  if(endrSt.hub.defaultsHerdados) notasHTML+='<div class="subnote" style="padding:0 0 8px;color:var(--brand)">Tipo/capacidade herdados do último endereço criado aqui — pode trocar.</div>';
+  if(endrSt.paradaEm==='rua') notasHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Setor (sem posição/nível).</div>';
+  else if(endrSt.paradaEm==='modulo') notasHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Posição (sem nível).</div>';
+  if(endrSt.erro) notasHTML+='<div class="subnote" style="color:#C4451B;padding:0 0 8px">'+_esc(endrSt.erro)+'</div>';
+  if(notasHTML){ const notas=document.createElement('div'); notas.innerHTML=notasHTML; sec.appendChild(notas); }
   const criar=document.createElement('button'); criar.className='btn btn-brand'; criar.style.cssText='width:100%;height:48px;margin-top:6px';
   criar.textContent=endrSt.criando?'Criando…':'✅ Criar endereço'; criar.disabled=!!endrSt.criando;
   criar.onclick=()=>{
@@ -4385,6 +4417,15 @@ async function gestCarregarAreas(){
 }
 function gestEscolherArea(a){ gestSt.areaId=a.id; gestSt.areaNome=a.nome; gestSt.areaPrefixo=a.prefixo; gestSt.step='setor'; gestSt.erro=null; renderEstoque(); gestCarregarSetores(); }
 async function gestToggleAreaAtivo(a){ try{ await bePatch('/estoque/areas/'+a.id,{ativo:!a.ativo}); toast(a.ativo?'Área desativada':'Área ativada'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
+/* 15/07/2026 — corrige grafia sem precisar desativar+recriar. Só muda o registro em si (Name);
+   endereços já criados sob essa área ficam com o texto congelado de sempre, nada muda neles nem
+   em etiqueta/NFC já emitida — ver PATCH /estoque/areas/:id, que só recalcula ChaveUnica__c. */
+async function gestRenomearArea(a){
+  const novo=window.prompt('Novo nome da Área:', a.nome); if(novo===null) return;
+  const nome=String(novo).trim(); if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  if(nome===a.nome) return;
+  try{ await bePatch('/estoque/areas/'+a.id,{nome}); toast('✅ Área renomeada'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); }
+}
 // 14/07/2026 (Fase 1) — substitui gestToggleAreaRequerRua: RequerRua__c fica no schema sem uso,
 // AceitaArmazenamento__c é a fonte de verdade nova (ver mapArea/estoqueRoutes.js).
 async function gestToggleAreaAceitaArmazenamento(a){ try{ await bePatch('/estoque/areas/'+a.id,{aceitaArmazenamento:!a.aceitaArmazenamento}); toast(a.aceitaArmazenamento?'Cadastro direto desativado — agora exige Setor':'Cadastro direto ativado'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
@@ -4403,7 +4444,7 @@ function gestRenderArea(card){
     gestLinhaItem(card, {id:a.id, nome:a.nome, codigo:a.prefixo, ativo:a.ativo}, {
       onEscolher:()=>gestEscolherArea(a),
       onToggle:()=>gestToggleAreaAtivo(a),
-      extraBotoes:[{label:a.aceitaArmazenamento?'Cadastro direto ✓':'Exige Setor', onClick:()=>gestToggleAreaAceitaArmazenamento(a)}],
+      extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearArea(a)}, {label:a.aceitaArmazenamento?'Cadastro direto ✓':'Exige Setor', onClick:()=>gestToggleAreaAceitaArmazenamento(a)}],
     });
   });
   const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
@@ -4430,6 +4471,14 @@ async function gestCarregarSetores(){
 }
 function gestEscolherSetor(s){ gestSt.setorId=s.id; gestSt.setorNome=s.nome; gestSt.setorCodigo=s.codigo; gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); gestCarregarPosicoes(); }
 async function gestToggleSetorAtivo(s){ try{ await bePatch('/estoque/setores/'+s.id,{ativo:!s.ativo}); toast(s.ativo?'Setor desativado':'Setor ativado'); gestCarregarSetores(); }catch(e){ toast('⚠️ '+e.message); } }
+// 15/07/2026 — mesmo racional de gestRenomearArea: PATCH /estoque/setores/:id só recalcula
+// ChaveUnica__c; endereços/etiquetas já criados sob este setor não são tocados.
+async function gestRenomearSetor(s){
+  const novo=window.prompt('Novo nome do Setor:', s.nome); if(novo===null) return;
+  const nome=String(novo).trim(); if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  if(nome===s.nome) return;
+  try{ await bePatch('/estoque/setores/'+s.id,{nome}); toast('✅ Setor renomeado'); gestCarregarSetores(); }catch(e){ toast('⚠️ '+e.message); }
+}
 async function gestCriarSetor(nome,codigo){
   if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
   try{ await bePost('/estoque/setores',{areaId:gestSt.areaId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Setor criado'); gestCarregarSetores(); }
@@ -4440,7 +4489,7 @@ function gestRenderSetor(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Área'; bk.onclick=()=>{ gestSt.step='area'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
   if(!gestSt._setoresCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!gestSt.setores.length) card.innerHTML+='<div class="subnote">Nenhum setor cadastrado ainda nesta área.</div>';
-  gestSt.setores.forEach(s=>gestLinhaItem(card, s, { onEscolher:()=>gestEscolherSetor(s), onToggle:()=>gestToggleSetorAtivo(s) }));
+  gestSt.setores.forEach(s=>gestLinhaItem(card, s, { onEscolher:()=>gestEscolherSetor(s), onToggle:()=>gestToggleSetorAtivo(s), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearSetor(s)}] }));
   gestFormNovoSimples(card, {label:'Setor', onSalvar:gestCriarSetor});
 }
 
@@ -4453,6 +4502,15 @@ async function gestCarregarPosicoes(){
 }
 function gestEscolherPosicao(p){ gestSt.posicaoId=p.id; gestSt.posicaoNome=p.nome; gestSt.posicaoCodigo=p.codigo; gestSt.step='nivel'; gestSt.erro=null; renderEstoque(); gestCarregarNiveis(); }
 async function gestTogglePosicaoAtivo(p){ try{ await bePatch('/estoque/posicoes/'+p.id,{ativo:!p.ativo}); toast(p.ativo?'Posição desativada':'Posição ativada'); gestCarregarPosicoes(); }catch(e){ toast('⚠️ '+e.message); } }
+// 15/07/2026 — mesmo racional de gestRenomearArea: PATCH /estoque/posicoes/:id só recalcula
+// ChaveUnica__c; endereços/etiquetas NFC já criados sob esta posição não são tocados (Rua__c/
+// Codigo__c gravados no próprio EnderecoEstoque__c na criação, texto congelado).
+async function gestRenomearPosicao(p){
+  const novo=window.prompt('Novo nome da Posição:', p.nome); if(novo===null) return;
+  const nome=String(novo).trim(); if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  if(nome===p.nome) return;
+  try{ await bePatch('/estoque/posicoes/'+p.id,{nome}); toast('✅ Posição renomeada'); gestCarregarPosicoes(); }catch(e){ toast('⚠️ '+e.message); }
+}
 async function gestCriarPosicao(nome,codigo){
   if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
   try{ await bePost('/estoque/posicoes',{setorId:gestSt.setorId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Posição criada'); gestCarregarPosicoes(); }
@@ -4463,7 +4521,7 @@ function gestRenderPosicao(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar ao Setor'; bk.onclick=()=>{ gestSt.step='setor'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
   if(!gestSt._posicoesCarregadas){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!gestSt.posicoes.length) card.innerHTML+='<div class="subnote">Nenhuma posição cadastrada ainda neste setor.</div>';
-  gestSt.posicoes.forEach(p=>gestLinhaItem(card, p, { onEscolher:()=>gestEscolherPosicao(p), onToggle:()=>gestTogglePosicaoAtivo(p) }));
+  gestSt.posicoes.forEach(p=>gestLinhaItem(card, p, { onEscolher:()=>gestEscolherPosicao(p), onToggle:()=>gestTogglePosicaoAtivo(p), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearPosicao(p)}] }));
   gestFormNovoSimples(card, {label:'Posição', onSalvar:gestCriarPosicao});
 }
 
@@ -4475,6 +4533,13 @@ async function gestCarregarNiveis(){
   catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._niveisCarregados=true; gestSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
 }
 async function gestToggleNivelAtivo(n){ try{ await bePatch('/estoque/niveis/'+n.id,{ativo:!n.ativo}); toast(n.ativo?'Nível desativado':'Nível ativado'); gestCarregarNiveis(); }catch(e){ toast('⚠️ '+e.message); } }
+// 15/07/2026 — mesmo racional de gestRenomearArea.
+async function gestRenomearNivel(n){
+  const novo=window.prompt('Novo nome do Nível:', n.nome); if(novo===null) return;
+  const nome=String(novo).trim(); if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  if(nome===n.nome) return;
+  try{ await bePatch('/estoque/niveis/'+n.id,{nome}); toast('✅ Nível renomeado'); gestCarregarNiveis(); }catch(e){ toast('⚠️ '+e.message); }
+}
 async function gestCriarNivel(nome,codigo){
   if(!String(nome||'').trim()){ toast('⚠️ Informe o nome'); return; }
   try{ await bePost('/estoque/niveis',{posicaoId:gestSt.posicaoId, nome:nome.trim(), codigo:(codigo||'').trim()}); toast('✅ Nível criado'); gestCarregarNiveis(); }
@@ -4485,7 +4550,7 @@ function gestRenderNivel(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar à Posição'; bk.onclick=()=>{ gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
   if(!gestSt._niveisCarregados){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
   if(!gestSt.niveis.length) card.innerHTML+='<div class="subnote">Nenhum nível cadastrado ainda nesta posição.</div>';
-  gestSt.niveis.forEach(n=>gestLinhaItem(card, n, { onEscolher:null, onToggle:()=>gestToggleNivelAtivo(n) }));
+  gestSt.niveis.forEach(n=>gestLinhaItem(card, n, { onEscolher:null, onToggle:()=>gestToggleNivelAtivo(n), extraBotoes:[{label:'Renomear', onClick:()=>gestRenomearNivel(n)}] }));
   gestFormNovoSimples(card, {label:'Nível', onSalvar:gestCriarNivel});
 }
 
