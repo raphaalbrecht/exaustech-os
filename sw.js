@@ -113,13 +113,19 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v113'; // v113 15/07: Fase 1 do plano de correções — mecanismo AceitaArmazenamento
-// (AreaEstoque__c/LocalEstoque__c/SetorEstoque__c/PosicaoEstoque__c): toda Área ativa fica clicável no
-// wizard endr* (corrige bug #8/#4 do audit); "✓ Cadastrar aqui" em Posição/Nível passa a ser controlado
-// pelo flag do Setor/Posição escolhido; tela gest* troca o toggle "Setor: obrigatório" por "Cadastro
-// direto"/"Exige Setor". Precisa do schema novo (SFDX) + backend (estoqueRoutes.js) deployados ANTES,
-// e do backfill_aceita_armazenamento.js rodado (Setor/Posição existentes -> true; ChaveUnica__c em
-// Área existentes).
+const CACHE = 'exaustech-os-v114'; // v114 15/07: Fase 2 do plano de correções — hub "Novo endereço" + gaveta
+// (bottom-sheet) substitui as 8 telas cheias do fluxo de criação (área→rua→modulo→nivel→tipo→nome→
+// capacidade→revisao) por 1 tela única + gaveta por nível. Toda área/setor/posição preenchida vira
+// linha tocável pra trocar; opcional (Posição/Nível quando o pai aceita armazenamento) ganha atalho
+// de pular explicado ("Não preciso de X — criar direto em..."); contador de filhos nos cards
+// (backend ?comContagem=1) e defaults herdados do último irmão (tipo/capacidade). Ver
+// DECISAO_fase2_hub_gaveta.md. As telas antigas endrRenderArea/Rua/Modulo/Nivel ficam no código,
+// mortas — só o handoff do recp* (Entradas Pendentes) ainda usa nome/capacidade/revisao/tipo.
+// (v113 15/07 — Fase 1: mecanismo AceitaArmazenamento em AreaEstoque__c/LocalEstoque__c/
+// SetorEstoque__c/PosicaoEstoque__c: toda Área ativa fica clicável no wizard endr* — corrige bug
+// #8/#4 do audit; "✓ Cadastrar aqui" em Posição/Nível passa a ser controlado pelo flag do Setor/
+// Posição escolhido; tela gest* troca o toggle "Setor: obrigatório" por "Cadastro direto"/"Exige
+// Setor".)
 // (análise Fable, pedido do Raphael — proposta-wizard-estoque §16). Setor e Módulo ganham 2
 // botões ("Adicionar <próximo> ›" / "✓ Cadastrar aqui") em vez de só "Continuar" — dá pra parar
 // em qualquer nível, não só ir até o fim. Nível continua de passo único (é o degrau mais fundo).

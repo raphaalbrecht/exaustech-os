@@ -185,6 +185,17 @@
   .apt-reg{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#eef7ef;border:1px solid #bfe3c4;border-radius:7px;padding:9px 10px;margin-top:8px;font-size:12.5px;font-weight:600;color:var(--succ)}
   .eq-apts{font-size:12px;color:var(--brand-d);background:var(--brand-l);border:1px solid #cfe2f7;border-radius:7px;padding:8px 11px;margin:10px 14px 4px}
   .sec-title2{font-weight:700;font-size:13px;margin-bottom:8px}
+  /* 15/07/2026 (Fase 2 — hub "Novo endereço" + gaveta, ver DECISAO_fase2_hub_gaveta.md) */
+  .endr-bd{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:80}
+  .endr-gaveta{position:fixed;left:0;right:0;bottom:0;z-index:81;background:#fff;border-radius:16px 16px 0 0;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(11,34,57,.18);transform:translateY(100%);transition:transform .18s ease-out;padding-bottom:env(safe-area-inset-bottom)}
+  .endr-gaveta.aberta{transform:translateY(0)}
+  .endr-gv-grab{width:36px;height:4px;border-radius:2px;background:#D7DEE6;margin:8px auto 2px;flex-shrink:0}
+  .endr-gv-hd{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 8px;flex-shrink:0}
+  .endr-gv-corpo{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 12px 16px}
+  .endr-gv-card{min-height:56px;display:flex;flex-direction:column;justify-content:center;padding:10px 14px;border:1.5px solid #E2E5E9;border-radius:12px;margin-top:8px;cursor:pointer;font-weight:600;color:#0B2239;font-size:15px}
+  .endr-gv-card.destaque{border-color:var(--brand);background:rgba(62,126,176,.08);color:var(--brand);font-weight:700}
+  .endr-gv-sub{font-size:12px;font-weight:400;color:var(--weak);margin-top:2px}
+  .endr-gv-filtro{width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 4px;box-sizing:border-box;font-size:15px}
   .hist-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
   .hist-row:last-child{border-bottom:none}
   .hist-t{font-weight:700;font-size:13px}
@@ -3211,6 +3222,13 @@ function endrReset(consulta){
        galpão instável, escolher Setor A e depois rápido Setor B podia deixar a resposta mais lenta
        de A chegar DEPOIS da de B e sobrescrever a tela com os filhos errados sob a migalha errada. */
     _loadSeq:0,
+    /* 15/07/2026 (Fase 2 — hub "Novo endereço" + gaveta, ver DECISAO_fase2_hub_gaveta.md): estado
+       aditivo, não substitui nada acima. gaveta = nível cuja gaveta está aberta (null = fechada);
+       filtro = texto digitado na busca da gaveta aberta (nunca dispara renderEstoque, senão perde
+       foco a cada tecla — repinta só a lista); gavetaAnimada evita a transição CSS repetir em
+       re-renders com a gaveta já aberta; defaultsAplicados garante que o "herdar tipo/capacidade do
+       último irmão" (item 12) rode só 1x por cadeia escolhida. */
+    hub:{ gaveta:null, filtro:'', gavetaAnimada:false, defaultsAplicados:false },
   };
 }
 /* ---- modo complementar (chamado pelo recp*, Fase 4): entra direto no passo 'nome', com
@@ -3237,10 +3255,15 @@ function renderEndrWizard(wrap){
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
   if(endrSt.step==='local') endrRenderLocal(card);
   else if(endrSt.step==='lista') endrRenderLista(card);
+  // 15/07/2026 (Fase 2 — hub "Novo endereço" + gaveta): area/rua/modulo/nivel deixam de ser
+  // alcançáveis pelo fluxo normal de criação (viram tela única + gaveta abaixo), mas os dispatches
+  // continuam registrados de propósito — ver DECISAO_fase2_hub_gaveta.md §0 (não deletar código
+  // ainda vivo em outro caminho é a regra da casa; aqui elas só ficam mortas-mas-presentes).
   else if(endrSt.step==='area') endrRenderArea(card);
   else if(endrSt.step==='rua') endrRenderRua(card);
   else if(endrSt.step==='modulo') endrRenderModulo(card);
   else if(endrSt.step==='nivel') endrRenderNivel(card);
+  else if(endrSt.step==='hub'){ endrRenderHub(card); if(endrSt.hub.gaveta) endrRenderGaveta(wrap); }
   else if(endrSt.step==='tipo') endrRenderTipo(card);
   else if(endrSt.step==='nome') endrRenderNome(card);
   else if(endrSt.step==='capacidade') endrRenderCapacidade(card);
@@ -3335,7 +3358,13 @@ function endrNovoEndereco(){
   endrSt.setorAceitaArmazenamento=true; endrSt.posicaoAceitaArmazenamento=true;
   endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false;
   endrSt.niveis=[]; endrSt._niveisCarregados=false;
-  endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
+  // 15/07/2026 (Fase 2) — entrada agora é o hub, não mais a tela cheia 'area'. Gaveta começa
+  // FECHADA (o usuário vê o mapa primeiro, toca "Área: Escolher…" quando quiser) — ver mockup em
+  // DECISAO_fase2_hub_gaveta.md. endrHubCarregarEnderecosDoLocal alimenta o "herdar do último
+  // irmão" (item 12) sem travar a entrada (fire-and-forget).
+  endrSt.erro=null; endrSt.step='hub';
+  endrSt.hub={gaveta:null, filtro:'', gavetaAnimada:false, defaultsAplicados:false};
+  renderEstoque(); endrCarregarAreas(); endrHubCarregarEnderecosDoLocal();
 }
 /* ---- "criar outro aqui": herda área/rua/tipo do endereço recém-criado, pula direto pro passo
    'nome' — poupa 2-3 toques repetidos no mapeamento de um local inteiro (ex. "Rua 1" com 20 bins
@@ -3349,22 +3378,29 @@ function endrNovoEnderecoAqui(d){
   /* 14/07/2026 — segmentos curtos do pré-cadastro herdam junto (senão o código sairia sem eles) */
   endrSt.ruaCod=d.ruaCod||''; endrSt.moduloCod=d.moduloCod||''; endrSt.nivelCod=d.nivelCod||'';
   endrSt.areaPrefixo=d.areaPrefixo||endrSt.areaPrefixo||''; endrSt.paradaEm=d.paradaEm||endrSt.paradaEm||null;
-  endrSt.erro=null; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo();
+  // 15/07/2026 (Fase 2) — cadeia já vem resolvida (paradaEm herdado), então o hub abre direto na
+  // seção Endereço (endrHubCadeiaResolvida() bate true). defaultsAplicados=true trava o "herdar do
+  // último irmão" — este caminho já herda tipo/rua/módulo/nível explicitamente do endereço anterior,
+  // não faz sentido a Fase 2 sobrescrever de novo.
+  endrSt.erro=null; endrSt.step='hub';
+  endrSt.hub={gaveta:null, filtro:'', gavetaAnimada:false, defaultsAplicados:true};
+  renderEstoque(); endrSugerirCodigo();
 }
 /* ---- passo 2b: Área (nível intermediário, opcional por local — 10/07). Se o local não tiver
    nenhuma área cadastrada, pula direto pro Tipo; se tiver, é obrigatório escolher uma (toque avança). ---- */
 async function endrCarregarAreas(){
   const seq=++endrSt._loadSeq;
   try{
-    const d=await beGet('/estoque/areas?localId='+encodeURIComponent(endrSt.localId));
+    const d=await beGet('/estoque/areas?localId='+encodeURIComponent(endrSt.localId)+'&comContagem=1');
     if(seq!==endrSt._loadSeq) return;
     endrSt.areas=d.areas||[]; endrSt._areasCarregadas=true;
-    if(!endrSt.areas.length){ endrSt.step='tipo'; }
+    // 15/07/2026 (Fase 2) — antes pulava pra tela cheia 'tipo'; agora o hub já mostra a seção
+    // Endereço sozinho (endrHubCadeiaResolvida() cobre "local sem nenhuma área"), sem trocar de step.
     renderEstoque();
   }catch(e){
     if(seq!==endrSt._loadSeq) return;
     /* área é um refinamento opcional — se a busca falhar, não trava o cadastro: segue sem área */
-    endrSt.areas=[]; endrSt._areasCarregadas=true; endrSt.step='tipo'; renderEstoque();
+    endrSt.areas=[]; endrSt._areasCarregadas=true; renderEstoque();
   }
 }
 function endrEscolherArea(a){
@@ -3377,8 +3413,9 @@ function endrEscolherArea(a){
      continua exigindo Setor. Este "else" antes nunca era alcançado de verdade (bug #8/#4 do
      audit — endrRenderArea só deixava tocar em área com RequerRua__c=true), então nenhuma área
      hoje é ponto de parada de fato — corrigido junto com o render abaixo. */
-  if(!endrSt.areaAceitaArmazenamento){ endrSt.step='rua'; renderEstoque(); endrCarregarSetores(); }
-  else { endrSt.step='tipo'; renderEstoque(); }
+  // 15/07/2026 (Fase 2) — em vez de step próprio, roteia pro hub: se não aceita armazenamento,
+  // abre a gaveta de Setor automaticamente (auto-avanço); senão fecha a gaveta e resolve a cadeia.
+  endrHubAposEscolher('area', endrSt.areaAceitaArmazenamento?null:'rua');
 }
 /* ---- carrega os Setores/Posições/Níveis pré-cadastrados (14/07/2026) — mesma origem de dados
    usada pela tela de gestão (gest*), só que aqui é sempre leitura (?incluirInativos nunca é
@@ -3386,13 +3423,13 @@ function endrEscolherArea(a){
 async function endrCarregarSetores(){
   endrSt._setoresCarregadas=false; renderEstoque();
   const seq=++endrSt._loadSeq;
-  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(endrSt.areaId)); if(seq!==endrSt._loadSeq) return; endrSt.setores=d.setores||[]; endrSt._setoresCarregadas=true; renderEstoque(); }
+  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(endrSt.areaId)+'&comContagem=1'); if(seq!==endrSt._loadSeq) return; endrSt.setores=d.setores||[]; endrSt._setoresCarregadas=true; renderEstoque(); }
   catch(e){ if(seq!==endrSt._loadSeq) return; endrSt._setoresCarregadas=true; endrSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
 }
 async function endrCarregarPosicoes(){
   endrSt._posicoesCarregadas=false; renderEstoque();
   const seq=++endrSt._loadSeq;
-  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(endrSt.setorId)); if(seq!==endrSt._loadSeq) return; endrSt.posicoes=d.posicoes||[]; endrSt._posicoesCarregadas=true; renderEstoque(); }
+  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(endrSt.setorId)+'&comContagem=1'); if(seq!==endrSt._loadSeq) return; endrSt.posicoes=d.posicoes||[]; endrSt._posicoesCarregadas=true; renderEstoque(); }
   catch(e){ if(seq!==endrSt._loadSeq) return; endrSt._posicoesCarregadas=true; endrSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
 }
 async function endrCarregarNiveis(){
@@ -3408,7 +3445,9 @@ function endrEscolherSetor(s){
   endrSt.setorAceitaArmazenamento=s.aceitaArmazenamento===undefined?true:!!s.aceitaArmazenamento;
   endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.posicaoId=null;
   endrSt.posicoes=[]; endrSt._posicoesCarregadas=false; endrSt.niveis=[]; endrSt._niveisCarregados=false;
-  endrSt.step='modulo'; renderEstoque(); endrCarregarPosicoes();
+  // 15/07/2026 (Fase 2) — Setor sempre exige escolher algo (nunca é opcional), então o próximo
+  // passo é sempre abrir a gaveta de Posição (auto-avanço).
+  endrHubAposEscolher('rua','modulo');
 }
 function endrEscolherPosicao(p){
   endrSt.modulo=p.nome; endrSt.moduloCod=p.codigo||''; endrSt.posicaoId=p.id;
@@ -3416,8 +3455,338 @@ function endrEscolherPosicao(p){
   // tela de Nível (endrRenderNivel). Default true reproduz o comportamento de sempre.
   endrSt.posicaoAceitaArmazenamento=p.aceitaArmazenamento===undefined?true:!!p.aceitaArmazenamento;
   endrSt.nivel=''; endrSt.nivelCod=''; endrSt.niveis=[]; endrSt._niveisCarregados=false;
-  endrSt.step='nivel'; renderEstoque(); endrCarregarNiveis();
+  // 15/07/2026 (Fase 2) — mesma lógica de endrEscolherSetor: Posição sempre leva à gaveta de Nível.
+  endrHubAposEscolher('modulo','nivel');
 }
+/* ============================================================================================
+   Fase 2 (15/07/2026) — Hub "Novo endereço" + gaveta. Ver DECISAO_fase2_hub_gaveta.md.
+   Substitui a ENTRADA do fluxo de criação (área→rua→modulo→nivel→tipo→nome→capacidade→revisao,
+   8 telas cheias) por 1 tela hub + 1 componente de gaveta (bottom-sheet) por nível. As telas
+   antigas endrRenderArea/Rua/Modulo/Nivel (logo abaixo) ficam de propósito — nunca mais chamadas
+   pelo fluxo de criação, mas não removidas (não fazem parte de nenhum caminho vivo, então não há
+   risco de quebrar nada removendo-as no futuro; deixadas por cautela/histórico só). endrRenderTipo/
+   Nome/Capacidade/Revisao (mais abaixo ainda) continuam VIVAS — o handoff endrAbrirComplementar
+   (recp*, Entradas Pendentes) entra direto em step='nome' e nunca passa pelo hub.
+   Nenhum campo de endrSt é renomeado — ENDR_CADEIA só aponta pros campos existentes, reaproveitando
+   toda a regra de negócio (aceitaArmazenamento, paradaEm, sugestão de código/tipo) sem duplicar. */
+
+// aplicavel/opcionalAgora/pular espelham exatamente a regra de negócio que já existia nas telas
+// antigas (endrRenderModulo/Nivel) — só migrou de lugar, não mudou.
+const ENDR_CADEIA=[
+  { key:'area', label:ENDR_NIVEL_LABEL.area,
+    temValor:()=>!!endrSt.areaId, valor:()=>endrSt.areaNome,
+    lista:()=>endrSt.areas, carregada:()=>endrSt._areasCarregadas, carregar:()=>endrCarregarAreas(),
+    escolher:(a)=>endrEscolherArea(a),
+    aplicavel:()=>!endrSt._areasCarregadas || endrSt.areas.length>0, // some do hub se o Local não tem Área
+    opcionalAgora:()=>false, pular:null },
+  { key:'rua', label:ENDR_NIVEL_LABEL.rua,
+    temValor:()=>!!endrSt.setorId, valor:()=>endrSt.rua,
+    lista:()=>endrSt.setores, carregada:()=>endrSt._setoresCarregadas, carregar:()=>endrCarregarSetores(),
+    escolher:(s)=>endrEscolherSetor(s),
+    aplicavel:()=>!!endrSt.areaId && !endrSt.areaAceitaArmazenamento, // área que aceita = cadeia some daqui pra baixo
+    opcionalAgora:()=>false, pular:null }, // Setor nunca é opcional quando aplicável (regra de sempre)
+  { key:'modulo', label:ENDR_NIVEL_LABEL.modulo,
+    temValor:()=>!!endrSt.posicaoId, valor:()=>endrSt.modulo,
+    lista:()=>endrSt.posicoes, carregada:()=>endrSt._posicoesCarregadas, carregar:()=>endrCarregarPosicoes(),
+    escolher:(p)=>endrEscolherPosicao(p),
+    aplicavel:()=>!!endrSt.setorId,
+    opcionalAgora:()=>endrSt.setorAceitaArmazenamento,
+    pular:()=>{ endrSt.modulo=''; endrSt.moduloCod=''; endrSt.nivel=''; endrSt.nivelCod=''; endrSt.paradaEm='rua'; } },
+  { key:'nivel', label:ENDR_NIVEL_LABEL.nivel,
+    temValor:()=>!!endrSt.nivel, valor:()=>endrSt.nivel,
+    lista:()=>endrSt.niveis, carregada:()=>endrSt._niveisCarregados, carregar:()=>endrCarregarNiveis(),
+    escolher:(n)=>{ endrSt.nivel=n.nome; endrSt.nivelCod=n.codigo||''; endrSt.paradaEm='nivel'; endrHubAposEscolher('nivel',null); },
+    aplicavel:()=>!!endrSt.posicaoId,
+    opcionalAgora:()=>endrSt.posicaoAceitaArmazenamento,
+    pular:()=>{ endrSt.paradaEm='modulo'; } },
+];
+
+// true = a cadeia "resolveu" (o usuário já pode ver a seção Endereço): local sem nenhuma Área,
+// ou parou numa Área/Setor/Posição que aceita armazenamento direto.
+function endrHubCadeiaResolvida(){
+  if(endrSt._areasCarregadas && !endrSt.areas.length) return true;
+  if(endrSt.areaId && endrSt.areaAceitaArmazenamento) return true;
+  return endrSt.paradaEm!==null;
+}
+// linhas do hub: Local (sempre 1ª, fixa) + níveis aplicáveis da cadeia, na ordem. status:
+// 'feito' (✅ tocável p/ trocar) | 'atual' (🔵 abre a gaveta) | 'opcional' (⚪ "(opcional)", tocável)
+// | 'futuro' (⚪ inerte). Um nível "pulado" (cadeia já resolvida antes dele) simplesmente não entra
+// — nunca aparece placeholder tipo "Setor: —" (mesma regra do breadcrumb antigo).
+function endrHubLinhas(){
+  const out=[{ key:'local', label:'Local', status:'feito', valor:endrSt.localNome, tocavel:true,
+    onclick:()=>{ endrSt.step='local'; renderEstoque(); } }];
+  const resolvida=endrHubCadeiaResolvida();
+  let atualDefinido=false;
+  ENDR_CADEIA.forEach(cfg=>{
+    if(!cfg.aplicavel()) return;
+    let status;
+    if(cfg.temValor()) status='feito';
+    else if(resolvida) return; // parou antes deste nível: some da lista
+    else if(!atualDefinido){ status=cfg.opcionalAgora()?'opcional':'atual'; atualDefinido=true; }
+    else status='futuro';
+    const tocavel=(status==='feito'||status==='atual'||status==='opcional');
+    out.push({ key:cfg.key, label:cfg.label, status, valor:cfg.temValor()?cfg.valor():null, tocavel,
+      onclick: tocavel ? (()=>endrHubAbrirGaveta(cfg.key)) : null });
+  });
+  out.push({ key:'endereco', label:'Endereço', status:resolvida?'atual':'futuro', valor:null, tocavel:false, onclick:null });
+  return out;
+}
+function endrHubAbrirGaveta(key){
+  const cfg=ENDR_CADEIA.find(c=>c.key===key); if(!cfg) return;
+  endrSt.hub.gaveta=key; endrSt.hub.filtro=''; endrSt.hub.gavetaAnimada=false;
+  renderEstoque();
+  if(!cfg.carregada()) cfg.carregar();
+}
+function endrHubFecharGaveta(){ endrSt.hub.gaveta=null; endrSt.hub.filtro=''; endrSt.hub.gavetaAnimada=false; renderEstoque(); }
+// chamada no fim de todo endrEscolher*/pular: nivelKey documenta qual nível acabou de ser
+// respondido (não usado na lógica — só leitura do código); proximaGaveta='X' = auto-avanço (fecha
+// e abre a gaveta seguinte); null = cadeia resolveu (fecha a gaveta, mostra a seção Endereço).
+function endrHubAposEscolher(nivelKey, proximaGaveta){
+  endrSt.step='hub';
+  endrSt.hub.filtro=''; endrSt.hub.gavetaAnimada=false;
+  endrSt.hub.defaultsAplicados=false; endrSt.hub.defaultsHerdados=false; // cadeia mudou, recalcula herdados
+  if(proximaGaveta){
+    endrSt.hub.gaveta=proximaGaveta;
+    renderEstoque();
+    const cfg=ENDR_CADEIA.find(c=>c.key===proximaGaveta);
+    if(cfg && !cfg.carregada()) cfg.carregar();
+  } else {
+    endrSt.hub.gaveta=null;
+    if(endrHubCadeiaResolvida()) endrHubAplicarDefaults();
+    renderEstoque();
+  }
+}
+
+function endrRenderHub(card){
+  const linhas=endrHubLinhas();
+  const idxAtual=linhas.findIndex(l=>l.status==='atual'||l.status==='opcional');
+  const passoAtual=idxAtual<0?linhas.length:idxAtual+1;
+  card.innerHTML='<div style="display:flex;justify-content:space-between;align-items:baseline">'
+    +'<div class="sec-title2" style="margin-top:0">Novo endereço</div>'
+    +'<div style="font-size:12px;color:var(--weak)">Passo '+passoAtual+'/'+linhas.length+'</div></div>';
+  if(endrSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(endrSt.erro)+'</div>';
+  const linhasWrap=document.createElement('div'); card.appendChild(linhasWrap);
+  linhas.forEach(l=>{
+    if(l.key==='endereco') return; // seção própria, renderizada abaixo
+    const row=document.createElement('div');
+    const icone=l.status==='feito'?'✅':l.status==='atual'?'🔵':'⚪';
+    row.style.cssText='display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 10px;border-radius:12px;margin-top:6px;'
+      +(l.status==='atual'?'border:1.5px solid var(--brand);background:rgba(62,126,176,.06);':'border:1.5px solid transparent;')
+      +(l.tocavel?'cursor:pointer;':'opacity:.5;');
+    row.innerHTML='<span style="font-size:15px">'+icone+'</span>'
+      +'<span style="width:60px;flex-shrink:0;font-size:12.5px;color:#4A5560;font-weight:600">'+_esc(l.label)+'</span>'
+      +'<span style="flex:1;font-weight:700;color:#0B2239;font-size:14px">'
+      +(l.status==='feito'?_esc(l.valor)
+        :l.status==='atual'?'<span style="color:var(--brand)">Escolher…</span>'
+        :l.status==='opcional'?'<span style="color:#8A94A0;font-weight:500">(opcional)</span>'
+        :'<span style="color:#B9C1C9;font-weight:500">—</span>')
+      +'</span>'+(l.tocavel?'<span style="color:#B9C1C9">›</span>':'');
+    if(l.tocavel && l.onclick) row.onclick=l.onclick;
+    linhasWrap.appendChild(row);
+  });
+  const resolvida=endrHubCadeiaResolvida();
+  const prev=document.createElement('div');
+  prev.style.cssText='margin-top:12px;padding:12px;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px';
+  prev.innerHTML='<div style="font-size:11.5px;color:var(--weak);font-weight:600">Código até aqui</div>'
+    +'<div style="font-family:ui-monospace,monospace;font-size:20px;font-weight:800;color:#0B2239">'
+    +_esc(endrCodigoPreview(endrSt.nivelCod||endrSt.nivel))+(resolvida?'':'-…')+'</div>';
+  card.appendChild(prev);
+  // atalho de pular no hub (espelho do card destaque dentro da gaveta — mesma função, 1 fonte)
+  if(idxAtual>=0){
+    const lAtual=linhas[idxAtual];
+    const cfgAtual=ENDR_CADEIA.find(c=>c.key===lAtual.key);
+    if(lAtual.status==='opcional' && cfgAtual && cfgAtual.pular){
+      const sk=document.createElement('button'); sk.className='btn btn-neutral';
+      sk.style.cssText='width:100%;height:46px;margin-top:10px;color:var(--brand);font-weight:700;border-color:var(--brand)';
+      sk.textContent='Não preciso de '+cfgAtual.label.toLowerCase()+' — criar direto em '+endrCodigoPreview();
+      sk.onclick=()=>{ cfgAtual.pular(); endrHubAposEscolher(cfgAtual.key,null); };
+      card.appendChild(sk);
+    }
+  }
+  if(resolvida) endrHubRenderSecaoEndereco(card);
+}
+
+// ---- seção Endereço inline (funde tipo+nome+código+capacidade+criar, sem virar mais uma gaveta) ----
+function endrEscolherTipoHub(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; renderEstoque(); endrSugerirCodigo(); }
+function endrHubRenderSecaoEndereco(card){
+  const sec=document.createElement('div');
+  sec.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F3';
+  sec.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:13px">Endereço</div>';
+  // tipo — mesma sugestão por profundidade de sempre (ENDR_SUGESTAO_TIPO[paradaEm]), agora em chips
+  const sugeridosNomes=endrSt.paradaEm?(ENDR_SUGESTAO_TIPO[endrSt.paradaEm]||[]):[];
+  const ordenados=sugeridosNomes.length
+    ? ENDR_TIPOS.filter(t=>sugeridosNomes.includes(t.v)).concat(ENDR_TIPOS.filter(t=>!sugeridosNomes.includes(t.v)))
+    : ENDR_TIPOS;
+  const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px';
+  ordenados.forEach(t=>{
+    const sel=(endrSt.tipo===t.v);
+    const el=document.createElement('div');
+    el.style.cssText='background:'+(sel?'rgba(62,126,176,.1)':'#F7F9FA')+';border:1.5px solid '+(sel?'var(--brand)':'#E2E5E9')+';border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;font-weight:700;color:'+(sel?'var(--brand)':'#0B2239')+';font-size:12.5px;min-height:56px;display:flex;flex-direction:column;justify-content:center';
+    el.innerHTML='<div style="font-size:20px;margin-bottom:2px">'+t.icon+'</div>'+t.v;
+    el.onclick=()=>endrEscolherTipoHub(t.v);
+    grid.appendChild(el);
+  });
+  sec.appendChild(grid);
+  if(!endrSt.tipo){ card.appendChild(sec); return; } // resto só aparece depois de escolher o tipo
+  const form=document.createElement('div'); form.style.cssText='margin-top:12px';
+  form.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
+    +'<input id="endrHubNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Código</label>'
+    +'<input id="endrHubCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional)</label>'
+    +'<input id="endrHubCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
+  sec.appendChild(form);
+  if(endrSt.hub.defaultsHerdados) sec.innerHTML+='<div class="subnote" style="padding:0 0 8px;color:var(--brand)">Tipo/capacidade herdados do último endereço criado aqui — pode trocar.</div>';
+  if(endrSt.paradaEm==='rua') sec.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Setor (sem posição/nível).</div>';
+  else if(endrSt.paradaEm==='modulo') sec.innerHTML+='<div class="subnote" style="color:#8a6d1f;padding:0 0 8px">Endereço será registrado no nível Posição (sem nível).</div>';
+  if(endrSt.erro) sec.innerHTML+='<div class="subnote" style="color:#C4451B;padding:0 0 8px">'+_esc(endrSt.erro)+'</div>';
+  const criar=document.createElement('button'); criar.className='btn btn-brand'; criar.style.cssText='width:100%;height:48px;margin-top:6px';
+  criar.textContent=endrSt.criando?'Criando…':'✅ Criar endereço'; criar.disabled=!!endrSt.criando;
+  criar.onclick=()=>{
+    endrSt.nome=(document.getElementById('endrHubNome').value||'').trim();
+    endrSt.codigo=(document.getElementById('endrHubCodigo').value||'').trim();
+    endrSt.capacidade=(document.getElementById('endrHubCap').value||'').trim();
+    endrCriar();
+  };
+  sec.appendChild(criar);
+  card.appendChild(sec);
+}
+
+// ---- gaveta (bottom-sheet) ----
+function endrGavetaContextoPai(){
+  switch(endrSt.hub.gaveta){
+    case 'area': return endrSt.localNome||null;
+    case 'rua': return endrSt.areaNome||null;
+    case 'modulo': return endrSt.rua||null;
+    case 'nivel': return endrSt.modulo||null;
+    default: return null;
+  }
+}
+// ordenação numérica de verdade ("Rua 10" depois de "Rua 2", não antes) + normalização de acento
+// pro filtro (comparar sem acento/maiúscula, sem mudar o que é exibido).
+function endrGavetaOrdenar(lista){
+  return lista.slice().sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true,sensitivity:'base'}));
+}
+function endrGavetaNormalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+// contador do card: filhos (backend, exato, via ?comContagem=1) + endereços (client-side, a partir
+// de enderecosDoLocal já carregado — exato em Área/Setor que têm campo próprio; aproximado por
+// prefixo de Codigo__c em Posição/Nível, que não têm campo — só informativo, nunca usar em regra).
+function endrGavetaContarEnderecos(cfg, item){
+  const lista=endrSt.enderecosDoLocal||[];
+  if(!lista.length) return null;
+  if(cfg.key==='area') return lista.filter(e=>e.areaId===item.id).length;
+  if(cfg.key==='rua') return lista.filter(e=>e.areaId===endrSt.areaId && e.rua===item.nome).length;
+  // modulo/nivel: sem campo próprio — aproxima pelo prefixo do código que o item geraria
+  const partes=[endrSt.areaPrefixo, endrSt.ruaCod||endrSt.rua, cfg.key==='nivel'?(endrSt.moduloCod||endrSt.modulo):null, item.codigo||item.nome]
+    .map(p=>(p||'').trim()).filter(Boolean);
+  const prefixo=partes.join('-');
+  return prefixo?lista.filter(e=>(e.codigo||'').indexOf(prefixo)===0).length:null;
+}
+// plural correto por rótulo (setor→setores, posição→posições, nível→níveis — "+s" ingênuo erraria os 3)
+const ENDR_ROTULO_FILHO={ area:['setor','setores'], rua:['posição','posições'], modulo:['nível','níveis'] };
+function endrGavetaSubHTML(cfg, item){
+  const partes=[];
+  if(item.filhos!=null && ENDR_ROTULO_FILHO[cfg.key]){
+    const [sing,plur]=ENDR_ROTULO_FILHO[cfg.key];
+    partes.push(item.filhos+' '+(item.filhos===1?sing:plur));
+  }
+  const nEnd=endrGavetaContarEnderecos(cfg,item);
+  if(nEnd!=null) partes.push((nEnd===0?'vazio':nEnd+' endereço'+(nEnd===1?'':'s')));
+  return partes.length?'<div class="endr-gv-sub">'+_esc(partes.join(' · '))+'</div>':'';
+}
+function endrGavetaVazio(corpo, cfg){
+  const gerente=canGerenciarEstoque(ROLE);
+  const div=document.createElement('div'); div.className='subnote'; div.style.padding='4px 0 8px';
+  if(gerente){
+    div.textContent='Nenhum(a) '+cfg.label.toLowerCase()+' cadastrado(a) ainda aqui.';
+    corpo.appendChild(div);
+    const btn=document.createElement('button'); btn.className='btn btn-neutral';
+    btn.style.cssText='width:100%;height:44px;color:var(--brand);border-color:var(--brand);font-weight:700';
+    btn.textContent='⚙️ Cadastrar em Gerenciar estrutura';
+    btn.onclick=()=>{ endrHubFecharGaveta(); gestReset(); estoqGo('estrutura'); gestCarregarLocais(); };
+    corpo.appendChild(btn);
+  } else {
+    div.textContent='Esta '+ (cfg.key==='area'?'ainda não tem '+cfg.label.toLowerCase():cfg.label.toLowerCase()+' ainda não foi') +' cadastrado(a). Peça a um Gerente pra cadastrar em "⚙️ Gerenciar estrutura".';
+    corpo.appendChild(div);
+  }
+}
+function endrGavetaPintarLista(cfg){
+  const ul=document.getElementById('endrGvLista'); if(!ul) return;
+  const termo=endrGavetaNormalizar(endrSt.hub.filtro);
+  let itens=endrGavetaOrdenar(cfg.lista());
+  if(termo) itens=itens.filter(i=>endrGavetaNormalizar(i.nome+' '+(i.codigo||'')).indexOf(termo)>=0);
+  if(!itens.length){ ul.innerHTML='<div class="subnote" style="padding:4px 0">Nada encontrado.</div>'; return; }
+  ul.innerHTML='';
+  itens.forEach(i=>{
+    const c=document.createElement('div'); c.className='endr-gv-card';
+    c.innerHTML='<div>'+_esc(i.nome)+(i.codigo?' <span style="font-weight:400;color:var(--weak);font-size:12px">('+_esc(i.codigo)+')</span>':'')+'</div>'+endrGavetaSubHTML(cfg,i);
+    c.onclick=()=>{ endrSt.hub.filtro=''; cfg.escolher(i); };
+    ul.appendChild(c);
+  });
+}
+function endrRenderGaveta(wrap){
+  const cfg=ENDR_CADEIA.find(c=>c.key===endrSt.hub.gaveta); if(!cfg) return;
+  const bd=document.createElement('div'); bd.className='endr-bd'; bd.onclick=endrHubFecharGaveta; wrap.appendChild(bd);
+  const gv=document.createElement('div'); gv.className='endr-gaveta'+(endrSt.hub.gavetaAnimada?' aberta':'');
+  const ctx=endrGavetaContextoPai();
+  gv.innerHTML='<div class="endr-gv-grab"></div>'
+    +'<div class="endr-gv-hd"><div style="font-weight:700;font-size:15px">'+_esc(cfg.label)
+    +(ctx?' <span style="font-weight:400;color:var(--weak);font-size:12.5px">em '+_esc(ctx)+'</span>':'')
+    +'</div><button onclick="endrHubFecharGaveta()" style="background:none;border:none;font-size:20px;color:#686868;padding:4px 8px">✕</button></div>';
+  const corpo=document.createElement('div'); corpo.className='endr-gv-corpo';
+  // card de "pular" (item 2/3 da proposta) — primeiro e destacado, substitui o antigo "✓ Cadastrar aqui"
+  if(cfg.pular && cfg.opcionalAgora()){
+    const sk=document.createElement('div'); sk.className='endr-gv-card destaque';
+    sk.textContent='➜ Não preciso de '+cfg.label.toLowerCase()+' — criar o endereço direto em '+endrCodigoPreview();
+    sk.onclick=()=>{ cfg.pular(); endrHubAposEscolher(cfg.key,null); };
+    corpo.appendChild(sk);
+  }
+  // Bug pego na revisão (15/07): "corpo.innerHTML+=" reprocessaria o card de pular já anexado acima
+  // (quando aplicável) e destruiria o onclick dele — usa appendChild de um nó novo, nunca innerHTML+=
+  // num corpo que já pode ter filhos com handler JS.
+  if(!cfg.carregada()){ const ld=document.createElement('div'); ld.className='subnote'; ld.innerHTML='<span class="ld-spin"></span>Carregando…'; corpo.appendChild(ld); }
+  else{
+    const itens=cfg.lista();
+    if(!itens.length){ endrGavetaVazio(corpo,cfg); }
+    else{
+      if(itens.length>=8){
+        const f=document.createElement('input'); f.className='endr-gv-filtro'; f.placeholder='Filtrar…'; f.autocomplete='off';
+        f.value=endrSt.hub.filtro;
+        f.oninput=()=>{ endrSt.hub.filtro=f.value; endrGavetaPintarLista(cfg); }; // nunca renderEstoque — perderia o foco
+        corpo.appendChild(f);
+      }
+      const ul=document.createElement('div'); ul.id='endrGvLista'; corpo.appendChild(ul);
+    }
+  }
+  gv.appendChild(corpo); wrap.appendChild(gv);
+  if(cfg.carregada() && cfg.lista().length) endrGavetaPintarLista(cfg);
+  if(!endrSt.hub.gavetaAnimada){ requestAnimationFrame(()=>{ gv.classList.add('aberta'); endrSt.hub.gavetaAnimada=true; }); }
+}
+
+// ---- defaults herdados (item 12 da proposta): tipo/capacidade do último endereço criado no
+// mesmo pai imediato, reusando GET /estoque/enderecos?localId= já carregado (endrCarregarLista) —
+// sem endpoint novo. ----
+function endrHubCarregarEnderecosDoLocal(){ if(!endrSt._listaCarregada) endrCarregarLista(); }
+function endrHubUltimoIrmao(){
+  const pref=endrCodigoPreview(endrSt.nivelCod||endrSt.nivel);
+  if(pref==='—') return null;
+  let irmaos=(endrSt.enderecosDoLocal||[]).filter(e=>(e.codigo||'').indexOf(pref+'-')===0);
+  if(endrSt.paradaEm===null && endrSt.areaId) irmaos=irmaos.filter(e=>e.areaId===endrSt.areaId);
+  else if(endrSt.paradaEm==='rua') irmaos=irmaos.filter(e=>e.rua===endrSt.rua);
+  if(!irmaos.length) return null;
+  return irmaos.slice().sort((a,b)=>String(b.criadoEm||'').localeCompare(String(a.criadoEm||'')))[0];
+}
+function endrHubAplicarDefaults(){
+  if(endrSt.hub.defaultsAplicados) return;
+  endrSt.hub.defaultsAplicados=true;
+  const u=endrHubUltimoIrmao(); if(!u) return;
+  let herdou=false;
+  if(!endrSt.tipo && u.tipo){ endrSt.tipo=u.tipo; herdou=true; endrSugerirCodigo(); }
+  if(endrSt.capacidade==='' && u.capacidade!=null){ endrSt.capacidade=String(u.capacidade); herdou=true; }
+  if(herdou) endrSt.hub.defaultsHerdados=true;
+}
+
 /* 14/07/2026 (Fase 1 — corrige bug #8/#4 do audit): TODA área ativa é clicável agora — antes só
    as com RequerRua__c=true tinham onclick (else de endrEscolherArea era código morto, nunca
    alcançado). aceitaArmazenamento só decide o DESTINO do toque (parar aqui x ir pro Setor), nunca
@@ -3676,7 +4045,9 @@ async function endrSugerirCodigo(){
     const seq=++endrSt._loadSeq;
     const d=await beGet(url);
     if(seq!==endrSt._loadSeq) return;
-    if(endrSt.step==='nome' && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
+    // 15/07/2026 (Fase 2) — a seção Endereço agora vive dentro do step 'hub' (não muda mais pra
+    // 'nome'), mas endrAbrirComplementar (recp*) ainda usa 'nome' de verdade — aceita os dois.
+    if((endrSt.step==='nome'||endrSt.step==='hub') && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
 function endrRenderNome(card){
@@ -3748,6 +4119,9 @@ async function endrCriar(){
     /* fallback pro botão de retorno do modo complementar (recp*) se o GET de detalhe falhar
        logo em seguida (rede) — o endereço já existe, só falta o app confirmar */
     endrSt.enderecoCriado={ id:r.id, codigo:r.codigo, nome:r.nome, tipo:r.tipo, capacidade:r.capacidade, ocupacao:0, areaId:r.areaId, area:r.area, rua:r.rua };
+    // 15/07/2026 (Fase 2, item 12 — defaults herdados): entra na lista em memória já, sem refetch —
+    // "criar outro aqui" em sequência (ex. 20 bins da mesma rua) já herda do que acabou de sair do forno.
+    if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal.push({ id:r.id, codigo:r.codigo, tipo:r.tipo, capacidade:r.capacidade, areaId:r.areaId, rua:r.rua, criadoEm:new Date().toISOString() });
     toast('✅ Endereço '+(r.codigo||'')+' criado');
     endrAbrirDetalhe(r.id);
   }catch(e){ endrSt.criando=false; endrSt.erro='Erro ao criar: '+e.message; renderEstoque(); }
