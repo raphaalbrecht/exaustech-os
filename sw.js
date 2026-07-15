@@ -113,7 +113,12 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v118'; // v118 15/07: HOTFIX — "clicar em Modelos de caixa BIN não
+const CACHE = 'exaustech-os-v119'; // v119 15/07: HOTFIX — campo "Altura (cm)" vazava pra fora da
+// tela no form "+ Novo modelo" (Modelos de caixa BIN). Causa: `flex:1` sozinho não encolhe abaixo
+// do tamanho do CONTEÚDO (placeholder longo "Comprimento (cm)"), pois item flex tem min-width:auto
+// por padrão. Trocado o row de 3 inputs por CSS grid de 3 colunas iguais + min-width:0 + placeholders
+// encurtados (Compr./Larg./Alt.).
+// v118 15/07: HOTFIX — "clicar em Modelos de caixa BIN não
 // fazia nada". Causa: várias funções gest*/endr* faziam elemento.innerHTML+= LOGO DEPOIS de
 // appendChild(filhoComOnclick) no mesmo elemento — innerHTML+= serializa e reparseia TODO o
 // conteúdo atual, recriando os nós já anexados e destruindo os handlers JS deles (handler não

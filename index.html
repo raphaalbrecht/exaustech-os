@@ -4761,10 +4761,15 @@ function gestRenderModeloBin(card){
     +'<div style="text-align:center;margin:6px 0 12px"><img src="caixa-medidas-final.png" alt="Diagrama de uma caixa BIN com legendas Altura, Largura e Profundidade indicando cada campo de medida" style="max-width:240px;width:100%;height:auto"></div>'
     +'<input id="gestModeloNome" type="text" placeholder="Nome (ex.: Gaveteiro BIN 07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
     +'<input id="gestModeloCodigo" type="text" placeholder="Código (opcional, ex.: BIN07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
-    +'<div style="display:flex;gap:8px;margin-bottom:4px">'
-    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Comprimento (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
-    +'<input id="gestModeloLarg" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Largura (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
-    +'<input id="gestModeloAlt" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Altura (cm)" style="flex:1;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box">'
+    /* Bug (15/07/2026, reportado 2x pelo Raphael): "Altura (cm)" vazava pra direita da tela. Causa:
+       flex:1 sozinho não encolhe abaixo do tamanho do CONTEÚDO (placeholder "Comprimento (cm)" é
+       largo) — item flex tem min-width:auto por padrão, que trava no texto do placeholder. Corrigido
+       com min-width:0 (permite encolher) + grid de 3 colunas iguais em vez de flex, mais previsível
+       em telas estreitas; placeholders encurtados pra caber sem trunca feio. */
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
+    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Compr. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
+    +'<input id="gestModeloLarg" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Larg. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
+    +'<input id="gestModeloAlt" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Alt. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'</div>'
     +'<div id="gestModeloVolPreview" style="font-size:12.5px;color:var(--weak);margin:2px 0 10px;min-height:16px"></div>'
     +'<input id="gestModeloObs" type="text" placeholder="Observação (opcional — material, cor, fabricante)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 10px;box-sizing:border-box">';
