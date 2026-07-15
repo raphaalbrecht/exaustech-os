@@ -3010,6 +3010,25 @@ function estoqScanLoop(onResult){
    código do EnderecoEstoque__c.TagNFC__c pra caixa/bin — mesma função resolve os dois). */
 let estoqNfcController=null, estoqNfcAtivando=false;
 function estoqNfcSuportado(){ return (typeof NDEFReader!=='undefined'); }
+/* Item 23 do redesign (14/07, pedido do Raphael): bipe sonoro curto além da vibração já existente,
+   nos mesmos 3 pontos de confirmação de bipagem/scan. Web Audio API (sem arquivo de áudio) — some
+   sozinho se o navegador bloquear autoplay de som (ex.: 1ª interação ainda não ocorreu), silencioso
+   por padrão nesse caso (nunca trava o fluxo). Respeita o modo silencioso do aparelho como qualquer
+   outro som de app. */
+let _estoqAudioCtx=null;
+function estoqBip(freq){
+  try{
+    if(!_estoqAudioCtx) _estoqAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=_estoqAudioCtx;
+    if(ctx.state==='suspended') ctx.resume();
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type='sine'; osc.frequency.value=freq||880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.12);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime+0.13);
+  }catch(e){ /* silencioso — nunca trava o fluxo de bipagem/scan por causa de áudio */ }
+}
 async function estoqNfcToggle(){
   const btn=document.getElementById('estoqBtnNfc');
   if(estoqNfcController){ estoqNfcDesativar(); return; }
@@ -3184,6 +3203,10 @@ function endrReset(consulta){
     /* consulta=true: entrada "🔎 Consultar endereços" da home — mesmo wizard, mas só pra navegar
        até o detalhe de um endereço já existente (sem "+ Novo endereço" no caminho). */
     consulta:!!consulta,
+    /* Bug #7 (auditoria 14/07): token monotônico pra descartar resposta desatualizada — em wifi de
+       galpão instável, escolher Setor A e depois rápido Setor B podia deixar a resposta mais lenta
+       de A chegar DEPOIS da de B e sobrescrever a tela com os filhos errados sob a migalha errada. */
+    _loadSeq:0,
   };
 }
 /* ---- modo complementar (chamado pelo recp*, Fase 4): entra direto no passo 'nome', com
@@ -3204,7 +3227,9 @@ function renderEndrWizard(wrap){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
   bk.onclick=()=>{ endrNfcDesativar(); estoqGo('dash'); };
   wrap.appendChild(bk);
-  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=endrSt.consulta?'🔎 Consultar endereços':'📍 Endereços de estoque'; wrap.appendChild(h);
+  /* Bug #10 (auditoria 14/07): mantém o mesmo texto do card de entrada na home ("Criar novo
+     endereço de estoque", renomeado v111) — estava dessincronizado ("Endereços de estoque"). */
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent=endrSt.consulta?'🔎 Consultar endereços':'📍 Criar novo endereço de estoque'; wrap.appendChild(h);
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
   if(endrSt.step==='local') endrRenderLocal(card);
   else if(endrSt.step==='lista') endrRenderLista(card);
@@ -3297,6 +3322,14 @@ function endrNovoEndereco(){
   endrSt.tipo=null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
   endrSt.areas=[]; endrSt._areasCarregadas=false; endrSt.areaId=null; endrSt.areaNome=''; endrSt.areaRequerRua=false; endrSt.rua=''; endrSt.modulo=''; endrSt.nivel='';
   endrSt.areaPrefixo=''; endrSt.paradaEm=null;
+  /* Bug #5 (auditoria 14/07): faltava zerar os campos do pré-cadastro (ruaCod/moduloCod/nivelCod/
+     setorId/posicaoId/setores/posicoes/niveis) — em Locais sem Área (endrCarregarAreas pula pro
+     Tipo) ou em erro de rede, o wizard cai direto em step='tipo' sem passar por endrEscolherArea
+     (que é quem normalmente limpa isso), deixando ruaCod/moduloCod/nivelCod de um endereço
+     ANTERIOR vazarem pro código do novo endereço — que depois congela errado pra sempre. */
+  endrSt.ruaCod=''; endrSt.moduloCod=''; endrSt.nivelCod=''; endrSt.setorId=null; endrSt.posicaoId=null;
+  endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false;
+  endrSt.niveis=[]; endrSt._niveisCarregados=false;
   endrSt.erro=null; endrSt.step='area'; renderEstoque(); endrCarregarAreas();
 }
 /* ---- "criar outro aqui": herda área/rua/tipo do endereço recém-criado, pula direto pro passo
@@ -3316,12 +3349,15 @@ function endrNovoEnderecoAqui(d){
 /* ---- passo 2b: Área (nível intermediário, opcional por local — 10/07). Se o local não tiver
    nenhuma área cadastrada, pula direto pro Tipo; se tiver, é obrigatório escolher uma (toque avança). ---- */
 async function endrCarregarAreas(){
+  const seq=++endrSt._loadSeq;
   try{
     const d=await beGet('/estoque/areas?localId='+encodeURIComponent(endrSt.localId));
+    if(seq!==endrSt._loadSeq) return;
     endrSt.areas=d.areas||[]; endrSt._areasCarregadas=true;
     if(!endrSt.areas.length){ endrSt.step='tipo'; }
     renderEstoque();
   }catch(e){
+    if(seq!==endrSt._loadSeq) return;
     /* área é um refinamento opcional — se a busca falhar, não trava o cadastro: segue sem área */
     endrSt.areas=[]; endrSt._areasCarregadas=true; endrSt.step='tipo'; renderEstoque();
   }
@@ -3339,18 +3375,21 @@ function endrEscolherArea(a){
    passado: Estoquista só deve ver o que está ativo). ---- */
 async function endrCarregarSetores(){
   endrSt._setoresCarregadas=false; renderEstoque();
-  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(endrSt.areaId)); endrSt.setores=d.setores||[]; endrSt._setoresCarregadas=true; renderEstoque(); }
-  catch(e){ endrSt._setoresCarregadas=true; endrSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
+  const seq=++endrSt._loadSeq;
+  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(endrSt.areaId)); if(seq!==endrSt._loadSeq) return; endrSt.setores=d.setores||[]; endrSt._setoresCarregadas=true; renderEstoque(); }
+  catch(e){ if(seq!==endrSt._loadSeq) return; endrSt._setoresCarregadas=true; endrSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
 }
 async function endrCarregarPosicoes(){
   endrSt._posicoesCarregadas=false; renderEstoque();
-  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(endrSt.setorId)); endrSt.posicoes=d.posicoes||[]; endrSt._posicoesCarregadas=true; renderEstoque(); }
-  catch(e){ endrSt._posicoesCarregadas=true; endrSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
+  const seq=++endrSt._loadSeq;
+  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(endrSt.setorId)); if(seq!==endrSt._loadSeq) return; endrSt.posicoes=d.posicoes||[]; endrSt._posicoesCarregadas=true; renderEstoque(); }
+  catch(e){ if(seq!==endrSt._loadSeq) return; endrSt._posicoesCarregadas=true; endrSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
 }
 async function endrCarregarNiveis(){
   endrSt._niveisCarregados=false; renderEstoque();
-  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(endrSt.posicaoId)); endrSt.niveis=d.niveis||[]; endrSt._niveisCarregados=true; renderEstoque(); }
-  catch(e){ endrSt._niveisCarregados=true; endrSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
+  const seq=++endrSt._loadSeq;
+  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(endrSt.posicaoId)); if(seq!==endrSt._loadSeq) return; endrSt.niveis=d.niveis||[]; endrSt._niveisCarregados=true; renderEstoque(); }
+  catch(e){ if(seq!==endrSt._loadSeq) return; endrSt._niveisCarregados=true; endrSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
 }
 function endrEscolherSetor(s){
   endrSt.rua=s.nome; endrSt.ruaCod=s.codigo||''; endrSt.setorId=s.id;
@@ -3529,11 +3568,14 @@ function endrRenderLista(card){
        criar; cada linha é clicável e leva ao detalhe/etiqueta (endrAbrirDetalhe) — é o único
        caminho do app pra reabrir um endereço (reimprimir etiqueta, regravar NFC, ver ocupação). */
   if(!endrSt.consulta){
-    const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo Setor';
+    /* Bug #9 (auditoria 14/07): texto herdado de antes da formalização de Setor/Posição/Nível
+       (13-14/07) — esta tela cria ENDEREÇO, não Setor (que agora é um conceito real e diferente,
+       gerido em "⚙️ Gerenciar estrutura"). */
+    const novo=document.createElement('button'); novo.className='btn btn-brand'; novo.style.cssText='width:100%;height:48px;margin:8px 0 16px'; novo.textContent='+ Novo endereço';
     novo.onclick=endrNovoEndereco; card.appendChild(novo);
   }
   if(!endrSt._listaCarregada){ const l=document.createElement('div'); l.className='subnote'; l.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(l); }
-  else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent=(endrSt.consulta?'Nenhum endereço cadastrado ainda neste local.':'Nenhum setor cadastrado ainda neste local.'); card.appendChild(e); }
+  else if(!endrSt.enderecosDoLocal.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nenhum endereço cadastrado ainda neste local.'; card.appendChild(e); }
   else {
     const lbl=document.createElement('div'); lbl.className='subnote'; lbl.style.cssText='padding:0 0 4px;font-weight:600;color:#4A5560';
     lbl.textContent=(endrSt.consulta?'Toque pra gerenciar — ':'Endereços cadastrados ')+'('+endrSt.enderecosDoLocal.length+')'; card.appendChild(lbl);
@@ -3608,7 +3650,9 @@ async function endrSugerirCodigo(){
     if(endrSt.ruaCod) url+='&ruaCod='+encodeURIComponent(endrSt.ruaCod);
     if(endrSt.moduloCod) url+='&moduloCod='+encodeURIComponent(endrSt.moduloCod);
     if(endrSt.nivelCod) url+='&nivelCod='+encodeURIComponent(endrSt.nivelCod);
+    const seq=++endrSt._loadSeq;
     const d=await beGet(url);
+    if(seq!==endrSt._loadSeq) return;
     if(endrSt.step==='nome' && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
@@ -3735,7 +3779,9 @@ function endrRenderDetalhe(card){
     /* modo consulta (13/07/2026): não é sessão de criação — "criar outro aqui" e "criar em outro
        local" não fazem sentido aqui, só o caminho de volta pra lista deste local. */
     const fim=document.createElement('button'); fim.className='btn btn-brand'; fim.style.cssText='width:100%;height:48px'; fim.textContent='‹ Ver lista do local';
-    fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
+    /* Bug #2 (auditoria 14/07): sair do Detalhe sem desarmar o leitor NFC deixava-o ativo — um
+       toque de tag mais tarde podia gravar na etiqueta errada e desativar a anterior sem aviso. */
+    fim.onclick=()=>{ endrNfcDesativar(); endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
     card.appendChild(fim);
   } else {
     /* "criar outro aqui" herda área/setor/módulo/nível/tipo do endereço recém-criado
@@ -3746,12 +3792,14 @@ function endrRenderDetalhe(card){
     const loc=[d.area,d.rua,endrSt.modulo,endrSt.nivel].filter(Boolean).join(' — ');
     const outroAqui=document.createElement('button'); outroAqui.className='btn btn-brand'; outroAqui.style.cssText='width:100%;height:48px';
     outroAqui.textContent='+ Criar outro '+(d.tipo||'endereço')+' aqui'+(loc?' ('+loc+')':'');
-    outroAqui.onclick=()=>endrNovoEnderecoAqui({tipo:d.tipo, areaId:d.areaId, area:d.area, rua:d.rua, modulo:endrSt.modulo, nivel:endrSt.nivel, ruaCod:endrSt.ruaCod, moduloCod:endrSt.moduloCod, nivelCod:endrSt.nivelCod, areaPrefixo:endrSt.areaPrefixo, paradaEm:endrSt.paradaEm});
+    /* Bug #2 (auditoria 14/07): as 3 navegações abaixo saem do Detalhe sem passar pelo botão
+       "‹ Voltar ao painel" (único lugar que hoje desarma o leitor) — desarma aqui também. */
+    outroAqui.onclick=()=>{ endrNfcDesativar(); endrNovoEnderecoAqui({tipo:d.tipo, areaId:d.areaId, area:d.area, rua:d.rua, modulo:endrSt.modulo, nivel:endrSt.nivel, ruaCod:endrSt.ruaCod, moduloCod:endrSt.moduloCod, nivelCod:endrSt.nivelCod, areaPrefixo:endrSt.areaPrefixo, paradaEm:endrSt.paradaEm}); };
     card.appendChild(outroAqui);
     const outroLugar=document.createElement('button'); outroLugar.className='btn btn-neutral'; outroLugar.style.cssText='width:100%;height:44px;margin-top:8px'; outroLugar.textContent='Criar em outro local/área';
-    outroLugar.onclick=endrNovoEndereco; card.appendChild(outroLugar);
+    outroLugar.onclick=()=>{ endrNfcDesativar(); endrNovoEndereco(); }; card.appendChild(outroLugar);
     const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Ver lista do local';
-    fim.onclick=()=>{ endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
+    fim.onclick=()=>{ endrNfcDesativar(); endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista(); };
     card.appendChild(fim);
   }
 }
@@ -3838,6 +3886,7 @@ function gestReset(){
     setores:[], _setoresCarregadas:false, setorId:null, setorNome:'', setorCodigo:'',
     posicoes:[], _posicoesCarregadas:false, posicaoId:null, posicaoNome:'', posicaoCodigo:'',
     niveis:[], _niveisCarregados:false,
+    _loadSeq:0, // bug #7 (auditoria 14/07) — mesmo token monotônico do endr*
   };
 }
 function gestBreadcrumb(){
@@ -3874,9 +3923,13 @@ function gestFormNovoSimples(card, {label, onSalvar}){
     +'<input id="gestNovoNome" type="text" placeholder="Nome (ex.: Rua 1)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
     +'<input id="gestNovoCodigo" type="text" placeholder="Código do segmento (opcional, ex.: R1)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">';
   const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar '+label;
+  /* Bug #6 (auditoria 14/07): guarda de duplo-toque — sem ela, um toque duplo rápido criava dois
+     registros idênticos antes da tela recarregar. */
   btn.onclick=()=>{
+    if(btn.disabled) return;
+    btn.disabled=true; const txtOrig=btn.textContent; btn.textContent='Salvando…';
     const nome=document.getElementById('gestNovoNome').value, codigo=document.getElementById('gestNovoCodigo').value;
-    onSalvar(nome, codigo);
+    Promise.resolve(onSalvar(nome, codigo)).finally(()=>{ btn.disabled=false; btn.textContent=txtOrig; });
   };
   wrap.appendChild(btn); card.appendChild(wrap);
 }
@@ -3921,8 +3974,9 @@ function gestRenderLocal(card){
    Apex direto criava) ---- */
 async function gestCarregarAreas(){
   gestSt._areasCarregadas=false; renderEstoque();
-  try{ const d=await beGet('/estoque/areas?localId='+encodeURIComponent(gestSt.localId)+'&incluirInativos=1'); gestSt.areas=d.areas||[]; gestSt._areasCarregadas=true; renderEstoque(); }
-  catch(e){ gestSt._areasCarregadas=true; gestSt.erro='Erro ao carregar áreas: '+e.message; renderEstoque(); }
+  const seq=++gestSt._loadSeq;
+  try{ const d=await beGet('/estoque/areas?localId='+encodeURIComponent(gestSt.localId)+'&incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.areas=d.areas||[]; gestSt._areasCarregadas=true; renderEstoque(); }
+  catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._areasCarregadas=true; gestSt.erro='Erro ao carregar áreas: '+e.message; renderEstoque(); }
 }
 function gestEscolherArea(a){ gestSt.areaId=a.id; gestSt.areaNome=a.nome; gestSt.areaRequerRua=a.requerRua; gestSt.areaPrefixo=a.prefixo; gestSt.step='setor'; gestSt.erro=null; renderEstoque(); gestCarregarSetores(); }
 async function gestToggleAreaAtivo(a){ try{ await bePatch('/estoque/areas/'+a.id,{ativo:!a.ativo}); toast(a.ativo?'Área desativada':'Área ativada'); gestCarregarAreas(); }catch(e){ toast('⚠️ '+e.message); } }
@@ -3951,8 +4005,11 @@ function gestRenderArea(card){
     +'<input id="gestNovoCodigo" type="text" placeholder="Prefixo do código (ex.: CAS4)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
     +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4A5560;margin-bottom:10px"><input id="gestNovoRequerRua" type="checkbox"> Exige Setor (Posição/Nível)</label>';
   const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px'; btn.textContent='Adicionar Área';
+  /* Bug #6 (auditoria 14/07): mesma guarda de duplo-toque do form de Setor/Posição/Nível. */
   btn.onclick=()=>{
-    gestCriarArea(document.getElementById('gestNovoNome').value, document.getElementById('gestNovoCodigo').value, document.getElementById('gestNovoRequerRua').checked);
+    if(btn.disabled) return;
+    btn.disabled=true; const txtOrig=btn.textContent; btn.textContent='Salvando…';
+    Promise.resolve(gestCriarArea(document.getElementById('gestNovoNome').value, document.getElementById('gestNovoCodigo').value, document.getElementById('gestNovoRequerRua').checked)).finally(()=>{ btn.disabled=false; btn.textContent=txtOrig; });
   };
   wrap.appendChild(btn); card.appendChild(wrap);
 }
@@ -3960,8 +4017,9 @@ function gestRenderArea(card){
 /* ---- passo 3: Setor (pré-cadastro novo — SetorEstoque__c) ---- */
 async function gestCarregarSetores(){
   gestSt._setoresCarregadas=false; renderEstoque();
-  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(gestSt.areaId)+'&incluirInativos=1'); gestSt.setores=d.setores||[]; gestSt._setoresCarregadas=true; renderEstoque(); }
-  catch(e){ gestSt._setoresCarregadas=true; gestSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
+  const seq=++gestSt._loadSeq;
+  try{ const d=await beGet('/estoque/setores?areaId='+encodeURIComponent(gestSt.areaId)+'&incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.setores=d.setores||[]; gestSt._setoresCarregadas=true; renderEstoque(); }
+  catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._setoresCarregadas=true; gestSt.erro='Erro ao carregar setores: '+e.message; renderEstoque(); }
 }
 function gestEscolherSetor(s){ gestSt.setorId=s.id; gestSt.setorNome=s.nome; gestSt.setorCodigo=s.codigo; gestSt.step='posicao'; gestSt.erro=null; renderEstoque(); gestCarregarPosicoes(); }
 async function gestToggleSetorAtivo(s){ try{ await bePatch('/estoque/setores/'+s.id,{ativo:!s.ativo}); toast(s.ativo?'Setor desativado':'Setor ativado'); gestCarregarSetores(); }catch(e){ toast('⚠️ '+e.message); } }
@@ -3982,8 +4040,9 @@ function gestRenderSetor(card){
 /* ---- passo 4: Posição (pré-cadastro novo — PosicaoEstoque__c) ---- */
 async function gestCarregarPosicoes(){
   gestSt._posicoesCarregadas=false; renderEstoque();
-  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(gestSt.setorId)+'&incluirInativos=1'); gestSt.posicoes=d.posicoes||[]; gestSt._posicoesCarregadas=true; renderEstoque(); }
-  catch(e){ gestSt._posicoesCarregadas=true; gestSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
+  const seq=++gestSt._loadSeq;
+  try{ const d=await beGet('/estoque/posicoes?setorId='+encodeURIComponent(gestSt.setorId)+'&incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.posicoes=d.posicoes||[]; gestSt._posicoesCarregadas=true; renderEstoque(); }
+  catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._posicoesCarregadas=true; gestSt.erro='Erro ao carregar posições: '+e.message; renderEstoque(); }
 }
 function gestEscolherPosicao(p){ gestSt.posicaoId=p.id; gestSt.posicaoNome=p.nome; gestSt.posicaoCodigo=p.codigo; gestSt.step='nivel'; gestSt.erro=null; renderEstoque(); gestCarregarNiveis(); }
 async function gestTogglePosicaoAtivo(p){ try{ await bePatch('/estoque/posicoes/'+p.id,{ativo:!p.ativo}); toast(p.ativo?'Posição desativada':'Posição ativada'); gestCarregarPosicoes(); }catch(e){ toast('⚠️ '+e.message); } }
@@ -4004,8 +4063,9 @@ function gestRenderPosicao(card){
 /* ---- passo 5: Nível (pré-cadastro novo — NivelEstoque__c; folha, sem próximo degrau) ---- */
 async function gestCarregarNiveis(){
   gestSt._niveisCarregados=false; renderEstoque();
-  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(gestSt.posicaoId)+'&incluirInativos=1'); gestSt.niveis=d.niveis||[]; gestSt._niveisCarregados=true; renderEstoque(); }
-  catch(e){ gestSt._niveisCarregados=true; gestSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
+  const seq=++gestSt._loadSeq;
+  try{ const d=await beGet('/estoque/niveis?posicaoId='+encodeURIComponent(gestSt.posicaoId)+'&incluirInativos=1'); if(seq!==gestSt._loadSeq) return; gestSt.niveis=d.niveis||[]; gestSt._niveisCarregados=true; renderEstoque(); }
+  catch(e){ if(seq!==gestSt._loadSeq) return; gestSt._niveisCarregados=true; gestSt.erro='Erro ao carregar níveis: '+e.message; renderEstoque(); }
 }
 async function gestToggleNivelAtivo(n){ try{ await bePatch('/estoque/niveis/'+n.id,{ativo:!n.ativo}); toast(n.ativo?'Nível desativado':'Nível ativado'); gestCarregarNiveis(); }catch(e){ toast('⚠️ '+e.message); } }
 async function gestCriarNivel(nome,codigo){
@@ -4512,7 +4572,7 @@ function recpScanResultado(endereco){
     if(!linha) return;
     if(linha.enderecoId===endereco.id){
       linha.verificado='ok';
-      try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){}
+      try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){} estoqBip(880);
       toast('✓ '+(endereco.codigo||'')+' confirmado');
       renderEstoque();
     } else {
@@ -4524,7 +4584,7 @@ function recpScanResultado(endereco){
   Object.keys(recpSt.aloc).forEach(itemId=>{
     (recpSt.aloc[itemId]||[]).forEach(l=>{ if(l.enderecoId===endereco.id && l.verificado!=='ok'){ l.verificado='ok'; bateu++; } });
   });
-  if(bateu){ try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){} toast('✓ '+bateu+' linha(s) confirmada(s) em '+(endereco.codigo||'')); }
+  if(bateu){ try{ if(navigator.vibrate) navigator.vibrate(100); }catch(e){} estoqBip(880); toast('✓ '+bateu+' linha(s) confirmada(s) em '+(endereco.codigo||'')); }
   else toast('Nenhuma linha pendente alocada em '+(endereco.codigo||'')+'.');
   renderEstoque();
 }
