@@ -113,7 +113,11 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v123'; // v123 15/07: gaveta de Área (hub endr*) fixa "Almoxarifado"
+const CACHE = 'exaustech-os-v124'; // v124 15/07: recp* — vincular produto manual (item 1 do
+// roadmap de proposta-recebimento-conferencia-armazenamento.md) quando o matching automático
+// não achou o item; busca em Product2 (GET /estoque/produtos) + POST vincular-produto (Apex
+// aprende o DePara pra próxima vez).
+// v123 15/07: gaveta de Área (hub endr*) fixa "Almoxarifado"
 // como 1ª opção da lista, à frente da ordem alfabética — é a área mais usada no dia a dia, pedido
 // do Raphael. Só na cascata de Área; Rua/Módulo/Nível continuam 100% alfabéticos.
 // v122 15/07: badges de medida ao vivo (Modelo de Caixa BIN)

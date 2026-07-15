@@ -4839,6 +4839,7 @@ function recpReset(){
     wizard:null,
     nfc:{status:'idle',msg:null}, scanAlvo:null,
     confirmando:false,
+    vincular:null,
   };
 }
 function renderRecpFluxo(wrap){
@@ -4855,6 +4856,7 @@ function renderRecpFluxo(wrap){
     recpRenderItem(card);
     if(recpSt.excedente) recpRenderExcedente(wrap);
     if(recpSt._divergencia) recpRenderDivergencia(wrap);
+    if(recpSt.vincular) recpRenderVincularProduto(wrap);
   }
   else if(recpSt.step==='revisao') recpRenderRevisao(card);
   else if(recpSt.step==='sucesso') recpRenderSucesso(card);
@@ -5085,6 +5087,19 @@ function recpRenderItem(card){
   const c=recpSt.conf[recpSt.itemId];
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(item.produto||item.descricaoNF||'(sem descrição)')+'</div>'
     +'<div class="subnote" style="padding:0 0 8px">Quantidade na NF: '+_esc(item.quantidadeNF)+'</div>';
+  if(!item.produtoId){
+    /* item 1 do roadmap (proposta-recebimento-conferencia-armazenamento.md §3.1): matching
+       automático (DePara) não achou o item — expõe a vinculação manual, que já aprende o DePara
+       no Apex pra próxima vez (RecebimentoMatchingService.vincularProdutoManual). Sem produto não
+       dá pra sugerir endereço (backend ignora item.Produto__c nulo), por isso o aviso. */
+    const vincWrap=document.createElement('div'); vincWrap.style.cssText='background:#fff2df;border:1.5px solid #e0b060;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap';
+    const txt=document.createElement('div'); txt.style.cssText='font-size:12.5px;color:#7a5300;font-weight:600;flex:1;min-width:0'; txt.textContent='Sem produto vinculado — sem produto não dá pra sugerir endereço.';
+    vincWrap.appendChild(txt);
+    const vb=document.createElement('button'); vb.className='btn btn-brand'; vb.style.cssText='width:auto;height:36px;margin:0;padding:0 14px;font-size:12px;flex-shrink:0'; vb.textContent='Vincular produto';
+    vb.onclick=()=>recpAbrirVincularProduto();
+    vincWrap.appendChild(vb);
+    card.appendChild(vincWrap);
+  }
   const chipsWrap=document.createElement('div'); chipsWrap.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px';
   STATUS_ITEM_RECP.forEach(s=>{
     const on=c.status===s;
@@ -5181,6 +5196,74 @@ function recpRenderItem(card){
   };
   card.appendChild(conf);
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ recpSt.step='recebimento'; renderEstoque(); }; card.appendChild(bk);
+}
+/* ---- vincular produto manual (item 1 do roadmap, 15/07/2026) ----
+   Busca em Product2 (GET /estoque/produtos?q=) e vincula via
+   POST /estoque/recebimentos/:id/itens/:itemId/vincular-produto (Apex aprende o DePara).
+   Depois de vincular, recarrega itens/candidatos do recebimento (sem tocar conf{}/aloc{} dos
+   OUTROS itens, que só existem no cliente até a confirmação final atômica). */
+function recpAbrirVincularProduto(){
+  recpSt.vincular={ query:'', resultados:[], buscando:false, erro:null, salvando:false, _deb:null };
+  renderEstoque();
+}
+function recpBuscarProdutosDebounced(){
+  const v=recpSt.vincular; if(!v) return;
+  clearTimeout(v._deb);
+  v._deb=setTimeout(async ()=>{
+    const q=(v.query||'').trim();
+    if(q.length<2){ v.resultados=[]; v.buscando=false; renderEstoque(); return; }
+    v.buscando=true; v.erro=null; renderEstoque();
+    try{ const d=await beGet('/estoque/produtos?q='+encodeURIComponent(q)); v.resultados=d.produtos||[]; }
+    catch(e){ v.erro='Erro ao buscar: '+e.message; v.resultados=[]; }
+    v.buscando=false; renderEstoque();
+  }, 350);
+}
+async function recpRecarregarItensRecebimento(){
+  try{
+    const d=await beGet('/estoque/recebimentos/'+recpSt.recId);
+    recpSt.rec.itens=d.itens||recpSt.rec.itens;
+    recpSt.rec.candidatos=d.candidatos||recpSt.rec.candidatos;
+  }catch(e){ /* falha silenciosa — o item já foi vinculado no servidor, só a sugestão não atualiza agora */ }
+}
+async function recpConfirmarVinculoProduto(produtoId){
+  const v=recpSt.vincular; if(!v || v.salvando) return;
+  v.salvando=true; v.erro=null; renderEstoque();
+  try{
+    await bePost('/estoque/recebimentos/'+recpSt.recId+'/itens/'+recpSt.itemId+'/vincular-produto', {produtoId});
+    await recpRecarregarItensRecebimento();
+    recpSt.vincular=null;
+    const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+    if(item && item.sugestao && !recpSt.itemAloc.length){
+      const c=recpSt.conf[recpSt.itemId];
+      recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:(c&&c.quantidade)||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
+    }
+    renderEstoque();
+  }catch(e){ v.salvando=false; v.erro='Erro ao vincular: '+e.message; renderEstoque(); }
+}
+function recpRenderVincularProduto(wrap){
+  const v=recpSt.vincular; if(!v) return;
+  const overlay=document.createElement('div'); overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:480px;max-height:85vh;overflow:auto;box-sizing:border-box';
+  const tit=document.createElement('div'); tit.style.cssText='font-size:15px;font-weight:800;color:#0B2239;margin-bottom:10px'; tit.textContent='Vincular produto';
+  modal.appendChild(tit);
+  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Buscar por nome ou código…'; inp.value=v.query||'';
+  inp.style.cssText='width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;box-sizing:border-box;margin-bottom:10px';
+  inp.oninput=()=>{ v.query=inp.value; recpBuscarProdutosDebounced(); };
+  modal.appendChild(inp);
+  if(v.salvando){ const sv=document.createElement('div'); sv.className='subnote'; sv.textContent='Vinculando…'; modal.appendChild(sv); }
+  if(v.erro){ const er=document.createElement('div'); er.className='subnote'; er.style.color='#C4451B'; er.textContent=v.erro; modal.appendChild(er); }
+  if(v.buscando){ const bd=document.createElement('div'); bd.className='subnote'; bd.textContent='Buscando…'; modal.appendChild(bd); }
+  else if((v.query||'').trim().length>=2 && !v.resultados.length){ const nd=document.createElement('div'); nd.className='subnote'; nd.textContent='Nenhum produto encontrado.'; modal.appendChild(nd); }
+  v.resultados.forEach(p=>{
+    const row=document.createElement('div'); row.style.cssText='padding:10px;border:1px solid #E2E5E9;border-radius:10px;margin-top:6px;cursor:pointer;font-size:13px';
+    row.innerHTML='<b>'+_esc(p.nome)+'</b>'+(p.codigo?(' <span style="color:#686868">· '+_esc(p.codigo)+'</span>'):'');
+    row.onclick=()=>recpConfirmarVinculoProduto(p.id);
+    modal.appendChild(row);
+  });
+  const cancelar=document.createElement('div'); cancelar.style.cssText='text-align:center;font-size:12.5px;color:#686868;padding:14px 0 2px;cursor:pointer'; cancelar.textContent='cancelar';
+  cancelar.onclick=()=>{ recpSt.vincular=null; renderEstoque(); };
+  modal.appendChild(cancelar);
+  overlay.appendChild(modal); wrap.appendChild(overlay);
 }
 /* ---- validação + excedente (§3 da proposta) ---- */
 function recpValidarItem(){
