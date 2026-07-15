@@ -4734,6 +4734,17 @@ function gestModeloBinVolumePreview(){
   if(Number.isFinite(c) && Number.isFinite(a) && Number.isFinite(l) && c>0 && l>0 && a>0){
     out.textContent='= '+((c*l*a)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L';
   } else out.textContent='';
+  /* Medida ao lado da legenda no desenho (pedido do Raphael, 15/07/2026): 3 badges
+     posicionados em cima da imagem estática (coordenadas em % fixas, calibradas pelo
+     posicionamento real do texto ALTURA/PROFUNDIDADE/LARGURA em caixa-medidas-final.png,
+     814×598px) — atualiza ao vivo junto do preview de volume, mesmo padrão. */
+  gestModeloBinAtualizarBadge('gestDiagProfundidade', c);
+  gestModeloBinAtualizarBadge('gestDiagLargura', l);
+  gestModeloBinAtualizarBadge('gestDiagAltura', a);
+}
+function gestModeloBinAtualizarBadge(id, valor){
+  const el=document.getElementById(id); if(!el) return;
+  el.textContent=Number.isFinite(valor) && valor>0 ? (valor.toLocaleString('pt-BR',{maximumFractionDigits:1})+' cm') : '';
 }
 function gestRenderModeloBin(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:40px;margin-bottom:10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ gestSt.step='local'; gestSt.erro=null; renderEstoque(); }; card.appendChild(bk);
@@ -4758,7 +4769,15 @@ function gestRenderModeloBin(card){
   const wrap=document.createElement('div'); wrap.style.cssText='margin-top:16px;padding-top:14px;border-top:1px solid #EEF0F2';
   wrap.innerHTML='<div class="sec-title2" style="margin-top:0;font-size:12.5px">+ Novo modelo</div>'
     // Diagrama de referência (15/07/2026): imagem real, não SVG gerado — ver DECISAO_modelo_caixa_bin.md.
-    +'<div style="text-align:center;margin:6px 0 12px"><img src="caixa-medidas-final.png" alt="Diagrama de uma caixa BIN com legendas Altura, Largura e Profundidade indicando cada campo de medida" style="max-width:240px;width:100%;height:auto"></div>'
+    // Badges de medida ao vivo (15/07/2026, pedido do Raphael): 3 <span> absolutos sobre a imagem,
+    // um por legenda (ALTURA/PROFUNDIDADE/LARGURA), atualizados por gestModeloBinVolumePreview()
+    // enquanto o usuário digita — nunca editam o arquivo de imagem em si, só sobrepõem texto.
+    +'<div style="text-align:center;margin:6px 0 12px"><div style="position:relative;display:inline-block;max-width:240px;width:100%">'
+    +'<img src="caixa-medidas-final.png" alt="Diagrama de uma caixa BIN com legendas Altura, Largura e Profundidade indicando cada campo de medida" style="width:100%;height:auto;display:block">'
+    +'<span id="gestDiagAltura" style="position:absolute;left:14%;top:37%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    +'<span id="gestDiagProfundidade" style="position:absolute;left:23%;top:84%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    +'<span id="gestDiagLargura" style="position:absolute;left:73%;top:70%;font-size:10px;font-weight:800;color:var(--brand);background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap"></span>'
+    +'</div></div>'
     +'<input id="gestModeloNome" type="text" placeholder="Nome (ex.: Gaveteiro BIN 07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:6px 0;box-sizing:border-box">'
     +'<input id="gestModeloCodigo" type="text" placeholder="Código (opcional, ex.: BIN07)" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:0 0 8px;box-sizing:border-box;text-transform:uppercase">'
     /* Bug (15/07/2026, reportado 2x pelo Raphael): "Altura (cm)" vazava pra direita da tela. Causa:
@@ -4767,7 +4786,7 @@ function gestRenderModeloBin(card){
        com min-width:0 (permite encolher) + grid de 3 colunas iguais em vez de flex, mais previsível
        em telas estreitas; placeholders encurtados pra caber sem trunca feio. */
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px">'
-    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Profundidade" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
+    +'<input id="gestModeloComp" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Profundidade (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'<input id="gestModeloLarg" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Larg. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'<input id="gestModeloAlt" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Alt. (cm)" style="width:100%;min-width:0;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;box-sizing:border-box;font-size:13px">'
     +'</div>'
