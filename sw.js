@@ -113,7 +113,12 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v128'; // v128 16/07: endr* — Fase 3 (auto-incremento+validação em tempo
+const CACHE = 'exaustech-os-v129'; // v129 16/07: hotfix recp* "Confirmados há pouco" — botão
+// Desfazer/Estornar sobrepondo o nome do fornecedor (herança de .btn{width:100%} dentro de row
+// flex, competindo com o irmão flex:1) + innerHTML+= matando onclick do toggle Sócio quando a
+// lista de pendentes está vazia. Fix cirúrgico: width:auto;flex-shrink:0 nos 2 botões (linhas
+// ~5306/5325) + insertAdjacentHTML no lugar de innerHTML+= (linhas ~5288-5290). Zero schema/Apex.
+// v128 16/07: endr* — Fase 3 (auto-incremento+validação em tempo
 // real do código, gerador de lote com prévia obrigatória "letra A-J"/"número 01-10", editar nome/
 // capacidade depois + "Desfazer" 30s (single e lote inteiro) — ver DECISAO_fase3_lote_desfazer.md.
 // Zero schema/Apex novo (reusa CustomFields já existentes); backend+front só.
