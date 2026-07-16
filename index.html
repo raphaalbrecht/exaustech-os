@@ -4869,6 +4869,12 @@ function recpReset(){
     nfc:{status:'idle',msg:null}, scanAlvo:null,
     confirmando:false,
     vincular:null,
+    // Estorno de Recebimento Confirmado (16/07/2026, DECISAO_estorno-recebimento-confirmado.md):
+    // confirmados = últimos recebimentos já confirmados (usado tanto pra "Confirmados há pouco"
+    // do Estoquista quanto pro toggle de busca do Sócio); estorno = estado do modal compartilhado.
+    confirmados:[], _confirmadosCarregados:false, janelaEstornoMin:30,
+    verConfirmados:false, confirmadosQuery:'',
+    estorno:null,
   };
 }
 function renderRecpFluxo(wrap){
@@ -4889,6 +4895,7 @@ function renderRecpFluxo(wrap){
   }
   else if(recpSt.step==='revisao') recpRenderRevisao(card);
   else if(recpSt.step==='sucesso') recpRenderSucesso(card);
+  if(recpSt.estorno) recpRenderEstornoModal(wrap);
 }
 /* ---- passo 1: lista de recebimentos pendentes (toque avança) ---- */
 async function recpCarregarLista(){
@@ -4897,17 +4904,111 @@ async function recpCarregarLista(){
     limpar em caso de sucesso. Limpa sempre no início de toda tentativa. */
   try{ const d=await beGet('/estoque/recebimentos'); recpSt.recebimentos=d.recebimentos||[]; recpSt._listaCarregada=true; renderEstoque(); }
   catch(e){ recpSt._listaCarregada=true; recpSt.erro='Erro ao carregar entradas: '+e.message; renderEstoque(); }
+  recpCarregarConfirmados();
+}
+/* ---- Estorno de Recebimento Confirmado (16/07/2026) — carrega os últimos confirmados
+   (usado tanto pra "Confirmados há pouco" do Estoquista quanto pro toggle do Sócio) ---- */
+async function recpCarregarConfirmados(q){
+  try{
+    const qs=q?('?q='+encodeURIComponent(q)):'';
+    const d=await beGet('/estoque/recebimentos-confirmados'+qs);
+    recpSt.confirmados=d.recebimentos||[]; recpSt.janelaEstornoMin=d.janelaEstornoMinutos||30;
+    recpSt._confirmadosCarregados=true; renderEstoque();
+  }catch(e){ recpSt._confirmadosCarregados=true; renderEstoque(); }
+}
+function recpMeusRecentes(){
+  const rid=myRid(); if(!rid) return [];
+  const agora=Date.now();
+  return (recpSt.confirmados||[]).filter(r=>r.conferidoPorRecursoId===rid && r.estornavelAte && new Date(r.estornavelAte).getTime()>agora);
+}
+function recpMinutosRestantes(estornavelAte){
+  const ms=new Date(estornavelAte).getTime()-Date.now();
+  return Math.max(1, Math.ceil(ms/60000));
+}
+function recpAbrirEstorno(recebimentoId){ recpSt.estorno={recebimentoId, motivo:'', enviando:false, erro:null}; renderEstoque(); }
+function recpFecharEstorno(){ recpSt.estorno=null; renderEstoque(); }
+async function recpConfirmarEstorno(){
+  const es=recpSt.estorno; if(!es || es.enviando) return;
+  if(!(es.motivo||'').trim()){ es.erro='Informe o motivo do estorno.'; renderEstoque(); return; }
+  es.enviando=true; es.erro=null; renderEstoque();
+  try{
+    await bePost('/estoque/recebimentos/'+es.recebimentoId+'/estornar', {motivo:es.motivo.trim()});
+    recpSt.estorno=null;
+    toast('Recebimento estornado — voltou pra Entradas Pendentes.');
+    recpSt.step='lista'; recpSt._listaCarregada=false; recpSt._confirmadosCarregados=false; recpSt.verConfirmados=false;
+    recpCarregarLista();
+  }catch(e){ es.enviando=false; es.erro='Erro ao estornar: '+e.message; renderEstoque(); }
+}
+function recpRenderEstornoModal(wrap){
+  const es=recpSt.estorno; if(!es) return;
+  const overlay=document.createElement('div'); overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:480px;box-sizing:border-box';
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:6px">Estornar recebimento</div>'
+    +'<div class="subnote" style="margin-bottom:10px">As entradas de estoque serão revertidas e o recebimento volta pra Entradas Pendentes, editável de novo.</div>';
+  const inp=document.createElement('textarea'); inp.placeholder='Motivo do estorno…'; inp.value=es.motivo||'';
+  inp.style.cssText='width:100%;min-height:70px;border:1.5px solid #D7DEE6;border-radius:10px;padding:10px 12px;box-sizing:border-box;font:inherit';
+  inp.oninput=()=>{ es.motivo=inp.value; };
+  modal.appendChild(inp);
+  if(es.erro){ const er=document.createElement('div'); er.className='subnote'; er.style.color='#C4451B'; er.style.marginTop='8px'; er.textContent=es.erro; modal.appendChild(er); }
+  const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px;margin-top:12px';
+  btn.textContent=es.enviando?'Estornando…':'Confirmar estorno'; btn.disabled=!!es.enviando; btn.onclick=recpConfirmarEstorno;
+  modal.appendChild(btn);
+  const cancelar=document.createElement('div'); cancelar.style.cssText='text-align:center;font-size:12.5px;color:#686868;padding:14px 0 2px;cursor:pointer'; cancelar.textContent='cancelar';
+  cancelar.onclick=recpFecharEstorno;
+  modal.appendChild(cancelar);
+  overlay.appendChild(modal); wrap.appendChild(overlay);
 }
 function recpRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Entradas aguardando conferência</div>';
+  // Estorno de Recebimento Confirmado (16/07/2026) — toggle exclusivo de Sócio (checagem exata,
+  // não hierárquica: é a exceção deliberada de proposta-recebimento-conferencia-armazenamento.md).
+  if(ROLE==='Sócio'){
+    const tgl=document.createElement('button'); tgl.className='btn btn-neutral'; tgl.style.cssText='width:100%;height:38px;margin-bottom:10px;font-size:12.5px';
+    tgl.textContent=recpSt.verConfirmados?'‹ Ver entradas pendentes':'🔎 Ver recebimentos confirmados';
+    tgl.onclick=()=>{ recpSt.verConfirmados=!recpSt.verConfirmados; renderEstoque(); };
+    card.appendChild(tgl);
+  }
+  if(recpSt.verConfirmados){ recpRenderConfirmadosBusca(card); return; }
   if(recpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(recpSt.erro)+'</div>';
   if(!recpSt._listaCarregada){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  if(!recpSt.recebimentos.length){ card.innerHTML+='<div class="subnote">Nenhuma entrada aguardando conferência. 🎉</div>'; return; }
+  if(!recpSt.recebimentos.length) card.innerHTML+='<div class="subnote">Nenhuma entrada aguardando conferência. 🎉</div>';
   recpSt.recebimentos.forEach(r=>{
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
     const lzCls=r.status==='Em Conferência'?'lz-info':'lz-neu';
     row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(r.fornecedor||r.name)+'</div><div style="font-size:12px;color:var(--weak)">NF '+_esc(r.numeroNF||'—')+' · '+_esc(r.empresaFiscal||'')+' · '+_esc(fmtDataBR(r.dataEmissao))+'</div></div><span class="lz '+lzCls+'">'+_esc(r.status)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
     row.onclick=()=>recpAbrirRecebimento(r.id);
+    card.appendChild(row);
+  });
+  // "Confirmados há pouco" — só os que EU confirmei e ainda estão dentro da janela; some
+  // sozinha quando vazia (mesmo padrão banner-de-emergência, nunca card neutro sempre visível).
+  const recentes=recpMeusRecentes();
+  if(recentes.length){
+    const sep=document.createElement('div'); sep.className='sec-title2'; sep.style.cssText='margin-top:18px'; sep.textContent='Confirmados há pouco'; card.appendChild(sep);
+    recentes.forEach(r=>{
+      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
+      row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(r.fornecedor||r.name)+'</div><div style="font-size:12px;color:var(--weak)">NF '+_esc(r.numeroNF||'—')+'</div></div>';
+      const btn=document.createElement('button'); btn.className='btn btn-neutral'; btn.style.cssText='height:34px;font-size:12px;white-space:nowrap';
+      btn.textContent='↩️ Desfazer ('+recpMinutosRestantes(r.estornavelAte)+'min)';
+      btn.onclick=()=>recpAbrirEstorno(r.id);
+      row.appendChild(btn);
+      card.appendChild(row);
+    });
+  }
+}
+/* ---- Sócio: busca em recebimentos já confirmados, pra estornar quando a janela do Estoquista já expirou ---- */
+function recpRenderConfirmadosBusca(card){
+  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Buscar por NF ou fornecedor…'; inp.value=recpSt.confirmadosQuery||'';
+  inp.style.cssText='width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;box-sizing:border-box;margin-bottom:10px';
+  let deb; inp.oninput=()=>{ recpSt.confirmadosQuery=inp.value; clearTimeout(deb); deb=setTimeout(()=>recpCarregarConfirmados(recpSt.confirmadosQuery), 350); };
+  card.appendChild(inp);
+  if(!recpSt._confirmadosCarregados){ const ld=document.createElement('div'); ld.className='subnote'; ld.innerHTML='<span class="ld-spin"></span>Carregando…'; card.appendChild(ld); return; }
+  if(!recpSt.confirmados.length){ const nd=document.createElement('div'); nd.className='subnote'; nd.textContent='Nenhum recebimento confirmado encontrado.'; card.appendChild(nd); return; }
+  recpSt.confirmados.forEach(r=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
+    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(r.fornecedor||r.name)+'</div><div style="font-size:12px;color:var(--weak)">NF '+_esc(r.numeroNF||'—')+' · '+_esc(r.status)+' · '+_esc(fmtDataBR(r.dataRecebimentoFisico))+'</div></div>';
+    const btn=document.createElement('button'); btn.className='btn btn-neutral'; btn.style.cssText='height:34px;font-size:12px;white-space:nowrap'; btn.textContent='Estornar';
+    btn.onclick=()=>recpAbrirEstorno(r.id);
+    row.appendChild(btn);
     card.appendChild(row);
   });
 }
@@ -5733,6 +5834,12 @@ function recpRenderSucesso(card){
   const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Voltar ao painel';
   fim.onclick=()=>{ recpReset(); estoqGo('dash'); };
   card.appendChild(fim);
+  // "toast estilo Gmail" (decisão confirmada com o Raphael, DECISAO_estorno-recebimento-
+  // confirmado.md) — errou na hora, desfaz na hora, sem precisar caçar o card na lista.
+  const desfazer=document.createElement('button'); desfazer.className='btn btn-neutral'; desfazer.style.cssText='width:100%;height:40px;margin-top:14px;font-size:12.5px;color:#a15c00';
+  desfazer.textContent='↩️ Confirmei errado — desfazer';
+  desfazer.onclick=()=>recpAbrirEstorno(recpSt.recId);
+  card.appendChild(desfazer);
 }
 /* linha padrão de SEP nas listas */
 function sepRow(o,s,onclick){

@@ -113,7 +113,13 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v126'; // v126 15/07: recp* — item 2 do roadmap de recebimento
+const CACHE = 'exaustech-os-v127'; // v127 16/07: recp* — Estorno de Recebimento Confirmado (ver
+// DECISAO_estorno-recebimento-confirmado.md): Estoquista desfaz sozinho até 30min depois de
+// confirmar ("Confirmados há pouco" na lista + toast "Confirmei errado — desfazer" na tela de
+// sucesso); depois só Sócio (toggle "Ver recebimentos confirmados", busca por NF/fornecedor).
+// Estorno nunca deleta o lançamento original — gera MovimentacaoEstoque__c compensatória e
+// bloqueia (nunca saldo negativo) se o estoque já foi consumido por outra movimentação.
+// (v126 15/07: recp* — item 2 do roadmap de recebimento
 // (avaria parcial + reason codes + contagem semi-cega + tolerância soft de over-receipt, ver
 // DECISAO_item2-avaria-tolerancia-recebimento.md): quantidade recebida nasce em branco (força
 // contagem de verdade); Avariado pergunta quanto (default=todas, nunca vira saldo disponível);
