@@ -113,7 +113,12 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v125'; // v125 15/07: acmp* — Acompanhamento de Pedido de Compra
+const CACHE = 'exaustech-os-v126'; // v126 15/07: recp* — item 2 do roadmap de recebimento
+// (avaria parcial + reason codes + contagem semi-cega + tolerância soft de over-receipt, ver
+// DECISAO_item2-avaria-tolerancia-recebimento.md): quantidade recebida nasce em branco (força
+// contagem de verdade); Avariado pergunta quanto (default=todas, nunca vira saldo disponível);
+// motivo obrigatório em Divergente/Avariado; banner de tolerância nunca bloqueia.
+// v125 15/07: acmp* — Acompanhamento de Pedido de Compra
 // (extensão de proposta-recebimento-conferencia-armazenamento.md, ver DECISAO_acompanhamento-
 // pedido-compra.md): tela de acompanhamento de prazo de entrega (Supervisor+), 2 critérios de
 // alerta independentes (sem atualização há N dias / previsão a M dias ou menos, incluindo

@@ -4846,6 +4846,17 @@ function gestRenderModeloBin(card){
    zero endpoint novo nesta fase. */
 let recpSt=null, recpScanCtrl=null;
 const STATUS_ITEM_RECP=['Pendente','Conferido OK','Quantidade Divergente','Avariado','Item Não Chegou','Item Não Pedido'];
+/* Item 2 do roadmap de proposta-recebimento-conferencia-armazenamento.md (§3.3, reason codes) —
+   mesmos 7 valores do picklist MotivoDivergencia__c / MOTIVO_DIVERGENCIA no backend. */
+const MOTIVO_DIVERGENCIA_RECP=['Avaria de transporte','Avaria de fábrica','Item errado','Quantidade a menos','Quantidade a mais','Validade/vencimento','Outro'];
+/* quanto da quantidade digitada realmente entra no saldo (o resto é avaria — §3.2). Espelha o
+   fallback do Apex: Avariado sem quantidadeAvariada explícita assume 100% avariado (default =
+   todas), recalculado a cada render (não fixado no clique do chip). */
+function recpQtdBoa(c){
+  const av = c.quantidadeAvariada!=null ? Number(c.quantidadeAvariada) : (c.status==='Avariado' ? (Number(c.quantidade)||0) : 0);
+  return Math.max(0, (Number(c.quantidade)||0) - av);
+}
+function recpPrecisaMotivo(c){ return c.status==='Quantidade Divergente' || c.status==='Avariado' || (Number(c.quantidadeAvariada)||0)>0; }
 function recpReset(){
   recpSt={
     step:'lista', erro:null,
@@ -4934,7 +4945,8 @@ async function recpAbrirRecebimento(id){
        as alocações locais (aloc{}) se perdem e precisam ser refeitas. */
     (d.itens||[]).forEach(it=>{
       if(it.status && it.status!=='Pendente'){
-        recpSt.conf[it.id]={ status:it.status, quantidade:it.quantidade, observacao:'', salvo:true, _salvando:false };
+        recpSt.conf[it.id]={ status:it.status, quantidade:it.quantidade, observacao:'', salvo:true, _salvando:false,
+          quantidadeAvariada:it.quantidadeAvariada||null, motivoDivergencia:it.motivoDivergencia||null };
       }
     });
     if(d.localId){
@@ -4966,9 +4978,11 @@ function recpStatusComposto(item){
   const c=recpSt.conf[item.id];
   if(!c || !c.salvo) return {label:'Pendente', cls:'lz-neu'};
   if(c.status==='Item Não Chegou') return {label:c.status, cls:'lz-err'};
+  const qtdBoa=recpQtdBoa(c);
+  if(qtdBoa<=0) return {label:'Pronto', cls:'lz-succ'}; /* 100% avariado — nada pra endereçar */
   const alocs=recpSt.aloc[item.id]||[];
   const soma=alocs.reduce((s,a)=>s+(Number(a.quantidade)||0),0);
-  if(!alocs.length || soma < (c.quantidade||0)-0.001) return {label:'Conferido · falta endereço', cls:'lz-warn'};
+  if(!alocs.length || soma < qtdBoa-0.001) return {label:'Conferido · falta endereço', cls:'lz-warn'};
   return {label:'Pronto', cls:'lz-succ'};
 }
 function recpRenderRecebimento(card){
@@ -5008,7 +5022,10 @@ function recpRenderRecebimento(card){
 function recpAbrirItem(itemId){
   recpSt.itemId=itemId; recpSt.outrosAbertos=false; recpSt.erro=null; recpSt.excedente=null; recpSt._divergencia=null;
   const item=(recpSt.rec.itens||[]).find(i=>i.id===itemId);
-  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:item.quantidade, observacao:'', salvo:false, _salvando:false };
+  /* Item 2 do roadmap (§3.4, contagem semi-cega): quantidade nasce em branco — o operador PRECISA
+     contar de verdade, não confirmar um valor pré-preenchido com o esperado da NF (que continua
+     visível no card, só não vai mais dentro do campo). */
+  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:null, observacao:'', salvo:false, _salvando:false, quantidadeAvariada:null, motivoDivergencia:null };
   const existente=recpSt.aloc[itemId];
   if(existente && existente.length) recpSt.itemAloc=existente.map(a=>({...a}));
   else if(item.sugestao) recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:recpSt.conf[itemId].quantidade||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
@@ -5019,8 +5036,13 @@ function recpSetStatusItem(v){
   const c=recpSt.conf[recpSt.itemId]; const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
   const eraNaoChegou=c.status==='Item Não Chegou';
   c.status=v;
-  if(v==='Conferido OK') c.quantidade=item.quantidadeNF;
-  if(v==='Item Não Chegou'){ c.quantidade=0; recpSt.itemAloc=[]; }
+  if(v==='Conferido OK'){ c.quantidade=item.quantidadeNF; c.quantidadeAvariada=null; c.motivoDivergencia=null; }
+  /* quantidadeAvariada fica null (= "ainda não mexeu") até o operador editar o campo de avaria —
+     recpQtdBoa() trata null como "tudo avariado" enquanto status==='Avariado' (default = todas,
+     §3.2), recalculado a cada render, não fixado no clique — cobre tanto digitar a quantidade
+     antes quanto depois de marcar Avariado. */
+  if(v!=='Avariado' && v!=='Quantidade Divergente') c.quantidadeAvariada=null;
+  if(v==='Item Não Chegou'){ c.quantidade=0; c.quantidadeAvariada=null; c.motivoDivergencia=null; recpSt.itemAloc=[]; }
   else if(eraNaoChegou && !recpSt.itemAloc.length && item.sugestao){
     /* saiu de "Item Não Chegou" pra outro status — repõe a sugestão original, senão o usuário
        fica sem nenhuma linha de alocação até abrir "outros endereços" manualmente */
@@ -5031,10 +5053,11 @@ function recpSetStatusItem(v){
 function recpAtualizaResumoSoma(){
   const el=document.getElementById('recpSomaLinha'); if(!el) return;
   const c=recpSt.conf[recpSt.itemId];
+  const alvo=recpQtdBoa(c);
   const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
-  const bate=Math.abs(soma-(c.quantidade||0))<0.001;
+  const bate=Math.abs(soma-alvo)<0.001;
   el.style.color=bate?'#1D9E75':'#C4451B';
-  el.textContent='Total alocado: '+soma+' de '+(c.quantidade||0);
+  el.textContent='Total alocado: '+soma+' de '+alvo;
 }
 /* recomendação proativa de fracionamento (R8 item 3, DECISAO_modelo_caixa_bin.md) — calcula se a
    linha[idx] estoura a capacidade EFETIVA (min peças/volume) e monta a sugestão de "cabe X aqui +
@@ -5127,13 +5150,53 @@ function recpRenderItem(card){
     chipsWrap.appendChild(chip);
   });
   card.appendChild(chipsWrap);
-  const semSecaoB=c.status==='Item Não Chegou';
+  const qtdBoa=recpQtdBoa(c);
+  const semSecaoB=c.status==='Item Não Chegou' || (c.status==='Avariado' && qtdBoa<=0);
   const qtdWrap=document.createElement('div');
   qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
-    +'<input id="recpQtd" type="number" min="0" step="0.01" value="'+cadEsc(c.quantidade)+'" '+(semSecaoB?'disabled':'')+' style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
+    +'<input id="recpQtd" type="number" min="0" step="0.01" value="'+cadEsc(c.quantidade)+'" placeholder="conte de verdade" '+(c.status==='Item Não Chegou'?'disabled':'')+' style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
     +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
   card.appendChild(qtdWrap);
+  /* Item 2 do roadmap (§3.5, tolerância soft de over-receipt): banner que NUNCA bloqueia, só
+     avisa — dado fica visível pro financeiro via StatusConferencia__c='Recebido com Divergência'
+     de qualquer forma, quando o status não é Conferido OK. */
+  const tolPercent=(recpSt.rec&&recpSt.rec.toleranciaPercent!=null)?recpSt.rec.toleranciaPercent:10;
+  if(c.quantidade>item.quantidadeNF && item.quantidadeNF>0){
+    const excessoPct=((c.quantidade-item.quantidadeNF)/item.quantidadeNF)*100;
+    if(excessoPct>tolPercent){
+      const banner=document.createElement('div');
+      banner.style.cssText='background:#fff2df;border:1.5px solid #e0b060;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#7a5300;font-weight:600';
+      banner.textContent='⚠️ Recebido '+Math.round(excessoPct)+'% acima da NF (tolerância '+tolPercent+'%) — segue normal, motivo obrigatório.';
+      card.appendChild(banner);
+    }
+  }
+  /* §3.2 — quantidade avariada só aparece pro status Avariado; default (quando o campo ainda não
+     foi tocado) = toda a quantidade recebida, recalculado a cada render (ver recpQtdBoa). */
+  if(c.status==='Avariado'){
+    const avWrap=document.createElement('div');
+    const avValor=c.quantidadeAvariada!=null?c.quantidadeAvariada:(c.quantidade||0);
+    avWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade avariada</label>'
+      +'<input id="recpQtdAvariada" type="number" min="0" step="0.01" value="'+cadEsc(avValor)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+      +'<div class="subnote" style="padding:0 0 10px">de '+_esc(c.quantidade||0)+' recebida(s) — o que não for avariado vai pro endereço escolhido embaixo.</div>';
+    card.appendChild(avWrap);
+    const avInp=avWrap.querySelector('#recpQtdAvariada');
+    avInp.oninput=()=>{ recpSt.conf[recpSt.itemId].quantidadeAvariada=Number(avInp.value)||0; renderEstoque(); };
+  }
+  if(recpPrecisaMotivo(c)){
+    const motWrap=document.createElement('div'); motWrap.style.cssText='margin-bottom:12px';
+    motWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Motivo da divergência</label>';
+    const motChips=document.createElement('div'); motChips.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:4px';
+    MOTIVO_DIVERGENCIA_RECP.forEach(m=>{
+      const on=c.motivoDivergencia===m;
+      const chip=document.createElement('div');
+      chip.style.cssText='padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(on?'#3E7EB0':'#E2E5E9')+';background:'+(on?'#3E7EB0':'#fff')+';color:'+(on?'#fff':'#4A5560');
+      chip.textContent=m; chip.onclick=()=>{ recpSt.conf[recpSt.itemId].motivoDivergencia=m; renderEstoque(); };
+      motChips.appendChild(chip);
+    });
+    motWrap.appendChild(motChips);
+    card.appendChild(motWrap);
+  }
   if(!semSecaoB){
     const secB=document.createElement('div'); secB.style.cssText='margin-top:6px';
     secB.innerHTML='<div class="sec-title2">Pra onde vai</div>';
@@ -5199,17 +5262,24 @@ function recpRenderItem(card){
     }
     secB.appendChild(alt);
     const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
-    const bate=Math.abs(soma-(c.quantidade||0))<0.001;
+    const bate=Math.abs(soma-qtdBoa)<0.001;
     const sumEl=document.createElement('div'); sumEl.id='recpSomaLinha'; sumEl.style.cssText='font-size:12px;font-weight:700;margin-top:8px;color:'+(bate?'#1D9E75':'#C4451B');
-    sumEl.textContent='Total alocado: '+soma+' de '+(c.quantidade||0);
+    sumEl.textContent='Total alocado: '+soma+' de '+qtdBoa;
     secB.appendChild(sumEl);
   }
   if(recpSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=recpSt.erro; card.appendChild(e); }
   const conf=document.createElement('button'); conf.className='btn btn-brand'; conf.style.cssText='width:100%;height:48px;margin-top:14px';
   conf.textContent=c._salvando?'Salvando…':'✅ Confirmar item'; conf.disabled=!!c._salvando;
   conf.onclick=()=>{
-    recpSt.conf[recpSt.itemId].quantidade=Number(document.getElementById('recpQtd').value)||0;
-    recpSt.conf[recpSt.itemId].observacao=(document.getElementById('recpObs').value||'').trim();
+    const cc=recpSt.conf[recpSt.itemId];
+    cc.quantidade=Number(document.getElementById('recpQtd').value)||0;
+    cc.observacao=(document.getElementById('recpObs').value||'').trim();
+    /* §3.4 — contagem semi-cega: se o operador não mexeu em nenhum chip (ainda 'Pendente') mas
+       digitou uma quantidade, deriva o status pela comparação com a NF em vez de exigir um clique
+       extra. Não pisa em cima de uma escolha manual (Avariado/Item Não Chegou/Item Não Pedido). */
+    if(cc.status==='Pendente' && cc.quantidade>0){
+      cc.status=(Math.abs(cc.quantidade-item.quantidadeNF)<0.001)?'Conferido OK':'Quantidade Divergente';
+    }
     recpConfirmarItem();
   };
   card.appendChild(conf);
@@ -5286,7 +5356,14 @@ function recpRenderVincularProduto(wrap){
 /* ---- validação + excedente (§3 da proposta) ---- */
 function recpValidarItem(){
   const c=recpSt.conf[recpSt.itemId];
+  if(recpPrecisaMotivo(c) && !c.motivoDivergencia) return {ok:false, msg:'Escolha o motivo da divergência.'};
+  if(c.status==='Avariado'){
+    const av=c.quantidadeAvariada!=null?Number(c.quantidadeAvariada):(c.quantidade||0);
+    if(av>(c.quantidade||0)) return {ok:false, msg:'Quantidade avariada não pode ser maior que a recebida.'};
+  }
   if(c.status==='Item Não Chegou') return {ok:true};
+  const qtdBoa=recpQtdBoa(c);
+  if(qtdBoa<=0) return {ok:true}; /* 100% avariado — nada pra endereçar */
   if(!recpSt.itemAloc.length) return {ok:false, msg:'Escolha ao menos um endereço.'};
   const ids=new Set();
   for(const l of recpSt.itemAloc){
@@ -5296,7 +5373,7 @@ function recpValidarItem(){
     if(!(Number(l.quantidade)>0)) return {ok:false, msg:'Toda linha precisa de quantidade maior que zero.'};
   }
   const soma=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
-  if(Math.abs(soma-(c.quantidade||0))>0.001) return {ok:false, msg:'Faltam alocar '+(Math.round((c.quantidade-soma)*100)/100)+' de '+c.quantidade+'.'};
+  if(Math.abs(soma-qtdBoa)>0.001) return {ok:false, msg:'Faltam alocar '+(Math.round((qtdBoa-soma)*100)/100)+' de '+qtdBoa+'.'};
   return {ok:true};
 }
 /* capacidade efetiva (§3.1 original + R8 da revisão 15/07): desconta alocações do MESMO
@@ -5366,10 +5443,15 @@ async function recpConfirmarItem(){
     }
   }
   const c=recpSt.conf[recpSt.itemId];
+  /* fixa o default "todas avariadas" (§3.2) como valor explícito antes de salvar, em vez de
+     depender só do fallback do Apex — o que a tela mostrou é o que vai pro banco. */
+  if(c.status==='Avariado' && c.quantidadeAvariada==null) c.quantidadeAvariada=c.quantidade||0;
   c._salvando=true; renderEstoque();
   try{
     const body={ status:c.status, quantidadeRecebida:c.quantidade };
     if(c.observacao) body.observacao=c.observacao;
+    if(c.quantidadeAvariada!=null) body.quantidadeAvariada=c.quantidadeAvariada;
+    if(c.motivoDivergencia) body.motivoDivergencia=c.motivoDivergencia;
     await bePost('/estoque/recebimentos/'+recpSt.recId+'/itens/'+recpSt.itemId, body);
     c.salvo=true; c._salvando=false;
     recpSt.aloc[recpSt.itemId]=recpSt.itemAloc.map(l=>({ enderecoId:l.enderecoId, quantidade:l.quantidade, enderecoSugeridoId:l.enderecoSugeridoId, forcado:!!l.forcado, verificado:l.verificado||null }));
@@ -5604,7 +5686,9 @@ function recpRenderRevisao(card){
       }).join(', ') || '—';
       if(alocs.some(a=>a.forcado)) temForcado=true;
     }
-    row.innerHTML='<b>'+_esc(item.produto||item.descricaoNF||'')+'</b> — '+_esc(c.status)+' · '+_esc(c.quantidade)+' → '+_esc(alocTxt);
+    const qtdAv=c.status==='Avariado'?(c.quantidadeAvariada!=null?c.quantidadeAvariada:(c.quantidade||0)):0;
+    row.innerHTML='<b>'+_esc(item.produto||item.descricaoNF||'')+'</b> — '+_esc(c.status)+' · '+_esc(c.quantidade)+' → '+_esc(alocTxt)
+      +(qtdAv>0?(' <span style="color:#a15c00">('+_esc(qtdAv)+' avariada(s), não entra no saldo)</span>'):'');
     card.appendChild(row);
   });
   if(temForcado){ const av=document.createElement('div'); av.className='subnote'; av.style.cssText='color:#a15c00;padding-top:10px'; av.textContent='⚠️ Um ou mais endereços ficarão acima da capacidade.'; card.appendChild(av); }
