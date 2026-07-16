@@ -643,6 +643,44 @@
   .cot-ativo-item{padding:8px 10px;font-size:13px;cursor:pointer}
   .cot-ativo-item:hover{background:var(--brand-l)}
   .cot-ativo-sel{font-size:12px;color:var(--brand-d);font-weight:600;margin-top:4px}
+  /* 16/07/2026: Demanda de Execução em Campo (MPP/Corretiva) — ver
+     DECISAO_tratamento-nc-plano-de-acao.md (decisões 3/4/6) e backend/execucaoCampoRoutes.js.
+     Mesmo vocabulário visual dos blocos .lv-*/.cot-* acima, prefixo próprio pra não confundir
+     grep/manutenção futura entre os 3 fluxos. */
+  .exe-slot{margin-top:14px}
+  .exe-gatilho{text-align:right}
+  .exe-btn-gatilho{background:#fff;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .exe-btn-gatilho:hover{background:var(--brand-l)}
+  .exe-card{border:1px solid var(--border2);border-left:3px solid var(--brand);border-radius:8px;background:#fff;padding:11px 12px}
+  .exe-card.concluida{border-left-color:var(--succ)}
+  .exe-card.cancelada{border-left-color:var(--neu-tx)}
+  /* histórico avaliado como "Necessita complemento" (decisão 6) — âmbar de atenção, não é erro
+     nem sucesso: a NC continua aberta esperando a rodada nova. */
+  .exe-card.complemento{border-left-color:var(--warn-tx)}
+  .exe-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .exe-titulo{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)}
+  .exe-card.concluida .exe-titulo{color:var(--succ)}
+  .exe-card.cancelada .exe-titulo{color:var(--neu-tx)}
+  .exe-card.complemento .exe-titulo{color:var(--warn-tx)}
+  .badge.exe-solicitada{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.exe-aprovada{background:var(--brand-l);color:var(--brand-d)}
+  .badge.exe-concluida{background:var(--succ-bg);color:var(--succ)}
+  .badge.exe-cancelada{background:var(--neu-bg);color:var(--neu-tx)}
+  .badge.exe-eficacia{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.exe-complemento{background:var(--warn-bg);color:var(--warn-tx)}
+  .exe-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
+  .exe-txt+.exe-txt{margin-top:6px}
+  .exe-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
+  .exe-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+  .exe-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .exe-nota{font-size:12px;color:var(--weak);margin-top:8px}
+  /* seletor segmentado (Tipo de Equipe no form; Cobrança no mini-form de aprovação) — mesmo
+     padrão do .lv-urgencia, mas sem rampa de cor: as opções são equivalentes em atenção, a
+     seleção fica no azul do workflow normal. */
+  .exe-equipe{display:flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+  .exe-eq-btn{flex:1;border:none;background:#fff;padding:9px 8px;font-size:12px;font-weight:700;color:var(--weak);cursor:pointer}
+  .exe-eq-btn+.exe-eq-btn{border-left:1px solid var(--border2)}
+  .exe-eq-btn.on{background:var(--brand-l);color:var(--brand-d)}
   .placeholder{padding:60px 20px;text-align:center;color:var(--weaker);font-size:13px}
   /* #historico deixou de ser um card irmão abaixo de .detalhe (que não existe mais) e passou a
      viver DENTRO da coluna "registro" (.col), depois da foto e antes do actionbar — por isso o
@@ -2355,6 +2393,11 @@ function renderLista(){
     // 13/07/2026: Demanda de Cotação de materiais — mesmo critério da de Levantamento acima.
     const cotBadge = cotBadgeLista(l);
     if (cotBadge) tags.push(cotBadge);
+    // 16/07/2026: Demanda de Execução em Campo (MPP/Corretiva) — mesmo critério dos 2 acima;
+    // "Concluída aguardando eficácia" também conta como ativo (pede ação do revisor, decisão 6
+    // de DECISAO_tratamento-nc-plano-de-acao.md).
+    const exeBadge = exeBadgeLista(l);
+    if (exeBadge) tags.push(exeBadge);
     // Rodada 16: indicador de tratamento deixa de ser condicional (rodada anterior só mostrava
     // quando saía do default 'nao_tratada', pra não virar ruído) — na Proposta 2 o sinal principal
     // é o TRILHO colorido na borda esquerda do card (classe trat.cls no litem, ver CSS), sempre
@@ -2539,6 +2582,11 @@ async function renderDetalhe(){
     // pedido do Raphael (13/07, rodada 26): Solicitar cotação de materiais — mesmo gate/posição do
     // Levantamento acima, sempre associada a um Ativo; ver DECISAO_cotacao-materiais.md.
     + '<div class="cot-slot" id="regCotacao">' + cotHtml(l) + '</div>'
+    // 16/07/2026: Demanda de Execução em Campo (MPP/Corretiva) — ver
+    // DECISAO_tratamento-nc-plano-de-acao.md. Fecha a ordem "natural" do tratamento: primeiro
+    // entender o problema (Levantamento), depois ver se precisa comprar algo (Cotação), depois
+    // mandar quem execute (Execução em Campo).
+    + '<div class="exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div>'
     // pedido do Raphael (13/07, rodada 23): reincidência é o ÚLTIMO bloco da coluna — informação de
     // apoio/consulta, não faz parte do fluxo de decisão (escopo → confirmar → contestação →
     // levantamento) que acontece antes dela.
@@ -4019,6 +4067,335 @@ async function cotCancelarDemanda(demandaId){
   } catch (e) {
     msg('Falha de rede ao cancelar cotação: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; }
+  }
+}
+
+// ---- DEMANDA DE EXECUÇÃO EM CAMPO (MPP/Corretiva — ver DECISAO_tratamento-nc-plano-de-acao.md,
+// decisões 3, 4 e 6; backend em execucaoCampoRoutes.js) ----
+// Mesmo esqueleto dos blocos LV/COT acima: 1 demanda ativa por vez, gatilho só com match
+// confirmado + dentro do escopo (podeAbrirExcecao), gate de função elevada fica no BACKEND (403
+// do servidor se a função não for elevada). Diferenças estruturais em relação ao Levantamento:
+//   1. Item_da_Tratativa__c é OBRIGATÓRIO no POST — vem de l.itemTratativa.id (o Item criado
+//      automático no /confirmar do match, decisão 2). Se l.itemTratativa vier null (objeto/permset
+//      ainda não deployado numa org antiga — _q() do backend engole o erro), o gatilho nem
+//      aparece: o POST só devolveria 400.
+//   2. Aprovar EXIGE a decisão de Cobrança (decisão 4 — faturamento INVERTIDO do Levantamento: a
+//      OS nasce faturável de verdade; Cortesia - Garantia gera Aviso de Crédito zerando): mini-form
+//      com a escolha antes de confirmar, nada de aprovar "seco" como o lvAprovar.
+//   3. Concluída ainda NÃO é terminal: falta a verificação de eficácia HUMANA (decisão 6) — 2
+//      ações que não existem em LV/COT ("Confirmar solução efetiva" / "Pedir complemento", via
+//      POST /confirmar-eficacia). Depois de avaliada, a demanda vira histórico imutável; o
+//      complemento é uma demanda NOVA aberta pelo mesmo gatilho, nunca reavaliação desta.
+let EXE = null; // { linhaId, aberto, tipoEquipe, aprovarAberto, cobranca, concluirAberto, resultado, cancelarAberto, motivo }
+
+// têm que espelhar os picklists restritos do Salesforce (via execucaoCampoRoutes.js) — valor novo
+// lá precisa aparecer aqui também.
+const TIPOS_EQUIPE_EXECUCAO = ['MPP', 'Corretiva'];
+const COBRANCAS_EXECUCAO = ['Cobrado', 'Cortesia - Garantia'];
+const EXE_EFICACIA_EFETIVA = 'Efetiva - solução confirmada';
+const EXE_EFICACIA_COMPLEMENTO = 'Necessita complemento';
+
+function exeGarantirEstado(l){
+  if (EXE && EXE.linhaId === l.id) return;
+  EXE = { linhaId: l.id, aberto: false, tipoEquipe: null, aprovarAberto: false, cobranca: null, concluirAberto: false, resultado: '', cancelarAberto: false, motivo: '' };
+}
+
+// terminal = não pede mais nada do revisor NESTA demanda: cancelada, ou concluída JÁ com a
+// eficácia avaliada. Concluída sem avaliação ainda é estado ativo (decisão 6) — diferente de LV,
+// onde Concluída encerra o ciclo.
+function exeDemandaTerminal(d){
+  return d.status === 'Cancelada' || (d.status === 'Concluída' && !!d.confirmacaoEficacia);
+}
+
+// badge pra lista (renderLista()) — mesmo critério de lvBadgeLista/cotBadgeLista: só estado que
+// pede atenção/ação vira ruído na lista.
+function exeBadgeLista(l){
+  const ativo = l.execucoesCampo && l.execucoesCampo[0];
+  if (!ativo || exeDemandaTerminal(ativo)) return '';
+  if (ativo.status === 'Solicitada') return '<span class="badge exe-solicitada">execução solicitada</span>';
+  if (ativo.status === 'Aprovada') return '<span class="badge exe-aprovada">execução em campo</span>';
+  return '<span class="badge exe-eficacia">confirmar eficácia</span>'; // 'Concluída' sem avaliação
+}
+
+function exeHtml(l){
+  exeGarantirEstado(l);
+  const demandas = l.execucoesCampo || [];
+  const ativo = demandas[0];
+  if (!ativo || exeDemandaTerminal(ativo)) {
+    // sem demanda ativa — gatilho pra abrir uma nova (inclusive a rodada de complemento da
+    // decisão 6: "Pedir complemento" não reabre a antiga, a nova nasce por aqui), com o histórico
+    // das anteriores logo abaixo (traço, não unidade de ação). Além do gate padrão
+    // (podeAbrirExcecao), exige l.itemTratativa — ver diferença 1 no topo do bloco.
+    const historico = exeHtmlHistorico(demandas);
+    if (!podeAbrirExcecao(l) || !(l.itemTratativa && l.itemTratativa.id)) return historico;
+    return (EXE.aberto ? exeHtmlForm(l) : exeHtmlGatilho()) + historico;
+  }
+  // demanda ativa + histórico das rodadas anteriores da mesma NC — diferente de LV (que só mostra
+  // o card ativo): aqui as tentativas anteriores continuam visíveis durante a rodada nova, porque
+  // o complemento é justamente "nova rodada sem perder o histórico" (decisão 6).
+  const anteriores = exeHtmlHistorico(demandas.slice(1));
+  if (ativo.status === 'Solicitada') return exeHtmlSolicitada(ativo) + anteriores;
+  if (ativo.status === 'Aprovada') return exeHtmlAprovada(ativo) + anteriores;
+  return exeHtmlConcluida(ativo) + anteriores; // 'Concluída' aguardando eficácia
+}
+
+function exeHtmlHistorico(demandas){
+  return (demandas || []).filter(exeDemandaTerminal).map(exeHtmlHistoricoItem).join('');
+}
+
+function exeHtmlGatilho(){
+  return '<div class="exe-gatilho"><button class="exe-btn-gatilho" onclick="exeAbrir(\'' + (EXE.linhaId) + '\')">Solicitar execução em campo</button></div>';
+}
+
+function exeHtmlForm(l){
+  const ok = !!EXE.tipoEquipe;
+  return '<div class="exe-card">'
+    + '<div class="exe-head"><span class="exe-titulo">Demanda de execução em campo</span></div>'
+    + '<div class="exe-txt" style="color:var(--weak)">Use quando a solução desta NC exigir mandar uma equipe executar o reparo no local. Na aprovação isso cria uma Ordem de Serviço real e faturável — a decisão de cobrança (cobrado ou cortesia/garantia) é feita na hora de aprovar.</div>'
+    + '<label class="exe-rotulo">Tipo de equipe</label>'
+    + exeHtmlTipoEquipe()
+    + '<div class="exe-acoes">'
+      + '<button class="btn" id="btnExeSolicitar"' + (ok ? '' : ' disabled') + ' onclick="exeSolicitar(\'' + l.id + '\')">Solicitar execução</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="exeCancelarForm()">cancelar</button>'
+    + '</div></div>';
+}
+
+// segmentado de 2 opções, mesmo padrão visual do lvHtmlUrgencia() — mas sem default: escolher a
+// equipe é a decisão central do pedido, então nasce vazio e o botão só habilita com escolha feita.
+function exeHtmlTipoEquipe(){
+  return '<div class="exe-equipe">' + TIPOS_EQUIPE_EXECUCAO.map((t) => {
+    const on = EXE.tipoEquipe === t;
+    return '<button type="button" class="exe-eq-btn' + (on ? ' on' : '') + '" onclick="exeSetTipoEquipe(\'' + t + '\')">' + t + '</button>';
+  }).join('') + '</div>';
+}
+
+function exeHtmlSolicitada(d){
+  return '<div class="exe-card">'
+    + '<div class="exe-head"><span class="exe-titulo">Demanda de execução em campo</span><span class="badge exe-solicitada">Solicitada</span></div>'
+    + '<div class="exe-txt"><b>Tipo de equipe:</b> ' + escapeHtml(d.tipoEquipe || '—') + '</div>'
+    + (EXE.cancelarAberto ? exeHtmlCancelarForm(d) : (
+      EXE.aprovarAberto ? exeHtmlAprovarForm(d) :
+      '<div class="exe-acoes">'
+        + '<button class="btn" onclick="exeAbrirAprovar()">Aprovar — decidir cobrança</button>'
+        + '<button class="link-btn" style="padding:2px 0" onclick="exeAbrirCancelar()">cancelar demanda</button>'
+      + '</div>'))
+    + '</div>';
+}
+
+// mini-form da aprovação (decisão 4) — diferente do Levantamento, que aprova direto: aqui a
+// escolha de Cobrança é obrigatória e vai no MESMO POST da transição.
+function exeHtmlAprovarForm(d){
+  const ok = !!EXE.cobranca;
+  return '<label class="exe-rotulo">Cobrança (obrigatória na aprovação)</label>'
+    + '<div class="exe-equipe">' + COBRANCAS_EXECUCAO.map((c) => {
+      const on = EXE.cobranca === c;
+      return '<button type="button" class="exe-eq-btn' + (on ? ' on' : '') + '" onclick="exeSetCobranca(\'' + c + '\')">' + escapeHtml(c) + '</button>';
+    }).join('') + '</div>'
+    + '<div class="exe-nota">Cobrado = a OS fatura normal. Cortesia - Garantia = a OS é gerada com Aviso de Crédito automático zerando a cobrança.</div>'
+    + '<div class="exe-acoes">'
+      + '<button class="btn" id="btnExeAprovar"' + (ok ? '' : ' disabled') + ' onclick="exeAprovar(\'' + d.id + '\')">Aprovar — gera a OS</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="exeFecharSubform()">voltar</button>'
+    + '</div>';
+}
+
+function exeHtmlAprovada(d){
+  return '<div class="exe-card">'
+    + '<div class="exe-head"><span class="exe-titulo">Demanda de execução em campo</span><span class="badge exe-aprovada">Aprovada</span></div>'
+    + '<div class="exe-txt"><b>Tipo de equipe:</b> ' + escapeHtml(d.tipoEquipe || '—') + (d.cobranca ? ' · <b>Cobrança:</b> ' + escapeHtml(d.cobranca) : '') + '</div>'
+    + (d.osId ? '<div class="exe-txt"><b>OS gerada:</b> <span class="nota-inline">' + escapeHtml(d.osId) + '</span> — segue o agendamento normal.</div>' : '')
+    + (EXE.cancelarAberto ? exeHtmlCancelarForm(d) : (
+      EXE.concluirAberto ? exeHtmlConcluirForm(d) :
+      '<div class="exe-acoes">'
+        + '<button class="btn" onclick="exeAbrirConcluir()">Registrar conclusão</button>'
+        + '<button class="link-btn" style="padding:2px 0" onclick="exeAbrirCancelar()">cancelar demanda</button>'
+      + '</div>'))
+    + '</div>';
+}
+
+function exeHtmlConcluirForm(d){
+  const ok = !!EXE.resultado.trim();
+  return '<label class="exe-rotulo">O que a equipe executou em campo (obrigatório)</label>'
+    + '<textarea rows="3" oninput="exeOnResultado(this.value)">' + escapeHtml(EXE.resultado) + '</textarea>'
+    + '<div class="exe-acoes">'
+      + '<button class="btn" id="btnExeConcluir"' + (ok ? '' : ' disabled') + ' onclick="exeConcluir(\'' + d.id + '\')">Registrar conclusão</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="exeFecharSubform()">cancelar</button>'
+    + '</div>';
+}
+
+function exeHtmlCancelarForm(d){
+  const ok = !!EXE.motivo.trim();
+  return '<label class="exe-rotulo">Motivo do cancelamento (obrigatório)</label>'
+    + '<textarea rows="2" oninput="exeOnMotivo(this.value)">' + escapeHtml(EXE.motivo) + '</textarea>'
+    + '<div class="exe-acoes">'
+      + '<button class="btn sec" id="btnExeCancelarDemanda"' + (ok ? '' : ' disabled') + ' onclick="exeCancelarDemanda(\'' + d.id + '\')">Confirmar cancelamento</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="exeFecharSubform()">voltar</button>'
+    + '</div>';
+}
+
+// Concluída AINDA SEM verificação de eficácia (decisão 6) — o único estado com as 2 ações novas
+// que não existem em LV/COT. Depois da escolha, o card recarrega e cai no histórico.
+function exeHtmlConcluida(d){
+  return '<div class="exe-card">'
+    + '<div class="exe-head"><span class="exe-titulo">Demanda de execução em campo</span><span class="badge exe-eficacia">Concluída — confirmar eficácia</span></div>'
+    + '<div class="exe-txt"><b>Tipo de equipe:</b> ' + escapeHtml(d.tipoEquipe || '—') + (d.cobranca ? ' · <b>Cobrança:</b> ' + escapeHtml(d.cobranca) : '') + '</div>'
+    + (d.osId ? '<div class="exe-txt"><b>OS:</b> <span class="nota-inline">' + escapeHtml(d.osId) + '</span></div>' : '')
+    + (d.resultado ? '<div class="exe-txt"><b>Resultado registrado:</b> ' + escapeHtml(d.resultado) + '</div>' : '')
+    + '<div class="exe-nota">A equipe concluiu — o fechamento é do revisor: confirme se a solução foi efetiva ou peça complemento. Pedir complemento preserva esta rodada como histórico e libera a abertura de uma NOVA execução em campo.</div>'
+    + '<div class="exe-acoes">'
+      + '<button class="btn" onclick="exeConfirmarEficacia(\'' + d.id + '\', true)">Confirmar solução efetiva</button>'
+      + '<button class="btn sec" onclick="exeConfirmarEficacia(\'' + d.id + '\', false)">Pedir complemento</button>'
+    + '</div></div>';
+}
+
+function exeHtmlHistoricoItem(d){
+  const cancelada = d.status === 'Cancelada';
+  const efetiva = d.confirmacaoEficacia === EXE_EFICACIA_EFETIVA;
+  const cls = cancelada ? 'cancelada' : (efetiva ? 'concluida' : 'complemento');
+  const badge = cancelada ? '<span class="badge exe-cancelada">Cancelada</span>'
+    : (efetiva ? '<span class="badge exe-concluida">Efetiva</span>'
+               : '<span class="badge exe-complemento">Necessita complemento</span>');
+  return '<div class="exe-card ' + cls + '" style="margin-top:8px">'
+    + '<div class="exe-head"><span class="exe-titulo">Execução anterior' + (d.tipoEquipe ? ' — ' + escapeHtml(d.tipoEquipe) : '') + '</span>' + badge + '</div>'
+    + (cancelada ? '<div class="exe-nota">Demanda cancelada.</div>'
+      : (efetiva ? '<div class="exe-nota">Solução confirmada como efetiva pelo revisor — histórico preservado no Salesforce.</div>'
+                 : '<div class="exe-nota">Avaliada como "necessita complemento" — a rodada nova nasce em "Solicitar execução em campo" acima; esta fica como histórico.</div>'))
+    + '</div>';
+}
+
+function exeAbrir(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId); if (!l) return;
+  exeGarantirEstado(l); EXE.aberto = true; exeRerender();
+}
+function exeCancelarForm(){ if (EXE) { EXE.aberto = false; EXE.tipoEquipe = null; } exeRerender(); }
+function exeSetTipoEquipe(t){ if (EXE) EXE.tipoEquipe = t; exeRerender(); }
+function exeSetCobranca(c){ if (EXE) EXE.cobranca = c; exeRerender(); }
+function exeAbrirAprovar(){ if (EXE) { EXE.aprovarAberto = true; EXE.cancelarAberto = false; } exeRerender(); }
+function exeAbrirConcluir(){ if (EXE) { EXE.concluirAberto = true; EXE.cancelarAberto = false; } exeRerender(); }
+function exeAbrirCancelar(){ if (EXE) { EXE.cancelarAberto = true; EXE.aprovarAberto = false; EXE.concluirAberto = false; } exeRerender(); }
+function exeFecharSubform(){ if (EXE) { EXE.aprovarAberto = false; EXE.concluirAberto = false; EXE.cancelarAberto = false; EXE.cobranca = null; EXE.resultado = ''; EXE.motivo = ''; } exeRerender(); }
+
+// oninput NÃO chama exeRerender() (derrubaria o foco a cada tecla) — só atualiza o rascunho e
+// liga/desliga o disabled do botão direto no DOM (mesmo padrão de lvOnResultado/cotOnMotivo).
+function exeOnResultado(v){ if (!EXE) return; EXE.resultado = v; const b = document.getElementById('btnExeConcluir'); if (b) b.disabled = !v.trim(); }
+function exeOnMotivo(v){ if (!EXE) return; EXE.motivo = v; const b = document.getElementById('btnExeCancelarDemanda'); if (b) b.disabled = !v.trim(); }
+
+function exeRerender(){
+  const l = ST.linhas.find((x) => x.id === (EXE && EXE.linhaId)); if (!l) return;
+  const w = document.getElementById('regExecucaoCampo');
+  if (w) w.innerHTML = exeHtml(l);
+}
+
+async function exeSolicitar(linhaId){
+  if (!EXE || !EXE.tipoEquipe) return;
+  const l = ST.linhas.find((x) => x.id === linhaId);
+  const itemTratativaId = l && l.itemTratativa && l.itemTratativa.id;
+  if (!itemTratativaId) { msg('Item da Tratativa desta linha não encontrado — recarregue a página e tente de novo.', 'err'); return; }
+  const btn = document.getElementById('btnExeSolicitar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando…'; }
+  try {
+    const r = await fetch(BACKEND + '/execucoes-campo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ linhaId, itemTratativaId, tipoEquipe: EXE.tipoEquipe })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao solicitar execução em campo: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Solicitar execução'; } return; }
+    EXE = null;
+    await carregar(); renderTudo();
+    msg('Execução em campo solicitada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao solicitar execução em campo: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Solicitar execução'; }
+  }
+}
+
+async function exeAprovar(demandaId){
+  if (!EXE || !EXE.cobranca) return;
+  if (!confirm('Aprovar esta execução em campo como "' + EXE.cobranca + '"? Isso cria uma Ordem de Serviço real'
+    + (EXE.cobranca === 'Cobrado' ? ', FATURÁVEL,' : ' com Aviso de Crédito zerando a cobrança,')
+    + ' que entra no agendamento normal da equipe.')) return;
+  const btn = document.getElementById('btnExeAprovar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aprovando…'; }
+  try {
+    const r = await fetch(BACKEND + '/execucoes-campo/' + demandaId + '/aprovar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ cobranca: EXE.cobranca })
+    });
+    const j = await r.json();
+    // 422 = a automação Apex de criação da OS falhou — a mensagem do backend já orienta o que fazer
+    if (!r.ok) { msg('Erro ao aprovar execução em campo: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Aprovar — gera a OS'; } return; }
+    EXE = null;
+    await carregar(); renderTudo();
+    msg('Execução em campo aprovada — Ordem de Serviço criada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao aprovar execução em campo: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Aprovar — gera a OS'; }
+  }
+}
+
+async function exeConcluir(demandaId){
+  if (!EXE || !EXE.resultado.trim()) return;
+  const btn = document.getElementById('btnExeConcluir');
+  if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+  try {
+    const r = await fetch(BACKEND + '/execucoes-campo/' + demandaId + '/concluir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ resultado: EXE.resultado.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao registrar conclusão: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Registrar conclusão'; } return; }
+    EXE = null;
+    await carregar(); renderTudo();
+    // avisoItemTratativa = o update best-effort do Item da Tratativa falhou no backend — a
+    // conclusão em si foi gravada, mas o revisor precisa saber do ajuste manual pendente.
+    msg('Conclusão da execução registrada.' + (j.avisoItemTratativa ? ' ' + j.avisoItemTratativa : ''), j.avisoItemTratativa ? 'err' : 'info');
+  } catch (e) {
+    msg('Falha de rede ao registrar conclusão: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Registrar conclusão'; }
+  }
+}
+
+async function exeCancelarDemanda(demandaId){
+  if (!EXE || !EXE.motivo.trim()) return;
+  if (!confirm('Cancelar esta demanda de execução em campo?')) return;
+  const btn = document.getElementById('btnExeCancelarDemanda');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelando…'; }
+  try {
+    const r = await fetch(BACKEND + '/execucoes-campo/' + demandaId + '/cancelar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ motivo: EXE.motivo.trim() })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao cancelar execução em campo: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; } return; }
+    EXE = null;
+    await carregar(); renderTudo();
+    msg('Demanda de execução em campo cancelada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao cancelar execução em campo: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; }
+  }
+}
+
+// verificação de eficácia (decisão 6) — endpoint que só existe nesta demanda. `efetiva` booleano
+// evita carregar os literais do picklist (com aspas/acentos) dentro do onclick inline.
+async function exeConfirmarEficacia(demandaId, efetiva){
+  const confirmacao = efetiva ? EXE_EFICACIA_EFETIVA : EXE_EFICACIA_COMPLEMENTO;
+  if (!confirm(efetiva
+    ? 'Confirmar que a solução foi efetiva? Isso fecha o Item da Tratativa desta NC.'
+    : 'Registrar que a solução necessita complemento? Esta demanda vira histórico e a rodada de complemento é uma NOVA execução em campo, aberta pelo mesmo botão de solicitar.')) return;
+  try {
+    const r = await fetch(BACKEND + '/execucoes-campo/' + demandaId + '/confirmar-eficacia', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify({ confirmacao })
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao registrar a verificação de eficácia: ' + (j.error || r.status), 'err'); return; }
+    EXE = null;
+    await carregar(); renderTudo();
+    const base = efetiva ? 'Eficácia confirmada — Item da Tratativa concluído.'
+                         : 'Complemento registrado — abra uma nova execução em campo pra rodada seguinte.';
+    msg(base + (j.avisoItemTratativa ? ' ' + j.avisoItemTratativa : ''), j.avisoItemTratativa ? 'err' : 'info');
+  } catch (e) {
+    msg('Falha de rede ao registrar a eficácia: ' + e.message, 'err');
   }
 }
 
