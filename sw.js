@@ -113,7 +113,12 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v124'; // v124 15/07: recp* — vincular produto manual (item 1 do
+const CACHE = 'exaustech-os-v125'; // v125 15/07: acmp* — Acompanhamento de Pedido de Compra
+// (extensão de proposta-recebimento-conferencia-armazenamento.md, ver DECISAO_acompanhamento-
+// pedido-compra.md): tela de acompanhamento de prazo de entrega (Supervisor+), 2 critérios de
+// alerta independentes (sem atualização há N dias / previsão a M dias ou menos, incluindo
+// vencida) integrados ao sino/badge existente; e-mail diário fica no Apex (batch agendável).
+// v124 15/07: recp* — vincular produto manual (item 1 do
 // roadmap de proposta-recebimento-conferencia-armazenamento.md) quando o matching automático
 // não achou o item; busca em Product2 (GET /estoque/produtos) + POST vincular-produto (Apex
 // aprende o DePara pra próxima vez).

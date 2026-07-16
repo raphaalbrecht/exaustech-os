@@ -2847,6 +2847,10 @@ function buildNotifs(){
   urgentesPendentes().forEach(({o,s})=>{
     list.push({ico:'box',color:'#E8730C',tit:'Separação urgente: '+s.id,sub:o.id+' · '+o.cli,roles:['Estoquista','Gerente','Sócio'],go:()=>{ estoqView={mode:'sep',sep:s,os:o,tile:estoqView.tile}; go('estoque'); }});
   });
+  acmpAlertas.forEach(p=>{
+    const motivos=[]; if(p.semAtualizacao) motivos.push('sem atualização há '+p.diasSemAtualizacao+'d'); if(p.proximoDoPrazo) motivos.push(p.diasAteEntrega<0?('venceu há '+Math.abs(p.diasAteEntrega)+'d'):('previsão em '+p.diasAteEntrega+'d'));
+    list.push({ico:'box',color:'#C25E0A',tit:'Pedido '+p.name+' precisa de atenção',sub:(p.fornecedor||'')+' · '+motivos.join(' · '),roles:['Supervisor','Coordenador','Gerente','Sócio'],go:()=>{ acmpReset(); estoqGo('acompanhamento'); acmpAbrirPedido(p.id); }});
+  });
   return list;
 }
 function notifsForRole(){ const mgmt=ROLE==='Gerente'||ROLE==='Sócio'; return buildNotifs().filter(n=>mgmt||n.roles.includes(ROLE)); }
@@ -3096,7 +3100,7 @@ function renderEstoque(){
      entrada de estoque não são por dia). Escondidos só nesses modos. */
   const schedTop=document.querySelector('#scr-estoque .sched-top');
   const dayLabel=document.getElementById('estoqDayLabel');
-  const emTelaCheia=(estoqView.mode==='enderecos' || estoqView.mode==='recebimentos' || estoqView.mode==='estrutura');
+  const emTelaCheia=(estoqView.mode==='enderecos' || estoqView.mode==='recebimentos' || estoqView.mode==='estrutura' || estoqView.mode==='acompanhamento');
   if(schedTop) schedTop.style.display=emTelaCheia?'none':'';
   if(dayLabel) dayLabel.style.display=emTelaCheia?'none':'';
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
@@ -3106,6 +3110,7 @@ function renderEstoque(){
   if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); return; }
   if(estoqView.mode==='recebimentos'){ renderRecpFluxo(wrap); return; }
   if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); return; }
+  if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); return; }
   /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
   const seps=sepListAll(), sepsDia=sepListDia();
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
@@ -3170,6 +3175,19 @@ function renderEstoque(){
       <span style="color:#999;font-size:18px">›</span>`;
     gestBtn.onclick=()=>{ gestReset(); estoqGo('estrutura'); gestCarregarLocais(); };
     wrap.appendChild(gestBtn);
+  }
+  /* entrada de Acompanhamento de Pedido de Compra (acmp*, 15/07/2026 — extensão da proposta de
+     recebimento): só Supervisor+ (canAcompanharPedidos) vê este card. */
+  if(canAcompanharPedidos(ROLE)){
+    const acmpBtn=document.createElement('div');
+    const nAlertas=acmpAlertas.length;
+    acmpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+    acmpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📅</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Acompanhamento de pedidos</div><div style="font-size:12px;color:#4A5560">Prazo de entrega · confirmar com o fornecedor</div></div>
+      ${nAlertas?('<span class="lz lz-warn" style="margin-right:2px">'+nAlertas+'</span>'):''}
+      <span style="color:#999;font-size:18px">›</span>`;
+    acmpBtn.onclick=()=>{ acmpReset(); estoqGo('acompanhamento'); acmpCarregarLista(); };
+    wrap.appendChild(acmpBtn);
   }
 }
 /* ===== ENDEREÇO DE ESTOQUE (wizard endr* — Fase 3, 09/07/2026): criação guiada
@@ -6018,6 +6036,153 @@ function roleAtLeast(r,min){ return ROLES.indexOf(r)>=ROLES.indexOf(min); }
 function canGerenciarEstoque(r){ return roleAtLeast(r,'Gerente'); }
 /* módulo Cadastro de Ativos: Supervisor pra cima (Auxiliar/Líder de MPP não cadastram) */
 function canCadastrar(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* Acompanhamento de Pedido de Compra (15/07/2026, extensão da proposta de recebimento): decisão
+   explícita do Raphael — Supervisor pra cima confirma/atualiza a previsão de entrega. */
+function canAcompanharPedidos(r){ return roleAtLeast(r,'Supervisor'); }
+
+/* ===== ACOMPANHAMENTO DE PEDIDO DE COMPRA (acmp* — 15/07/2026): a obra depende da previsão de
+   entrega pra programar atividades. Fluxo: lista de pedidos abertos (indicador por 2 critérios
+   independentes — sem atualização há N dias / previsão a M dias ou menos, incluindo vencida) →
+   detalhe (previsão atual + histórico) → registrar atualização (data/forma/pessoa de contato +
+   nova previsão + observação). Gate Supervisor+ (canAcompanharPedidos). Canal de alerta: painel
+   (esta tela), badge/sino (buildNotifs, ver acmpAtualizarAlertas chamado a cada beHydrate) e
+   e-mail diário (AlertaAcompanhamentoPedidoBatch, só no Apex). */
+let acmpSt=null, acmpAlertas=[];
+function acmpReset(){
+  acmpSt={ step:'lista', pedidos:[], _carregado:false, erro:null,
+    pedido:null, _detalheCarregado:false, form:null };
+}
+async function acmpAtualizarAlertas(){
+  if(!canAcompanharPedidos(ROLE)){ acmpAlertas=[]; return; }
+  try{ const d=await beGet('/estoque/pedidos-compra'); acmpAlertas=(d.pedidos||[]).filter(p=>p.precisaAtencao); }
+  catch(e){ /* falha silenciosa, mesmo padrão do checkUrgentAlerts */ }
+  updateBell();
+}
+function renderAcmpFluxo(wrap){
+  if(!acmpSt) acmpReset();
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
+  bk.onclick=()=>estoqGo('dash');
+  wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📅 Acompanhamento de pedidos'; wrap.appendChild(h);
+  const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
+  if(acmpSt.step==='lista') acmpRenderLista(card);
+  else if(acmpSt.step==='detalhe') acmpRenderDetalhe(card);
+}
+async function acmpCarregarLista(){
+  acmpSt.erro=null;
+  try{ const d=await beGet('/estoque/pedidos-compra'); acmpSt.pedidos=d.pedidos||[]; acmpSt._carregado=true; renderEstoque(); }
+  catch(e){ acmpSt._carregado=true; acmpSt.erro='Erro ao carregar pedidos: '+e.message; renderEstoque(); }
+}
+function acmpBadge(p){
+  if(p.semAtualizacao && p.proximoDoPrazo) return {label:'Atenção dupla', cls:'lz-err'};
+  if(p.proximoDoPrazo) return {label:p.diasAteEntrega<0?'Previsão vencida':'Previsão próxima', cls:'lz-warn'};
+  if(p.semAtualizacao) return {label:'Sem atualização', cls:'lz-warn'};
+  return {label:'Em dia', cls:'lz-succ'};
+}
+function acmpRenderLista(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Pedidos de compra em aberto</div>';
+  if(acmpSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(acmpSt.erro)+'</div>'; return; }
+  if(!acmpSt._carregado){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!acmpSt.pedidos.length){ card.innerHTML+='<div class="subnote">Nenhum pedido em aberto. 🎉</div>'; return; }
+  acmpSt.pedidos.forEach(p=>{
+    const b=acmpBadge(p);
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
+    const previsaoTxt=p.dataPrevistaEntrega?('Previsão: '+fmtDataBR(p.dataPrevistaEntrega)):'Sem previsão registrada';
+    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(p.fornecedor||p.name)+'</div><div style="font-size:12px;color:var(--weak)">'+_esc(p.name)+' · '+_esc(previsaoTxt)+'</div></div><span class="lz '+b.cls+'">'+_esc(b.label)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+    row.onclick=()=>acmpAbrirPedido(p.id);
+    card.appendChild(row);
+  });
+}
+async function acmpAbrirPedido(id){
+  acmpSt.step='detalhe'; acmpSt.pedido=null; acmpSt._detalheCarregado=false; acmpSt.erro=null; acmpSt.form=null;
+  renderEstoque();
+  try{ const d=await beGet('/estoque/pedidos-compra/'+id); acmpSt.pedido=d; acmpSt._detalheCarregado=true; renderEstoque(); }
+  catch(e){ acmpSt._detalheCarregado=true; acmpSt.erro='Erro ao carregar pedido: '+e.message; renderEstoque(); }
+}
+function acmpAbrirForm(){
+  const p=acmpSt.pedido;
+  acmpSt.form={ dataContato:new Date().toISOString().slice(0,10), formaContato:'Telefone', pessoaContato:'', dataPrevistaEntrega:(p&&p.dataPrevistaEntrega)?p.dataPrevistaEntrega:'', observacoes:'', salvando:false, erro:null };
+  renderEstoque();
+}
+async function acmpSalvarForm(){
+  const f=acmpSt.form; if(!f||f.salvando) return;
+  if(!f.pessoaContato||!f.pessoaContato.trim()){ f.erro='Informe a pessoa de contato.'; renderEstoque(); return; }
+  if(!f.dataPrevistaEntrega){ f.erro='Informe a nova data prevista.'; renderEstoque(); return; }
+  f.salvando=true; f.erro=null; renderEstoque();
+  try{
+    await bePost('/estoque/pedidos-compra/'+acmpSt.pedido.id+'/acompanhamentos', {
+      dataContato:f.dataContato, formaContato:f.formaContato, pessoaContato:f.pessoaContato.trim(),
+      dataPrevistaEntrega:f.dataPrevistaEntrega, observacoes:f.observacoes?f.observacoes.trim():null,
+    });
+    const pedidoId=acmpSt.pedido.id;
+    acmpSt.form=null;
+    await acmpAbrirPedido(pedidoId);
+    acmpAtualizarAlertas().catch(()=>{});
+    toast('Acompanhamento registrado');
+  }catch(e){ f.salvando=false; f.erro='Erro ao salvar: '+e.message; renderEstoque(); }
+}
+function acmpRenderForm(card){
+  const f=acmpSt.form; if(!f) return;
+  const box=document.createElement('div'); box.style.cssText='border:1.5px solid #3E7EB0;border-radius:12px;padding:14px;margin:12px 0';
+  box.innerHTML='<div class="sec-title2" style="margin-top:0">Registrar atualização</div>'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Data do contato</label>'
+    +'<input id="acmpDataContato" type="date" value="'+cadEsc(f.dataContato)+'" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">';
+  const formaWrap=document.createElement('div'); formaWrap.style.cssText='margin-bottom:10px';
+  formaWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Forma de contato</label>';
+  const chipsWrap=document.createElement('div'); chipsWrap.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:4px';
+  ['Telefone','WhatsApp','E-mail','Visita','Outro'].forEach(v=>{
+    const on=f.formaContato===v;
+    const chip=document.createElement('div');
+    chip.style.cssText='padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(on?'#3E7EB0':'#E2E5E9')+';background:'+(on?'#3E7EB0':'#fff')+';color:'+(on?'#fff':'#4A5560');
+    chip.textContent=v; chip.onclick=()=>{ f.formaContato=v; renderEstoque(); };
+    chipsWrap.appendChild(chip);
+  });
+  formaWrap.appendChild(chipsWrap);
+  box.appendChild(formaWrap);
+  const restoWrap=document.createElement('div');
+  restoWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Pessoa de contato</label>'
+    +'<input id="acmpPessoa" type="text" value="'+cadEsc(f.pessoaContato)+'" placeholder="Nome de quem você falou" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nova data prevista de entrega</label>'
+    +'<input id="acmpPrevisao" type="date" value="'+cadEsc(f.dataPrevistaEntrega)+'" style="width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
+    +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observações (opcional)</label>'
+    +'<textarea id="acmpObs" rows="3" style="width:100%;border:1.5px solid #D7DEE6;border-radius:10px;padding:8px 12px;margin:4px 0 10px;box-sizing:border-box;font-family:inherit">'+cadEsc(f.observacoes)+'</textarea>';
+  box.appendChild(restoWrap);
+  card.appendChild(box);
+  const dc=document.getElementById('acmpDataContato'); if(dc) dc.oninput=()=>{ f.dataContato=dc.value; };
+  const pc=document.getElementById('acmpPessoa'); if(pc) pc.oninput=()=>{ f.pessoaContato=pc.value; };
+  const dp=document.getElementById('acmpPrevisao'); if(dp) dp.oninput=()=>{ f.dataPrevistaEntrega=dp.value; };
+  const ob=document.getElementById('acmpObs'); if(ob) ob.oninput=()=>{ f.observacoes=ob.value; };
+  if(f.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.textContent=f.erro; box.appendChild(e); }
+  const salvar=document.createElement('button'); salvar.className='btn btn-brand'; salvar.style.cssText='width:100%;height:46px;margin-top:6px'; salvar.textContent=f.salvando?'Salvando…':'Salvar atualização'; salvar.disabled=!!f.salvando;
+  salvar.onclick=acmpSalvarForm;
+  box.appendChild(salvar);
+  const cancelar=document.createElement('button'); cancelar.className='btn btn-neutral'; cancelar.style.cssText='width:100%;height:40px;margin-top:6px'; cancelar.textContent='Cancelar'; cancelar.onclick=()=>{ acmpSt.form=null; renderEstoque(); };
+  box.appendChild(cancelar);
+}
+function acmpRenderDetalhe(card){
+  const p=acmpSt.pedido;
+  if(!p){ card.innerHTML='<div class="subnote">'+(acmpSt.erro?_esc(acmpSt.erro):'<span class="ld-spin"></span>Carregando…')+'</div>'; return; }
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(p.fornecedor||p.name)+'</div>'
+    +'<div class="subnote" style="padding:0 0 8px">'+_esc(p.name)+' · '+_esc(p.status||'')+(p.dataEmissao?(' · emitido '+_esc(fmtDataBR(p.dataEmissao))):'')+'</div>'
+    +'<div style="font-size:13px;color:#0B2239;font-weight:700;margin-bottom:2px">Previsão atual: '+(p.dataPrevistaEntrega?_esc(fmtDataBR(p.dataPrevistaEntrega)):'não registrada')+'</div>'
+    +(p.dataUltimaAtualizacao?('<div class="subnote" style="padding:0 0 8px">Última atualização: '+_esc(fmtDH(p.dataUltimaAtualizacao))+'</div>'):'');
+  if(acmpSt.erro) card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(acmpSt.erro)+'</div>';
+  if(!acmpSt.form){
+    const btn=document.createElement('button'); btn.className='btn btn-brand'; btn.style.cssText='width:100%;height:46px;margin:6px 0 4px'; btn.textContent='+ Registrar atualização';
+    btn.onclick=acmpAbrirForm;
+    card.appendChild(btn);
+  } else acmpRenderForm(card);
+  const histTit=document.createElement('div'); histTit.className='sec-title2'; histTit.style.marginTop='14px'; histTit.textContent='Histórico'; card.appendChild(histTit);
+  if(!p.historico||!p.historico.length){ const nd=document.createElement('div'); nd.className='subnote'; nd.textContent='Nenhum acompanhamento registrado ainda.'; card.appendChild(nd); }
+  (p.historico||[]).forEach(h=>{
+    const row=document.createElement('div'); row.style.cssText='padding:10px 0;border-bottom:1px solid #eef0f3';
+    row.innerHTML='<div style="font-weight:700;font-size:13px">'+_esc(h.formaContato)+' · '+_esc(h.pessoaContato)+'</div>'
+      +'<div style="font-size:12px;color:var(--weak)">'+_esc(fmtDataBR(h.dataContato))+' · nova previsão: '+_esc(fmtDataBR(h.dataPrevistaEntrega))+(h.criadoPor?(' · por '+_esc(h.criadoPor)):'')+'</div>'
+      +(h.observacoes?('<div style="font-size:12.5px;color:#4A5560;margin-top:2px">'+_esc(h.observacoes)+'</div>'):'');
+    card.appendChild(row);
+  });
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ acmpSt.step='lista'; acmpSt._carregado=false; renderEstoque(); acmpCarregarLista(); }; card.appendChild(bk);
+}
 /* módulo Bipar (custódia física, Frente B): Supervisor bipa retirada na base (Marcos), Líder de
    Equipe bipa recebimento na loja — mesma tela, o backend decide a ação pelo status escaneado */
 function canBipar(r){ return ['Supervisor','Líder de Equipe','Sócio'].includes(r); }
@@ -7980,6 +8145,7 @@ async function beHydrate(quiet){
       toast(_snapT ? ('📡 Offline — '+ordens.length+' OS salvas em '+fmtDH(new Date(_snapT).toISOString())) : ('✅ '+ordens.length+' OS carregadas'));
     }
     checkUrgentAlerts();
+    acmpAtualizarAlertas().catch(()=>{}); /* pedidos de compra precisando de atenção — não bloqueia o hydrate principal */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
 }
