@@ -113,7 +113,11 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v127'; // v127 16/07: recp* — Estorno de Recebimento Confirmado (ver
+const CACHE = 'exaustech-os-v128'; // v128 16/07: endr* — Fase 3 (auto-incremento+validação em tempo
+// real do código, gerador de lote com prévia obrigatória "letra A-J"/"número 01-10", editar nome/
+// capacidade depois + "Desfazer" 30s (single e lote inteiro) — ver DECISAO_fase3_lote_desfazer.md.
+// Zero schema/Apex novo (reusa CustomFields já existentes); backend+front só.
+// (v127 16/07: recp* — Estorno de Recebimento Confirmado (ver
 // DECISAO_estorno-recebimento-confirmado.md): Estoquista desfaz sozinho até 30min depois de
 // confirmar ("Confirmados há pouco" na lista + toast "Confirmei errado — desfazer" na tela de
 // sucesso); depois só Sócio (toggle "Ver recebimentos confirmados", busca por NF/fornecedor).

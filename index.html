@@ -2812,7 +2812,25 @@ function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenad
 /* ===== rede / toast ===== */
 function toggleNet(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Sincronizado');},1100);} updateNet(); }
 function updateNet(){const b=document.getElementById('netBtn');b.classList.toggle('off',!NET.online);b.title=NET.online?'Online':'Offline'+(NET.queue?(' · '+NET.queue+' na fila'):'');}
-let toastT; function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2200);}
+let toastT;
+function toast(msg){ toastAcao(msg,null,null,2200); }
+/* Fase 3 (item 16, endr* — Desfazer/editar depois): toast com botão de ação opcional, sem mudar o
+   comportamento de toast() pros ~40 outros usos já existentes no app (todos continuam textContent
+   puro, 2200ms). Só entra no innerHTML com <button> quando alguém passa actionLabel/actionFn. O
+   botão precisa de pointer-events:auto porque o .toast inteiro é pointer-events:none (CSS existente,
+   pra não atrapalhar toque por trás) — CSS permite religar isso só no filho. */
+function toastAcao(msg, actionLabel, actionFn, duration){
+  const el=document.getElementById('toast');
+  if(actionLabel && actionFn){
+    el.innerHTML='<span>'+_esc(msg)+'</span><button type="button" style="pointer-events:auto;background:none;border:none;color:#8FCBFF;font-weight:800;font-size:13px;padding:2px 0 2px 4px;margin:0;cursor:pointer;text-decoration:underline;white-space:nowrap">'+_esc(actionLabel)+'</button>';
+    el.querySelector('button').onclick=()=>{ clearTimeout(toastT); el.classList.remove('show'); actionFn(); };
+  } else {
+    el.textContent=msg;
+  }
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'), duration||2200);
+}
 /* validação inline: marca o campo em vermelho com a mensagem embaixo; limpa quando o usuário digita/muda */
 function markInvalid(el,msg){
   if(typeof el==='string') el=document.getElementById(el);
@@ -3289,6 +3307,8 @@ function renderEndrWizard(wrap){
   else if(endrSt.step==='nivel') endrRenderNivel(card);
   else if(endrSt.step==='hub'){ endrRenderHub(card); if(endrSt.hub.gaveta) endrRenderGaveta(wrap); }
   else if(endrSt.step==='tipo') endrRenderTipo(card);
+  else if(endrSt.step==='loteFaixa') endrRenderLoteFaixa(card);
+  else if(endrSt.step==='lotePreview') endrRenderLotePreview(card);
   else if(endrSt.step==='nome') endrRenderNome(card);
   else if(endrSt.step==='capacidade') endrRenderCapacidade(card);
   else if(endrSt.step==='revisao') endrRenderRevisao(card);
@@ -3389,6 +3409,9 @@ function endrNovoEndereco(){
   endrSt.setorAceitaArmazenamento=true; endrSt.posicaoAceitaArmazenamento=true;
   endrSt.setores=[]; endrSt._setoresCarregadas=false; endrSt.posicoes=[]; endrSt._posicoesCarregadas=false;
   endrSt.niveis=[]; endrSt._niveisCarregados=false;
+  // Fase 3 (item 7, 16/07/2026) — estado do gerador de lote, zerado a cada nova sessão de criação.
+  endrSt.modoLote=false; endrSt.faixaModo='letra'; endrSt.faixaDe=''; endrSt.faixaAte=''; endrSt.faixaLargura=2;
+  endrSt.nomeLoteBase=''; endrSt.lotePreview=null;
   // 15/07/2026 (Fase 2) — entrada agora é o hub, não mais a tela cheia 'area'. Gaveta começa
   // FECHADA (o usuário vê o mapa primeiro, toca "Área: Escolher…" quando quiser) — ver mockup em
   // DECISAO_fase2_hub_gaveta.md. endrHubCarregarEnderecosDoLocal alimenta o "herdar do último
@@ -3403,6 +3426,7 @@ function endrNovoEndereco(){
    de propósito — se o usuário voltar até o passo 'área', a lista já carregada continua servindo.
    Pedido do Raphael 13/07/2026, análise de UX feita com o agente Fable. ---- */
 function endrNovoEnderecoAqui(d){
+  endrSt.modoLote=false; endrSt.lotePreview=null;
   endrSt.tipo=d.tipo||null; endrSt.nome=''; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.capacidade='';
   endrSt.areaId=d.areaId||null; endrSt.areaNome=d.area||''; endrSt.areaAceitaArmazenamento=!d.rua; endrSt.rua=d.rua||'';
   endrSt.modulo=d.modulo||''; endrSt.nivel=d.nivel||''; /* mesmo setor/módulo/nível — só o próximo bin/prateleira muda */
@@ -3688,7 +3712,22 @@ function endrHubRenderSecaoEndereco(card){
     grid.appendChild(el);
   });
   sec.appendChild(grid);
+  // Fase 3 (item 7, 16/07/2026) — toggle "1 por vez"/"Gerar em lote": ESTE é o ponto de entrada de
+  // verdade (achado ao revisar que o hub, desde a Fase 2, é o único caminho que os usuários
+  // realmente percorrem — endrRenderTipo/endrRenderLoteFaixa como tela cheia só sobrevivem via o
+  // handoff do recp*, que nunca usa lote). Sem handoff recp* ativo aqui.
+  if(endrSt.retorno!=='recp'){
+    const modoBox=document.createElement('div'); modoBox.style.cssText='display:flex;gap:8px;margin:10px 0 4px';
+    const b1=document.createElement('button'); b1.type='button'; b1.textContent='1 por vez';
+    b1.style.cssText='flex:1;height:34px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid '+(!endrSt.modoLote?'var(--brand);background:rgba(62,126,176,.1);color:var(--brand)':'#E2E5E9;background:none;color:#4A5560');
+    b1.onclick=()=>{ if(endrSt.modoLote){ endrSt.modoLote=false; endrSt.erro=null; renderEstoque(); } };
+    const b2=document.createElement('button'); b2.type='button'; b2.textContent='▦ Gerar em lote';
+    b2.style.cssText='flex:1;height:34px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid '+(endrSt.modoLote?'var(--brand);background:rgba(62,126,176,.1);color:var(--brand)':'#E2E5E9;background:none;color:#4A5560');
+    b2.onclick=()=>{ if(!endrSt.modoLote){ endrSt.modoLote=true; endrSt.erro=null; renderEstoque(); } };
+    modoBox.appendChild(b1); modoBox.appendChild(b2); sec.appendChild(modoBox);
+  }
   if(!endrSt.tipo){ card.appendChild(sec); return; } // resto só aparece depois de escolher o tipo
+  if(endrSt.modoLote){ endrRenderCamposLote(sec); card.appendChild(sec); return; } // lote troca nome/código/capacidade pelos campos de faixa
   // Modelo de Caixa BIN (15/07/2026, DECISAO_modelo_caixa_bin.md §5b): obrigatório ANTES do Nome
   // quando tipo==='Bin'. Select nativo, não gaveta — catálogo pequeno, não é degrau de ENDR_CADEIA.
   if(endrSt.tipo==='Bin'){
@@ -3730,7 +3769,11 @@ function endrHubRenderSecaoEndereco(card){
   form.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
     +'<input id="endrHubNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Código</label>'
-    +'<input id="endrHubCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    // Fase 3 (item 8, 16/07/2026) — validação em tempo real reaproveitando endrCodigoOnInput,
+    // generalizada pra aceitar ids diferentes (este input tem id endrHubCodigo, não endrCodigo —
+    // é o input de verdade que os usuários preenchem desde a Fase 2, ao contrário de endrRenderNome).
+    +'<input id="endrHubCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" oninput="endrCodigoOnInput(\'endrHubCodigo\',\'endrHubCodigoStatus\')" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<div id="endrHubCodigoStatus" style="padding:0 0 4px;font-size:12px;min-height:16px"></div>'
     +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional)</label>'
     +'<input id="endrHubCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
@@ -4123,7 +4166,14 @@ function endrRenderLista(card){
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Trocar local'; bk.onclick=()=>{ endrSt.step='local'; renderEstoque(); }; card.appendChild(bk);
 }
 /* ---- passo 3: tipo (toque seleciona e avança) ---- */
-function endrEscolherTipo(v){ endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false; endrSt.step='nome'; renderEstoque(); endrSugerirCodigo(); }
+// Fase 3 (item 7, 16/07/2026) — em modoLote, escolher o tipo vai pra tela de faixa (letra/número)
+// em vez de 'nome': o gerador de lote pergunta nome/capacidade DEPOIS da faixa (endrRenderLoteFaixa),
+// não antes, porque o nome ali é só uma BASE compartilhada por todos os itens do lote.
+function endrEscolherTipo(v){
+  endrSt.tipo=v; endrSt.codigo=''; endrSt.codigoSugerido=false;
+  if(endrSt.modoLote){ endrSt.step='loteFaixa'; renderEstoque(); return; }
+  endrSt.step='nome'; renderEstoque(); endrSugerirCodigo();
+}
 /* Sugestão de Tipo por profundidade onde o usuário parou (13/07/2026 — análise Fable): reordena,
    NUNCA restringe — todos os tipos continuam clicáveis, só os prováveis sobem pro topo num grupo
    "Sugeridos". Sem grupo quando não passou pela cadeia Setor/Módulo/Nível (endrSt.paradaEm null). */
@@ -4138,9 +4188,22 @@ function endrRenderTipoGrid(card, lista){
   });
   card.appendChild(grid);
 }
+function endrModoLoteToggle(){ endrSt.modoLote=!endrSt.modoLote; renderEstoque(); }
 function endrRenderTipo(card){
   card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Tipo do endereço</div>';
   endrBcScroll(card);
+  // Fase 3 (item 7, 16/07/2026) — toggle "1 por vez"/"em lote". Não aparece no handoff do recp*
+  // (endrSt.retorno==='recp' espera devolver exatamente 1 endereço pra conferência de origem).
+  if(endrSt.retorno!=='recp'){
+    const modoBox=document.createElement('div'); modoBox.style.cssText='display:flex;gap:8px;margin-bottom:10px';
+    const b1=document.createElement('button'); b1.textContent='1 por vez';
+    b1.style.cssText='flex:1;height:36px;border-radius:8px;font-size:12.5px;font-weight:700;border:1.5px solid '+(!endrSt.modoLote?'#3E7EB0;background:rgba(62,126,176,.1);color:#3E7EB0':'#E2E5E9;background:none;color:#4A5560');
+    b1.onclick=()=>{ if(endrSt.modoLote) endrModoLoteToggle(); };
+    const b2=document.createElement('button'); b2.textContent='▦ Gerar em lote';
+    b2.style.cssText='flex:1;height:36px;border-radius:8px;font-size:12.5px;font-weight:700;border:1.5px solid '+(endrSt.modoLote?'#3E7EB0;background:rgba(62,126,176,.1);color:#3E7EB0':'#E2E5E9;background:none;color:#4A5560');
+    b2.onclick=()=>{ if(!endrSt.modoLote) endrModoLoteToggle(); };
+    modoBox.appendChild(b1); modoBox.appendChild(b2); card.appendChild(modoBox);
+  }
   const sugeridosNomes=endrSt.paradaEm?(ENDR_SUGESTAO_TIPO[endrSt.paradaEm]||[]):[];
   if(sugeridosNomes.length){
     const sugeridos=ENDR_TIPOS.filter(t=>sugeridosNomes.includes(t.v));
@@ -4169,6 +4232,179 @@ function endrRenderTipo(card){
   };
   card.appendChild(bkb);
 }
+/* ---- Fase 3 (item 7, 16/07/2026) — gerador de lote: faixa (letra ou número, "uma dimensão só" —
+   validado contra o gerador SAP LS10/LS05, ver PROPOSTA_redesign_criacao_endereco.md §4) → prévia
+   obrigatória (lista completa antes de confirmar) → criação tudo-ou-nada. ---- */
+/* Campos do gerador de lote (item 7), fatorados numa função à parte porque têm 2 pontos de
+   entrada: a tela cheia endrRenderLoteFaixa (caminho legado, dead-but-present — ver comentário de
+   Fase 2 em endrCarregarAreas: telas cheias tipo/nome/etc. não são mais o fluxo normal desde que o
+   hub assumiu) e a seção inline do hub (endrHubRenderSecaoEndereco), que É o caminho de verdade
+   hoje. Sem essa fatoração, o toggle "Gerar em lote" ficaria só no caminho morto — achado ao
+   revisar onde endrSt.step realmente vira 'tipo' (nunca, no fluxo normal pós-Fase 2). */
+function endrRenderCamposLote(container){
+  if(endrSt.tipo==='Bin'){
+    if(!endrSt._modelosBinCarregados) endrCarregarModelosBin();
+    const secModelo=document.createElement('div'); secModelo.style.cssText='margin-bottom:12px';
+    secModelo.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Modelo da caixa *</label>';
+    if(!endrSt._modelosBinCarregados){
+      secModelo.innerHTML+='<div class="subnote" style="padding:6px 0"><span class="ld-spin"></span>Carregando modelos…</div>';
+    } else if(!endrSt.modelosBin.length){
+      secModelo.innerHTML+='<div class="subnote" style="padding:4px 0;color:#C4451B">Nenhum modelo de caixa cadastrado ainda.</div>';
+    } else {
+      const sel=document.createElement('select'); sel.id='endrLoteModeloBin';
+      sel.style.cssText='width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;margin:4px 0 4px;box-sizing:border-box;background:#fff';
+      sel.innerHTML='<option value="">Selecione…</option>'+endrSt.modelosBin.map(m=>{
+        const vol=m.volumeLitros!=null?' — '+m.volumeLitros.toLocaleString('pt-BR',{maximumFractionDigits:1})+' L':'';
+        const sel_=(m.id===endrSt.modeloBinId)?' selected':'';
+        return '<option value="'+_esc(m.id)+'"'+sel_+'>'+_esc(m.nome)+vol+'</option>';
+      }).join('');
+      sel.onchange=()=>endrEscolherModeloBin(sel.value);
+      secModelo.appendChild(sel);
+    }
+    container.appendChild(secModelo);
+  }
+  const base=document.createElement('div'); base.className='subnote'; base.style.cssText='padding:0 0 10px;font-weight:600';
+  base.textContent='Base fixa: '+endrCodigoPreview(endrSt.nivelCod||endrSt.nivel)+'-…';
+  container.appendChild(base);
+  const modoBox=document.createElement('div'); modoBox.style.cssText='display:flex;gap:8px;margin-bottom:12px';
+  const bl=document.createElement('button'); bl.type='button'; bl.textContent='Letras (A…J)';
+  bl.style.cssText='flex:1;height:36px;border-radius:8px;font-size:12.5px;font-weight:700;border:1.5px solid '+(endrSt.faixaModo==='letra'?'#3E7EB0;background:rgba(62,126,176,.1);color:#3E7EB0':'#E2E5E9;background:none;color:#4A5560');
+  bl.onclick=()=>{ endrSt.faixaModo='letra'; renderEstoque(); };
+  const bn=document.createElement('button'); bn.type='button'; bn.textContent='Números (01…10)';
+  bn.style.cssText='flex:1;height:36px;border-radius:8px;font-size:12.5px;font-weight:700;border:1.5px solid '+(endrSt.faixaModo==='numero'?'#3E7EB0;background:rgba(62,126,176,.1);color:#3E7EB0':'#E2E5E9;background:none;color:#4A5560');
+  bn.onclick=()=>{ endrSt.faixaModo='numero'; renderEstoque(); };
+  modoBox.appendChild(bl); modoBox.appendChild(bn); container.appendChild(modoBox);
+
+  const linha=document.createElement('div'); linha.style.cssText='display:flex;gap:10px;margin-bottom:4px';
+  const de=document.createElement('div'); de.style.cssText='flex:1';
+  de.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">De</label>';
+  const ate=document.createElement('div'); ate.style.cssText='flex:1';
+  ate.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Até</label>';
+  const inpStyle='width:100%;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0;box-sizing:border-box';
+  if(endrSt.faixaModo==='letra'){
+    de.innerHTML+='<input id="endrFaixaDe" maxlength="1" value="'+cadEsc(endrSt.faixaDe)+'" placeholder="A" style="'+inpStyle+';text-transform:uppercase">';
+    ate.innerHTML+='<input id="endrFaixaAte" maxlength="1" value="'+cadEsc(endrSt.faixaAte)+'" placeholder="J" style="'+inpStyle+';text-transform:uppercase">';
+  } else {
+    de.innerHTML+='<input id="endrFaixaDe" type="number" min="0" value="'+cadEsc(endrSt.faixaDe)+'" placeholder="1" style="'+inpStyle+'">';
+    ate.innerHTML+='<input id="endrFaixaAte" type="number" min="0" value="'+cadEsc(endrSt.faixaAte)+'" placeholder="10" style="'+inpStyle+'">';
+  }
+  linha.appendChild(de); linha.appendChild(ate); container.appendChild(linha);
+  if(endrSt.faixaModo==='numero'){
+    const lLbl=document.createElement('label'); lLbl.style.cssText='font-size:12.5px;color:#4A5560;font-weight:600'; lLbl.textContent='Zeros à esquerda (largura)'; container.appendChild(lLbl);
+    const largura=document.createElement('input'); largura.id='endrFaixaLargura'; largura.type='number'; largura.min='1'; largura.max='6';
+    largura.value=endrSt.faixaLargura; largura.style.cssText=inpStyle+';margin-bottom:10px'; container.appendChild(largura);
+  }
+  const nomeBase=document.createElement('div'); nomeBase.style.cssText='margin-top:6px';
+  nomeBase.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome base (opcional)</label>'
+    +'<input id="endrLoteNomeBase" type="text" value="'+cadEsc(endrSt.nomeLoteBase)+'" placeholder="Ex.: Prateleira" style="'+inpStyle+'">'
+    +'<div class="subnote" style="padding:0 0 8px">Cada item vira "Nome base + sufixo" (ex.: "Prateleira A"). Em branco, usa o próprio código.</div>';
+  container.appendChild(nomeBase);
+  const cap=document.createElement('div');
+  cap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional, igual pra todos)</label>'
+    +'<input id="endrLoteCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="'+inpStyle+'">';
+  container.appendChild(cap);
+  if(endrSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.style.paddingTop='6px'; e.textContent=endrSt.erro; container.appendChild(e); }
+  const faltaModeloBin=(endrSt.tipo==='Bin' && !endrSt.modeloBinId);
+  const ver=document.createElement('button'); ver.className='btn btn-brand'; ver.style.cssText='width:100%;height:48px;margin-top:12px';
+  ver.textContent=endrSt.carregandoPreview?'Calculando…':(faltaModeloBin?'Escolha o modelo da caixa':'Ver prévia');
+  ver.disabled=!!endrSt.carregandoPreview||faltaModeloBin;
+  ver.onclick=endrGerarPreviaLote; container.appendChild(ver);
+}
+function endrRenderLoteFaixa(card){
+  card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Gerar em lote — '+_esc(endrSt.tipo)+'</div>';
+  endrBcScroll(card);
+  endrRenderCamposLote(card);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ endrSt.step='tipo'; renderEstoque(); }; card.appendChild(bk);
+}
+function endrMontarBodyLote(){
+  const de=document.getElementById('endrFaixaDe'), ate=document.getElementById('endrFaixaAte');
+  endrSt.faixaDe=de?de.value:endrSt.faixaDe; endrSt.faixaAte=ate?ate.value:endrSt.faixaAte;
+  const largura=document.getElementById('endrFaixaLargura'); if(largura) endrSt.faixaLargura=largura.value;
+  const nomeBase=document.getElementById('endrLoteNomeBase'); if(nomeBase) endrSt.nomeLoteBase=(nomeBase.value||'').trim();
+  const cap=document.getElementById('endrLoteCap'); if(cap) endrSt.capacidade=(cap.value||'').trim();
+  const body={
+    localId:endrSt.localId, tipo:endrSt.tipo,
+    faixa:{ modo:endrSt.faixaModo, de:endrSt.faixaDe, ate:endrSt.faixaAte, largura:Number(endrSt.faixaLargura)||2 },
+  };
+  if(endrSt.capacidade!=='') body.capacidadeMaxima=Number(endrSt.capacidade);
+  if(endrSt.areaId) body.areaId=endrSt.areaId;
+  if(endrSt.rua) body.rua=endrSt.rua;
+  if(endrSt.modulo) body.modulo=endrSt.modulo;
+  if(endrSt.nivel) body.nivel=endrSt.nivel;
+  if(endrSt.ruaCod) body.ruaCod=endrSt.ruaCod;
+  if(endrSt.moduloCod) body.moduloCod=endrSt.moduloCod;
+  if(endrSt.nivelCod) body.nivelCod=endrSt.nivelCod;
+  if(endrSt.tipo==='Bin' && endrSt.modeloBinId) body.modeloBinId=endrSt.modeloBinId;
+  if(endrSt.nomeLoteBase) body.nomeAmigavelBase=endrSt.nomeLoteBase;
+  return body;
+}
+async function endrGerarPreviaLote(){
+  if(endrSt.carregandoPreview) return;
+  endrSt.carregandoPreview=true; endrSt.erro=null; renderEstoque();
+  try{
+    const body=endrMontarBodyLote();
+    const d=await bePost('/estoque/enderecos/lote/preview', body);
+    endrSt.carregandoPreview=false;
+    endrSt.lotePreview=d;
+    endrSt.step='lotePreview';
+    renderEstoque();
+  }catch(e){ endrSt.carregandoPreview=false; endrSt.erro='Erro ao gerar prévia: '+e.message; renderEstoque(); }
+}
+function endrRenderLotePreview(card){
+  const p=endrSt.lotePreview;
+  if(!p){ card.innerHTML='<div class="subnote">Nada pra mostrar — volte e gere a prévia de novo.</div>'; return; }
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Prévia do lote — '+p.itens.length+' endereços</div>'
+    +'<div class="subnote" style="padding:0 0 10px">Base fixa: <b>'+_esc(p.base)+'-</b> — confira a lista completa antes de confirmar.</div>';
+  const lista=document.createElement('div'); lista.style.cssText='max-height:280px;overflow-y:auto;border:1px solid #E2E5E9;border-radius:10px;margin-bottom:12px';
+  p.itens.forEach(it=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #eef0f3;font-size:13px';
+    row.innerHTML='<span style="font-weight:700;color:#0B2239">'+_esc(it.codigo)+'</span>'
+      +(it.disponivel?'<span style="color:#1D9E75;font-weight:600">✓ disponível</span>':'<span style="color:#C4451B;font-weight:600">✗ já em uso</span>');
+    lista.appendChild(row);
+  });
+  card.appendChild(lista);
+  if(p.qtdConflitos>0){
+    const av=document.createElement('div'); av.className='subnote'; av.style.cssText='color:#C4451B;padding-bottom:10px';
+    av.textContent=p.qtdConflitos+' código(s) já em uso — ajuste a faixa antes de confirmar (tudo ou nada: não cria nenhum enquanto houver conflito).';
+    card.appendChild(av);
+  } else {
+    const conf=document.createElement('button'); conf.className='btn btn-brand'; conf.style.cssText='width:100%;height:48px';
+    conf.textContent=endrSt.criandoLote?'Criando…':('✅ Criar '+p.itens.length+' endereços');
+    conf.disabled=!!endrSt.criandoLote;
+    conf.onclick=endrConfirmarLote; card.appendChild(conf);
+  }
+  // Volta pro hub (não pra tela cheia 'loteFaixa' — a entrada de lote de verdade é a seção inline
+  // do hub desde a Fase 2; ver comentário em endrHubRenderSecaoEndereco).
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:8px'; bk.textContent='‹ Ajustar faixa'; bk.onclick=()=>{ endrSt.step='hub'; renderEstoque(); }; card.appendChild(bk);
+}
+async function endrConfirmarLote(){
+  if(endrSt.criandoLote) return;
+  endrSt.criandoLote=true; renderEstoque();
+  try{
+    const body=endrMontarBodyLote();
+    const r=await bePost('/estoque/enderecos/lote', body);
+    endrSt.criandoLote=false;
+    const ids=r.itens.map(it=>it.id);
+    if(endrSt.enderecosDoLocal){
+      r.itens.forEach(it=>endrSt.enderecosDoLocal.push({ id:it.id, codigo:it.codigo, tipo:endrSt.tipo, capacidade:r.capacidade, areaId:r.areaId, rua:r.rua, criadoEm:new Date().toISOString(), modeloBinId:r.modeloBinId||null }));
+    }
+    // Fase 3 (item 16): "desfazer o lote inteiro" — mesma regra do SAP (deleta a faixa recém-
+    // criada, desde que vazia); client-side só, sem schema novo de agrupamento — os ids já estão
+    // em memória de quando acabaram de ser criados.
+    toastAcao('✅ '+r.itens.length+' endereços criados', 'Desfazer lote', ()=>endrDesfazerLote(ids), 30000);
+    endrSt.modoLote=false; endrSt.lotePreview=null;
+    endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista();
+  }catch(e){ endrSt.criandoLote=false; endrSt.erro='Erro ao criar o lote: '+e.message; renderEstoque(); }
+}
+async function endrDesfazerLote(ids){
+  let falhas=0;
+  for(const id of ids){
+    try{ await beDelete('/estoque/enderecos/'+id); if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal=endrSt.enderecosDoLocal.filter(e=>e.id!==id); }
+    catch(e){ falhas++; }
+  }
+  endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista();
+  toast(falhas?('↩️ Lote desfeito parcialmente — '+falhas+' já não puderam ser removidos'):'↩️ Lote inteiro desfeito');
+}
 /* ---- passo 4: nomenclatura (nome amigável + código sugerido, editável) ---- */
 async function endrSugerirCodigo(){
   try{
@@ -4190,12 +4426,41 @@ async function endrSugerirCodigo(){
     if((endrSt.step==='nome'||endrSt.step==='hub') && !endrSt.codigo){ endrSt.codigo=d.codigo; endrSt.codigoSugerido=true; renderEstoque(); }
   }catch(e){ /* silencioso — campo continua editável, dá pra digitar na mão se a sugestão falhar */ }
 }
+/* Fase 3 (item 8, 16/07/2026) — validação em tempo real do código digitado à mão: debounce de
+   400ms, checa disponibilidade via GET .../sugestao-codigo?codigoManual= (não gera sugestão nova,
+   só valida o que já está no campo). _loadSeq próprio (não reaproveita endrSt._loadSeq, que é do
+   carregamento de listas em cascata) pra descartar resposta desatualizada se o usuário continuar
+   digitando enquanto a checagem anterior ainda está no ar. */
+let endrCodigoCheckSeq=0, endrCodigoCheckT=null;
+// inputId/statusId default pro par usado em endrRenderNome (handoff recp*); o hub (fluxo real desde
+// a Fase 2) chama com 'endrHubCodigo'/'endrHubCodigoStatus' explicitamente.
+function endrCodigoOnInput(inputId, statusId){
+  inputId=inputId||'endrCodigo'; statusId=statusId||'endrCodigoStatus';
+  const el=document.getElementById(inputId); if(!el) return;
+  const val=(el.value||'').trim();
+  endrSt.codigo=val; endrSt.codigoSugerido=false;
+  const statusEl=document.getElementById(statusId);
+  clearTimeout(endrCodigoCheckT);
+  if(!val){ if(statusEl) statusEl.innerHTML=''; return; }
+  if(statusEl) statusEl.innerHTML='<span style="color:var(--weak)">verificando…</span>';
+  endrCodigoCheckT=setTimeout(async ()=>{
+    const seq=++endrCodigoCheckSeq;
+    try{
+      const url='/estoque/enderecos/sugestao-codigo?localId='+encodeURIComponent(endrSt.localId)+'&tipo='+encodeURIComponent(endrSt.tipo)+'&codigoManual='+encodeURIComponent(val);
+      const d=await beGet(url);
+      if(seq!==endrCodigoCheckSeq) return;
+      const el2=document.getElementById(statusId); if(!el2) return;
+      el2.innerHTML=d.disponivel?'<span style="color:#1D9E75;font-weight:600">✓ disponível</span>':'<span style="color:#C4451B;font-weight:600">✗ já em uso — escolha outro</span>';
+    }catch(e){ /* silencioso — campo continua editável mesmo se a checagem falhar */ }
+  },400);
+}
 function endrRenderNome(card){
   card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Nomenclatura — '+_esc(endrSt.tipo)+'</div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Nome amigável</label>'
     +'<input id="endrNome" type="text" value="'+cadEsc(endrSt.nome)+'" placeholder="Ex.: Prateleira A — nível 2" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Código</label>'
-    +'<input id="endrCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<input id="endrCodigo" type="text" value="'+cadEsc(endrSt.codigo)+'" placeholder="Sugestão automática…" oninput="endrCodigoOnInput()" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
+    +'<div id="endrCodigoStatus" style="padding:0 0 4px;font-size:12px;min-height:16px"></div>'
     +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>';
   endrBcScroll(card);
   // Modelo de Caixa BIN (15/07/2026, §5c): esta tela é usada pelo handoff recp* (Entradas
@@ -4293,19 +4558,52 @@ async function endrCriar(){
     // 15/07/2026 (Fase 2, item 12 — defaults herdados): entra na lista em memória já, sem refetch —
     // "criar outro aqui" em sequência (ex. 20 bins da mesma rua) já herda do que acabou de sair do forno.
     if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal.push({ id:r.id, codigo:r.codigo, tipo:r.tipo, capacidade:r.capacidade, areaId:r.areaId, rua:r.rua, criadoEm:new Date().toISOString(), modeloBinId:r.modeloBinId||null });
-    toast('✅ Endereço '+(r.codigo||'')+' criado');
+    // Fase 3 (item 16, 16/07/2026): toast com "Desfazer" por 30s — hoje errar no último passo do
+    // wizard não tinha porta de saída visível (NN/g, back-safety básica de wizard).
+    toastAcao('✅ Endereço '+(r.codigo||'')+' criado', 'Desfazer', ()=>endrDesfazerCriacao(r.id), 30000);
     endrAbrirDetalhe(r.id);
   }catch(e){ endrSt.criando=false; endrSt.erro='Erro ao criar: '+e.message; renderEstoque(); }
 }
 /* ---- passo 7: detalhe (novo ou revisitado) — NFC + etiqueta ---- */
 async function endrAbrirDetalhe(id){
-  endrSt.enderecoId=id; endrSt.step='detalhe'; endrSt.enderecoDetalhe=null; endrSt.etiqueta={status:'idle'}; endrSt.erro=null; renderEstoque();
+  endrSt.enderecoId=id; endrSt.step='detalhe'; endrSt.enderecoDetalhe=null; endrSt.etiqueta={status:'idle'}; endrSt.erro=null; endrSt.editando=false; renderEstoque();
   try{
     const d=await beGet('/estoque/enderecos/'+id); endrSt.enderecoDetalhe=d;
     const ativa=(d.etiquetas||[]).find(e=>e.ativa);
     if(ativa) endrSt.etiqueta={status:'ok', token:ativa.token, versao:ativa.versao, url:PORTAL_BASE+'/e/'+ativa.token};
     renderEstoque();
   }catch(e){ endrSt.erro='Erro ao carregar endereço: '+e.message; renderEstoque(); }
+}
+/* Fase 3 (item 16, 16/07/2026) — ação do botão "Desfazer" do toast pós-criação. DELETE já bloqueia
+   no backend se tiver movimentação/saldo/etiqueta (defesa em profundidade); aqui só trata o caminho
+   feliz e propaga qualquer bloqueio como toast de erro em vez de silenciar. */
+async function endrDesfazerCriacao(id){
+  try{
+    await beDelete('/estoque/enderecos/'+id);
+    if(endrSt.enderecosDoLocal) endrSt.enderecosDoLocal=endrSt.enderecosDoLocal.filter(e=>e.id!==id);
+    endrNfcDesativar();
+    endrSt.step='lista'; endrSt._listaCarregada=false; renderEstoque(); endrCarregarLista();
+    toast('↩️ Endereço desfeito');
+  }catch(e){ toast('⚠️ Não deu pra desfazer: '+e.message); }
+}
+/* Edição de nome/capacidade depois de criado (item 16) — Codigo__c nunca é editável aqui (código
+   congela, mesma regra do backend/POST): a etiqueta NFC já gravada aponta pro Id, não pro nome. */
+function endrEditarToggle(v){ endrSt.editando=v; renderEstoque(); }
+async function endrSalvarEdicao(){
+  const nome=(document.getElementById('endrEditNome').value||'').trim();
+  const capStr=(document.getElementById('endrEditCap').value||'').trim();
+  if(!nome){ toast('⚠️ Nome não pode ficar vazio'); return; }
+  const body={ nomeAmigavel: nome, capacidadeMaxima: capStr===''?null:Number(capStr) };
+  try{
+    await bePatch('/estoque/enderecos/'+endrSt.enderecoDetalhe.id, body);
+    endrSt.enderecoDetalhe.nome=nome; endrSt.enderecoDetalhe.capacidade=body.capacidadeMaxima;
+    endrSt.enderecoDetalhe.espacoLivre=body.capacidadeMaxima==null?null:Math.max(0,body.capacidadeMaxima-(endrSt.enderecoDetalhe.ocupacao||0));
+    const it=endrSt.enderecosDoLocal&&endrSt.enderecosDoLocal.find(e=>e.id===endrSt.enderecoDetalhe.id);
+    if(it) it.capacidade=body.capacidadeMaxima;
+    endrSt.editando=false;
+    toast('✅ Endereço atualizado');
+    renderEstoque();
+  }catch(e){ toast('⚠️ Erro ao salvar: '+e.message); }
 }
 function endrRenderDetalhe(card){
   const d=endrSt.enderecoDetalhe || (endrSt.retorno==='recp' ? endrSt.enderecoCriado : null);
@@ -4320,6 +4618,24 @@ function endrRenderDetalhe(card){
   card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:4px">✅</div>'
     +'<div style="text-align:center;font-size:16px;font-weight:700;color:#0B2239">'+_esc(d.nome)+'</div>'
     +'<div style="text-align:center;font-size:12.5px;color:#686868;margin:4px 0 16px">'+_esc(d.tipo||'')+(dloc?' · 📍 '+_esc(dloc):'')+' · '+_esc(d.codigo||'')+' · ocupação '+_esc(ocupTxt)+modeloTxt+volOcupTxt+'</div>';
+  // Fase 3 (item 16) — editar nome/capacidade depois: só quando o detalhe veio de verdade do GET
+  // (endrSt.enderecoDetalhe), não no fallback do handoff recp* sem GET confirmado ainda.
+  if(endrSt.enderecoDetalhe){
+    const edBox=document.createElement('div'); edBox.style.cssText='margin-bottom:14px';
+    if(endrSt.editando){
+      edBox.innerHTML='<label style="font-size:12px;color:#4A5560;font-weight:600">Nome amigável</label>'
+        +'<input id="endrEditNome" type="text" value="'+cadEsc(d.nome)+'" style="width:100%;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
+        +'<label style="font-size:12px;color:#4A5560;font-weight:600">Capacidade máxima</label>'
+        +'<input id="endrEditCap" type="number" min="0" step="0.01" value="'+cadEsc(d.capacidade==null?'':d.capacidade)+'" placeholder="Sem limite" style="width:100%;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
+        +'<div class="subnote" style="padding:0 0 8px">O código ("'+_esc(d.codigo||'')+'") não muda aqui — a etiqueta NFC já gravada continua válida.</div>';
+      const salvar=document.createElement('button'); salvar.className='btn btn-brand'; salvar.style.cssText='width:100%;height:42px'; salvar.textContent='Salvar'; salvar.onclick=endrSalvarEdicao; edBox.appendChild(salvar);
+      const cancelar=document.createElement('button'); cancelar.className='btn btn-neutral'; cancelar.style.cssText='width:100%;height:38px;margin-top:6px'; cancelar.textContent='Cancelar'; cancelar.onclick=()=>endrEditarToggle(false); edBox.appendChild(cancelar);
+    } else {
+      const ed=document.createElement('button'); ed.style.cssText='width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;color:#3A4552;font-size:13px;font-weight:600';
+      ed.textContent='✏️ Editar nome/capacidade'; ed.onclick=()=>endrEditarToggle(true); edBox.appendChild(ed);
+    }
+    card.appendChild(edBox);
+  }
   const et=endrSt.etiqueta||{status:'idle'};
   const box=document.createElement('div'); box.style.cssText='text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px';
   let h='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
