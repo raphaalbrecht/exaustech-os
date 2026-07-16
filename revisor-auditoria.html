@@ -1049,7 +1049,14 @@ function buReabrirListaSeHouver(){
   if (campo.value.trim().length >= 2) buBuscarConta(campo.value);
 }
 
-const BU_TIPO_LABEL = { FTR: 'FTR', ARPLAC: 'ARPLAC' };
+// 15/07/2026: a.tipo vem como RecordType.DeveloperName cru do Salesforce (ex. "Auditoria_tecnica_FTR"
+// ou "Auditoria_t_cnica_ARPLAC" — nomenclatura inconsistente entre os 2 já existente no org, não dá
+// pra confiar em match exato), então deriva só pela presença de "ARPLAC" no nome, igual ao padrão já
+// usado no backend (ver origemAuditora em expRoutes.js, linha ~1201).
+function buTipoLabel(devName){
+  if (!devName) return '—';
+  return devName.includes('ARPLAC') ? 'ARPLAC' : 'FTR';
+}
 function buFmtData(iso){
   const p = String(iso || '').split('-');
   return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '—';
@@ -1068,7 +1075,7 @@ async function buSelecionarConta(contaId, contaNome){
     if (!Array.isArray(auditorias) || !auditorias.length) { listaAud.innerHTML = '<div class="bu-aud-item sem-lote">Nenhuma auditoria cadastrada nesta conta ainda.</div>'; return; }
     listaAud.innerHTML = auditorias.map((a) => {
       const temLote = !!a.loteId;
-      const meta = [buFmtData(a.dataInspecao), BU_TIPO_LABEL[a.tipo] || a.tipo || '—', a.risco || '—',
+      const meta = [buFmtData(a.dataInspecao), buTipoLabel(a.tipo), a.risco || '—',
         temLote ? (a.loteStatus || 'lote sem status') + (a.loteTotalItens != null ? ' · ' + a.loteTotalItens + ' itens' : '') : 'sem PDF importado ainda'
       ].join(' · ');
       return '<div class="bu-aud-item' + (temLote ? '' : ' sem-lote') + '"'
