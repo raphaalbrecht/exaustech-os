@@ -190,6 +190,7 @@
   .btn.sec{background:#fff;color:var(--brand);border:1px solid var(--brand)}
   .btn.sec:hover{background:var(--brand-l)}
   .btn:disabled{opacity:.5;cursor:default}
+  .btn-icone{padding:8px 10px;display:inline-flex;align-items:center;justify-content:center}
   .msg{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px}
   .msg.err{background:var(--err-bg);color:var(--err-tx);border:1px solid var(--err-bd)}
   .msg.info{background:var(--brand-l);color:var(--brand-d);border:1px solid #9fc6f0}
@@ -2609,19 +2610,19 @@ async function confirmarLinha(linhaId){
 async function reverterLinha(linhaId){
   if (!confirm('Reverter a confirmação deste item? Ele volta pra "Pendente de revisão".')) return;
   const btn = document.getElementById('btnReverter');
-  if (btn) { btn.disabled = true; btn.textContent = 'Revertendo…'; }
+  if (btn) { btn.disabled = true; btn.title = 'Revertendo…'; }
   try {
     const r = await fetch(BACKEND + '/exp/auditorias/' + ST.auditoriaId + '/linhas/' + linhaId + '/reverter', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() }, body: '{}'
     });
     const j = await r.json();
-    if (!r.ok) { msg('Erro ao reverter: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Reverter confirmação'; } return; }
+    if (!r.ok) { msg('Erro ao reverter: ' + (j.error || r.status), 'err'); if (btn) { btn.disabled = false; btn.title = 'Reverter match'; } return; }
     await carregar(); // recarrega o lote pra refletir o novo status/contadores
     ST.selecionadaId = linhaId; renderTudo();
     msg('Confirmação revertida — item voltou pra revisão.', 'info');
   } catch (e) {
     msg('Falha de rede ao reverter: ' + e.message, 'err');
-    if (btn) { btn.disabled = false; btn.textContent = 'Reverter confirmação'; }
+    if (btn) { btn.disabled = false; btn.title = 'Reverter match'; }
   }
 }
 
@@ -3177,7 +3178,9 @@ function edHtmlEscopo(l){
 function edHtmlAcao(l){
   if (l.status === 'Pendente proposta') {
     return '<span class="badge confirmada" style="padding:7px 14px;font-size:12.5px">✓ Match confirmado</span>'
-      + '<button class="btn sec" id="btnReverter" onclick="reverterLinha(\'' + l.id + '\')">Reverter confirmação</button>';
+      + '<button class="btn sec btn-icone" id="btnReverter" aria-label="Reverter match" title="Reverter match" onclick="reverterLinha(\'' + l.id + '\')">'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>'
+      + '</button>';
   }
   // pedido do Raphael (13/07, rodada 25): "Confirmar match" ocupa a largura toda da coluna —
   // flex:1 dentro do .actionbar (display:flex): sozinho, enche a linha inteira; com o
