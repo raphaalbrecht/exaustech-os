@@ -5211,6 +5211,7 @@ function renderRecpFluxo(wrap){
   }
   else if(recpSt.step==='revisao') recpRenderRevisao(card);
   else if(recpSt.step==='sucesso') recpRenderSucesso(card);
+  else if(recpSt.step==='etiquetas') recpRenderEtiquetas(card);
   if(recpSt.estorno) recpRenderEstornoModal(wrap);
 }
 /* ---- passo 1: lista de recebimentos pendentes (toque avança) ---- */
@@ -5442,7 +5443,7 @@ function recpAbrirItem(itemId){
   /* Item 2 do roadmap (§3.4, contagem semi-cega): quantidade nasce em branco — o operador PRECISA
      contar de verdade, não confirmar um valor pré-preenchido com o esperado da NF (que continua
      visível no card, só não vai mais dentro do campo). */
-  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:null, observacao:'', salvo:false, _salvando:false, quantidadeAvariada:null, motivoDivergencia:null };
+  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:null, observacao:'', salvo:false, _salvando:false, quantidadeAvariada:null, motivoDivergencia:null, numerosSerie:(item&&item.numerosSerie?item.numerosSerie.slice():[]) };
   const existente=recpSt.aloc[itemId];
   if(existente && existente.length) recpSt.itemAloc=existente.map(a=>({...a}));
   else if(item.sugestao) recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:recpSt.conf[itemId].quantidade||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
@@ -5613,6 +5614,38 @@ function recpRenderItem(card){
     });
     motWrap.appendChild(motChips);
     card.appendChild(motWrap);
+  }
+  /* Etiqueta de identificação por unidade (16/07/2026, DECISAO_etiqueta-produto-rastreavel.md) —
+     Rastreavel_Serie__c já existe no schema (validation rule Serie_Obrigatoria em
+     MovimentacaoEstoque__c já cobra NumeroSerie__c quando true); captura acontece AQUI, na
+     conferência, porque a série tem que estar gravada antes do /confirmar. N = quantidade boa
+     (recebida − avariada), arredondada — item rastreável por série é sempre unidade inteira. */
+  const nSeries=item.rastreavelSerie?Math.max(0,Math.round(qtdBoa)):0;
+  if(nSeries>0){
+    if(!Array.isArray(c.numerosSerie)) c.numerosSerie=[];
+    const serWrap=document.createElement('div'); serWrap.style.cssText='margin-bottom:12px';
+    serWrap.innerHTML='<div class="sec-title2">Números de série ('+nSeries+')</div>'
+      +'<div class="subnote" style="padding:0 0 8px">Este produto exige identificação individual — cada unidade recebe uma etiqueta própria.</div>';
+    card.appendChild(serWrap);
+    for(let si=0;si<nSeries;si++){
+      const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px';
+      const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Série #'+(si+1); inp.value=c.numerosSerie[si]||'';
+      inp.style.cssText='flex:1;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box';
+      inp.oninput=()=>{ recpSt.conf[recpSt.itemId].numerosSerie[si]=inp.value; };
+      row.appendChild(inp);
+      const cb=document.createElement('button'); cb.className='btn btn-neutral'; cb.style.cssText='width:auto;flex-shrink:0;height:42px;margin:0;padding:0 12px;font-size:16px'; cb.textContent='📷';
+      cb.onclick=()=>recpScanSerie(si);
+      row.appendChild(cb);
+      serWrap.appendChild(row);
+    }
+    const genBtn=document.createElement('div'); genBtn.style.cssText='font-size:12.5px;color:#3E7EB0;font-weight:700;cursor:pointer;padding:2px 0 4px';
+    genBtn.textContent='Gerar séries automáticas (pra quem não tem série de fábrica)';
+    genBtn.onclick=()=>{
+      const cc=recpSt.conf[recpSt.itemId]; if(!Array.isArray(cc.numerosSerie)) cc.numerosSerie=[];
+      for(let si=0;si<nSeries;si++){ if(!cc.numerosSerie[si]) cc.numerosSerie[si]=(recpSt.rec.name||'REC')+'-'+String(si+1).padStart(2,'0'); }
+      renderEstoque();
+    };
+    serWrap.appendChild(genBtn);
   }
   if(!semSecaoB){
     const secB=document.createElement('div'); secB.style.cssText='margin-top:6px';
@@ -5814,6 +5847,17 @@ function recpValidarItem(){
   if(c.status==='Item Não Chegou') return {ok:true};
   const qtdBoa=recpQtdBoa(c);
   if(qtdBoa<=0) return {ok:true}; /* 100% avariado — nada pra endereçar */
+  const itemAtual=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  if(itemAtual && itemAtual.rastreavelSerie){
+    const nSeries=Math.max(0,Math.round(qtdBoa));
+    /* loop explícito (não .map/.slice) — c.numerosSerie pode ter "buracos" quando o operador
+       preenche os campos fora de ordem (array esparso), e .map/.some pulam buracos silenciosamente,
+       o que deixaria passar uma série vazia sem detectar. */
+    const series=[];
+    for(let si=0;si<nSeries;si++) series.push(String((c.numerosSerie&&c.numerosSerie[si])||'').trim());
+    if(series.some(s=>!s)) return {ok:false, msg:'Preencha o número de série de todas as '+nSeries+' unidade(s).'};
+    if(new Set(series).size!==series.length) return {ok:false, msg:'Há números de série repetidos — cada unidade precisa de uma série única.'};
+  }
   if(!recpSt.itemAloc.length) return {ok:false, msg:'Escolha ao menos um endereço.'};
   const ids=new Set();
   for(const l of recpSt.itemAloc){
@@ -5902,9 +5946,20 @@ async function recpConfirmarItem(){
     if(c.observacao) body.observacao=c.observacao;
     if(c.quantidadeAvariada!=null) body.quantidadeAvariada=c.quantidadeAvariada;
     if(c.motivoDivergencia) body.motivoDivergencia=c.motivoDivergencia;
+    const itemAtual=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+    if(itemAtual && itemAtual.rastreavelSerie){
+      /* loop explícito (não .map/.filter em array possivelmente esparso) + cortado no N validado —
+         nunca manda sobra de série de uma quantidade maior que já foi digitada antes. */
+      const nSeries=Math.max(0,Math.round(recpQtdBoa(c)));
+      const lista=[]; for(let si=0;si<nSeries;si++) lista.push(String((c.numerosSerie&&c.numerosSerie[si])||'').trim());
+      body.numerosSerie=lista;
+    }
     await bePost('/estoque/recebimentos/'+recpSt.recId+'/itens/'+recpSt.itemId, body);
     c.salvo=true; c._salvando=false;
     recpSt.aloc[recpSt.itemId]=recpSt.itemAloc.map(l=>({ enderecoId:l.enderecoId, quantidade:l.quantidade, enderecoSugeridoId:l.enderecoSugeridoId, forcado:!!l.forcado, verificado:l.verificado||null }));
+    // espelha numerosSerie no item em memória — recpRenderSucesso decide "precisa etiqueta" a
+    // partir daqui, sem refetch do recebimento inteiro.
+    if(itemAtual && body.numerosSerie) itemAtual.numerosSerie=body.numerosSerie.slice();
     recpSt.step='recebimento'; renderEstoque();
   }catch(e){ c._salvando=false; recpSt.erro='Erro ao salvar: '+e.message; renderEstoque(); }
 }
@@ -6053,6 +6108,16 @@ async function recpAbrirCamScan(alvo){
     recpResolverEtiqueta(m?m[1]:String(texto||'').trim(), null);
   });
 }
+/* Bipar número de série de fábrica (16/07/2026) — mesma câmera one-shot, sem regex de URL: o
+   texto lido é a própria série (etiqueta do fabricante, código de barras existente na peça). */
+async function recpScanSerie(idx){
+  toast('📷 Aponte a câmera pro código de série');
+  await estoqScanCamAbrir((texto)=>{
+    const c=recpSt.conf[recpSt.itemId]; if(!Array.isArray(c.numerosSerie)) c.numerosSerie=[];
+    c.numerosSerie[idx]=String(texto||'').trim();
+    renderEstoque();
+  });
+}
 function recpNfcDesativar(){
   if(recpScanCtrl){ try{recpScanCtrl.abort();}catch(e){} recpScanCtrl=null; }
   if(recpSt) recpSt.nfc={status:'idle',msg:null};
@@ -6167,7 +6232,14 @@ async function recpConfirmarRecebimento(){
     if(recpSt.localDestinoId) body.localDestinoId=recpSt.localDestinoId;
     await bePost('/estoque/recebimentos/'+recpSt.recId+'/confirmar', body);
     recpSt.confirmando=false;
-    recpSt.step='sucesso'; renderEstoque();
+    /* Etiqueta de identificação (16/07/2026) — vai direto pra tela de impressão quando pelo menos
+       1 item é Rastreavel_Serie__c=true E teve série(s) gravada(s) na conferência (produto tipo
+       chapa/cantoneira, matéria-prima a granel, nunca chega aqui). Não é passo bloqueante: a tela
+       de etiquetas tem os mesmos botões de saída da tela de sucesso — Zebra desligada/sem bobina
+       não pode prender o estoquista. */
+    const itensComEtiqueta=(recpSt.rec.itens||[]).filter(i=>i.rastreavelSerie && Array.isArray(i.numerosSerie) && i.numerosSerie.length>0);
+    recpSt.step=itensComEtiqueta.length?'etiquetas':'sucesso';
+    renderEstoque();
   }catch(e){ recpSt.confirmando=false; recpSt.erro='Erro ao confirmar: '+e.message; renderEstoque(); }
 }
 function recpRenderSucesso(card){
@@ -6185,6 +6257,87 @@ function recpRenderSucesso(card){
   card.appendChild(fim);
   // "toast estilo Gmail" (decisão confirmada com o Raphael, DECISAO_estorno-recebimento-
   // confirmado.md) — errou na hora, desfaz na hora, sem precisar caçar o card na lista.
+  const desfazer=document.createElement('button'); desfazer.className='btn btn-neutral'; desfazer.style.cssText='width:100%;height:40px;margin-top:14px;font-size:12.5px;color:#a15c00';
+  desfazer.textContent='↩️ Confirmei errado — desfazer';
+  desfazer.onclick=()=>recpAbrirEstorno(recpSt.recId);
+  card.appendChild(desfazer);
+}
+/* ===== ETIQUETA DE IDENTIFICAÇÃO DE PRODUTO (16/07/2026) — DECISAO_etiqueta-produto-rastreavel.md
+   1 etiqueta por unidade recebida de produto Rastreavel_Serie__c=true (ferramenta/equipamento;
+   matéria-prima a granel tipo chapa/cantoneira nunca chega aqui, porque Rastreavel_Serie__c fica
+   desmarcado nesses produtos). QR = a própria série em texto puro (mesmo padrão de sep*, que
+   codifica o Name da separação) — sem objeto/token novo, decisão já registrada em
+   proposta-recebimento-conferencia-armazenamento.md §"objeto de série individual só se/quando
+   integrar com Ativos". Reusa zebraAchar/zebraEnviar/desenharQR já existentes (módulos sep e endr),
+   só template (ZPL+PDF) novo — mesma bobina 100x50mm da separação, pra não trocar mídia na Zebra
+   do estoque. ===== */
+function prodEtqZPL(l,idx,n){ /* etiqueta 100×50mm @203dpi (800×400 dots), QR com a série */
+  const nome=(l.nomeProduto||'').replace(/[\^~\\]/g,' ').slice(0,50);
+  const serieZ=(l.serie||'').replace(/[\^~\\]/g,'');
+  return '^XA^CI28'
+    +'^FO30,22^A0N,28,28^FDEXAUSTECH - IDENTIFICACAO DE PRODUTO^FS'
+    +'^FO30,68^A0N,26,26^FB740,2,0,L^FD'+nome+'^FS'
+    +'^FO30,130^A0N,70,70^FD'+serieZ+'^FS'
+    +'^FO30,220^A0N,26,26^FDNF '+(l.nf||'—')+'^FS'
+    +'^FO30,300^A0N,30,30^FDUNIDADE '+idx+' / '+n+'^FS'
+    +'^FO590,120^BQN,2,7^FDQA,'+serieZ+'^FS'
+    +'^PQ1^XZ';
+}
+function prodEtqPDF(labels){ /* fallback: PDF 100×50mm, 1 página por unidade, imprime em qualquer impressora */
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
+  const n=labels.length;
+  labels.forEach((l,i)=>{
+    if(i>0) doc.addPage([100,50],'landscape');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('EXAUSTECH — IDENTIFICAÇÃO DE PRODUTO',5,7);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(String(l.nomeProduto||'').slice(0,48),5,14);
+    doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.text(String(l.serie||''),5,28);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text('NF '+(l.nf||'—'),5,36);
+    doc.setFontSize(7); doc.text((i+1)+' / '+n,5,43);
+    desenharQR(doc,String(l.serie||''),71,10,24);
+  });
+  doc.save('Etiquetas-Produto-'+(recpSt.rec&&(recpSt.rec.numeroNF||recpSt.rec.name)||'REC')+'.pdf');
+}
+async function recpImprimirEtiquetasLista(labels){
+  if(!labels.length) return;
+  const dev=await zebraAchar();
+  if(dev){
+    try{
+      for(let i=0;i<labels.length;i++){ await zebraEnviar(dev, prodEtqZPL(labels[i], i+1, labels.length)); }
+      toast('🖨️ '+labels.length+' etiqueta'+(labels.length===1?'':'s')+' enviada'+(labels.length===1?'':'s')+' pra Zebra');
+      return;
+    }catch(e){ toast('⚠️ Zebra falhou, gerando PDF: '+e.message); }
+  }
+  prodEtqPDF(labels);
+}
+function recpRenderEtiquetas(card){
+  const r=recpSt.rec;
+  const nf=r.numeroNF||r.name;
+  const itens=(r.itens||[]).filter(i=>i.rastreavelSerie && Array.isArray(i.numerosSerie) && i.numerosSerie.length>0);
+  const todasLabels=[];
+  itens.forEach(i=>{ i.numerosSerie.forEach(serie=>todasLabels.push({nomeProduto:i.produto, serie, nf})); });
+  card.innerHTML='<div style="font-size:40px;text-align:center;margin-bottom:6px">🏷️</div>'
+    +'<div style="text-align:center;font-size:16px;font-weight:700;color:#0B2239">Etiquetas de identificação</div>'
+    +'<div class="subnote" style="text-align:center;padding:2px 0 16px">Recebimento '+_esc(r.name)+' · '+todasLabels.length+' etiqueta'+(todasLabels.length===1?'':'s')+'</div>';
+  const todasBtn=document.createElement('button'); todasBtn.className='btn btn-brand'; todasBtn.style.cssText='width:100%;height:48px;margin-bottom:14px';
+  todasBtn.textContent='🖨️ Imprimir todas ('+todasLabels.length+')';
+  todasBtn.onclick=()=>recpImprimirEtiquetasLista(todasLabels);
+  card.appendChild(todasBtn);
+  itens.forEach(item=>{
+    const box=document.createElement('div'); box.style.cssText='border:1.5px solid #E2E5E9;border-radius:12px;padding:12px;margin-bottom:10px';
+    box.innerHTML='<div style="font-weight:800;font-size:14px;color:#0B2239">'+_esc(item.produto||'')+'</div>'
+      +'<div style="font-size:12px;color:#686868;margin:4px 0 8px;font-family:monospace">'+item.numerosSerie.map(s=>_esc(s)).join(' · ')+'</div>';
+    const btn=document.createElement('button'); btn.className='btn btn-neutral'; btn.style.cssText='width:auto;height:38px;margin:0;padding:0 14px;font-size:12.5px';
+    btn.textContent='🖨️ Imprimir '+item.numerosSerie.length;
+    btn.onclick=()=>recpImprimirEtiquetasLista(item.numerosSerie.map(serie=>({nomeProduto:item.produto, serie, nf})));
+    box.appendChild(btn);
+    card.appendChild(box);
+  });
+  const ver=document.createElement('button'); ver.className='btn btn-brand'; ver.style.cssText='width:100%;height:48px;margin-top:8px'; ver.textContent='Ver entradas pendentes';
+  ver.onclick=()=>{ recpReset(); estoqGo('recebimentos'); recpCarregarLista(); };
+  card.appendChild(ver);
+  const fim=document.createElement('button'); fim.className='btn btn-neutral'; fim.style.cssText='width:100%;height:44px;margin-top:8px'; fim.textContent='Voltar ao painel';
+  fim.onclick=()=>{ recpReset(); estoqGo('dash'); };
+  card.appendChild(fim);
   const desfazer=document.createElement('button'); desfazer.className='btn btn-neutral'; desfazer.style.cssText='width:100%;height:40px;margin-top:14px;font-size:12.5px;color:#a15c00';
   desfazer.textContent='↩️ Confirmei errado — desfazer';
   desfazer.onclick=()=>recpAbrirEstorno(recpSt.recId);

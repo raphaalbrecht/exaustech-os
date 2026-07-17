@@ -113,7 +113,21 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v130'; // v130 16/07: recp* — divisão MANUAL entre endereços no
+const CACHE = 'exaustech-os-v131'; // v131 16/07: recp* — etiqueta de identificação de produto
+// pós-confirmação. Ao confirmar o recebimento, vai direto pra tela de impressão quando pelo menos
+// 1 item é Product2.Rastreavel_Serie__c=true (ferramenta/equipamento) E teve série(s) gravada(s)
+// na conferência; matéria-prima a granel (chapa/cantoneira) nunca aparece, porque o checkbox fica
+// desmarcado nesses produtos. ACHADO CRÍTICO no desenho (subagente Fable, verificado): já existia
+// uma validation rule ATIVA (Serie_Obrigatoria em MovimentacaoEstoque__c) cobrando NumeroSerie__c
+// quando Rastreavel_Serie__c=true, e o Apex já lia ItemRecebimento__c.NumerosSerie__c — mas
+// NENHUMA tela gravava esse campo. Era uma mina terrestre latente: no dia em que alguém marcasse
+// Rastreavel_Serie__c=true num produto, a confirmação do recebimento quebraria (rollback). Esta
+// feature também destrava esse campo pela 1ª vez. Captura de série acontece na conferência do item
+// (recpRenderItem, N campos = quantidade boa, bipar via câmera ou gerar automática); impressão
+// reusa zebraAchar/zebraEnviar/desenharQR já existentes (sep*/endr*) — só template novo (ZPL+PDF
+// 100x50mm, QR=a própria série em texto puro, sem objeto/token novo). Zero schema/Apex novo — só
+// 2 pontos no backend (query+rota) e o front. Ver DECISAO_etiqueta-produto-rastreavel.md.
+// v130 16/07: recp* — divisão MANUAL entre endereços no
 // armazenamento do recebimento. Antes só nascia uma 2ª linha de alocação quando o sistema
 // DETECTAVA estouro de capacidade (hint/modal); se o endereço não tinha CapacidadeMaxima__c nem
 // volume cadastrado, a régua ficava "infinita" e nunca estourava — sem NENHUM jeito de dividir por
