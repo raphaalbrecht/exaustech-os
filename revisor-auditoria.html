@@ -672,6 +672,27 @@
   .exe-txt+.exe-txt{margin-top:6px}
   .exe-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
   .exe-card textarea{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+
+  /* 16/07/2026 (Opção C do redesenho de layout, DECISAO_tratamento-nc-plano-de-acao.md): seção
+     "Tratamento" unificada — envelope único em volta dos 3 slots existentes (Levantamento/Cotação/
+     Execução), com o Item da Tratativa como cabeçalho. lvHtml/cotHtml/exeHtml continuam intactos
+     por dentro; isto é só a moldura + rótulos por linha, pra não arriscar os 3 fluxos já validados
+     em produção. */
+  .trat-section{border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin:6px 0}
+  .trat-hdr{background:var(--brand-l);padding:8px 10px}
+  .trat-hdr-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .trat-hdr-titulo{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-d)}
+  .trat-hdr-pills{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+  .badge.trat-pend{background:var(--warn-bg);color:var(--warn-tx)}
+  .badge.trat-ok{background:var(--succ-bg);color:var(--succ)}
+  .badge.trat-neu{background:var(--neu-bg);color:var(--neu-tx)}
+  .trat-hdr-linha{font-size:12px;color:var(--txt);margin-top:5px;line-height:1.4}
+  .trat-hdr-linha b{font-weight:600}
+  .trat-hdr-link{font-size:11px;margin-top:5px}
+  .trat-hdr-link a{color:var(--brand-d)}
+  .trat-row-label{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--weak);padding:8px 10px 0}
+  .trat-row-body{padding:0 10px 8px}
+  .trat-row+.trat-row{border-top:1px solid var(--border2)}
   .exe-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
   .exe-nota{font-size:12px;color:var(--weak);margin-top:8px}
   /* seletor segmentado (Tipo de Equipe no form; Cobrança no mini-form de aprovação) — mesmo
@@ -2570,31 +2591,23 @@ async function renderDetalhe(){
     // (e já pula pra página certa). Foto só entra aqui como registro/evidência DEPOIS do match
     // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
     + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
-    // 16/07/2026: Raphael pediu um link direto pro registro do Item da Tratativa no Salesforce (não
-    // há tela própria no app pra isso, ver DECISAO_tratamento-nc-plano-de-acao.md) — só aparece
-    // quando o Item já foi criado (garantirPlanoEItemDaTratativa no /confirmar). Link "clássico"
-    // (https://<org>/{ID}) redireciona sozinho pro Lightning, mesmo padrão já usado no describe da
-    // org (uiDetailTemplate).
-    + (matchConfirmado(l) && l.itemTratativa && l.itemTratativa.id
-        ? '<div style="margin:6px 0;font-size:12px"><a href="https://exaustech--mob3.sandbox.my.salesforce.com/' + l.itemTratativa.id + '" target="_blank" rel="noopener">Abrir Item da Tratativa no Salesforce ↗</a></div>'
-        : '')
     // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
-    // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Contestar/Levantar só
-    // ficam disponíveis DEPOIS do match confirmado (gate já existente), então fazem mais sentido
-    // aqui embaixo da actionbar agora (rodada 24) do que antes dela.
+    // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Fica FORA da seção
+    // Tratamento (decisão do próprio DECISAO: contestação não é uma ação de tratamento, é sobre se
+    // a NC procede ou não) — continua no mesmo lugar de sempre, antes da seção unificada.
     + '<div class="cont-slot" id="regContestacao">' + ctHtml(l) + '</div>'
-    // 12/07/2026: Demanda de Levantamento em campo — ver DECISAO_demanda-levantamento-campo.md.
-    // Mesma lógica de posicionamento da contestação acima: exceção pontual quando a NC precisa que
-    // uma equipe vá até o local antes de dar pra propor solução.
-    + '<div class="lv-slot" id="regLevantamento">' + lvHtml(l) + '</div>'
-    // pedido do Raphael (13/07, rodada 26): Solicitar cotação de materiais — mesmo gate/posição do
-    // Levantamento acima, sempre associada a um Ativo; ver DECISAO_cotacao-materiais.md.
-    + '<div class="cot-slot" id="regCotacao">' + cotHtml(l) + '</div>'
-    // 16/07/2026: Demanda de Execução em Campo (MPP/Corretiva) — ver
-    // DECISAO_tratamento-nc-plano-de-acao.md. Fecha a ordem "natural" do tratamento: primeiro
-    // entender o problema (Levantamento), depois ver se precisa comprar algo (Cotação), depois
-    // mandar quem execute (Execução em Campo).
-    + '<div class="exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div>'
+    // 16/07/2026 (Opção C do redesenho de layout, escolhida pelo Raphael entre 3 mockups — ver
+    // DECISAO_tratamento-nc-plano-de-acao.md): os 3 slots de demanda (Levantamento/Cotação/Execução)
+    // ganham uma moldura única com o Item da Tratativa como cabeçalho (tratHeaderHtml). Os IDs
+    // regLevantamento/regCotacao/regExecucaoCampo continuam exatamente onde estavam — lvWire/
+    // cotWire/exeWire (getElementById) não precisam mudar. Só o que está EM VOLTA delas é novo;
+    // lvHtml/cotHtml/exeHtml não foram tocados por dentro (risco baixo nos 3 fluxos já em produção).
+    + '<div class="trat-section" id="tratSection">'
+      + tratHeaderHtml(l)
+      + '<div class="trat-row">' + tratRowLabel('Levantamento em campo') + '<div class="trat-row-body lv-slot" id="regLevantamento">' + lvHtml(l) + '</div></div>'
+      + '<div class="trat-row">' + tratRowLabel('Cotação de materiais') + '<div class="trat-row-body cot-slot" id="regCotacao">' + cotHtml(l) + '</div></div>'
+      + '<div class="trat-row">' + tratRowLabel('Execução em campo') + '<div class="trat-row-body exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div></div>'
+    + '</div>'
     // pedido do Raphael (13/07, rodada 23): reincidência é o ÚLTIMO bloco da coluna — informação de
     // apoio/consulta, não faz parte do fluxo de decisão (escopo → confirmar → contestação →
     // levantamento) que acontece antes dela.
@@ -3666,6 +3679,44 @@ function lvBadgeLista(l){
   if (ativo.status === 'Solicitada') return '<span class="badge lv-solicitada">levant. solicitado</span>';
   if (ativo.status === 'Aprovada') return '<span class="badge lv-aprovada">levant. em campo</span>';
   return '';
+}
+
+// 16/07/2026 (Opção C): pílula genérica do cabeçalho da seção Tratamento — mapeia por palavra-chave
+// em vez de listar os valores exatos dos 2 picklists (Status_do_Item__c/Status_de_execucao__c),
+// porque não lemos os 7 valores reais do 1º ainda (pendência #2 de DECISAO_tratamento-nc-plano-de-acao.md)
+// e não queremos que um valor novo no Salesforce vire pílula "sem estilo" (cai no neutro, nunca quebra).
+function tratPillCls(status){
+  const s = (status || '').toLowerCase();
+  if (s.includes('conclu') || s.includes('efetiv')) return 'trat-ok';
+  if (s.includes('pendente') || s.includes('aguardando') || s.includes('impedido')) return 'trat-pend';
+  return 'trat-neu';
+}
+
+// Cabeçalho da seção Tratamento — resume o Item da Tratativa (2 eixos de status, solução proposta,
+// ativo, link cru pro Salesforce) acima da lista de ações. Só aparece com match confirmado e Item
+// já criado (garantirPlanoEItemDaTratativa no /confirmar, ver expRoutes.js); antes disso a seção
+// mostra só a lista de ações sem cabeçalho (não há Item ainda pra resumir).
+function tratHeaderHtml(l){
+  const it = l.itemTratativa;
+  if (!it || !it.id) return '';
+  const statusItem = it.statusItem || 'sem status';
+  const statusExecucao = it.statusExecucao || 'sem status';
+  return '<div class="trat-hdr">'
+    + '<div class="trat-hdr-top"><span class="trat-hdr-titulo">Tratamento</span></div>'
+    + '<div class="trat-hdr-pills">'
+      + '<span class="badge ' + tratPillCls(statusItem) + '">' + escapeHtml(statusItem) + '</span>'
+      + '<span class="badge ' + tratPillCls(statusExecucao) + '">execução: ' + escapeHtml(statusExecucao) + '</span>'
+    + '</div>'
+    + (it.solucaoTexto ? '<div class="trat-hdr-linha"><b>Solução proposta:</b> ' + escapeHtml(it.solucaoTexto) + '</div>' : '')
+    + (it.ativoNome ? '<div class="trat-hdr-linha"><b>Ativo:</b> ' + escapeHtml(it.ativoNome) + '</div>' : '')
+    + '<div class="trat-hdr-link"><a href="https://exaustech--mob3.sandbox.my.salesforce.com/' + it.id + '" target="_blank" rel="noopener">abrir registro no Salesforce ↗</a></div>'
+    + '</div>';
+}
+
+// Rótulo compacto de cada linha de ação dentro da seção Tratamento — só a moldura visual (ícone +
+// nome do tipo); o conteúdo continua sendo o retorno de lvHtml/cotHtml/exeHtml, sem alteração.
+function tratRowLabel(texto){
+  return '<div class="trat-row-label">' + escapeHtml(texto) + '</div>';
 }
 
 function lvHtml(l){
