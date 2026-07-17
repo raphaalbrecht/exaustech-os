@@ -113,7 +113,9 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v135'; // v135 17/07: carrossel de dia/rótulo do Estoque só na home —
+const CACHE = 'exaustech-os-v136'; // v136 17/07: novo tile "Concluídas" (status Encerrada) na home
+  // do Estoque — pedido do Raphael, não existia NENHUMA forma de ver separação concluída no app
+// v135 17/07: carrossel de dia/rótulo do Estoque só na home —
   // some em toda página interna (sep/pend/list/enderecos/recebimentos/estrutura/acompanhamento)
 // v134 17/07: fix "Separar sem bipar" exige justificativa (achado ao vivo — deixava fechar a
   // separação sem nenhuma unidade bipada); ver emenda em DECISAO_rastreio-selecao-unidade-serializada.md

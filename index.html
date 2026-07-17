@@ -2940,7 +2940,11 @@ const ESTOQ_TILES=[
   /* Pós-cancelamento (casos 1/2/4/5 do design "cancelamento por etapa"): separação cancelada que
      ainda precisa de alguma ação do estoque (ciência, devolução ou baixa). Some sozinho quando
      Pendencia_Pos_Cancelamento__c volta a 'Nenhuma'/'Resolvida'. */
-  {key:'cancelamento', label:'Pós-cancelamento',      icon:'🛑', cor:'#ba0517', f:x=>x.s.pendencia&&!['Nenhuma','Resolvida'].includes(x.s.pendencia)}
+  {key:'cancelamento', label:'Pós-cancelamento',      icon:'🛑', cor:'#ba0517', f:x=>x.s.pendencia&&!['Nenhuma','Resolvida'].includes(x.s.pendencia)},
+  /* Concluídas/Histórico (17/07/2026, pedido do Raphael): status Encerrada não tinha NENHUM tile —
+     sumia de vez do app assim que fechava. todosDias (igual destaque, mas sem o visual de banner de
+     emergência): histórico não deve depender de qual dia está selecionado no carrossel. */
+  {key:'concluidas', label:'Concluídas',              icon:'✅', cor:'#2e844a', todosDias:true, f:x=>x.s.status==='Encerrada'}
 ];
 function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
 /* mesma lista, restrita ao dia escolhido no carrossel (ou todas, se nenhum dia estiver selecionado) */
@@ -3191,8 +3195,9 @@ function renderEstoque(){
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 6px';
   ESTOQ_TILES.forEach(t=>{
-    /* "urgente" sempre olha todos os dias; os demais respeitam o dia escolhido no carrossel */
-    const n=(t.destaque?seps:sepsDia).filter(t.f).length;
+    /* "urgente" e "concluidas" (todosDias) sempre olham todos os dias; os demais respeitam o
+       dia escolhido no carrossel */
+    const n=((t.destaque||t.todosDias)?seps:sepsDia).filter(t.f).length;
     if(t.destaque && !n) return; /* banner de emergência: só aparece quando existe alguma urgente */
     const el=document.createElement('div');
     if(t.destaque){
@@ -6412,7 +6417,7 @@ function estoqueListPage(wrap){
   const t=ESTOQ_TILES.find(x=>x.key===estoqView.tile)||ESTOQ_TILES[0];
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.destaque?'Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
-  const list=(t.destaque?sepListAll():sepListDia()).filter(t.f)
+  const list=((t.destaque||t.todosDias)?sepListAll():sepListDia()).filter(t.f)
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
   if(!list.length){ const e=document.createElement('div'); e.className='subnote'; e.textContent='Nada por aqui. 🎉'; wrap.appendChild(e); return; }
   list.forEach(({o,s})=>wrap.appendChild(sepRow(o,s,()=>{
