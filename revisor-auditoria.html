@@ -117,6 +117,20 @@
   .pdf-mini-link{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--brand-d);background:transparent;border:1px solid var(--border2);border-radius:999px;padding:4px 10px;cursor:pointer;font-family:inherit}
   .pdf-mini-link:hover{background:var(--brand-l);border-color:var(--brand)}
 
+  /* 17/07/2026: "flash de chegada" (proposta do Fable) — sinal de que o app pulou SOZINHO pro
+     próximo item pendente depois de "Confirmar match" (ver ST.autoAvancou em confirmarLinha()),
+     diferente de o revisor ter clicado manualmente num card. Só cor, zero movimento/transform —
+     não deve competir com o carregamento do PDF/drawer nem com o scroll (que é instantâneo de
+     propósito, ver scrollIntoView em renderTudo()). One-shot: a classe nasce e morre com o próprio
+     nó do DOM a cada renderTudo(), então confirmações em sequência rápida nunca acumulam ou reiniciam
+     um timer — cada pulso é novo e autolimpante. */
+  .litem.litem-auto{animation:flashChegada .65s ease-out}
+  .reg-auto{animation:flashChegada .65s ease-out;border-radius:6px}
+  @keyframes flashChegada{0%{background:var(--brand-l);box-shadow:inset 3px 0 0 var(--brand)}100%{background:transparent;box-shadow:inset 3px 0 0 transparent}}
+  @media (prefers-reduced-motion: reduce){
+    .litem.litem-auto, .reg-auto{animation:none}
+  }
+
   /* drawer do PDF sob demanda — mesmo padrão estrutural do .nova-aud-overlay (overlay fixo estático
      no HTML, mostra/esconde via display + classe .open), scrim na cor escura da própria marca
      (--brand-dk, já usada no --nova-aud-overlay) em vez de preto genérico. */
@@ -1046,7 +1060,7 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 // 13/07/2026 (rodada 32): visaoRisco = 'todos'|'exa'|'fora' — leitura do gráfico de risco por
 // escopo (pedido do Raphael: distinguir "risco alto é nosso" de "risco alto é fora do escopo da
 // Exaustech", importante pra conversa comercial com o cliente). Ver Proposta A do subagente Fable.
-let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set(), visaoRisco:'todos', modoEnxuto:false };
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set(), visaoRisco:'todos', modoEnxuto:false, autoAvancou:false };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
 // 17/07/2026: guarda o Id do lote que já recebeu a animação de entrada da pílula "PDF do laudo" —
 // ver comentário completo em renderTudo() (não repetir a animação a cada re-render do mesmo lote
@@ -1985,7 +1999,12 @@ function proximaLinhaPendente(linhaIdAtual){
   const lista = linhasFiltradas();
   const idx = lista.findIndex((l) => l.id === linhaIdAtual);
   if (idx === -1) return null;
+  // 17/07/2026: achado do Raphael — antes só olhava pra FRENTE (idx+1 até o fim da lista); se o
+  // único pendente restante estivesse mais acima (antes do item recém-confirmado), o auto-avanço
+  // parava e deixava a seleção parada, mesmo havendo pendente pra revisar. Agora dá a volta: depois
+  // de varrer até o fim, continua do início até (exclusive) idx — cobre a lista inteira 1x.
   for (let i = idx + 1; i < lista.length; i++) { if (lista[i].status === 'Pendente de revisão') return lista[i].id; }
+  for (let i = 0; i < idx; i++) { if (lista[i].status === 'Pendente de revisão') return lista[i].id; }
   return null;
 }
 
@@ -2259,6 +2278,17 @@ function renderTudo(){
   if (listaNova) listaNova.scrollTop = scrollListaAnterior;
   renderComparativo();
   if (ST.selecionadaId) { renderDetalhe(); renderHistorico(ST.selecionadaId); }
+  // 17/07/2026: "flash de chegada" — consumida 1x aqui (renderLista()/renderDetalhe() já leram a
+  // flag pra decidir litem-auto/reg-auto acima), igual ao padrão do pdfPillAnimar. O scroll pro
+  // card recém-selecionado é instantâneo de propósito (behavior:'auto', não 'smooth') — quem sinaliza
+  // a troca é o flash de cor, não o movimento; scroll suave competiria com o carregamento do PDF/
+  // drawer e engasgaria em confirmações em sequência rápida. block:'nearest' não mexe na lista se o
+  // card já estiver visível (ex.: revisor confirmando itens vizinhos).
+  if (ST.autoAvancou) {
+    const cardNovo = listaNova && listaNova.querySelector('.litem.sel');
+    if (cardNovo) cardNovo.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    ST.autoAvancou = false;
+  }
 }
 
 function formatarData(iso){
@@ -2574,7 +2604,11 @@ function renderLista(){
     const riscoTag = (!faixaTag && matchConfirmado(l) && l.risco != null)
       ? (() => { const c = riscoCor(l.risco); return '<span class="badge" style="background:' + c.bg + ';color:' + c.tx + '" title="Risco ' + l.risco + '">R' + l.risco + '</span>'; })()
       : '';
-    return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + (l.id === ST.selecionadaId ? ' sel' : '') + '" onclick="selecionar(\'' + l.id + '\')">'
+    // 17/07/2026: "flash de chegada" — litem-auto só entra junto de .sel quando ST.autoAvancou está
+    // ligada (ver confirmarLinha()); clique manual em selecionar() nunca liga a flag, então nunca
+    // ganha o flash — o sinal é exclusivo de "o app pulou sozinho pro próximo pendente".
+    const selCls = l.id === ST.selecionadaId ? (' sel' + (ST.autoAvancou ? ' litem-auto' : '')) : '';
+    return '<div class="litem ' + tratCls + ' ' + (naoLida ? 'nao-lida' : 'revisada') + selCls + '" onclick="selecionar(\'' + l.id + '\')">'
       + '<div class="num"><span>' + escapeHtml(l.numeroRelatorio || '—') + '</span>'
       + (faixaTag ? '<span class="faixa-match">Faixa do match: ' + faixaTag + '</span>' : (riscoTag ? '<span class="faixa-match">' + riscoTag + '</span>' : '')) + '</div>'
       + '<div class="txt">' + escapeHtml(cortarAposTagRisco(l.textoOriginal)) + '</div>'
@@ -2688,7 +2722,10 @@ async function renderDetalhe(){
     // de passar batido, lá embaixo) e vira o destaque do canto superior direito, ao lado do título
     // da seção — é o dado mais "de estado" do item, faz sentido estar junto do h3, não enterrado
     // no meio de Grupo/Elemento/Pergunta.
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    // 17/07/2026: mesmo sinal "flash de chegada" do card da lista (litem-auto), espelhado aqui no
+    // cabeçalho do registro — reg-auto some sozinho depois da animação (classe some no próximo
+    // render, não precisa de setTimeout em JS).
+    '<div class="' + (ST.autoAvancou ? 'reg-auto ' : '') + '" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
       + '<h3 style="margin:0">Registro no Salesforce</h3>'
       + '<div style="display:flex;align-items:center;gap:8px">'
         // 16/07/2026 (modo enxuto): sem coluna de PDF ao lado, o link pontual pro documento fica
@@ -2848,7 +2885,13 @@ async function confirmarLinha(linhaId){
     await carregar(); // recarrega o lote pra refletir o novo status/contadores (filtro/busca preservados, achado #1)
     // achado #2: auto-avança pro próximo item pendente dentro do filtro ativo, em vez de deixar o
     // item recém-confirmado (agora só-leitura) selecionado — se não houver próximo, mantém a seleção.
-    ST.selecionadaId = proximaLinhaPendente(linhaId) || linhaId; renderTudo();
+    // 17/07/2026: "flash de chegada" (proposta do Fable) — ST.autoAvancou só liga quando o app de
+    // fato pula pra OUTRO item sozinho (nunca em clique manual do revisor, nunca quando não há mais
+    // pendente e a seleção fica no mesmo lugar) — é o sinal que diferencia "eu escolhi" de "o app
+    // decidiu por mim", consumido 1x em renderTudo()/renderLista()/renderDetalhe() e resetado lá.
+    const proximo = proximaLinhaPendente(linhaId);
+    ST.autoAvancou = !!(proximo && proximo !== linhaId);
+    ST.selecionadaId = proximo || linhaId; renderTudo();
   } catch (e) {
     msg('Falha de rede ao confirmar: ' + e.message, 'err');
     if (btn) { btn.disabled = false; btn.textContent = 'Confirmar match'; }
