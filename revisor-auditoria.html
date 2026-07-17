@@ -693,6 +693,33 @@
   .trat-row-label{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--weak);padding:8px 10px 0}
   .trat-row-body{padding:0 10px 8px}
   .trat-row+.trat-row{border-top:1px solid var(--border2)}
+
+  /* 16/07/2026: cadastro inline do Item da Tratativa — botão editar no cabeçalho, ficha kv de
+     leitura (auto-hide por linha) e form de edição, tudo dentro do mesmo .trat-hdr azul claro. */
+  .trat-edit-btn{background:#fff;border:1px solid var(--brand);color:var(--brand-d);border-radius:6px;padding:2px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;flex:0 0 auto}
+  .trat-edit-btn:hover{background:var(--brand-l)}
+  .trat-kv{margin-top:6px}
+  .trat-kv-row{padding:4px 0}
+  .trat-kv-row+.trat-kv-row{border-top:1px solid rgba(0,0,0,.06)}
+  .trat-kv-label{font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--brand-d);opacity:.75}
+  .trat-kv-value{font-size:12.5px;color:var(--txt);line-height:1.4;margin-top:1px}
+  .trat-kv-vazio{font-size:12px;color:var(--weak);margin-top:6px;font-style:italic}
+  .trat-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .trat-clamp.aberto{-webkit-line-clamp:unset;display:block}
+  .trat-ver-tudo{background:none;border:none;padding:0;color:var(--brand-d);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline}
+  .trat-form{margin-top:6px}
+  .trat-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
+  .trat-form select,.trat-form textarea,.trat-form input[type=date]{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff}
+  .trat-form textarea{resize:vertical}
+  .trat-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .trat-form-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .trat-sol-carregando,.trat-sol-nota{font-size:11.5px;color:var(--weak);margin-top:2px}
+  .trat-ativo-busca{position:relative}
+  .trat-ativo-busca input{width:100%;box-sizing:border-box;border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff}
+  .trat-ativo-lista{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border2);border-radius:6px;margin-top:2px;max-height:200px;overflow-y:auto;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .trat-ativo-item{padding:8px 10px;font-size:13px;cursor:pointer}
+  .trat-ativo-item:hover{background:var(--brand-l)}
+  .trat-ativo-sel{font-size:12px;color:var(--brand-d);font-weight:600;margin-top:4px}
   .exe-acoes{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
   .exe-nota{font-size:12px;color:var(--weak);margin-top:8px}
   /* seletor segmentado (Tipo de Equipe no form; Cobrança no mini-form de aprovação) — mesmo
@@ -2603,7 +2630,10 @@ async function renderDetalhe(){
     // cotWire/exeWire (getElementById) não precisam mudar. Só o que está EM VOLTA delas é novo;
     // lvHtml/cotHtml/exeHtml não foram tocados por dentro (risco baixo nos 3 fluxos já em produção).
     + '<div class="trat-section" id="tratSection">'
-      + tratHeaderHtml(l)
+      // 16/07/2026 (cadastro inline do Item): id próprio pra tratRerender() trocar só o cabeçalho
+      // (abrir/fechar edição, trocar Ativo/Solução) sem re-renderizar a tela inteira nem derrubar o
+      // estado aberto dos 3 slots abaixo — mesmo padrão de regLevantamento/regCotacao/regExecucaoCampo.
+      + '<div id="tratHeaderWrap">' + tratHeaderHtml(l) + '</div>'
       + '<div class="trat-row">' + tratRowLabel('Levantamento em campo') + '<div class="trat-row-body lv-slot" id="regLevantamento">' + lvHtml(l) + '</div></div>'
       + '<div class="trat-row">' + tratRowLabel('Cotação de materiais') + '<div class="trat-row-body cot-slot" id="regCotacao">' + cotHtml(l) + '</div></div>'
       + '<div class="trat-row">' + tratRowLabel('Execução em campo') + '<div class="trat-row-body exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div></div>'
@@ -3692,24 +3722,30 @@ function tratPillCls(status){
   return 'trat-neu';
 }
 
-// Cabeçalho da seção Tratamento — resume o Item da Tratativa (2 eixos de status, solução proposta,
-// ativo, link cru pro Salesforce) acima da lista de ações. Só aparece com match confirmado e Item
-// já criado (garantirPlanoEItemDaTratativa no /confirmar, ver expRoutes.js); antes disso a seção
-// mostra só a lista de ações sem cabeçalho (não há Item ainda pra resumir).
+// Cabeçalho da seção Tratamento — resume o Item da Tratativa (2 eixos de status, ficha kv de
+// leitura OU form de edição inline) acima da lista de ações. Só aparece com match confirmado e
+// Item já criado (garantirPlanoEItemDaTratativa no /confirmar, ver expRoutes.js); antes disso a
+// seção mostra só a lista de ações sem cabeçalho (não há Item ainda pra resumir).
+// 16/07/2026 (cadastro inline — 2ª rodada do Fable, "não abandonar o link, virar seção editável
+// nesta mesma tela"): o link cru virou botão "editar ✎" que abre um form dentro do próprio
+// cabeçalho (tratFormHtml); o link pro Salesforce continua existindo (renomeado), só não é mais o
+// único jeito de ver/mudar o registro.
 function tratHeaderHtml(l){
   const it = l.itemTratativa;
   if (!it || !it.id) return '';
+  tratGarantirEstado(it);
   const statusItem = it.statusItem || 'sem status';
   const statusExecucao = it.statusExecucao || 'sem status';
   return '<div class="trat-hdr">'
-    + '<div class="trat-hdr-top"><span class="trat-hdr-titulo">Tratamento</span></div>'
+    + '<div class="trat-hdr-top"><span class="trat-hdr-titulo">Tratamento</span>'
+      + (TRAT.editando ? '' : '<button type="button" class="trat-edit-btn" onclick="tratAbrirEdicao(\'' + it.id + '\')">editar ✎</button>')
+    + '</div>'
     + '<div class="trat-hdr-pills">'
       + '<span class="badge ' + tratPillCls(statusItem) + '">' + escapeHtml(statusItem) + '</span>'
       + '<span class="badge ' + tratPillCls(statusExecucao) + '">execução: ' + escapeHtml(statusExecucao) + '</span>'
     + '</div>'
-    + (it.solucaoTexto ? '<div class="trat-hdr-linha"><b>Solução proposta:</b> ' + escapeHtml(it.solucaoTexto) + '</div>' : '')
-    + (it.ativoNome ? '<div class="trat-hdr-linha"><b>Ativo:</b> ' + escapeHtml(it.ativoNome) + '</div>' : '')
-    + '<div class="trat-hdr-link"><a href="https://exaustech--mob3.sandbox.my.salesforce.com/' + it.id + '" target="_blank" rel="noopener">abrir registro no Salesforce ↗</a></div>'
+    + (TRAT.editando ? tratFormHtml(l, it) : tratKvHtml(it))
+    + (TRAT.editando ? '' : '<div class="trat-hdr-link"><a href="https://exaustech--mob3.sandbox.my.salesforce.com/' + it.id + '" target="_blank" rel="noopener">ver registro completo no Salesforce ↗</a></div>')
     + '</div>';
 }
 
@@ -3717,6 +3753,219 @@ function tratHeaderHtml(l){
 // nome do tipo); o conteúdo continua sendo o retorno de lvHtml/cotHtml/exeHtml, sem alteração.
 function tratRowLabel(texto){
   return '<div class="trat-row-label">' + escapeHtml(texto) + '</div>';
+}
+
+// ---- CADASTRO INLINE DO ITEM DA TRATATIVA (16/07/2026 — substitui o link cru "abrir no
+// Salesforce" por edição dentro do próprio app; ver PATCH /exp/itens-tratativa/:id em
+// expRoutes.js). Mesmo esqueleto de estado dos blocos LV/COT/EXE acima. O gate de edição
+// (FUNCAO_ELEVADA_TRATATIVA) é aplicado pelo BACKEND — o botão "editar" sempre aparece, o 403 vem
+// do servidor se a função não for elevada (mesmo padrão dos 3 blocos irmãos). Decisões confirmadas
+// com o Raphael via AskUserQuestion: (1) nunca permitir limpar a Solução já escolhida, só trocar —
+// por isso tratSalvar() só inclui solucaoId no corpo quando há uma seleção nova; (2) mesmo gate das
+// 3 demandas — nada extra pra replicar aqui, o backend já reaproveita FUNCAO_ELEVADA_TRATATIVA.
+let TRAT = null; // { itemId, editando, ativoId, ativoNome, ativoBuscaTimer, solucaoId, solucaoTexto, solucoes, solucoesCarregando, dataPrevisao, dataTermino, detalhamento, textoComplementar, salvando }
+
+const TRAT_CLAMP_LIMITE = 140; // acima disso, texto vem com clamp + botão "ver tudo"
+
+function tratGarantirEstado(it){
+  if (TRAT && TRAT.itemId === it.id) return;
+  TRAT = {
+    itemId: it.id, editando: false,
+    ativoId: it.ativoId || null, ativoNome: it.ativoNome || '', ativoBuscaTimer: null,
+    solucaoId: it.solucaoId || null, solucaoTexto: it.solucaoTexto || '',
+    solucoes: [], solucoesCarregando: false,
+    dataPrevisao: it.dataPrevisao || '', dataTermino: it.dataTermino || '',
+    detalhamento: it.detalhamento || '', textoComplementar: it.textoComplementar || '',
+    salvando: false
+  };
+}
+
+// ---- modo leitura: ficha kv, cada linha some sozinha se não tiver valor cadastrado ----
+function tratKvRow(label, valorHtml){
+  return '<div class="trat-kv-row"><div class="trat-kv-label">' + escapeHtml(label) + '</div><div class="trat-kv-value">' + valorHtml + '</div></div>';
+}
+
+// texto curto: aparece inteiro. Texto longo (> TRAT_CLAMP_LIMITE): clampado em 2 linhas com botão
+// "ver tudo"/"ver menos" — mesmo espírito do .kv-select-full (achado #8 da revisão Fable, 10/07),
+// mas autocontido (não depende de medir a largura de um <select>, é sempre texto solto).
+function tratClampHtml(texto, idPrefix){
+  if (!texto) return '';
+  if (texto.length <= TRAT_CLAMP_LIMITE) return escapeHtml(texto);
+  const id = idPrefix + '_' + Math.random().toString(36).slice(2, 8);
+  return '<span class="trat-clamp" id="' + id + '">' + escapeHtml(texto) + '</span> '
+    + '<button type="button" class="trat-ver-tudo" onclick="tratToggleClamp(\'' + id + '\', this)">ver tudo</button>';
+}
+function tratToggleClamp(id, btn){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const aberto = el.classList.toggle('aberto');
+  btn.textContent = aberto ? 'ver menos' : 'ver tudo';
+}
+
+// datas combinadas numa linha só ("Prazo: previsão dd/mm/aaaa · término dd/mm/aaaa") — proposta do
+// Fable pra não gastar 2 linhas kv com uma informação que é sempre lida junto.
+function tratKvHtml(it){
+  const linhas = [];
+  if (it.solucaoTexto) linhas.push(tratKvRow('Solução proposta', tratClampHtml(it.solucaoTexto, 'tratkv_sol')));
+  if (it.ativoNome) linhas.push(tratKvRow('Ativo', escapeHtml(it.ativoNome)));
+  const previsao = it.dataPrevisao ? 'previsão ' + formatarData(it.dataPrevisao) : '';
+  const termino = it.dataTermino ? 'término ' + formatarData(it.dataTermino) : '';
+  const prazo = [previsao, termino].filter(Boolean).join(' · ');
+  if (prazo) linhas.push(tratKvRow('Prazo', escapeHtml(prazo)));
+  if (it.detalhamento) linhas.push(tratKvRow('Detalhamento da execução', tratClampHtml(it.detalhamento, 'tratkv_det')));
+  if (it.textoComplementar) linhas.push(tratKvRow('Complemento', tratClampHtml(it.textoComplementar, 'tratkv_comp')));
+  if (!linhas.length) return '<div class="trat-kv-vazio">Nenhuma informação de tratamento cadastrada ainda — clique em "editar" pra começar.</div>';
+  return '<div class="trat-kv">' + linhas.join('') + '</div>';
+}
+
+// ---- modo edição ----
+function tratFormHtml(l, it){
+  return '<div class="trat-form">'
+    + '<label class="trat-rotulo">Ativo (opcional)</label>'
+    + tratHtmlAtivoBusca()
+    + '<label class="trat-rotulo">Solução proposta</label>'
+    + tratHtmlSolucaoSelect()
+    + '<div class="trat-form-row">'
+      + '<div><label class="trat-rotulo">Previsão de término</label><input type="date" value="' + escapeHtml(TRAT.dataPrevisao) + '" oninput="tratOnCampo(\'dataPrevisao\', this.value)"></div>'
+      + '<div><label class="trat-rotulo">Término real</label><input type="date" value="' + escapeHtml(TRAT.dataTermino) + '" oninput="tratOnCampo(\'dataTermino\', this.value)"></div>'
+    + '</div>'
+    + '<label class="trat-rotulo">Detalhamento da execução</label>'
+    + '<textarea rows="3" oninput="tratOnCampo(\'detalhamento\', this.value)">' + escapeHtml(TRAT.detalhamento) + '</textarea>'
+    + '<label class="trat-rotulo">Complemento</label>'
+    + '<textarea rows="2" oninput="tratOnCampo(\'textoComplementar\', this.value)">' + escapeHtml(TRAT.textoComplementar) + '</textarea>'
+    + '<div class="trat-form-acoes">'
+      + '<button class="btn" id="btnTratSalvar"' + (TRAT.salvando ? ' disabled' : '') + ' onclick="tratSalvar(\'' + it.id + '\')">' + (TRAT.salvando ? 'Salvando…' : 'Salvar tratamento') + '</button>'
+      + '<button class="link-btn" style="padding:2px 0" onclick="tratFecharEdicao()">cancelar</button>'
+    + '</div>'
+    + '</div>';
+}
+
+// busca de Ativo restrita à Conta da própria auditoria — mesmo padrão debounced de
+// cotHtmlAtivoBusca()/cotBuscarAtivo() (GET /ativos?contaId=&q= já existente, checklistRoutes.js).
+function tratHtmlAtivoBusca(){
+  return '<div class="trat-ativo-busca">'
+    + '<input type="text" id="tratAtivoInput" placeholder="Busque o ativo pelo nome…" value="' + escapeHtml(TRAT.ativoNome) + '" oninput="tratBuscarAtivo(this.value)">'
+    + '<div class="trat-ativo-lista" id="tratAtivoLista" style="display:none"></div>'
+    + '</div>'
+    + (TRAT.ativoId ? '<div class="trat-ativo-sel">✓ ' + escapeHtml(TRAT.ativoNome) + ' <button type="button" class="link-btn" style="padding:0;font-size:11px" onclick="tratLimparAtivo()">remover</button></div>' : '');
+}
+
+function tratBuscarAtivo(valor){
+  if (!TRAT) return;
+  TRAT.ativoId = null; TRAT.ativoNome = valor; // qualquer edição no texto invalida a seleção anterior
+  clearTimeout(TRAT.ativoBuscaTimer);
+  const termo = valor.trim();
+  const lista = document.getElementById('tratAtivoLista');
+  if (!lista) return;
+  if (termo.length < 2) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  const contaId = ST.auditoria && ST.auditoria.contaId;
+  if (!contaId) { lista.innerHTML = '<div class="trat-ativo-item" style="color:var(--weaker);cursor:default">Conta da auditoria não identificada — não é possível buscar o ativo.</div>'; lista.style.display = 'block'; return; }
+  TRAT.ativoBuscaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND + '/ativos?contaId=' + encodeURIComponent(contaId) + '&q=' + encodeURIComponent(termo), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const j = await r.json();
+      const ativos = Array.isArray(j) ? j : [];
+      if (!r.ok || !ativos.length) { lista.style.display = 'none'; lista.innerHTML = ''; return; }
+      lista.innerHTML = ativos.map((a) => '<div class="trat-ativo-item" onclick="tratSelecionarAtivo(\'' + a.id + '\',\'' + escapeHtml(a.nome || '').replace(/'/g, "\\'") + '\')">' + escapeHtml(a.nome || '—') + (a.tipo ? ' <span style="color:var(--weaker)">— ' + escapeHtml(a.tipo) + '</span>' : '') + '</div>').join('');
+      lista.style.display = 'block';
+    } catch (e) { /* best-effort: busca de ativo não trava o resto do form */ }
+  }, 300);
+}
+function tratSelecionarAtivo(id, nome){
+  if (!TRAT) return;
+  TRAT.ativoId = id; TRAT.ativoNome = nome;
+  const lista = document.getElementById('tratAtivoLista');
+  if (lista) { lista.style.display = 'none'; lista.innerHTML = ''; }
+  tratRerender();
+}
+function tratLimparAtivo(){
+  if (!TRAT) return;
+  TRAT.ativoId = null; TRAT.ativoNome = '';
+  tratRerender();
+}
+
+// select de Solução, carregado sob demanda (perguntaId da Linha) quando o form abre — ver
+// tratAbrirEdicao(). Se a solução atual do Item não estiver na lista carregada (ex.: pergunta
+// mudou depois), ela ainda aparece como opção selecionada pra não perder a seleção existente.
+function tratHtmlSolucaoSelect(){
+  if (TRAT.solucoesCarregando) return '<div class="trat-sol-carregando">Carregando soluções cadastradas…</div>';
+  const opts = TRAT.solucoes || [];
+  const foraDaLista = TRAT.solucaoId && !opts.some((s) => s.id === TRAT.solucaoId);
+  return '<select onchange="tratOnSolucao(this.value)">'
+    + '<option value="">— selecione —</option>'
+    + opts.map((s) => '<option value="' + s.id + '"' + (TRAT.solucaoId === s.id ? ' selected' : '') + '>' + escapeHtml(s.resumo || '(sem resumo)') + '</option>').join('')
+    + (foraDaLista ? '<option value="' + TRAT.solucaoId + '" selected>' + escapeHtml(TRAT.solucaoTexto || '(solução atual)') + '</option>' : '')
+    + '</select>'
+    // decisão confirmada com o Raphael: nunca permitir limpar a solução já escolhida — por isso não
+    // existe botão "remover" aqui como no Ativo; só dá pra trocar por outra.
+    + (TRAT.solucaoId ? '' : '<div class="trat-sol-nota">Sem lista? A solução precisa estar cadastrada pra esta pergunta do checklist.</div>');
+}
+function tratOnSolucao(id){
+  if (!TRAT) return;
+  if (!id) return; // decisão: nunca limpar — ignora tentativa de voltar pro "— selecione —"
+  TRAT.solucaoId = id;
+  const sel = (TRAT.solucoes || []).find((s) => s.id === id);
+  if (sel) TRAT.solucaoTexto = sel.resumo || '';
+}
+
+function tratOnCampo(campo, v){ if (TRAT) TRAT[campo] = v; } // oninput não rerenderiza — preserva o foco (mesmo padrão de lvOnObjetivo)
+
+async function tratAbrirEdicao(itemId){
+  const l = ST.linhas.find((x) => x.itemTratativa && x.itemTratativa.id === itemId); if (!l) return;
+  tratGarantirEstado(l.itemTratativa);
+  TRAT.editando = true;
+  tratRerender();
+  if (!TRAT.solucoes.length && l.perguntaId) {
+    TRAT.solucoesCarregando = true;
+    tratRerender();
+    try {
+      const r = await fetch(BACKEND + '/exp/solucoes-cadastradas?perguntaId=' + encodeURIComponent(l.perguntaId), { headers: { Authorization: 'Bearer ' + beTok() } });
+      const j = await r.json();
+      TRAT.solucoes = (r.ok && Array.isArray(j.solucoes)) ? j.solucoes : [];
+    } catch (e) { TRAT.solucoes = []; }
+    TRAT.solucoesCarregando = false;
+    tratRerender();
+  }
+}
+function tratFecharEdicao(){
+  if (!TRAT) return;
+  TRAT.editando = false;
+  tratRerender();
+}
+
+function tratRerender(){
+  const l = ST.linhas.find((x) => x.itemTratativa && x.itemTratativa.id === (TRAT && TRAT.itemId)); if (!l) return;
+  const w = document.getElementById('tratHeaderWrap');
+  if (w) w.innerHTML = tratHeaderHtml(l);
+}
+
+async function tratSalvar(itemId){
+  if (!TRAT) return;
+  TRAT.salvando = true; tratRerender();
+  const corpo = {
+    ativoId: TRAT.ativoId || null,
+    dataPrevisao: TRAT.dataPrevisao || null,
+    dataTermino: TRAT.dataTermino || null,
+    detalhamento: TRAT.detalhamento || null,
+    textoComplementar: TRAT.textoComplementar || null
+  };
+  // decisão confirmada com o Raphael ("Nunca permitir limpar"): só manda solucaoId quando há uma
+  // seleção — nunca um valor vazio que o backend interpretaria como tentativa de limpar.
+  if (TRAT.solucaoId) corpo.solucaoId = TRAT.solucaoId;
+  try {
+    const r = await fetch(BACKEND + '/exp/itens-tratativa/' + itemId, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + beTok() },
+      body: JSON.stringify(corpo)
+    });
+    const j = await r.json();
+    if (!r.ok) { msg('Erro ao salvar tratamento: ' + (j.error || r.status), 'err'); TRAT.salvando = false; tratRerender(); return; }
+    TRAT = null;
+    await carregar(); renderTudo();
+    msg('Tratamento atualizado.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao salvar tratamento: ' + e.message, 'err');
+    if (TRAT) { TRAT.salvando = false; tratRerender(); }
+  }
 }
 
 function lvHtml(l){
