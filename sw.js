@@ -113,9 +113,10 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v134'; // v134 17/07: fix "Separar sem bipar" exige justificativa (achado
-  // ao vivo — deixava fechar a separação sem nenhuma unidade bipada); ver emenda em
-  // DECISAO_rastreio-selecao-unidade-serializada.md
+const CACHE = 'exaustech-os-v135'; // v135 17/07: carrossel de dia/rótulo do Estoque só na home —
+  // some em toda página interna (sep/pend/list/enderecos/recebimentos/estrutura/acompanhamento)
+// v134 17/07: fix "Separar sem bipar" exige justificativa (achado ao vivo — deixava fechar a
+  // separação sem nenhuma unidade bipada); ver emenda em DECISAO_rastreio-selecao-unidade-serializada.md
 // v133 17/07: Fase 1 do rastreio por unidade serializada
   // (PROPOSTA_rastreio-selecao-unidade-serializada.md) — UnidadeSerializada__c criada no confirmar
   // do recebimento (Apex, mesma transação) e marcada Estornada no estorno; rotas GET/POST
