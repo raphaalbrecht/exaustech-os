@@ -5180,7 +5180,7 @@ function recpReset(){
     recId:null, rec:null, _recCarregado:false, localNome:'',
     localDestinoId:null, locais:[], _locaisCarregados:false,
     conf:{}, aloc:{},
-    itemId:null, itemAloc:[], outrosAbertos:false, excedente:null, _divergencia:null,
+    itemId:null, itemAloc:[], outrosAbertos:false, dividindo:false, excedente:null, _divergencia:null,
     wizard:null,
     nfc:{status:'idle',msg:null}, scanAlvo:null,
     confirmando:false,
@@ -5437,7 +5437,7 @@ function recpRenderRecebimento(card){
 }
 /* ---- passo 3: item — conferência + "pra onde vai" ---- */
 function recpAbrirItem(itemId){
-  recpSt.itemId=itemId; recpSt.outrosAbertos=false; recpSt.erro=null; recpSt.excedente=null; recpSt._divergencia=null;
+  recpSt.itemId=itemId; recpSt.outrosAbertos=false; recpSt.dividindo=false; recpSt.erro=null; recpSt.excedente=null; recpSt._divergencia=null;
   const item=(recpSt.rec.itens||[]).find(i=>i.id===itemId);
   /* Item 2 do roadmap (§3.4, contagem semi-cega): quantidade nasce em branco — o operador PRECISA
      contar de verdade, não confirmar um valor pré-preenchido com o esperado da NF (que continua
@@ -5660,20 +5660,53 @@ function recpRenderItem(card){
       secB.appendChild(box);
     });
     const alt=document.createElement('div'); alt.style.cssText='margin-top:4px';
+    /* Divisão manual entre endereços (16/07/2026) — antes só nascia uma 2ª linha quando o sistema
+       DETECTAVA estouro de capacidade (recpMontarHint/recpRenderExcedente); se o endereço não tem
+       CapacidadeMaxima__c nem volume cadastrado, a régua fica "infinita" e nunca estoura, então o
+       operador não tinha NENHUM jeito de dividir por vontade própria. Este link reaproveita a
+       lista "outros endereços" já existente — só muda o que acontece ao clicar num candidato. */
+    if(recpSt.itemAloc.length && recpSt.itemAloc.every(l=>l.enderecoId)){
+      const dv=document.createElement('div'); dv.style.cssText='font-size:12.5px;color:#3E7EB0;font-weight:700;cursor:pointer;padding:6px 0';
+      dv.textContent='＋ dividir com outro endereço';
+      dv.onclick=()=>{ recpSt.dividindo=true; recpSt.outrosAbertos=true; renderEstoque(); };
+      alt.appendChild(dv);
+    }
     const altBtn=document.createElement('div'); altBtn.style.cssText='font-size:12.5px;color:#3E7EB0;font-weight:700;cursor:pointer;padding:6px 0';
-    altBtn.textContent=(recpSt.outrosAbertos?'▴':'▾')+' outros endereços';
-    altBtn.onclick=()=>{ recpSt.outrosAbertos=!recpSt.outrosAbertos; renderEstoque(); };
+    altBtn.textContent=recpSt.dividindo?'▴ escolha o endereço da nova linha':((recpSt.outrosAbertos?'▴':'▾')+' outros endereços');
+    altBtn.onclick=()=>{ recpSt.outrosAbertos=!recpSt.outrosAbertos; if(!recpSt.outrosAbertos) recpSt.dividindo=false; renderEstoque(); };
     alt.appendChild(altBtn);
     if(recpSt.outrosAbertos){
       const usados=new Set(recpSt.itemAloc.map(l=>l.enderecoId));
       const idsAlternativas=(item.alternativas||[]).filter(id=>!usados.has(id));
       const alternativas=idsAlternativas.map(id=>recpCandidato(id)).filter(Boolean);
       const outros=(recpSt.rec.candidatos||[]).filter(cnd=>!usados.has(cnd.id) && !idsAlternativas.includes(cnd.id));
-      [...alternativas, ...outros].forEach(cnd=>{
+      const listaCand=[...alternativas, ...outros];
+      if(!listaCand.length){
+        const vazio=document.createElement('div'); vazio.className='subnote'; vazio.style.padding='6px 0'; vazio.textContent='Todos os endereços candidatos já estão em uso nas linhas acima.';
+        alt.appendChild(vazio);
+      }
+      listaCand.forEach(cnd=>{
         const row=document.createElement('div'); row.style.cssText='padding:8px 10px;border:1px solid #E2E5E9;border-radius:10px;margin-top:6px;cursor:pointer;font-size:13px';
         const loc=[cnd.area,cnd.rua].filter(Boolean).join(' ');
         row.textContent=cnd.codigo+(loc?(' · 📍 '+loc):'')+' · '+(cnd.capacidade!=null?(cnd.ocupacao+'/'+cnd.capacidade):(cnd.ocupacao+' sem limite'));
-        row.onclick=()=>{ if(!recpSt.itemAloc.length) recpSt.itemAloc.push({enderecoId:cnd.id, quantidade:c.quantidade||0, enderecoSugeridoId:item.sugestao?item.sugestao.enderecoId:null, forcado:false, verificado:null}); else recpSt.itemAloc[0].enderecoId=cnd.id; recpSt.outrosAbertos=false; renderEstoque(); };
+        row.onclick=()=>{
+          if(!recpSt.itemAloc.length){
+            recpSt.itemAloc.push({enderecoId:cnd.id, quantidade:c.quantidade||0, enderecoSugeridoId:item.sugestao?item.sugestao.enderecoId:null, forcado:false, verificado:null});
+          } else if(recpSt.dividindo){
+            /* lê o input AO VIVO (c.quantidade só sincroniza no clique de "Confirmar item", linha
+               ~5692) — não usar c.quantidade aqui, senão o null da contagem semi-cega vira 0. */
+            const qi=document.getElementById('recpQtd');
+            const qtdViva=qi?(Number(qi.value)||0):(Number(c.quantidade)||0);
+            const avViva=c.quantidadeAvariada!=null?Number(c.quantidadeAvariada):(c.status==='Avariado'?qtdViva:0);
+            const qtdBoaViva=Math.max(0, qtdViva-avViva);
+            const somaAtual=recpSt.itemAloc.reduce((s,l)=>s+(Number(l.quantidade)||0),0);
+            const restante=Math.max(0, Math.round((qtdBoaViva-somaAtual)*100)/100);
+            recpSt.itemAloc.push({enderecoId:cnd.id, quantidade:restante, enderecoSugeridoId:null, forcado:false, verificado:null});
+          } else {
+            recpSt.itemAloc[0].enderecoId=cnd.id;
+          }
+          recpSt.dividindo=false; recpSt.outrosAbertos=false; renderEstoque();
+        };
         alt.appendChild(row);
       });
     }

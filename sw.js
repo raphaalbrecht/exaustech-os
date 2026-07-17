@@ -113,7 +113,14 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v129'; // v129 16/07: hotfix recp* "Confirmados há pouco" — botão
+const CACHE = 'exaustech-os-v130'; // v130 16/07: recp* — divisão MANUAL entre endereços no
+// armazenamento do recebimento. Antes só nascia uma 2ª linha de alocação quando o sistema
+// DETECTAVA estouro de capacidade (hint/modal); se o endereço não tinha CapacidadeMaxima__c nem
+// volume cadastrado, a régua ficava "infinita" e nunca estourava — sem NENHUM jeito de dividir por
+// vontade própria. Fix: link "＋ dividir com outro endereço" sempre visível (recpSt.dividindo)
+// que reaproveita a lista "outros endereços" já existente, empurrando nova linha em vez de
+// substituir a linha 0. Zero schema/Apex/backend — só front (Map<Id,List<Alocacao>> já suportava).
+// v129 16/07: hotfix recp* "Confirmados há pouco" — botão
 // Desfazer/Estornar sobrepondo o nome do fornecedor (herança de .btn{width:100%} dentro de row
 // flex, competindo com o irmão flex:1) + innerHTML+= matando onclick do toggle Sócio quando a
 // lista de pendentes está vazia. Fix cirúrgico: width:auto;flex-shrink:0 nos 2 botões (linhas
