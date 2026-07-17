@@ -113,7 +113,9 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v136'; // v136 17/07: novo tile "Concluídas" (status Encerrada) na home
+const CACHE = 'exaustech-os-v137'; // v137 17/07: fluxo completo separação/retorno Fase 1 — 4 status
+  // novos, 5 checkpoints de bipagem novos, etiqueta de retorno, captura de quantidade retornada
+// v136 17/07: novo tile "Concluídas" (status Encerrada) na home
   // do Estoque — pedido do Raphael, não existia NENHUMA forma de ver separação concluída no app
 // v135 17/07: carrossel de dia/rótulo do Estoque só na home —
   // some em toda página interna (sep/pend/list/enderecos/recebimentos/estrutura/acompanhamento)

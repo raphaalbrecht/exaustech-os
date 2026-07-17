@@ -1967,7 +1967,7 @@ function sepFromSF(wo){
   return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente, pendencia:sp.pendencia||null,
     retirado:!!sp.retirado, justificativaExcecao:sp.justificativaExcecao||null, cienciaPor:sp.cienciaPor||null, cienciaEm:sp.cienciaEm||null,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
-      embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[],
+      embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:i.retornada||0, fotos:[],
       /* Rastreio por unidade (17/07/2026) — produtoId/rastreavelSerie/unidadesDisponiveis vêm do
          backend (anexarAlocacoesEAS em server.js); usados por estoqueSepPage pra decidir entre o
          toggle por quantidade (padrão, intocado) e os N slots bipáveis. */
@@ -1979,8 +1979,16 @@ function sfPushSepItem(m,campos,label){
   m._syncT=setTimeout(()=>{ bePatch('/itens-separacao/'+m._sf,campos,label||('Material: '+m.nome))
     .catch(e=>toast('⚠️ Material não gravado: '+e.message)); },600);
 }
+/* "Quanto sobrou?" (17/07/2026) — Líder registra quanto de cada item voltou sem uso, antes de bipar
+   a etiqueta de retorno. Mesmo padrão debounced dos outros campos (sfPushSepItem). */
+function sepSetRetorno(mi,valor){
+  const s=estoqView.sep; const m=s&&s.materiais&&s.materiais[mi]; if(!m) return;
+  let v=Number(valor); if(isNaN(v)||v<0) v=0;
+  m.retorno=v;
+  sfPushSepItem(m,{qtdRetornada:m.retorno},'Retorno: '+m.nome);
+}
 function matBaixaMotivoStr(m){ const b=m.baixa; let s=`Danificado:${b.danificado||0}; Extraviado:${b.extraviado||0}; Inutilizado:${b.inutilizado||0}`; if(b.resp)s+='; Resp:'+b.resp; return s; }
-const SEP_STATUS_APP=['Solicitada','Aguardando aprovação','Em separação','Pronta para embarque','Embarcada','Recebida pelo usuário','Em uso','Retorno','Encerrada','Reprovada','Cancelada'];
+const SEP_STATUS_APP=['Solicitada','Aguardando aprovação','Em separação','Pronta para embarque','Embarcada','Entregue no local','Recebida pelo usuário','Em uso','Pronto para retorno','Retorno coletado','Pendente conferência','Retorno','Encerrada','Reprovada','Cancelada'];
 const SEP_STATUS_DESTRUTIVO=['Cancelada','Reprovada','Encerrada'];
 function sepSetStatus(v,el){ const sep=curOS.separacao; if(!sep._sf||!v) return;
   if(SEP_STATUS_DESTRUTIVO.includes(v) && !window.confirm('Mudar o status da separação '+sep.id+' para "'+v+'"? Essa ação pode disparar cancelamento/pendências e não é trivial de reverter.')){
@@ -2902,7 +2910,7 @@ function sepLozCls(st){
   if(['Encerrada'].includes(st)) return 'lz-neu';
   if(['Recebida pelo usuário','Em uso'].includes(st)) return 'lz-succ';
   if(['Reprovada','Cancelada'].includes(st)) return 'lz-err';
-  if(['Embarcada','Pronta para embarque','Retorno'].includes(st)) return 'lz-info';
+  if(['Embarcada','Pronta para embarque','Entregue no local','Pronto para retorno','Retorno coletado','Retorno'].includes(st)) return 'lz-info';
   return 'lz-warn'; /* Solicitada / Aguardando aprovação / Em separação = fila de trabalho */
 }
 /* pulsa a pílula enquanto o cancelamento/reprovação ainda pede uma ação (ciência do estoque, baixa etc.).
@@ -2935,8 +2943,8 @@ const ESTOQ_TILES=[
   {key:'separar', label:'A separar — total',         icon:'🗂️', cor:'#C25E0A', f:x=>['Solicitada','Aguardando aprovação'].includes(x.s.status)},
   {key:'emsep',   label:'Em separação',              icon:'⏳', cor:'#0B5CAB', f:x=>x.s.status==='Em separação'},
   {key:'pronta',  label:'Prontas p/ embarque',       icon:'🚚', cor:'#0b827c', f:x=>x.s.status==='Pronta para embarque'},
-  {key:'campo',   label:'Em campo',                  icon:'🛠️', cor:'#7a5cc8', f:x=>['Embarcada','Recebida pelo usuário','Em uso'].includes(x.s.status)},
-  {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>x.s.status==='Retorno'},
+  {key:'campo',   label:'Em campo',                  icon:'🛠️', cor:'#7a5cc8', f:x=>['Embarcada','Entregue no local','Recebida pelo usuário','Em uso'].includes(x.s.status)},
+  {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>['Pronto para retorno','Retorno coletado','Pendente conferência','Retorno'].includes(x.s.status)},
   /* Pós-cancelamento (casos 1/2/4/5 do design "cancelamento por etapa"): separação cancelada que
      ainda precisa de alguma ação do estoque (ciência, devolução ou baixa). Some sozinho quando
      Pendencia_Pos_Cancelamento__c volta a 'Nenhuma'/'Resolvida'. */
@@ -6448,13 +6456,30 @@ function estoqueSepPage(wrap){
     card.appendChild(row);
   });
   wrap.appendChild(card);
+  /* "Quanto sobrou?" (17/07/2026, ver DECISAO_fluxo-completo-separacao-retorno.md, passo 8) — só
+     aparece com a separação "Em uso": o Líder registra por item quanto voltou sem ser usado, ANTES
+     de bipar a etiqueta de retorno pra virar "Pronto para retorno". Fase 1: só grava a quantidade
+     (Qtd_Retornada__c) — reintegrar no saldo do WMS fica pra Fase 2. */
+  if(s.status==='Em uso'){
+    const ret=document.createElement('div'); ret.className='subcard';
+    let retHtml='<div class="sec-title2" style="margin-top:0">📦 Quanto sobrou? (vai voltar pro estoque)</div>';
+    (s.materiais||[]).forEach((m,mi)=>{
+      retHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef0f3">
+        <div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${_esc(m.nome)}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Embarcado: <b>${m.embarcado||0}${m.un}</b></div></div>
+        <input type="number" min="0" max="${m.embarcado||0}" value="${m.retorno||0}" style="width:76px;height:40px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 8px;text-align:center;flex:0 0 auto" oninput="sepSetRetorno(${mi},this.value)">
+      </div>`;
+    });
+    retHtml+='<div class="subnote" style="padding:6px 0 0">Depois de registrar, cole a etiqueta de RETORNO no saco e bipe pra confirmar \'Pronto para retorno\'.</div>';
+    ret.innerHTML=retHtml;
+    wrap.appendChild(ret);
+  }
   /* etiquetas dos volumes (Zebra no PC do estoque; sem Zebra sai PDF) */
   const etq=document.createElement('div'); etq.className='subcard';
   etq.innerHTML=`<div class="sec-title2" style="margin-top:0">🖨️ Etiquetas dos volumes</div>
     <div style="display:flex;align-items:center;gap:10px">
       <label style="font-size:12.5px;color:#4A5560;font-weight:600">Volumes:</label>
       <input type="number" id="etqQtd" min="1" max="50" value="1" style="width:70px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;text-align:center">
-      <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;height:44px;margin:0" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas</button>
+      <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;height:44px;margin:0" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas (envio + retorno)</button>
     </div>
     <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
   wrap.appendChild(etq);
@@ -6563,6 +6588,38 @@ function etqPDF(s,o,n){ /* fallback: PDF com 1 etiqueta 100×50mm por página, i
   }
   doc.save('Etiquetas-'+s.id+'.pdf');
 }
+/* Etiqueta de RETORNO (17/07/2026, ver DECISAO_fluxo-completo-separacao-retorno.md) — mesmo QR/Name
+   da separação (s.id), já que o backend infere a transição pelo Status__c atual, não pelo conteúdo
+   do QR; visual diferente (faixa "RETORNO" destacada) só pra não confundir fisicamente com a de
+   envio na hora de colar no saco. */
+function etqZPLRetorno(s,o,i,n){ /* mesma etiqueta 100×50mm, com bloco invertido preto/branco no topo */
+  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,60);
+  return '^XA^CI28'
+    +'^FO0,0^GB800,60,60^FS' /* faixa preta no topo */
+    +'^FO30,10^A0N,40,40^FR^FDEXAUSTECH — RETORNO DE MATERIAL^FS' /* texto branco (^FR) sobre a faixa */
+    +'^FO30,72^A0N,80,80^FD'+s.id+'^FS'
+    +'^FO30,168^A0N,34,34^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
+    +'^FO30,214^A0N,30,30^FB540,2,0,L^FD'+cli+'^FS'
+    +'^FO30,300^A0N,44,44^FDSACO '+i+' / '+n+'^FS'
+    +'^FO590,120^BQN,2,7^FDQA,'+s.id+'^FS'
+    +'^PQ1^XZ';
+}
+function etqPDFRetorno(s,o,n){ /* fallback PDF, mesmo QR (Name), faixa vermelha destacando RETORNO */
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
+  for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
+    doc.setFillColor(180,5,23); doc.rect(0,0,100,10,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('EXAUSTECH — RETORNO DE MATERIAL',5,7);
+    doc.setTextColor(0,0,0);
+    doc.setFontSize(22); doc.text(s.id,5,20);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,28);
+    doc.text(String(o.cli||'').slice(0,48),5,34);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('SACO '+i+' / '+n,5,43);
+    desenharQR(doc,s.id,71,12,24);
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
+  }
+  doc.save('Etiquetas-retorno-'+s.id+'.pdf');
+}
 /* ===== BIPAR (custódia física via QR — Frente B): Marcos bipa retirada na base, Líder de Equipe
    bipa recebimento na loja. Mesma tela pros dois papéis — o backend (POST /separacoes/scan) decide
    a ação pelo status atual da separação lida, então aqui só precisamos ler o texto do QR (o Name da
@@ -6647,8 +6704,7 @@ async function biparProcessarCodigo(codigo){
     if(r.needsConfirm){ abrirBiparExc(codigo,r); return; } /* não resume o loop — só ao fechar/confirmar */
     if(r.jaEntregue){ mostrarBiparJaEntregue(codigo,r); return; }
     if(r.ok){
-      const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
-      const acao=(retirada?'Retirada confirmada':'Recebimento confirmado')+(r.excecao?' (exceção — cancelada)':'');
+      const acao=(TIPO_LABEL_BIPAGEM[r.tipo]||'Ação confirmada')+(r.excecao?' (exceção — cancelada)':'');
       bigOK(acao+' — '+(r.name||codigo));
       if(st) st.textContent=acao+' ('+(r.name||codigo)+(r.status?(' → '+r.status):'')+')';
     } else { toast('⚠️ Resposta inesperada do servidor'); }
@@ -6658,6 +6714,11 @@ async function biparProcessarCodigo(codigo){
 /* Casos 3/4 do design "cancelamento por etapa": a separação está Cancelada/Reprovada mas alguém
    quer seguir com a retirada/entrega mesmo assim (ex.: acha que o cancelamento será revertido).
    O backend NÃO muda Status__c nesse caminho — só carimba quem seguiu, quando e por quê. */
+/* Rótulo exibido na tela de bipagem por tipo de checkpoint (ciclo completo, 17/07/2026 — ver
+   DECISAO_fluxo-completo-separacao-retorno.md). Usado só no fluxo NORMAL (biparProcessarCodigo);
+   o fluxo de EXCEÇÃO (separação cancelada) continua com a lógica binária retirada/recebimento
+   original logo abaixo, porque só existem esses 2 tipos em checkpointCancelado() no backend. */
+const TIPO_LABEL_BIPAGEM={embarque:'Embarque confirmado',entrega:'Entrega confirmada',recebimento:'Recebimento confirmado',pronto_retorno:'Pronto p/ retorno confirmado',coleta_retorno:'Coleta de retorno confirmada',chegada_retorno:'Chegada na empresa confirmada',conferencia_retorno:'Conferência confirmada — separação encerrada',retirada:'Retirada confirmada'};
 let biparExc={codigo:null,tipo:null};
 const BIPAR_EXC_CHIPS=['Cancelamento deve ser revertido','Cliente/coordenador confirmou verbalmente','Material já embarcado/perecível','Orientação do coordenador'];
 function abrirBiparExc(codigo,r){
@@ -6741,17 +6802,22 @@ function biparParar(){
   const em=document.getElementById('biparExcModal'); if(em) em.classList.remove('show');
 }
 async function imprimirEtiquetas(){
+  /* Imprime os DOIS conjuntos juntos (envio + retorno), no momento em que a separação vira "Pronta
+     para embarque" (ver DECISAO_fluxo-completo-separacao-retorno.md, passo 3) — envio primeiro,
+     depois retorno, mesmo QR/Name (s.id) nas duas, visual diferente. */
   const s=estoqView.sep, o=estoqView.os; if(!s||!o) return;
   const inp=document.getElementById('etqQtd'); const n=Math.max(1,Math.min(50,parseInt(inp&&inp.value)||1));
   toast('🖨️ Procurando impressora Zebra…');
   const dev=await zebraAchar();
   if(dev){
     try{ for(let i=1;i<=n;i++) await zebraEnviar(dev,etqZPL(s,o,i,n));
-      bigOK(n+' etiqueta'+(n>1?'s':'')+' na Zebra'); return;
+      for(let i=1;i<=n;i++) await zebraEnviar(dev,etqZPLRetorno(s,o,i,n));
+      bigOK(n+' etiqueta'+(n>1?'s':'')+' de envio + '+n+' de retorno na Zebra'); return;
     }catch(e){ toast('⚠️ Zebra falhou ('+e.message+') — gerando PDF'); }
   } else toast('Zebra não encontrada neste computador — gerando PDF para imprimir');
   if(!window.jspdf||!window.jspdf.jsPDF) return toast('Gerador de PDF ainda carregando…');
   etqPDF(s,o,n);
+  etqPDFRetorno(s,o,n);
 }
 function sepToggleItem(mi){
   const s=estoqView.sep; const m=s.materiais[mi]; if(!m) return;
