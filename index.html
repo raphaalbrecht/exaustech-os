@@ -923,6 +923,18 @@
       <button class="btn btn-brand" onclick="confirmBiparExc()">Confirmar mesmo assim</button>
     </div></div></div>
 
+  <!-- MODAL SEPARAR SEM BIPAR (rastreio por série — 17/07/2026: achado ao vivo, exige justificativa
+       igual à exceção de cancelamento, senão a separação fecha sem nenhum rastreio real) -->
+  <div class="modal" id="sepSemBiparModal"><div class="modal-card">
+    <div class="modal-title">⚠️ Separar sem bipar</div>
+    <div class="modal-sub">Este produto é rastreável por série. Separar sem bipar as unidades faltantes fica registrado e exige justificativa.</div>
+    <div class="modal-sub" id="ssbInfo" style="font-weight:700"></div>
+    <textarea id="ssbReason" rows="3" placeholder="Ex.: etiqueta ilegível, unidade sem cadastro, etc."></textarea>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="document.getElementById('sepSemBiparModal').classList.remove('show')">Voltar</button>
+      <button class="btn btn-brand" onclick="confirmSepSemBipar()">Confirmar sem bipar</button>
+    </div></div></div>
+
   <!-- MODAL NOTA -->
   <div class="modal" id="notaModal"><div class="modal-card">
     <div class="modal-title">Adicionar nota</div><div class="modal-sub">Nota interna do compromisso.</div>
@@ -6780,8 +6792,8 @@ function sepRenderItemSerie(m,mi){
     slotsWrap.appendChild(row);
   });
   wrap.appendChild(slotsWrap);
-  // "Separar sem bipar" (§4 — convenção do projeto: exceção nunca trava) — 1 toque, sem
-  // justificativa, grava Qtd_Embarcada__c como hoje SEM reservar nenhuma unidade (ficam Disponível).
+  // "Separar sem bipar" (§4 — convenção do projeto: exceção nunca trava, mas fica registrada —
+  // 17/07/2026: achado ao vivo, revisado pra exigir justificativa e não apagar bipagens já feitas).
   const semBipar=document.createElement('button'); semBipar.type='button';
   semBipar.style.cssText='width:auto;height:auto;margin-top:10px;padding:0;background:none;border:none;color:#8a94a3;font-size:11.5px;text-decoration:underline;cursor:pointer';
   semBipar.textContent='Separar sem bipar'; semBipar.onclick=()=>sepSepararSemBipar(mi);
@@ -6839,15 +6851,30 @@ function sepLiberarSlots(m){
     bePost('/estoque/unidades/'+sl.unidadeId+'/liberar',{},'Liberar unidade').catch(e=>toast('⚠️ Unidade '+sl.serie+' não liberada: '+e.message));
   });
 }
+let sepSemBiparMi=null;
 function sepSepararSemBipar(mi){
   const s=estoqView.sep; const m=s&&s.materiais[mi]; if(!m) return;
-  if(Array.isArray(m.slotsSerie) && m.slotsSerie.some(sl=>sl.unidadeId)) sepLiberarSlots(m);
-  m.slotsSerie=null;
+  sepSemBiparMi=mi;
+  const bip=(m.slotsSerie||[]).filter(sl=>sl.unidadeId).length;
+  const info=document.getElementById('ssbInfo');
+  if(info) info.textContent=m.nome+' — bipado '+bip+' de '+(m.solicitado||0)+'. As unidades já bipadas continuam reservadas.';
+  const t=document.getElementById('ssbReason'); if(t) t.value='';
+  document.getElementById('sepSemBiparModal').classList.add('show');
+}
+function confirmSepSemBipar(){
+  const s=estoqView.sep; const m=s&&s.materiais[sepSemBiparMi]; if(!m) return;
+  const t=(document.getElementById('ssbReason').value||'').trim();
+  if(!t) return markInvalid('ssbReason','Justifique a separação sem bipagem');
+  if(t.length<5) return markInvalid('ssbReason','Justificativa curta demais — descreva melhor o motivo');
+  // unidades já bipadas ficam reservadas (retrato real do que foi separado) — antes esta função
+  // liberava tudo de volta pra Disponível e apagava o rastreio; agora só as faltantes ficam sem série.
+  const bip=(m.slotsSerie||[]).filter(sl=>sl.unidadeId).length;
   m.embarcado=m.solicitado||0;
-  sfPushSepItem(m,{embarcada:m.embarcado},'Separação (sem bipar): '+m.nome);
+  sfPushSepItem(m,{embarcada:m.embarcado,justificativaSemBipagem:'['+bip+'/'+(m.solicitado||0)+' bipadas] '+t},'Separação (sem bipar): '+m.nome);
   if(s.status==='Solicitada'||s.status==='Aguardando aprovação'){ s.status='Em separação';
     if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Em separação'},'Status da separação').catch(()=>{}); }
-  toast('✓ Separado sem bipar — '+m.nome);
+  document.getElementById('sepSemBiparModal').classList.remove('show');
+  toast('⚠️ Separado sem bipar (justificado) — '+m.nome);
   renderEstoque();
 }
 /* seções de ferramentas/ativos (abaixo do dashboard) */
