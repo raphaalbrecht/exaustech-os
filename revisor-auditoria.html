@@ -2570,6 +2570,14 @@ async function renderDetalhe(){
     // (e já pula pra página certa). Foto só entra aqui como registro/evidência DEPOIS do match
     // confirmado, quando o item vira só-leitura e a foto passa a documentar o que foi decidido.
     + (matchConfirmado(l) ? (l.possuiFoto ? '<div class="foto-wrap" id="fotoWrap"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>' : '<div class="sem-foto">Este item não tem foto no laudo.</div>') : '')
+    // 16/07/2026: Raphael pediu um link direto pro registro do Item da Tratativa no Salesforce (não
+    // há tela própria no app pra isso, ver DECISAO_tratamento-nc-plano-de-acao.md) — só aparece
+    // quando o Item já foi criado (garantirPlanoEItemDaTratativa no /confirmar). Link "clássico"
+    // (https://<org>/{ID}) redireciona sozinho pro Lightning, mesmo padrão já usado no describe da
+    // org (uiDetailTemplate).
+    + (matchConfirmado(l) && l.itemTratativa && l.itemTratativa.id
+        ? '<div style="margin:6px 0;font-size:12px"><a href="https://exaustech--mob3.sandbox.my.salesforce.com/' + l.itemTratativa.id + '" target="_blank" rel="noopener">Abrir Item da Tratativa no Salesforce ↗</a></div>'
+        : '')
     // Rodada 18 (11/07): contestação técnica, eixo ortogonal a escopo/status — ver
     // DECISAO_contestacao-tecnica.md e layout desenhado por subagente Fable 5. Contestar/Levantar só
     // ficam disponíveis DEPOIS do match confirmado (gate já existente), então fazem mais sentido
