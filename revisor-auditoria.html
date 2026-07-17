@@ -2735,15 +2735,14 @@ async function renderDetalhe(){
     // regLevantamento/regCotacao/regExecucaoCampo continuam exatamente onde estavam — lvWire/
     // cotWire/exeWire (getElementById) não precisam mudar. Só o que está EM VOLTA delas é novo;
     // lvHtml/cotHtml/exeHtml não foram tocados por dentro (risco baixo nos 3 fluxos já em produção).
-    + '<div class="trat-section" id="tratSection">'
-      // 16/07/2026 (cadastro inline do Item): id próprio pra tratRerender() trocar só o cabeçalho
-      // (abrir/fechar edição, trocar Ativo/Solução) sem re-renderizar a tela inteira nem derrubar o
-      // estado aberto dos 3 slots abaixo — mesmo padrão de regLevantamento/regCotacao/regExecucaoCampo.
-      + '<div id="tratHeaderWrap">' + tratHeaderHtml(l) + '</div>'
-      + '<div class="trat-row">' + tratRowLabel('Levantamento em campo') + '<div class="trat-row-body lv-slot" id="regLevantamento">' + lvHtml(l) + '</div></div>'
-      + '<div class="trat-row">' + tratRowLabel('Cotação de materiais') + '<div class="trat-row-body cot-slot" id="regCotacao">' + cotHtml(l) + '</div></div>'
-      + '<div class="trat-row">' + tratRowLabel('Execução em campo') + '<div class="trat-row-body exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div></div>'
-    + '</div>'
+    // 17/07/2026: achado do Raphael — a moldura + os 3 rótulos apareciam FLUTUANDO (sem cabeçalho,
+    // sem nenhum conteúdo dentro) sempre que a NC ainda não tinha match confirmado, porque
+    // tratHeaderHtml() já retorna '' nesse caso (sem Item da Tratativa) e lvHtml/cotHtml/exeHtml
+    // também retornam '' (podeAbrirExcecao() exige match confirmado). Corrigido extraindo pra
+    // tratSectionHtml(l) — a seção inteira só existe quando o Item da Tratativa existe de verdade
+    // (backend cria 1 automaticamente em TODA confirmação de match, ver find-or-create em
+    // expRoutes.js), em vez de ser sempre desenhada e depender de cada slot individual se esconder.
+    + tratSectionHtml(l)
     // pedido do Raphael (13/07, rodada 23): reincidência é o ÚLTIMO bloco da coluna — informação de
     // apoio/consulta, não faz parte do fluxo de decisão (escopo → confirmar → contestação →
     // levantamento) que acontece antes dela.
@@ -3903,6 +3902,27 @@ function tratHeaderHtml(l){
 // nome do tipo); o conteúdo continua sendo o retorno de lvHtml/cotHtml/exeHtml, sem alteração.
 function tratRowLabel(texto){
   return '<div class="trat-row-label">' + escapeHtml(texto) + '</div>';
+}
+
+// 17/07/2026: extraído de renderDetalhe() — a seção "Tratamento" (moldura + cabeçalho + 3 rótulos)
+// só deve existir quando há um Item da Tratativa de verdade por trás dela. Antes disso, ela virava
+// uma moldura vazia flutuando na tela (cabeçalho vazio de tratHeaderHtml() + as 3 linhas também
+// vazias, já que lvHtml/cotHtml/exeHtml exigem podeAbrirExcecao(), que exige match confirmado) —
+// achado do Raphael ao testar. Como o backend cria 1 Item_da_Tratativa__c automaticamente em TODA
+// confirmação de match (inclusive fora de escopo — ver find-or-create em expRoutes.js), checar
+// l.itemTratativa é equivalente a checar matchConfirmado(l), mas mais robusto: cobre o caso raro em
+// que a criação automática (best-effort) falhou mesmo com o match já confirmado.
+function tratSectionHtml(l){
+  if (!l.itemTratativa || !l.itemTratativa.id) return '';
+  return '<div class="trat-section" id="tratSection">'
+    // 16/07/2026 (cadastro inline do Item): id próprio pra tratRerender() trocar só o cabeçalho
+    // (abrir/fechar edição, trocar Ativo/Solução) sem re-renderizar a tela inteira nem derrubar o
+    // estado aberto dos 3 slots abaixo — mesmo padrão de regLevantamento/regCotacao/regExecucaoCampo.
+    + '<div id="tratHeaderWrap">' + tratHeaderHtml(l) + '</div>'
+    + '<div class="trat-row">' + tratRowLabel('Levantamento em campo') + '<div class="trat-row-body lv-slot" id="regLevantamento">' + lvHtml(l) + '</div></div>'
+    + '<div class="trat-row">' + tratRowLabel('Cotação de materiais') + '<div class="trat-row-body cot-slot" id="regCotacao">' + cotHtml(l) + '</div></div>'
+    + '<div class="trat-row">' + tratRowLabel('Execução em campo') + '<div class="trat-row-body exe-slot" id="regExecucaoCampo">' + exeHtml(l) + '</div></div>'
+  + '</div>';
 }
 
 // ---- CADASTRO INLINE DO ITEM DA TRATATIVA (16/07/2026 — substitui o link cru "abrir no
