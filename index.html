@@ -1955,7 +1955,11 @@ function sepFromSF(wo){
   return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente, pendencia:sp.pendencia||null,
     retirado:!!sp.retirado, justificativaExcecao:sp.justificativaExcecao||null, cienciaPor:sp.cienciaPor||null, cienciaEm:sp.cienciaEm||null,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
-      embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[] })) };
+      embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:0, fotos:[],
+      /* Rastreio por unidade (17/07/2026) — produtoId/rastreavelSerie/unidadesDisponiveis vêm do
+         backend (anexarAlocacoesEAS em server.js); usados por estoqueSepPage pra decidir entre o
+         toggle por quantidade (padrão, intocado) e os N slots bipáveis. */
+      produtoId:i.produtoId||null, rastreavelSerie:!!i.rastreavelSerie, unidadesDisponiveis:i.unidadesDisponiveis||0 })) };
 }
 function sfPushSepItem(m,campos,label){
   if(!SF_LIVE || !m._sf) return;
@@ -2977,7 +2981,7 @@ function estoqBuscaKey(e){
   e.preventDefault();
   const inp=document.getElementById('estoqBusca'); const q=inp?inp.value:'';
   const lista=estoqBuscaFiltrar(q);
-  if(!lista.length){ toast('Nenhuma separação encontrada pra "'+q+'"'); return; }
+  if(!lista.length){ const t=q.trim(); if(t) estoqBuscaTentarSerie(t); else toast('Digite algo pra buscar'); return; }
   estoqBuscaAbrir(lista[0].o,lista[0].s);
 }
 /* processa um código lido por QUALQUER canal fora da digitação (câmera one-shot ou NFC) — mesma
@@ -2988,9 +2992,49 @@ function estoqProcessarCodigoLido(texto){
   const exato=lista.filter(({s})=>estoqBuscaNorm(s.id)===nq);
   if(exato.length===1){ estoqBuscaAbrir(exato[0].o,exato[0].s); return; }
   if(lista.length===1){ estoqBuscaAbrir(lista[0].o,lista[0].s); return; }
+  if(!lista.length){ estoqBuscaTentarSerie(String(texto||'').trim()); return; }
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value=texto;
   estoqBuscaRenderResultados(lista,texto);
-  if(!lista.length) toast('Nenhuma separação encontrada pra "'+texto+'"');
+}
+/* Consulta avulsa por série (17/07/2026, PROPOSTA_rastreio-selecao-unidade-serializada.md, §5 —
+   "cadê a série X?"): quando o texto não casa com nenhuma separação/OS/cliente do jeito atual,
+   tenta casar com Serie__c de uma UnidadeSerializada__c antes de desistir. É o payoff imediato da
+   etiqueta física impressa no recebimento (v131). */
+async function estoqBuscaTentarSerie(texto){
+  if(!texto){ toast('Digite algo pra buscar'); return; }
+  try{
+    const r=await beGet('/estoque/unidades/por-serie/'+encodeURIComponent(texto));
+    if(r&&r.unidade) estoqAbrirFichaUnidade(r.unidade);
+    else toast('Nenhuma separação nem unidade encontrada pra "'+texto+'"');
+  }catch(e){
+    if(e.status===404) toast('Nenhuma separação nem unidade encontrada pra "'+texto+'"');
+    else toast('⚠️ Erro ao buscar "'+texto+'": '+e.message);
+  }
+}
+/* Ficha simples da unidade — modal avulso (não faz parte do fluxo de nenhuma tela específica,
+   por isso é anexado direto no <body> em vez de depender do ciclo de renderEstoque()). */
+function estoqAbrirFichaUnidade(u){
+  const old=document.getElementById('estoqFichaUnidadeOverlay'); if(old) old.remove();
+  const overlay=document.createElement('div'); overlay.id='estoqFichaUnidadeOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px;padding:18px;max-width:420px;width:100%;box-sizing:border-box;max-height:85vh;overflow:auto';
+  const origem=u.origem||{};
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:2px;font-family:monospace">'+_esc(u.serie||'')+'</div>'
+    +'<div class="subnote" style="padding:0 0 10px">'+_esc(u.produto||'Produto não identificado')+'</div>'
+    +'<div style="font-size:13px;line-height:2">'
+    +'<b>Status:</b> '+_esc(u.status||'—')+'<br>'
+    +'<b>Endereço atual:</b> '+_esc(u.endereco||'—')+'<br>'
+    +(u.itemSeparacaoId?('<b>OS/separação vinculada:</b> '+_esc(u.separacaoNome||u.itemSeparacaoNome||'—')+'<br>'):'')
+    +(origem.numeroNF?('<b>NF de origem:</b> '+_esc(origem.numeroNF)+'<br>'):'')
+    +(origem.fornecedor?('<b>Fornecedor:</b> '+_esc(origem.fornecedor)+'<br>'):'')
+    +(origem.dataRecebimento?('<b>Recebido em:</b> '+fmtDataBR(String(origem.dataRecebimento).slice(0,10))+'<br>'):'')
+    +'</div>';
+  const fechar=document.createElement('button'); fechar.className='btn btn-neutral'; fechar.style.cssText='width:100%;height:44px;margin-top:14px'; fechar.textContent='Fechar';
+  fechar.onclick=()=>overlay.remove();
+  modal.appendChild(fechar);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click',(e)=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 /* Scan por câmera embutido na busca (pra quem não tem coletor com leitor físico) — reaproveita o
    mesmo motor jsQR do Bipar, mas em modo "one-shot": lê 1 código e fecha o overlay sozinho, sem
@@ -6375,6 +6419,11 @@ function estoqueSepPage(wrap){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Itens para separar</div>';
   (s.materiais||[]).forEach((m,mi)=>{
     const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
+    // Rastreio por unidade (17/07/2026, §4 da proposta): produto rastreável COM unidades
+    // Disponível cadastradas troca o toggle por N slots bipáveis. Item já completo (ok) ou sem
+    // unidades cadastradas (fallback) continuam no toggle de sempre, 100% intocado.
+    const usaSlots=!ok && m.produtoId && m.rastreavelSerie && (m.unidadesDisponiveis||0)>0;
+    if(usaSlots){ card.appendChild(sepRenderItemSerie(m,mi)); return; }
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3';
     row.innerHTML=`<div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${_esc(m.nome)}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Solicitado: <b>${m.solicitado} ${m.un}</b>${ok?' · <span style="color:#2e844a">separado ✓</span>':''}</div></div>
       <button class="btn ${ok?'btn-neutral':'btn-brand'}" style="width:auto;flex:0 0 auto;min-width:104px;height:40px;padding:0 12px;margin:0;font-size:13px" onclick="sepToggleItem(${mi})">${ok?'Desfazer':'Separar ✓'}</button>`;
@@ -6689,10 +6738,116 @@ async function imprimirEtiquetas(){
 function sepToggleItem(mi){
   const s=estoqView.sep; const m=s.materiais[mi]; if(!m) return;
   const ok=(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0;
+  // Rastreio por unidade (17/07/2026) — desfazer um item que tinha slots bipados libera as
+  // unidades reservadas de volta pra Disponível (POST /liberar), pendurado neste botão "Desfazer"
+  // já existente em vez de um fluxo novo (mesmo racional do "cancelamento por etapa" do §4).
+  if(ok && Array.isArray(m.slotsSerie) && m.slotsSerie.some(sl=>sl.unidadeId)){ sepLiberarSlots(m); m.slotsSerie=null; }
   m.embarcado = ok?0:(m.solicitado||0);
   sfPushSepItem(m,{embarcada:m.embarcado},'Separação: '+m.nome);
   if(s.status==='Solicitada'||s.status==='Aguardando aprovação'){ s.status='Em separação';
     if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Em separação'},'Status da separação').catch(()=>{}); }
+  renderEstoque();
+}
+/* ===== Rastreio por unidade serializada — seleção bipada no sep* (17/07/2026, PROPOSTA_rastreio-
+   selecao-unidade-serializada.md, §4, Fase 1) ===== */
+/* garante 1 slot por unidade solicitada, preservando o que já foi bipado se a tela rerenderizar */
+function sepSlotsEnsure(m){
+  const n=Math.max(0,Math.round(m.solicitado||0));
+  if(!Array.isArray(m.slotsSerie)||m.slotsSerie.length!==n){
+    const antigos=Array.isArray(m.slotsSerie)?m.slotsSerie:[];
+    m.slotsSerie=Array.from({length:n},(_,i)=>antigos[i]||{serie:null,unidadeId:null});
+  }
+  return m.slotsSerie;
+}
+function sepRenderItemSerie(m,mi){
+  const slots=sepSlotsEnsure(m);
+  const preenchidos=slots.filter(sl=>sl.unidadeId).length;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='padding:10px 0;border-bottom:1px solid #eef0f3';
+  wrap.innerHTML=`<div style="font-weight:700;font-size:13.5px;line-height:1.3">${_esc(m.nome)}</div>
+    <div style="font-size:12px;color:var(--weak);margin:2px 0 8px">Solicitado: <b>${m.solicitado} ${m.un}</b> · bipado ${preenchidos}/${slots.length}</div>
+    <div id="sepOndePegar${mi}" class="subnote" style="padding:0 0 8px">Carregando onde pegar…</div>`;
+  const slotsWrap=document.createElement('div'); slotsWrap.style.cssText='display:flex;flex-direction:column;gap:6px';
+  slots.forEach((sl,si)=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px';
+    const box=document.createElement('div');
+    box.style.cssText='flex:1 1 auto;min-width:0;font-family:monospace;font-size:12.5px;padding:8px 10px;border:1.5px solid '+(sl.unidadeId?'#2e844a':'#D7DEE6')+';border-radius:8px;background:'+(sl.unidadeId?'#f2f9f4':'#fff')+';color:'+(sl.unidadeId?'#2e844a':'#8a94a3')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    box.textContent=sl.unidadeId?sl.serie:'aguardando bipagem…';
+    const btn=document.createElement('button'); btn.className='btn btn-neutral'; btn.style.cssText='width:auto;flex:0 0 auto;height:38px;padding:0 12px;margin:0;font-size:12.5px';
+    btn.textContent=sl.unidadeId?'Rebipar':'📷 Bipar';
+    btn.onclick=()=>sepBiparSlot(mi,si);
+    row.appendChild(box); row.appendChild(btn);
+    slotsWrap.appendChild(row);
+  });
+  wrap.appendChild(slotsWrap);
+  // "Separar sem bipar" (§4 — convenção do projeto: exceção nunca trava) — 1 toque, sem
+  // justificativa, grava Qtd_Embarcada__c como hoje SEM reservar nenhuma unidade (ficam Disponível).
+  const semBipar=document.createElement('button'); semBipar.type='button';
+  semBipar.style.cssText='width:auto;height:auto;margin-top:10px;padding:0;background:none;border:none;color:#8a94a3;font-size:11.5px;text-decoration:underline;cursor:pointer';
+  semBipar.textContent='Separar sem bipar'; semBipar.onclick=()=>sepSepararSemBipar(mi);
+  wrap.appendChild(semBipar);
+  sepCarregarOndePegar(m,mi);
+  return wrap;
+}
+/* "Onde pegar" — unidades Disponível do produto, agrupadas por endereço (§4: "o estoquista vai
+   até lá sabendo o endereço"). Carregado sob demanda (1 request por item renderizado), não bloqueia
+   a tela — se falhar, a linha só fica em branco (slots continuam bipáveis normalmente). */
+async function sepCarregarOndePegar(m,mi){
+  const el=document.getElementById('sepOndePegar'+mi); if(!el||!m.produtoId) return;
+  try{
+    const r=await beGet('/estoque/unidades?produtoId='+encodeURIComponent(m.produtoId)+'&status='+encodeURIComponent('Disponível'));
+    const el2=document.getElementById('sepOndePegar'+mi); if(!el2) return; // tela pode ter mudado enquanto o fetch estava em voo
+    const porEndereco={};
+    (r.unidades||[]).forEach(u=>{ const k=u.endereco||'endereço não confirmado'; (porEndereco[k]=porEndereco[k]||[]).push(u.serie); });
+    const chaves=Object.keys(porEndereco);
+    if(!chaves.length){ el2.textContent='Nenhuma unidade Disponível no momento.'; return; }
+    el2.textContent='Onde pegar: '+chaves.map(k=>k+' · '+porEndereco[k].length+' unid ('+porEndereco[k].slice(0,3).join(', ')+(porEndereco[k].length>3?'…':'')+')').join(' · ');
+  }catch(e){ const el2=document.getElementById('sepOndePegar'+mi); if(el2) el2.textContent=''; }
+}
+async function sepBiparSlot(mi,si){
+  const s=estoqView.sep; const m=s&&s.materiais[mi]; if(!m) return;
+  const slots=sepSlotsEnsure(m);
+  toast('📷 Aponte a câmera pro QR/etiqueta da unidade');
+  await estoqScanCamAbrir(async (texto)=>{
+    const serie=String(texto||'').trim(); if(!serie) return;
+    try{
+      const r=await beGet('/estoque/unidades/por-serie/'+encodeURIComponent(serie)+'?produtoId='+encodeURIComponent(m.produtoId));
+      const u=r&&r.unidade; if(!u){ toast('⚠️ Série não encontrada'); return; }
+      if(u.produtoId!==m.produtoId){ toast('⚠️ Essa série é de outro produto'); return; }
+      if(slots.some((sl,idx)=>idx!==si && sl.unidadeId===u.id)){ toast('⚠️ Essa unidade já foi bipada neste item'); return; }
+      const anterior=slots[si].unidadeId;
+      if(anterior && anterior!==u.id){ bePost('/estoque/unidades/'+anterior+'/liberar',{},'Liberar unidade (rebipagem)').catch(()=>{}); }
+      const resp=await bePost('/estoque/unidades/'+u.id+'/separar',{itemSeparacaoId:m._sf},'Separar unidade '+u.serie);
+      slots[si]={serie:u.serie,unidadeId:u.id};
+      m.embarcado=slots.filter(sl=>sl.unidadeId).length;
+      sfPushSepItem(m,{embarcada:m.embarcado},'Separação: '+m.nome);
+      try{ if(navigator.vibrate) navigator.vibrate(80); }catch(e){}
+      estoqBip(880);
+      toast((resp&&resp._queued?'📡 Salvo no aparelho — ':'✓ ')+u.serie+' separada');
+      if(s.status==='Solicitada'||s.status==='Aguardando aprovação'){ s.status='Em separação';
+        if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Em separação'},'Status da separação').catch(()=>{}); }
+      renderEstoque();
+    }catch(e){
+      toast('⚠️ '+(e.status===409?e.message:('Não consegui separar essa unidade: '+e.message)));
+    }
+  });
+}
+/* Libera (best-effort, não bloqueia a UI) todas as unidades reservadas de um item — usado tanto
+   pelo Desfazer (sepToggleItem) quanto por "Separar sem bipar" quando já havia slots bipados. */
+function sepLiberarSlots(m){
+  (m.slotsSerie||[]).filter(sl=>sl.unidadeId).forEach(sl=>{
+    bePost('/estoque/unidades/'+sl.unidadeId+'/liberar',{},'Liberar unidade').catch(e=>toast('⚠️ Unidade '+sl.serie+' não liberada: '+e.message));
+  });
+}
+function sepSepararSemBipar(mi){
+  const s=estoqView.sep; const m=s&&s.materiais[mi]; if(!m) return;
+  if(Array.isArray(m.slotsSerie) && m.slotsSerie.some(sl=>sl.unidadeId)) sepLiberarSlots(m);
+  m.slotsSerie=null;
+  m.embarcado=m.solicitado||0;
+  sfPushSepItem(m,{embarcada:m.embarcado},'Separação (sem bipar): '+m.nome);
+  if(s.status==='Solicitada'||s.status==='Aguardando aprovação'){ s.status='Em separação';
+    if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Em separação'},'Status da separação').catch(()=>{}); }
+  toast('✓ Separado sem bipar — '+m.nome);
   renderEstoque();
 }
 /* seções de ferramentas/ativos (abaixo do dashboard) */

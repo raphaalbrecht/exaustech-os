@@ -113,7 +113,14 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v132'; // v132 17/07: hotfix de texto — botão "Gerar séries automáticas"
+const CACHE = 'exaustech-os-v133'; // v133 17/07: Fase 1 do rastreio por unidade serializada
+  // (PROPOSTA_rastreio-selecao-unidade-serializada.md) — UnidadeSerializada__c criada no confirmar
+  // do recebimento (Apex, mesma transação) e marcada Estornada no estorno; rotas GET/POST
+  // /estoque/unidades*; sep* troca o toggle por N slots bipáveis quando o produto é rastreável e
+  // tem unidade Disponível cadastrada (com "onde pegar" e "Separar sem bipar" — 1 toque, sem
+  // trava), fallback por quantidade 100% intocado pro resto; busca avulsa do módulo Estoque acha
+  // "cadê a série X?" quando não bate com nenhuma separação; script de backfill p/ recebimentos
+  // já confirmados antes deste deploy
 // virou "Gerar etiquetas automáticas (pra quem não tem série de fábrica)" (recp*), mais evidente
 // pro estoquista do que o botão faz. Zero mudança de lógica.
 // v131 16/07: recp* — etiqueta de identificação de produto
