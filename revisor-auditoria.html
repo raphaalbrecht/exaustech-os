@@ -95,6 +95,47 @@
   .card.loadbar{padding:5px 16px}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
+
+  /* 17/07/2026: pílula "PDF do laudo" no resumo — só existe no modo enxuto (.grid-2). Acesso
+     SECUNDÁRIO de propósito: fundo branco + borda cinza (--border2), não azul — na gramática desta
+     tela, borda azul já significa "ação de workflow" (.lv-btn-gatilho etc.), este é um degrau
+     abaixo. Raio 999px (pílula de verdade) diferente do raio 10px dos .stat — aqui pílula = estado/
+     acesso, retângulo = métrica/filtro. */
+  .pdf-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--brand-d);background:#fff;border:1px solid var(--border2);border-radius:999px;padding:7px 14px;cursor:pointer;font-family:inherit;align-self:center;white-space:nowrap}
+  .pdf-pill:hover{background:var(--brand-l);border-color:var(--brand)}
+  .pdf-pill .pdf-pill-meta{color:var(--weaker);font-weight:400}
+  /* entra com um scale+flash discreto SÓ na transição de "lote incompleto" pra "100% confirmado"
+     (controlado em JS por _pdfPillLoteAnimado) — nunca se repete em re-renders do mesmo lote já
+     completo, senão viraria ruído a cada clique na lista. */
+  .pdf-pill.pdf-pill-enter{animation:pdfPillEnter .6s ease-out}
+  @keyframes pdfPillEnter{0%{transform:scale(.95);background:var(--brand-l)}100%{transform:scale(1);background:#fff}}
+
+  /* mini-pílula "ver no PDF · pág. N" no cabeçalho do card de Registro — mesma família visual da
+     .pdf-pill (affordance idêntica, aprendida uma vez), só menor; some no modo 3 colunas (o PDF já
+     está ao lado, sincronizado). Fica longe do cluster de gatilhos de Tratamento (bordas azuis) de
+     propósito — é consulta, não é uma ação de tratamento. */
+  .pdf-mini-link{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--brand-d);background:transparent;border:1px solid var(--border2);border-radius:999px;padding:4px 10px;cursor:pointer;font-family:inherit}
+  .pdf-mini-link:hover{background:var(--brand-l);border-color:var(--brand)}
+
+  /* drawer do PDF sob demanda — mesmo padrão estrutural do .nova-aud-overlay (overlay fixo estático
+     no HTML, mostra/esconde via display + classe .open), scrim na cor escura da própria marca
+     (--brand-dk, já usada no --nova-aud-overlay) em vez de preto genérico. */
+  .pdf-drawer-overlay{position:fixed;inset:0;background:rgba(11,34,57,.35);z-index:55;display:none;justify-content:flex-end;opacity:0;transition:opacity .2s}
+  .pdf-drawer-overlay.open{opacity:1}
+  .pdf-drawer-panel{width:55%;min-width:420px;height:100%;background:#fff;border-left:1px solid var(--border2);box-shadow:-8px 0 24px rgba(11,34,57,.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.2,0,0,1)}
+  .pdf-drawer-overlay.open .pdf-drawer-panel{transform:translateX(0)}
+  .pdf-drawer-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex:0 0 auto}
+  /* mesma voz de cabeçalho de coluna já usada em .col-list h2 (uppercase + traço azul embaixo) —
+     "isto é a coluna do PDF, só que flutuante", não um componente novo do zero. */
+  .pdf-drawer-title{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--brand-d);border-bottom:2px solid var(--brand);padding-bottom:2px;flex:0 0 auto}
+  .pdf-drawer-ctx{font-size:10.5px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .pdf-drawer-ctx.flash{animation:pdfCtxFlash .6s ease-out}
+  @keyframes pdfCtxFlash{0%{background:var(--brand);color:#fff}100%{background:var(--brand-l);color:var(--brand-d)}}
+  .pdf-drawer-close{width:26px;height:26px;border-radius:999px;border:none;background:none;font-size:16px;line-height:1;cursor:pointer;color:var(--weak);margin-left:auto;flex:0 0 auto}
+  .pdf-drawer-close:hover{background:var(--neu-bg)}
+  .pdf-drawer-body{flex:1 1 auto;min-height:0;background:var(--bg)}
+  .pdf-drawer-body iframe{width:100%;height:100%;border:none;display:block}
+
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
      altura que o card ocupava no topo da página, mesmo recolhido. */
   .nova-aud-overlay{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:70px 20px;overflow-y:auto}
@@ -374,6 +415,17 @@
      Rodada 5: PDF reduz mais 15% (1.85fr → 1.57fr) — espaço liberado vai todo pro registro (fica
      mais espaço pra tabela+foto+ações), lista fica como estava. */
   .grid.grid-3{grid-template-columns:0.8fr 1.57fr 1.43fr}
+  /* 17/07/2026: "modo enxuto" — quando o LOTE INTEIRO já tem 100% de match confirmado
+     (Status_do_Lote__c vira 'Concluído', mesmo gatilho da pílula verde + selo "✓ Revisão completa"
+     que já existiam), o PDF original deixa de precisar ficar sempre visível: texto e foto de cada
+     item já foram extraídos e confirmados na importação, o iframe do meio só servia pra CONFERIR
+     contra o documento fonte — conferência que já terminou pro lote inteiro. Vira 2 colunas (lista
+     + registro, ambas mais largas) e o PDF migra pra uma pílula no resumo + um drawer sob demanda
+     (ver .pdf-pill/.pdf-drawer-* abaixo). Proposta 1 de 3 desenhadas por subagente Fable, escolhida
+     pelo Raphael — ver DECISAO_modo-enxuto-pos-match.md. 100% derivado de dados (ST.linhas), sem
+     trava artificial: reabrir o match de qualquer item tira o lote de 100% e a tela volta sozinha
+     pras 3 colunas na próxima renderTudo(). */
+  .grid.grid-2{grid-template-columns:0.9fr 2.1fr}
   .col-list{display:flex;flex-direction:column;min-height:0;height:100%}
   /* 13/07/2026: pedido do Raphael — título fixo no topo da coluna de cards, mesma identidade azul
      do app (var(--brand-d)), acima do botão de item manual e da busca.
@@ -967,6 +1019,21 @@
 
   <div id="conteudo"></div>
 </div>
+
+<!-- 17/07/2026: drawer do PDF do laudo (modo enxuto — ver .grid-2/.pdf-pill no CSS e
+     DECISAO_modo-enxuto-pos-match.md). Mesmo padrão estrutural do #novaAudOverlay: markup estático
+     escondido por padrão, mostra/some via classe .open (abrirDrawerPdf()/fecharDrawerPdf()), fecha
+     no clique do fundo escurecido — mesmo onclick="if(event.target===this) ..." de sempre. -->
+<div class="pdf-drawer-overlay" id="pdfDrawerOverlay" onclick="if(event.target===this) fecharDrawerPdf()">
+  <div class="pdf-drawer-panel">
+    <div class="pdf-drawer-head">
+      <span class="pdf-drawer-title">PDF do laudo</span>
+      <span class="pdf-drawer-ctx" id="pdfDrawerCtx"></span>
+      <button class="pdf-drawer-close" onclick="fecharDrawerPdf()" aria-label="Fechar">×</button>
+    </div>
+    <div class="pdf-drawer-body" id="pdfDrawerBody"></div>
+  </div>
+</div>
 <script>
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getItem('be_tok'); }
@@ -979,8 +1046,12 @@ function beTok(){ return localStorage.getItem('be_tok') || sessionStorage.getIte
 // 13/07/2026 (rodada 32): visaoRisco = 'todos'|'exa'|'fora' — leitura do gráfico de risco por
 // escopo (pedido do Raphael: distinguir "risco alto é nosso" de "risco alto é fora do escopo da
 // Exaustech", importante pra conversa comercial com o cliente). Ver Proposta A do subagente Fable.
-let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set(), visaoRisco:'todos' };
+let ST = { auditoriaId:null, loteId:null, lote:null, auditoria:null, linhas:[], selecionadaId:null, filtro:'todas', comparativo:null, busca:'', ocultarConfirmados:false, filtrosRisco:new Set(), visaoRisco:'todos', modoEnxuto:false };
 const fotoCache = {}; // driveId -> object URL (evita refetch ao trocar de item e voltar)
+// 17/07/2026: guarda o Id do lote que já recebeu a animação de entrada da pílula "PDF do laudo" —
+// ver comentário completo em renderTudo() (não repetir a animação a cada re-render do mesmo lote
+// já 100% confirmado, só na transição real).
+let _pdfPillLoteAnimado = null;
 
 // pedido do Raphael (11/07): NCs de combate a incêndio/detecção de gás/detector de fumaça não são
 // do ramo da Exaustech — precisam sair da estatística que penaliza a empresa, sem sumir do relatório.
@@ -1942,6 +2013,21 @@ function renderTudo(){
   const l = ST.lote;
   const a = ST.auditoria;
   let h = '';
+  // 17/07/2026: "modo enxuto" (ver .grid-2 no CSS e DECISAO_modo-enxuto-pos-match.md) — 100%
+  // derivado de l.totalItens/l.itensConfirmados (o MESMO cálculo que já acende a pílula
+  // CONFIRMADOS verde + o selo "✓ Revisão completa" logo abaixo), sem estado de UI paralelo:
+  // reverter a confirmação de qualquer item derruba loteCompleto na próxima renderTudo() e a tela
+  // volta sozinha pras 3 colunas. Guardado em ST.modoEnxuto pra renderDetalhe() (chamado logo
+  // depois, fora desta função) saber se deve montar o link "ver no PDF" sem recalcular.
+  const loteCompleto = !!(l && l.totalItens > 0 && (l.itensConfirmados || 0) >= l.totalItens);
+  ST.modoEnxuto = loteCompleto;
+  // a pílula "PDF do laudo" só ganha a animação de entrada (scale+flash) na TRANSIÇÃO de
+  // "incompleto" pra "100%" — nunca a cada re-render do mesmo lote já completo (senão vira ruído
+  // a cada clique na lista). _pdfPillLoteAnimado guarda o Id do último lote que já recebeu a
+  // animação; reseta sozinho quando o lote deixa de estar completo (reabrir um match, por ex.).
+  if (!loteCompleto) _pdfPillLoteAnimado = null;
+  const pdfPillAnimar = loteCompleto && l && _pdfPillLoteAnimado !== l.id;
+  if (pdfPillAnimar) _pdfPillLoteAnimado = l.id;
   // pedido do Raphael (10/07, rodada 10): conta+data voltam a ter destaque — fonte azul grande,
   // canto esquerdo do corpo (ver .conta-destaque no CSS). Tinha ido pro header pequeno na rodada 3
   // pra ganhar espaço vertical; volta maior agora por pedido explícito, mas continua 1 linha só.
@@ -1975,7 +2061,7 @@ function renderTudo(){
     // backend já calcula em recalcularLote() e devolvia sem nenhum uso na tela até agora).
     const total = l.totalItens || 0;
     const confirmados = l.itensConfirmados || 0;
-    const completo = total > 0 && confirmados >= total;
+    const completo = loteCompleto; // mesmo cálculo, hoisted no topo de renderTudo() — ver comentário lá
     const pct = total > 0 ? Math.min(100, Math.round((confirmados / total) * 100)) : 0;
     // pedido do Raphael (10/07, rodada 6): as 3 pílulas com número (total/confirmados/sem match)
     // viram clicáveis — aplicam o filtro respectivo na lista à esquerda e o fundo destaca (classe
@@ -2023,7 +2109,15 @@ function renderTudo(){
           + '<span class="l">Tratadas</span>'
         + '</button>'
       + '</div>'
-      + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '');
+      + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '')
+      // 17/07/2026: pílula "PDF do laudo" — só existe no modo enxuto (lote 100% confirmado). Abre
+      // o drawer (ver .pdf-drawer-* no CSS e abrirDrawerPdf() mais abaixo) já na página da NC
+      // selecionada, se houver uma. pdfPillAnimar (calculado no topo de renderTudo) só é true na
+      // transição real de incompleto→completo, nunca em re-renders subsequentes do mesmo lote.
+      // nota: sem contagem de páginas na pílula — o backend não expõe o total de páginas do PDF
+      // hoje (só a página de cada item via Pagina_no_PDF__c), não vamos inventar um dado que não
+      // existe só pra preencher o "· N págs." do brief visual.
+      + (completo ? '<button type="button" class="pdf-pill' + (pdfPillAnimar ? ' pdf-pill-enter' : '') + '" onclick="abrirDrawerPdf(ST.selecionadaId)">PDF do laudo</button>' : '');
   }
 
   // pedido do Raphael (11/07): bloco de comparativo removido da tela — ver comentário em carregar().
@@ -2127,7 +2221,7 @@ function renderTudo(){
   // — ver bloco summaryWrap acima. Continuam agregando nao_tratada+em_tratativa em "Em aberto"
   // e usando setFiltro('trat_aberta'/'em_tratativa'/'tratada'), só mudou de casa no DOM.
 
-  h += '<div class="grid' + (ST.selecionadaId ? ' grid-3' : '') + '">';
+  h += '<div class="grid' + (ST.selecionadaId ? (loteCompleto ? ' grid-2' : ' grid-3') : '') + '">';
   h += '<div class="col-list">'
     + '<h2>Não Conformidades</h2>'
     // pedido do Raphael (13/07): botão pra cadastrar manualmente uma NC que o Gemini/regex não
@@ -2149,8 +2243,13 @@ function renderTudo(){
   // empurraria a coluna do PDF) pra abrir mais respiro entre PDF e registro sem mexer no resto.
   // Rodada 9: voltou pra 10px — o "colado" que o Raphael via não era o espaço ENTRE as colunas,
   // era dentro de cada linha do kv (rótulo quase encostando no valor). Ver .kv td:first-child.
+  // 17/07/2026: modo enxuto (loteCompleto) não monta #colPdf — o PDF vira a pílula do resumo +
+  // drawer sob demanda (ver CSS .pdf-drawer-*, JS abrirDrawerPdf()). renderDetalhe() já lida com
+  // #colPdf ausente (guarda condicional, ver comentário lá).
   h += ST.selecionadaId
-    ? '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:10px"></div>'
+    ? (loteCompleto
+        ? '<div class="col" id="colRegistro"></div>'
+        : '<div class="col left" id="colPdf"></div><div class="col" id="colRegistro" style="margin-left:10px"></div>')
     : '<div class="placeholder-col">Selecione um item na lista à esquerda pra comparar o PDF com o registro.</div>';
   h += '</div>';
 
@@ -2558,9 +2657,9 @@ async function fotoBlobUrl(fotoUrl){
 async function renderDetalhe(){
   const idAlvo = ST.selecionadaId; // capturado agora: se o usuário trocar de item durante o await abaixo, detectamos e não pintamos o painel errado
   const l = ST.linhas.find(x => x.id === idAlvo);
-  const colPdf = document.getElementById('colPdf');
+  const colPdf = document.getElementById('colPdf'); // 16/07 (modo enxuto): pode não existir — colPdf só é renderizado enquanto o lote não está 100% confirmado (ver grid-2/grid-3 em renderTudo)
   const colReg = document.getElementById('colRegistro');
-  if (!l || !colPdf || !colReg) return;
+  if (!l || !colReg) return;
 
   // pedido do Raphael (10/07): coluna do meio deixa de mostrar o recorte de foto e passa a ser o
   // PDF original inteiro (o revisor precisa conferir contra o documento fonte, não só o recorte);
@@ -2573,14 +2672,16 @@ async function renderDetalhe(){
   // innerHTML. #historico passa a viver DENTRO da coluna de registro, entre a foto e o actionbar
   // (que continua sticky no fundo da coluna — antes stickava na página, agora gruda no fundo do
   // scroll interno da própria coluna, o que é ainda melhor: fica sempre visível ao rolar).
-  colPdf.innerHTML =
-    // pedido do Raphael (10/07, rodada 2): removida a dica "já aberto na página N — use Ctrl+F..."
-    // ao lado do título — o pulo de página já acontece sozinho (ver srcPdf abaixo), a dica só
-    // repetia informação óbvia/redundante pra quem já está olhando o documento aberto na página certa.
-    '<h3>PDF original</h3>'
-    + (pdfUrl
-        ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
-        : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>');
+  if (colPdf) {
+    colPdf.innerHTML =
+      // pedido do Raphael (10/07, rodada 2): removida a dica "já aberto na página N — use Ctrl+F..."
+      // ao lado do título — o pulo de página já acontece sozinho (ver srcPdf abaixo), a dica só
+      // repetia informação óbvia/redundante pra quem já está olhando o documento aberto na página certa.
+      '<h3>PDF original</h3>'
+      + (pdfUrl
+          ? '<div id="pdfWrap"><span style="font-size:12px;color:var(--weaker)">carregando PDF…</span></div>'
+          : '<div class="sem-foto">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>');
+  }
 
   colReg.innerHTML =
     // pedido do Raphael (10/07, rodada 4): Status sai da última linha da tabela (onde ficava fácil
@@ -2589,7 +2690,12 @@ async function renderDetalhe(){
     // no meio de Grupo/Elemento/Pergunta.
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
       + '<h3 style="margin:0">Registro no Salesforce</h3>'
-      + badgeStatus(l.status)
+      + '<div style="display:flex;align-items:center;gap:8px">'
+        // 16/07/2026 (modo enxuto): sem coluna de PDF ao lado, o link pontual pro documento fica
+        // aqui — abre o mesmo drawer da pílula da barra de resumo, já na página certa do item.
+        + (ST.modoEnxuto ? '<button type="button" class="pdf-mini-link" onclick="abrirDrawerPdf(\'' + l.id + '\')">ver no PDF</button>' : '')
+        + badgeStatus(l.status)
+      + '</div>'
     + '</div>'
     + '<div id="regSf">' + edHtmlTabela(l) + '</div>'
     // pedido do Raphael (13/07, rodada 22): o controle de escopo (Dentro/Fora de escopo Exaustech)
@@ -2644,7 +2750,7 @@ async function renderDetalhe(){
     + '<div class="hist" id="historico"></div>';
   kvAplicarTruncamento(colReg);
 
-  if (pdfUrl) {
+  if (pdfUrl && colPdf) { // 16/07 (modo enxuto): sem colPdf não tem #pdfWrap pra preencher — o mesmo PDF vira acessível só pelo drawer (abrirDrawerPdf)
     try {
       // fotoBlobUrl é genérico o bastante (fetch autenticado -> blob -> object URL) pra servir
       // qualquer arquivo do proxy /arquivos/:driveId, não só foto — e já cacheia por URL, então
@@ -2685,6 +2791,50 @@ async function renderDetalhe(){
       if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--err-tx)">falha ao carregar a foto: ' + escapeHtml(e.message) + '</span>';
     }
   }
+}
+
+// 16/07/2026 (modo enxuto — ver DECISAO_modo-enxuto-pos-match.md): drawer do PDF original, aberto
+// tanto pela pílula "PDF do laudo" na barra de resumo (lote inteiro, sem página específica) quanto
+// pelo link "ver no PDF" de cada item (pula direto pra página do item, igual o antigo colPdf fazia).
+async function abrirDrawerPdf(linhaId){
+  const l = ST.linhas.find(x => x.id === linhaId);
+  const pdfUrl = ST.lote && ST.lote.pdfOriginalUrl;
+  const overlay = document.getElementById('pdfDrawerOverlay');
+  const body = document.getElementById('pdfDrawerBody');
+  const ctx = document.getElementById('pdfDrawerCtx');
+  if (!overlay || !body) return;
+  if (ctx) {
+    // pisca a pílula de contexto (nome do item) só quando ela muda — reabrir no mesmo item não
+    // deve reanimar toda vez, só quando a navegação de fato troca de contexto.
+    const label = (l && l.numeroRelatorio) ? ('Item ' + l.numeroRelatorio) : '';
+    const trocou = ctx.textContent !== label;
+    ctx.textContent = label;
+    if (trocou && label) { ctx.classList.remove('flash'); void ctx.offsetWidth; ctx.classList.add('flash'); }
+  }
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.classList.add('open'));
+  if (!pdfUrl) {
+    body.innerHTML = '<div class="sem-foto" style="margin:16px">PDF original não disponível pra este lote — reimporte o arquivo pra habilitar o visualizador.</div>';
+    return;
+  }
+  body.innerHTML = '<span style="font-size:12px;color:var(--weaker);display:block;margin:16px">carregando PDF…</span>';
+  try {
+    const url = await fotoBlobUrl(pdfUrl); // já cacheado por URL (ver renderDetalhe) — trocar de item não bate rede de novo
+    if (!overlay.classList.contains('open')) return; // fechou o drawer durante o carregamento — não pinta painel morto
+    const params = (l && l.paginaPdf ? 'page=' + l.paginaPdf + '&' : '') + 'navpanes=0';
+    body.innerHTML = '<iframe src="' + url + '#' + params + '" title="PDF original do laudo"></iframe>';
+  } catch (e) {
+    if (!overlay.classList.contains('open')) return;
+    body.innerHTML = '<span style="font-size:12px;color:var(--err-tx);display:block;margin:16px">falha ao carregar o PDF: ' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+function fecharDrawerPdf(){
+  const overlay = document.getElementById('pdfDrawerOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  // espera a transição do transform (.3s, ver CSS) antes de esconder de vez — senão o slide-out não aparece
+  setTimeout(() => { if (!overlay.classList.contains('open')) overlay.style.display = 'none'; }, 300);
 }
 
 async function confirmarLinha(linhaId){
@@ -4810,6 +4960,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const overlay = document.getElementById('novaAudOverlay');
     if (overlay && overlay.style.display === 'flex') { toggleNovaAuditoria(); e.preventDefault(); }
+    const pdfOverlay = document.getElementById('pdfDrawerOverlay'); // 16/07 (modo enxuto): drawer do PDF fecha com Esc, igual o modal de Nova auditoria
+    if (pdfOverlay && pdfOverlay.classList.contains('open')) { fecharDrawerPdf(); e.preventDefault(); }
     return;
   }
   const tag = e.target && e.target.tagName;
