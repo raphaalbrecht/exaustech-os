@@ -5639,7 +5639,7 @@ function recpRenderItem(card){
       serWrap.appendChild(row);
     }
     const genBtn=document.createElement('div'); genBtn.style.cssText='font-size:12.5px;color:#3E7EB0;font-weight:700;cursor:pointer;padding:2px 0 4px';
-    genBtn.textContent='Gerar séries automáticas (pra quem não tem série de fábrica)';
+    genBtn.textContent='Gerar etiquetas automáticas (pra quem não tem série de fábrica)';
     genBtn.onclick=()=>{
       const cc=recpSt.conf[recpSt.itemId]; if(!Array.isArray(cc.numerosSerie)) cc.numerosSerie=[];
       for(let si=0;si<nSeries;si++){ if(!cc.numerosSerie[si]) cc.numerosSerie[si]=(recpSt.rec.name||'REC')+'-'+String(si+1).padStart(2,'0'); }

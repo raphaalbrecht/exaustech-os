@@ -113,7 +113,10 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v131'; // v131 16/07: recp* — etiqueta de identificação de produto
+const CACHE = 'exaustech-os-v132'; // v132 17/07: hotfix de texto — botão "Gerar séries automáticas"
+// virou "Gerar etiquetas automáticas (pra quem não tem série de fábrica)" (recp*), mais evidente
+// pro estoquista do que o botão faz. Zero mudança de lógica.
+// v131 16/07: recp* — etiqueta de identificação de produto
 // pós-confirmação. Ao confirmar o recebimento, vai direto pra tela de impressão quando pelo menos
 // 1 item é Product2.Rastreavel_Serie__c=true (ferramenta/equipamento) E teve série(s) gravada(s)
 // na conferência; matéria-prima a granel (chapa/cantoneira) nunca aparece, porque o checkbox fica
