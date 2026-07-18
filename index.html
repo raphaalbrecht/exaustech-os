@@ -2925,13 +2925,22 @@ function osHojeAmanha(o){ if(!o._dataISO) return false; const d=new Date(o._data
 function osDiaTag(o){ if(!o._dataISO) return ''; const d=new Date(o._dataISO+'T12:00:00'); const t=new Date(); t.setHours(12,0,0,0); const diff=Math.round((d-t)/86400000); return diff===0?'HOJE':(diff===1?'AMANHÃ':fmtDataBR(o._dataISO)); }
 /* chave 'DD/MM' da data da OS, no mesmo formato usado em DAYS (carrossel de dias) */
 function diaKeyOf(o){ if(!o._dataISO) return null; const d=new Date(o._dataISO+'T12:00:00'); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
-let estoqView={mode:'dash', sep:null, os:null, tile:null};
+let estoqView={mode:'dash', sep:null, os:null, tile:null, origem:null};
 /* dia selecionado no carrossel do Estoque (independente do selDay da Agenda); null = todos os dias */
 let estoqDia=null;
 function estoqGo(mode,sep,os,tile){
   if(estoqView.mode==='enderecos' && mode!=='enderecos' && typeof endrNfcDesativar==='function') endrNfcDesativar();
   if(estoqView.mode==='recebimentos' && mode!=='recebimentos' && typeof recpNfcDesativar==='function') recpNfcDesativar();
-  estoqView={mode, sep:sep||null, os:os||null, tile:(tile!==undefined?tile:estoqView.tile)}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0;
+  const origemAnterior=estoqView.origem;
+  estoqView={mode, sep:sep||null, os:os||null, tile:(tile!==undefined?tile:estoqView.tile), origem:origemAnterior}; renderEstoque(); const m=document.querySelector('main'); if(m)m.scrollTop=0;
+}
+/* 17/07/2026 (nova navegação Home Enxuta + Enviar/Receber/Armazém, Versão A aprovada pelo Raphael):
+   as 5 telas internas do Estoque (list/enderecos/recebimentos/estrutura/acompanhamento) agora podem
+   ter sido abertas a partir da home OU de um dos 3 hubs — o botão "‹ Voltar ao painel" delas volta
+   pra onde vieram, em vez de sempre pro dash. */
+function estoqVoltar(){
+  const o=estoqView.origem;
+  estoqGo(o==='enviar'||o==='receber'||o==='armazem'?o:'dash');
 }
 /* tiles da home do Estoquista: contagem por etapa, com drill-down */
 const ESTOQ_TILES=[
@@ -2944,7 +2953,8 @@ const ESTOQ_TILES=[
   {key:'emsep',   label:'Em separação',              icon:'⏳', cor:'#0B5CAB', f:x=>x.s.status==='Em separação'},
   {key:'pronta',  label:'Prontas p/ embarque',       icon:'🚚', cor:'#0b827c', f:x=>x.s.status==='Pronta para embarque'},
   {key:'campo',   label:'Em campo',                  icon:'🛠️', cor:'#7a5cc8', f:x=>['Embarcada','Entregue no local','Recebida pelo usuário','Em uso'].includes(x.s.status)},
-  {key:'retorno', label:'Retorno / encerrar',        icon:'↩️', cor:'#5867aa', f:x=>['Pronto para retorno','Retorno coletado','Pendente conferência','Retorno'].includes(x.s.status)},
+  {key:'retornando', label:'Retornando',              icon:'🔄', cor:'#5867aa', f:x=>['Pronto para retorno','Retorno coletado'].includes(x.s.status)},
+  {key:'retornosconf', label:'Retornos a conferir',   icon:'↩️', cor:'#5867aa', f:x=>['Pendente conferência','Retorno'].includes(x.s.status)},
   /* Pós-cancelamento (casos 1/2/4/5 do design "cancelamento por etapa"): separação cancelada que
      ainda precisa de alguma ação do estoque (ciência, devolução ou baixa). Some sozinho quando
      Pendencia_Pos_Cancelamento__c volta a 'Nenhuma'/'Resolvida'. */
@@ -2957,6 +2967,22 @@ const ESTOQ_TILES=[
 function sepListAll(){ const seps=[]; ordens.forEach(o=>{ const s=o.separacao; if(s && (s._sf || (s.materiais&&s.materiais.length))) seps.push({o,s}); }); return seps; }
 /* mesma lista, restrita ao dia escolhido no carrossel (ou todas, se nenhum dia estiver selecionado) */
 function sepListDia(){ const all=sepListAll(); return estoqDia?all.filter(x=>diaKeyOf(x.o)===estoqDia):all; }
+/* tile visual reutilizado pela home enxuta E pelos grupos do hub "Enviar" (17/07/2026) — mesmo
+   HTML/CSS de sempre, só virou função pra não duplicar entre renderEstoque/estoqueEnviarHub. */
+function estoqTileEl(label,icon,cor,n,destaque,onclick){
+  const el=document.createElement('div');
+  if(destaque){
+    el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,#ba0517,#E8322C)';
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">${n>1?'Separações urgentes':'Separação urgente'}</div><div style="font-size:12px;opacity:.9;margin-top:2px">Marcada${n>1?'s':''} como urgente${n>1?'s':''} — toque para separar agora ›</div></div></div>`;
+  } else {
+    el.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:10px;min-height:118px';
+    el.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:${cor}1a;display:flex;align-items:center;justify-content:center;font-size:18px">${icon}</div>
+      <div style="font-size:12.5px;color:#4A5560;font-weight:600;line-height:1.25;flex:1">${label}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:26px;font-weight:900;color:#0B2239">${n}</span><span style="color:#999;font-size:18px">›</span></div>`;
+  }
+  el.onclick=onclick;
+  return el;
+}
 /* abre o registro certo pra uma separação — usado tanto pela busca/bipagem por texto quanto (via
    estoqAbrirSepGenerico) por qualquer outro ponto de entrada que não seja tile-específico.
    Prioridade: pendência de pós-cancelamento (precisa de ação) > ainda em separação (abre a página
@@ -3198,30 +3224,111 @@ function renderEstoque(){
   if(estoqView.mode==='recebimentos'){ renderRecpFluxo(wrap); return; }
   if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); return; }
   if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); return; }
-  /* ===== HOME DO ESTOQUISTA: tiles com contagem por etapa (estilo dashboard mobile) ===== */
+  if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); return; }
+  if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); return; }
+  if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); return; }
+  /* ===== HOME DO ESTOQUISTA (Home enxuta + "Versão A", 17/07/2026 — desenho aprovado pelo
+     Raphael entre 3 mockups): só as pendências que pedem atenção agora, seguidas dos 3 botões-hub
+     Enviar/Receber/Armazém com destaque decrescente (Enviar cheio de cor, Receber contornado,
+     Armazém discreto/pequeno). Os 5 cards antigos (endereço/consulta/recebimento/estrutura/
+     acompanhamento) MOVERAM pra dentro dos hubs — ver estoqueReceberHub/estoqueArmazemHub. ===== */
   const seps=sepListAll(), sepsDia=sepListDia();
   const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 6px';
-  ESTOQ_TILES.forEach(t=>{
-    /* "urgente" e "concluidas" (todosDias) sempre olham todos os dias; os demais respeitam o
-       dia escolhido no carrossel */
-    const n=((t.destaque||t.todosDias)?seps:sepsDia).filter(t.f).length;
-    if(t.destaque && !n) return; /* banner de emergência: só aparece quando existe alguma urgente */
-    const el=document.createElement('div');
-    if(t.destaque){
-      el.style.cssText='grid-column:1/-1;border-radius:16px;padding:16px;cursor:pointer;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.15);background:linear-gradient(135deg,#ba0517,#E8322C)';
-      el.innerHTML=`<div style="display:flex;align-items:center;gap:14px"><div style="font-size:46px;font-weight:900;line-height:1">${n}</div><div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">${n>1?'Separações urgentes':'Separação urgente'}</div><div style="font-size:12px;opacity:.9;margin-top:2px">Marcada${n>1?'s':''} como urgente${n>1?'s':''} — toque para separar agora ›</div></div></div>`;
-    } else {
-      el.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:10px;min-height:118px';
-      el.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:${t.cor}1a;display:flex;align-items:center;justify-content:center;font-size:18px">${t.icon}</div>
-        <div style="font-size:12.5px;color:#4A5560;font-weight:600;line-height:1.25;flex:1">${t.label}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:26px;font-weight:900;color:#0B2239">${n}</span><span style="color:#999;font-size:18px">›</span></div>`;
-    }
-    el.onclick=()=>estoqGo('list',null,null,t.key);
-    grid.appendChild(el);
+  const tUrgente=ESTOQ_TILES.find(x=>x.key==='urgente');
+  const nUrgente=seps.filter(tUrgente.f).length;
+  if(nUrgente) grid.appendChild(estoqTileEl(tUrgente.label,tUrgente.icon,tUrgente.cor,nUrgente,true,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'urgente'); }));
+  ['separar','emsep'].forEach(k=>{
+    const t=ESTOQ_TILES.find(x=>x.key===k);
+    const n=sepsDia.filter(t.f).length;
+    grid.appendChild(estoqTileEl(t.label,t.icon,t.cor,n,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,t.key); }));
   });
+  /* "Entradas pendentes" é tile VIRTUAL (não vem de ESTOQ_TILES/sepListAll — usa recpPendentesCount,
+     atualizado a cada hydrate por recpAtualizarPendentesCount) e abre direto o fluxo recp*. */
+  grid.appendChild(estoqTileEl('Entradas pendentes','📥','#3E7EB0',recpPendentesCount,false,()=>{ recpReset(); estoqView.origem='home'; estoqGo('recebimentos'); recpCarregarLista(); }));
+  const tCanc=ESTOQ_TILES.find(x=>x.key==='cancelamento');
+  const nCanc=sepsDia.filter(tCanc.f).length;
+  if(nCanc) grid.appendChild(estoqTileEl(tCanc.label,tCanc.icon,tCanc.cor,nCanc,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'cancelamento'); }));
+  const tRetC=ESTOQ_TILES.find(x=>x.key==='retornosconf');
+  const nRetC=sepsDia.filter(tRetC.f).length;
+  if(nRetC) grid.appendChild(estoqTileEl(tRetC.label,tRetC.icon,tRetC.cor,nRetC,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'retornosconf'); }));
   wrap.appendChild(grid);
-  /* home limpa: só os tiles (ferramentas/custódia voltam como tile quando o módulo for ancorado no Salesforce) */
+  /* 3 botões empilhados "Versão A": Enviar (cheio) > Receber (contornado) > Armazém (discreto) */
+  const btnWrap=document.createElement('div'); btnWrap.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:14px';
+  const btnEnviar=document.createElement('div');
+  btnEnviar.style.cssText='background:#3E7EB0;color:#fff;border-radius:12px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px';
+  btnEnviar.innerHTML=`<span style="font-size:20px">📤</span><span style="flex:1;font-weight:700;font-size:14.5px">Enviar</span><span style="font-size:18px">›</span>`;
+  btnEnviar.onclick=()=>{ estoqGo('enviar'); };
+  btnWrap.appendChild(btnEnviar);
+  const btnReceber=document.createElement('div');
+  const nAlertasHome=acmpAlertas.length;
+  btnReceber.style.cssText='background:#fff;border:1.5px solid #3E7EB0;color:#3E7EB0;border-radius:12px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px';
+  btnReceber.innerHTML=`<span style="font-size:20px">📥</span><span style="flex:1;font-weight:700;font-size:14.5px">Receber</span>${nAlertasHome?('<span class="lz lz-warn" style="margin-right:2px">'+nAlertasHome+'</span>'):''}<span style="font-size:18px">›</span>`;
+  btnReceber.onclick=()=>{ estoqGo('receber'); };
+  btnWrap.appendChild(btnReceber);
+  const btnArmazem=document.createElement('div');
+  btnArmazem.style.cssText='background:#fff;border:1px solid #e5e8ec;color:#4A5560;border-radius:12px;padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px';
+  btnArmazem.innerHTML=`<span style="font-size:16px">🏗️</span><span style="flex:1;font-weight:600">Armazém</span><span style="font-size:16px">›</span>`;
+  btnArmazem.onclick=()=>{ estoqGo('armazem'); };
+  btnWrap.appendChild(btnArmazem);
+  wrap.appendChild(btnWrap);
+}
+/* ===== HUB "Enviar" (17/07/2026): agrupa os tiles de ESTOQ_TILES por fase do fluxo de separação
+   — galpão → campo → volta. Mesmo tile visual da home (estoqTileEl), mesma lógica de contagem
+   (todosDias usa sepListAll, os demais respeitam o dia do carrossel). ===== */
+function estoqueEnviarHub(wrap){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📤 Enviar'; wrap.appendChild(h);
+  const seps=sepListAll(), sepsDia=sepListDia();
+  const grupo=(titulo,keys)=>{
+    const st=document.createElement('div'); st.className='sec-title2'; st.textContent=titulo; wrap.appendChild(st);
+    const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px';
+    keys.forEach(k=>{
+      const t=ESTOQ_TILES.find(x=>x.key===k); if(!t) return;
+      const n=((t.destaque||t.todosDias)?seps:sepsDia).filter(t.f).length;
+      grid.appendChild(estoqTileEl(t.label,t.icon,t.cor,n,false,()=>{ estoqView.origem='enviar'; estoqGo('list',null,null,t.key); }));
+    });
+    wrap.appendChild(grid);
+  };
+  grupo('No galpão',['separar','emsep','pronta']);
+  grupo('Em campo',['campo','retornando']);
+  grupo('De volta',['retornosconf','cancelamento','concluidas']);
+}
+/* ===== HUB "Receber" (17/07/2026): os 2 cards que antes ficavam soltos na home — Entradas
+   pendentes (recp*, todo mundo com canEstoque) e Acompanhamento de pedidos (acmp*, só
+   canAcompanharPedidos). Mesmo HTML/estilo de antes, só mudou de lugar. ===== */
+function estoqueReceberHub(wrap){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📥 Receber'; wrap.appendChild(h);
+  /* entrada do fluxo de Entradas pendentes (Fase 4, 10/07/2026) — conferência + orientação de
+     endereço na recepção de mercadoria. Mesmo gate implícito (canEstoque) da home. */
+  const recpBtn=document.createElement('div');
+  recpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:4px';
+  recpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📥</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Entradas pendentes</div><div style="font-size:12px;color:#4A5560">Conferir NF e guardar material · sugestão de endereço</div></div>
+    <span style="color:#999;font-size:18px">›</span>`;
+  recpBtn.onclick=()=>{ recpReset(); estoqView.origem='receber'; estoqGo('recebimentos'); recpCarregarLista(); };
+  wrap.appendChild(recpBtn);
+  /* entrada de Acompanhamento de Pedido de Compra (acmp*, 15/07/2026 — extensão da proposta de
+     recebimento): só Supervisor+ (canAcompanharPedidos) vê este card. */
+  if(canAcompanharPedidos(ROLE)){
+    const acmpBtn=document.createElement('div');
+    const nAlertas=acmpAlertas.length;
+    acmpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+    acmpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📅</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Acompanhamento de pedidos</div><div style="font-size:12px;color:#4A5560">Prazo de entrega · confirmar com o fornecedor</div></div>
+      ${nAlertas?('<span class="lz lz-warn" style="margin-right:2px">'+nAlertas+'</span>'):''}
+      <span style="color:#999;font-size:18px">›</span>`;
+    acmpBtn.onclick=()=>{ acmpReset(); estoqView.origem='receber'; estoqGo('acompanhamento'); acmpCarregarLista(); };
+    wrap.appendChild(acmpBtn);
+  }
+}
+/* ===== HUB "Armazém" (17/07/2026): os 3 cards que antes ficavam soltos na home — Criar endereço,
+   Consultar endereços (endr*, todo mundo com canEstoque) e Gerenciar estrutura (gest*, só
+   canGerenciarEstoque). Mesmo HTML/estilo de antes, só mudou de lugar. ===== */
+function estoqueArmazemHub(wrap){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='🏗️ Armazém'; wrap.appendChild(h);
   /* entrada do wizard de Endereço de Estoque (Fase 3, 09/07/2026) — quem chega nesta home já é
      Estoquista+ (gate canEstoque), então nenhuma trava extra de papel é necessária aqui. */
   const endrBtn=document.createElement('div');
@@ -3229,7 +3336,7 @@ function renderEstoque(){
   endrBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📍</div>
     <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Criar novo endereço de estoque</div><div style="font-size:12px;color:#4A5560">Criar Bin/Prateleira/Armário/Caixa · etiqueta NFC</div></div>
     <span style="color:#999;font-size:18px">›</span>`;
-  endrBtn.onclick=()=>{ endrReset(); estoqGo('enderecos'); endrCarregarLocais(); };
+  endrBtn.onclick=()=>{ endrReset(); estoqView.origem='armazem'; estoqGo('enderecos'); endrCarregarLocais(); };
   wrap.appendChild(endrBtn);
   /* entrada separada de CONSULTA (13/07/2026, pedido do Raphael): a lista de endereços já
      cadastrados, dentro do fluxo de cadastro, virou só-leitura — "cadastro" e "gerenciar etiqueta
@@ -3241,17 +3348,8 @@ function renderEstoque(){
   consBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">🔎</div>
     <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Consultar endereços</div><div style="font-size:12px;color:#4A5560">Ver ocupação · reimprimir etiqueta · regravar NFC</div></div>
     <span style="color:#999;font-size:18px">›</span>`;
-  consBtn.onclick=()=>{ endrReset(true); estoqGo('enderecos'); endrCarregarLocais(); };
+  consBtn.onclick=()=>{ endrReset(true); estoqView.origem='armazem'; estoqGo('enderecos'); endrCarregarLocais(); };
   wrap.appendChild(consBtn);
-  /* entrada do fluxo de Entradas pendentes (Fase 4, 10/07/2026) — conferência + orientação de
-     endereço na recepção de mercadoria. Mesmo gate implícito (canEstoque) da home. */
-  const recpBtn=document.createElement('div');
-  recpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
-  recpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📥</div>
-    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Entradas pendentes</div><div style="font-size:12px;color:#4A5560">Conferir NF e guardar material · sugestão de endereço</div></div>
-    <span style="color:#999;font-size:18px">›</span>`;
-  recpBtn.onclick=()=>{ recpReset(); estoqGo('recebimentos'); recpCarregarLista(); };
-  wrap.appendChild(recpBtn);
   /* entrada de gestão de estrutura (gest*, 14/07/2026 — ver DECISAO_pre-cadastro-setor-posicao-
      nivel.md): só Gerente+ (canGerenciarEstoque) vê este card. Área/Setor/Posição/Nível deixam de
      ser semeados só por script Apex — ganham CRUD leve dentro do próprio app. */
@@ -3261,21 +3359,8 @@ function renderEstoque(){
     gestBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">⚙️</div>
       <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Gerenciar estrutura</div><div style="font-size:12px;color:#4A5560">Área · Setor · Posição · Nível — Gerente ou Sócio</div></div>
       <span style="color:#999;font-size:18px">›</span>`;
-    gestBtn.onclick=()=>{ gestReset(); estoqGo('estrutura'); gestCarregarLocais(); };
+    gestBtn.onclick=()=>{ gestReset(); estoqView.origem='armazem'; estoqGo('estrutura'); gestCarregarLocais(); };
     wrap.appendChild(gestBtn);
-  }
-  /* entrada de Acompanhamento de Pedido de Compra (acmp*, 15/07/2026 — extensão da proposta de
-     recebimento): só Supervisor+ (canAcompanharPedidos) vê este card. */
-  if(canAcompanharPedidos(ROLE)){
-    const acmpBtn=document.createElement('div');
-    const nAlertas=acmpAlertas.length;
-    acmpBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
-    acmpBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📅</div>
-      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Acompanhamento de pedidos</div><div style="font-size:12px;color:#4A5560">Prazo de entrega · confirmar com o fornecedor</div></div>
-      ${nAlertas?('<span class="lz lz-warn" style="margin-right:2px">'+nAlertas+'</span>'):''}
-      <span style="color:#999;font-size:18px">›</span>`;
-    acmpBtn.onclick=()=>{ acmpReset(); estoqGo('acompanhamento'); acmpCarregarLista(); };
-    wrap.appendChild(acmpBtn);
   }
 }
 /* ===== ENDEREÇO DE ESTOQUE (wizard endr* — Fase 3, 09/07/2026): criação guiada
@@ -3359,7 +3444,7 @@ function endrAbrirComplementar(pre){
 function renderEndrWizard(wrap){
   if(!endrSt) endrReset();
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
-  bk.onclick=()=>{ endrNfcDesativar(); estoqGo('dash'); };
+  bk.onclick=()=>{ endrNfcDesativar(); estoqVoltar(); };
   wrap.appendChild(bk);
   /* Bug #10 (auditoria 14/07): mantém o mesmo texto do card de entrada na home ("Criar novo
      endereço de estoque", renomeado v111) — estava dessincronizado ("Endereços de estoque"). */
@@ -4902,7 +4987,7 @@ function gestFormNovoSimples(card, {label, onSalvar}){
 function renderGestEstrutura(wrap){
   if(!gestSt) gestReset();
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
-  bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  bk.onclick=()=>estoqVoltar(); wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent='⚙️ Gerenciar estrutura'; wrap.appendChild(h);
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
   if(!canGerenciarEstoque(ROLE)){ card.innerHTML='<div class="subnote">Acesso restrito a Gerente ou Sócio.</div>'; return; }
@@ -5266,7 +5351,7 @@ function recpReset(){
 function renderRecpFluxo(wrap){
   if(!recpSt) recpReset();
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
-  bk.onclick=()=>{ recpNfcDesativar(); estoqGo('dash'); };
+  bk.onclick=()=>{ recpNfcDesativar(); estoqVoltar(); };
   wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📥 Entradas pendentes'; wrap.appendChild(h);
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
@@ -5285,6 +5370,13 @@ function renderRecpFluxo(wrap){
   if(recpSt.estorno) recpRenderEstornoModal(wrap);
 }
 /* ---- passo 1: lista de recebimentos pendentes (toque avança) ---- */
+/* contador global de Entradas pendentes (17/07/2026, home enxuta) — mesmo padrão do acmpAlertas:
+   preenchido a cada beHydrate, pra mostrar contagem na home/hub sem forçar navegação até a tela. */
+let recpPendentesCount=0;
+async function recpAtualizarPendentesCount(){
+  try{ const d=await beGet('/estoque/recebimentos'); recpPendentesCount=(d.recebimentos||[]).length; }
+  catch(e){ /* falha silenciosa, mesmo padrão do acmpAtualizarAlertas */ }
+}
 async function recpCarregarLista(){
   recpSt.erro=null; /* bug achado 10/07: erro de uma tela anterior (ex: abrir recebimento e falhar)
     ficava "grudado" aqui pra sempre — recpRenderLista mostra recpSt.erro sem essa função nunca
@@ -6423,7 +6515,7 @@ function sepRow(o,s,onclick){
 /* LISTA do tile selecionado (drill-down) */
 function estoqueListPage(wrap){
   const t=ESTOQ_TILES.find(x=>x.key===estoqView.tile)||ESTOQ_TILES[0];
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqGo('dash'); wrap.appendChild(bk);
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel'; bk.onclick=()=>estoqVoltar(); wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent=t.destaque?'Separação(ões) urgente(s)':(t.icon+' '+t.label); wrap.appendChild(h);
   const list=((t.destaque||t.todosDias)?sepListAll():sepListDia()).filter(t.f)
     .sort((a,b)=>String(a.o._dataISO||'').localeCompare(String(b.o._dataISO||'')));
@@ -7008,7 +7100,7 @@ async function acmpAtualizarAlertas(){
 function renderAcmpFluxo(wrap){
   if(!acmpSt) acmpReset();
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
-  bk.onclick=()=>estoqGo('dash');
+  bk.onclick=()=>estoqVoltar();
   wrap.appendChild(bk);
   const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📅 Acompanhamento de pedidos'; wrap.appendChild(h);
   const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
@@ -7447,7 +7539,15 @@ async function cadBuscarCnpj(){
     const fant=(d.nome_fantasia||'').trim(), razao=(d.razao_social||'').trim();
     const sit=String(d.situacao_cadastral||d.descricao_situacao_cadastral||'');
     nome=cadSemAcento(fant||razao); // regra do SF: Name sem acento/cedilha
-    cadSt.novaConta={cnpj:raw, razao:cadSemAcento(razao), daReceita:true}; // payload do futuro POST /contas
+    // Endereço vem junto na mesma resposta (OpenCNPJ/BrasilAPI) — inclui bairro__c, que a
+    // NFSe Nacional exige (xBairro) e antes só ia com valor fixo "-". Só preenche o que a
+    // Receita mandou; nada aqui é obrigatório pro cadastro seguir.
+    const end={
+      logradouro:(d.logradouro||'').trim(), numero:(d.numero||'').trim(),
+      complemento:(d.complemento||'').trim(), bairro:(d.bairro||'').trim(),
+      cep:(d.cep||'').trim(), municipio:(d.municipio||'').trim(), uf:(d.uf||'').trim()
+    };
+    cadSt.novaConta={cnpj:raw, razao:cadSemAcento(razao), daReceita:true, endereco:end}; // payload do futuro POST /contas
     const alerta=sit&&!/ativa/i.test(sit)?` · <b style="color:#C4451B">situação ${cadEsc(sit)}</b>`:'';
     msg.style.color='#1B7A3D'; msg.innerHTML='✓ Dados da Receita'+alerta+' — confira o nome antes de criar.';
     sub=razao&&razao!==nome?`<div style="font-size:11.5px;color:#7A8794;margin-top:4px">Razão social: ${cadEsc(razao)}</div>`:'';
@@ -7494,13 +7594,14 @@ async function cadCriarConta(){
   const cnpj=(cadSt.novaConta&&cadSt.novaConta.cnpj)||'';
   if(cnpj.length!==14){ toast('CNPJ não encontrado — busque o CNPJ antes de criar a conta.'); return; }
   const razao=(cadSt.novaConta&&cadSt.novaConta.razao)||'';
+  const endereco=(cadSt.novaConta&&cadSt.novaConta.endereco)||null;
   cadSt.novaConta=Object.assign({},cadSt.novaConta,{nome});
   /* Lembrete: se Tipo_de_localizacao__c="Situado em shopping center", SF exige Shopping_Center_associado__c
      (esse campo entra depois, na tela do sistema — não é enviado aqui). */
   const btn=document.querySelector('#cadNovaResult button');
   if(btn){ btn.disabled=true; btn.textContent='Criando conta…'; }
   try{
-    const conta=await bePost('/contas',{nome,razao,cnpj});
+    const conta=await bePost('/contas',{nome,razao,cnpj,endereco});
     if(conta&&conta.pending){
       toast('A conta está sendo criada — toque em "Criar conta e continuar" de novo em alguns segundos.');
       if(btn){ btn.disabled=false; btn.textContent='Criar conta e continuar'; }
@@ -9093,6 +9194,7 @@ async function beHydrate(quiet){
     }
     checkUrgentAlerts();
     acmpAtualizarAlertas().catch(()=>{}); /* pedidos de compra precisando de atenção — não bloqueia o hydrate principal */
+    recpAtualizarPendentesCount().catch(()=>{}); /* entradas pendentes p/ home enxuta — não bloqueia o hydrate principal */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
 }
