@@ -1,8 +1,8 @@
 [{
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-          "namespace": "android_app",
-          "package_name": "br.com.exaustech.campo",
-          "sha256_cert_fingerprints": ["C1:79:D4:E7:D4:D5:99:C5:0F:FA:9E:14:6D:58:0B:2A:43:9F:4F:11:93:CA:93:C6:79:34:78:B6:E1:62:5F:AF"]
-    }
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+              "namespace": "android_app",
+              "package_name": "br.com.exaustech.fieldservice",
+              "sha256_cert_fingerprints": ["03:DB:24:43:D2:C5:7D:61:8E:39:F0:79:97:9D:E4:E7:08:E0:7D:18:16:8A:AE:90:E1:08:32:BD:DF:C1:F3:D8"]
+      }
 }]
