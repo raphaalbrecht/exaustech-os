@@ -113,7 +113,8 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v142'; // v142 18/07: fix real (achado testando ao vivo) — PDF de etiquetas envio+retorno vira 1 download só (Safari iOS bloqueava o 2º download automático, sumindo com a de envio); botão "Confirmar separação concluída" troca height fixo por min-height (texto que quebra em 2 linhas não vaza mais pra fora do botão)
+const CACHE = 'exaustech-os-v143'; // v143 18/07: etiquetas de envio/retorno ganham ORIGEM/DESTINO explícitos — DESTINO em faixa preta/texto branco pra dar destaque (pedido do Raphael); envio ORIGEM=Estoque Exaustech→DESTINO=cliente, retorno invertido; nº da separação (SEP-xxxx) e QR continuam os mesmos nas duas
+// v142 18/07: fix real (achado testando ao vivo) — PDF de etiquetas envio+retorno vira 1 download só (Safari iOS bloqueava o 2º download automático, sumindo com a de envio); botão "Confirmar separação concluída" troca height fixo por min-height (texto que quebra em 2 linhas não vaza mais pra fora do botão)
 // v141 18/07: FAB "Atualizar" global vira bolinha só com ícone (era pill com texto) — parava de cobrir/cortar botões de ação no rodapé de páginas como estoqueSepPage (Opção B do Fable, aprovada pelo Raphael)
 // v140 17/07: Enviar+Receber mesclados em split 50/50 + ícones de linha (box/truck/send/receive/warehouse) no lugar de emoji nas tiles/botões do Estoque
 // v139 17/07: remove o carrossel de dia da home do Estoque (pedido do Raphael)

@@ -6646,14 +6646,23 @@ function estoquePendPage(wrap){
   wrap.appendChild(card);
 }
 /* ===== ETIQUETAS DE SEPARAÇÃO (Zebra via Browser Print no PC do estoque; fallback = PDF p/ imprimir onde estiver) ===== */
+/* 18/07/2026: etiquetas ganham ORIGEM/DESTINO explícitos (pedido do Raphael) — o DESTINO é o que
+   importa pra quem vai entregar o volume, por isso leva a faixa preta com texto branco (mais
+   destaque que o ORIGEM, que fica em texto normal). Envio: ORIGEM=Estoque Exaustech (fixo),
+   DESTINO=cliente/local da OS. Retorno: invertido — ORIGEM=cliente/local, DESTINO=Estoque Exaustech
+   (o material está voltando pra base). O nº da separação (s.id) e o QR NÃO mudam entre as duas — é
+   a mesma etiqueta física em espírito, só o contexto ORIGEM/DESTINO se inverte. */
+const ETQ_BASE='ESTOQUE EXAUSTECH';
 function etqZPL(s,o,i,n){ /* etiqueta 100×50mm @203dpi (800×400 dots), QR com o nº da SEP */
-  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,60);
+  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,34);
   return '^XA^CI28'
-    +'^FO30,22^A0N,34,34^FDEXAUSTECH - SEPARACAO DE MATERIAIS^FS'
-    +'^FO30,72^A0N,80,80^FD'+s.id+'^FS'
-    +'^FO30,168^A0N,34,34^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
-    +'^FO30,214^A0N,30,30^FB540,2,0,L^FD'+cli+'^FS'
-    +'^FO30,300^A0N,44,44^FDVOLUME '+i+' / '+n+'^FS'
+    +'^FO30,20^A0N,30,30^FDEXAUSTECH - SEPARACAO DE MATERIAIS^FS'
+    +'^FO30,58^A0N,66,66^FD'+s.id+'^FS'
+    +'^FO30,140^A0N,26,26^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
+    +'^FO30,174^A0N,24,24^FDORIGEM: '+ETQ_BASE+'^FS'
+    +'^FO30,208^GB540,55,55^FS' /* faixa preta = DESTINO */
+    +'^FO40,218^A0N,28,28^FR^FDDESTINO: '+cli+'^FS'
+    +'^FO30,296^A0N,40,40^FDVOLUME '+i+' / '+n+'^FS'
     +'^FO590,120^BQN,2,7^FDQA,'+s.id+'^FS'
     +'^PQ1^XZ';
 }
@@ -6675,78 +6684,57 @@ function desenharQR(doc,texto,x,y,tamMM){
   doc.setFillColor(0,0,0);
   for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) doc.rect(x+c*cel,y+r*cel,cel,cel,'F');
 }
-function etqPDF(s,o,n){ /* fallback: PDF com 1 etiqueta 100×50mm por página, imprime em qualquer impressora */
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
-  for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('EXAUSTECH — SEPARAÇÃO DE MATERIAIS',5,7);
-    doc.setFontSize(22); doc.text(s.id,5,18);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,26);
-    doc.text(String(o.cli||'').slice(0,48),5,32);
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('VOLUME '+i+' / '+n,5,43);
-    desenharQR(doc,s.id,71,10,24);
-    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,37,{align:'center'});
-  }
-  doc.save('Etiquetas-'+s.id+'.pdf');
-}
 /* Etiqueta de RETORNO (17/07/2026, ver DECISAO_fluxo-completo-separacao-retorno.md) — mesmo QR/Name
    da separação (s.id), já que o backend infere a transição pelo Status__c atual, não pelo conteúdo
-   do QR; visual diferente (faixa "RETORNO" destacada) só pra não confundir fisicamente com a de
-   envio na hora de colar no saco. */
+   do QR; visual diferente (faixa "RETORNO" destacada no topo) só pra não confundir fisicamente com a
+   de envio na hora de colar no saco. */
 function etqZPLRetorno(s,o,i,n){ /* mesma etiqueta 100×50mm, com bloco invertido preto/branco no topo */
-  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,60);
+  const data=o._dataISO?fmtDataBR(o._dataISO):''; const cli=(o.cli||'').replace(/[\^~\\]/g,' ').slice(0,34);
   return '^XA^CI28'
-    +'^FO0,0^GB800,60,60^FS' /* faixa preta no topo */
-    +'^FO30,10^A0N,40,40^FR^FDEXAUSTECH — RETORNO DE MATERIAL^FS' /* texto branco (^FR) sobre a faixa */
-    +'^FO30,72^A0N,80,80^FD'+s.id+'^FS'
-    +'^FO30,168^A0N,34,34^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
-    +'^FO30,214^A0N,30,30^FB540,2,0,L^FD'+cli+'^FS'
-    +'^FO30,300^A0N,44,44^FDSACO '+i+' / '+n+'^FS'
+    +'^FO0,0^GB800,55,55^FS' /* faixa preta no topo — título */
+    +'^FO30,10^A0N,34,34^FR^FDEXAUSTECH - RETORNO DE MATERIAL^FS' /* texto branco (^FR) sobre a faixa */
+    +'^FO30,68^A0N,66,66^FD'+s.id+'^FS'
+    +'^FO30,148^A0N,26,26^FD'+o.id+(data?' - OS em '+data:'')+'^FS'
+    +'^FO30,182^A0N,24,24^FDORIGEM: '+cli+'^FS'
+    +'^FO30,216^GB540,55,55^FS' /* faixa preta = DESTINO (volta pro estoque) */
+    +'^FO40,226^A0N,28,28^FR^FDDESTINO: '+ETQ_BASE+'^FS'
+    +'^FO30,300^A0N,40,40^FDSACO '+i+' / '+n+'^FS'
     +'^FO590,120^BQN,2,7^FDQA,'+s.id+'^FS'
     +'^PQ1^XZ';
 }
-function etqPDFRetorno(s,o,n){ /* fallback PDF, mesmo QR (Name), faixa vermelha destacando RETORNO */
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
-  for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
-    doc.setFillColor(180,5,23); doc.rect(0,0,100,10,'F');
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('EXAUSTECH — RETORNO DE MATERIAL',5,7);
-    doc.setTextColor(0,0,0);
-    doc.setFontSize(22); doc.text(s.id,5,20);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,28);
-    doc.text(String(o.cli||'').slice(0,48),5,34);
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('SACO '+i+' / '+n,5,43);
-    desenharQR(doc,s.id,71,12,24);
-    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
-  }
-  doc.save('Etiquetas-retorno-'+s.id+'.pdf');
-}
-/* 18/07/2026: no fallback sem Zebra, etqPDF()+etqPDFRetorno() geravam 2 downloads separados — em
+/* 18/07/2026: no fallback sem Zebra, PDFs de envio e retorno geravam 2 downloads separados — em
    Safari (iOS, onde o app roda de verdade) o 2º download automático em sequência é bloqueado/some
    silenciosamente, então só a etiqueta de retorno chegava a aparecer pro estoquista (achado do
    Raphael testando ao vivo). Fix: 1 PDF só, envio nas primeiras N páginas + retorno nas N
    seguintes — sai tudo num único download/impressão, sem depender do navegador permitir 2 saves. */
 function etqPDFCombinado(s,o,n){
   const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
+  const cli=String(o.cli||'—').slice(0,28), osLinha=o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):'');
   for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
     doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('EXAUSTECH — SEPARAÇÃO DE MATERIAIS',5,7);
-    doc.setFontSize(22); doc.text(s.id,5,18);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,26);
-    doc.text(String(o.cli||'').slice(0,48),5,32);
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('VOLUME '+i+' / '+n,5,43);
+    doc.setFontSize(16); doc.text(s.id,5,16);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.text(osLinha,5,21);
+    doc.text('ORIGEM: '+ETQ_BASE,5,26);
+    doc.setFillColor(0,0,0); doc.rect(5,28,60,8,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text('DESTINO: '+cli,7,33.5);
+    doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('VOLUME '+i+' / '+n,5,43);
     desenharQR(doc,s.id,71,10,24);
     doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,37,{align:'center'});
   }
   for(let i=1;i<=n;i++){ doc.addPage([100,50],'landscape');
     doc.setFillColor(180,5,23); doc.rect(0,0,100,10,'F');
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('EXAUSTECH — RETORNO DE MATERIAL',5,7);
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('EXAUSTECH — RETORNO DE MATERIAL',5,7);
     doc.setTextColor(0,0,0);
-    doc.setFontSize(22); doc.text(s.id,5,20);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,28);
-    doc.text(String(o.cli||'').slice(0,48),5,34);
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('SACO '+i+' / '+n,5,43);
+    doc.setFontSize(16); doc.text(s.id,5,18);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.text(osLinha,5,23);
+    doc.text('ORIGEM: '+cli,5,28);
+    doc.setFillColor(0,0,0); doc.rect(5,30,60,8,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text('DESTINO: '+ETQ_BASE,7,35.5);
+    doc.setTextColor(0,0,0);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('SACO '+i+' / '+n,5,45);
     desenharQR(doc,s.id,71,12,24);
     doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
   }
