@@ -6585,7 +6585,7 @@ function estoqueSepPage(wrap){
     <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
   wrap.appendChild(etq);
   const todos=(s.materiais||[]).length>0 && (s.materiais||[]).every(m=>(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0);
-  const done=document.createElement('button'); done.className='btn btn-brand'; done.style.cssText='width:100%;margin-top:12px;height:52px;font-size:15px';
+  const done=document.createElement('button'); done.className='btn btn-brand'; done.style.cssText='width:100%;margin-top:12px;min-height:52px;font-size:15px;line-height:1.3';
   done.textContent='📦 Confirmar separação concluída'; done.disabled=!todos;
   if(!todos){ done.style.opacity='.5'; }
   done.onclick=()=>{ if(!todos) return toast('⚠️ Separe todos os itens antes de confirmar');
@@ -6720,6 +6720,37 @@ function etqPDFRetorno(s,o,n){ /* fallback PDF, mesmo QR (Name), faixa vermelha 
     doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
   }
   doc.save('Etiquetas-retorno-'+s.id+'.pdf');
+}
+/* 18/07/2026: no fallback sem Zebra, etqPDF()+etqPDFRetorno() geravam 2 downloads separados — em
+   Safari (iOS, onde o app roda de verdade) o 2º download automático em sequência é bloqueado/some
+   silenciosamente, então só a etiqueta de retorno chegava a aparecer pro estoquista (achado do
+   Raphael testando ao vivo). Fix: 1 PDF só, envio nas primeiras N páginas + retorno nas N
+   seguintes — sai tudo num único download/impressão, sem depender do navegador permitir 2 saves. */
+function etqPDFCombinado(s,o,n){
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:'mm',format:[100,50],orientation:'landscape'});
+  for(let i=1;i<=n;i++){ if(i>1) doc.addPage([100,50],'landscape');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text('EXAUSTECH — SEPARAÇÃO DE MATERIAIS',5,7);
+    doc.setFontSize(22); doc.text(s.id,5,18);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,26);
+    doc.text(String(o.cli||'').slice(0,48),5,32);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('VOLUME '+i+' / '+n,5,43);
+    desenharQR(doc,s.id,71,10,24);
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,37,{align:'center'});
+  }
+  for(let i=1;i<=n;i++){ doc.addPage([100,50],'landscape');
+    doc.setFillColor(180,5,23); doc.rect(0,0,100,10,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('EXAUSTECH — RETORNO DE MATERIAL',5,7);
+    doc.setTextColor(0,0,0);
+    doc.setFontSize(22); doc.text(s.id,5,20);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(o.id+(o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''),5,28);
+    doc.text(String(o.cli||'').slice(0,48),5,34);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('SACO '+i+' / '+n,5,43);
+    desenharQR(doc,s.id,71,12,24);
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
+  }
+  doc.save('Etiquetas-envio-retorno-'+s.id+'.pdf');
 }
 /* ===== BIPAR (custódia física via QR — Frente B): Marcos bipa retirada na base, Líder de Equipe
    bipa recebimento na loja. Mesma tela pros dois papéis — o backend (POST /separacoes/scan) decide
@@ -6917,8 +6948,7 @@ async function imprimirEtiquetas(){
     }catch(e){ toast('⚠️ Zebra falhou ('+e.message+') — gerando PDF'); }
   } else toast('Zebra não encontrada neste computador — gerando PDF para imprimir');
   if(!window.jspdf||!window.jspdf.jsPDF) return toast('Gerador de PDF ainda carregando…');
-  etqPDF(s,o,n);
-  etqPDFRetorno(s,o,n);
+  etqPDFCombinado(s,o,n);
 }
 function sepToggleItem(mi){
   const s=estoqView.sep; const m=s.materiais[mi]; if(!m) return;
