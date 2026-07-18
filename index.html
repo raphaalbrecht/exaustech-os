@@ -735,10 +735,6 @@
 
     <!-- ESTOQUE (painel do estoquista) -->
     <section class="screen" id="scr-estoque">
-      <div class="sched-top">
-        <div class="sched-title">Estoque</div>
-        <div class="days" id="estoqDays"></div>
-      </div>
       <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
         <div style="display:flex;gap:8px">
           <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar OS ou cliente…"
@@ -752,7 +748,6 @@
         </div>
         <div id="estoqBuscaResults"></div>
       </div>
-      <div class="daylabel" id="estoqDayLabel"></div>
       <div id="estoqueList"></div>
     </section>
 
@@ -3198,7 +3193,6 @@ function renderEstoqDays(){
   const lbl=document.getElementById('estoqDayLabel'); if(lbl) lbl.textContent=estoqDia?(DAYLABEL[estoqDia]||''):'Todos os dias';
 }
 function renderEstoque(){
-  renderEstoqDays();
   const buscaWrap=document.getElementById('estoqBuscaWrap');
   const naHome=(estoqView.mode==='dash');
   if(buscaWrap) buscaWrap.style.display=naHome?'block':'none';
@@ -3207,15 +3201,11 @@ function renderEstoque(){
     const btnNfc=document.getElementById('estoqBtnNfc'); if(btnNfc) btnNfc.style.display=estoqNfcSuportado()?'block':'none';
     if(_estoqAutoFoco){ _estoqAutoFoco=false; const inp=document.getElementById('estoqBusca'); if(inp) setTimeout(()=>inp.focus(),50); }
   }
-  /* carrossel de dia + rótulo do dia (cabeçalho "Estoque") só fazem sentido na home — em qualquer
-     página interna (separação, pós-cancelamento, lista filtrada, wizard de endereço, entradas
-     pendentes, gerenciar estrutura, acompanhamento de pedido) o carrossel some (17/07/2026, pedido
-     do Raphael: antes só sumia no wizard/recebimentos/estrutura/acompanhamento, deixando o quadrado
-     "HOJE" solto acima de páginas como sep* que não são navegadas por dia). */
-  const schedTop=document.querySelector('#scr-estoque .sched-top');
-  const dayLabel=document.getElementById('estoqDayLabel');
-  if(schedTop) schedTop.style.display=naHome?'':'none';
-  if(dayLabel) dayLabel.style.display=naHome?'':'none';
+  /* Carrossel de dia removido do Estoque inteiro (17/07/2026, pedido do Raphael) — a home enxuta
+     (v138) já resolve "o que fazer agora" só por pendência, sem precisar filtrar por dia; o
+     conceito de "dia selecionado" (estoqDia) fica em desuso, mas sepListDia()/sepListAll() seguem
+     existindo (estoqDia nunca é setado por ninguém agora, então sepListDia()===sepListAll() sempre
+     — nenhuma tela perde dado, só para de filtrar). */
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
   if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
