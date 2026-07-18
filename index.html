@@ -8746,10 +8746,15 @@ async function sfMaybePushItem(eq){
   catch(e){ eq._sfDone=false; toast('Erro ao concluir item: '+e.message); }
 }
 (function(){
-  const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔄 Atualizar';
+  /* 18/07/2026: FAB "Atualizar" encolhido de pill-com-texto pra bolinha só com ícone (Opção B do
+     Fable, aprovada pelo Raphael) — pill largo cobria/cortava botões de ação no rodapé de páginas
+     como estoqueSepPage. Mudança GLOBAL: resolve em qualquer tela que tenha botão fixo no rodapé,
+     não só na de separação. */
+  const b=document.createElement('button'); b.id='sfLiveBtn'; b.textContent='🔄';
+  b.title='Atualizar'; b.setAttribute('aria-label','Atualizar');
   b.onclick=function(){ beTok() ? beHydrate() : go('login'); };
-  b.style.cssText='position:fixed;right:12px;bottom:70px;z-index:99999;background:#0B5CAB;color:#fff;border:none;border-radius:20px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;display:none';
-  const show=()=>{ b.style.display = beTok()?'block':'none'; };
+  b.style.cssText='position:fixed;right:12px;bottom:78px;z-index:99999;width:40px;height:40px;background:#0B5CAB;color:#fff;border:none;border-radius:50%;font-size:17px;line-height:1;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+  const show=()=>{ b.style.display = beTok()?'flex':'none'; };
   document.addEventListener('DOMContentLoaded',()=>{document.body.appendChild(b);show();});
   if(document.body){ document.body.appendChild(b); show(); }
   setInterval(show, 1500);

@@ -113,7 +113,8 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v140'; // v140 17/07: Enviar+Receber mesclados em split 50/50 + ícones de linha (box/truck/send/receive/warehouse) no lugar de emoji nas tiles/botões do Estoque
+const CACHE = 'exaustech-os-v141'; // v141 18/07: FAB "Atualizar" global vira bolinha só com ícone (era pill com texto) — parava de cobrir/cortar botões de ação no rodapé de páginas como estoqueSepPage (Opção B do Fable, aprovada pelo Raphael)
+// v140 17/07: Enviar+Receber mesclados em split 50/50 + ícones de linha (box/truck/send/receive/warehouse) no lugar de emoji nas tiles/botões do Estoque
 // v139 17/07: remove o carrossel de dia da home do Estoque (pedido do Raphael)
 // v138 17/07: home do Estoque reestruturada — pendências + Enviar/Receber/Armazém (Versão A aprovada pelo Raphael)
 // v137 17/07: fluxo completo separação/retorno Fase 1 — 4 status
