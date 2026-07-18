@@ -1,0 +1,8 @@
+[{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+          "namespace": "android_app",
+          "package_name": "br.com.exaustech.campo",
+          "sha256_cert_fingerprints": ["C1:79:D4:E7:D4:D5:99:C5:0F:FA:9E:14:6D:58:0B:2A:43:9F:4F:11:93:CA:93:C6:79:34:78:B6:E1:62:5F:AF"]
+    }
+}]
