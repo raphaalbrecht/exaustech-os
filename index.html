@@ -1099,7 +1099,18 @@ const IC={
   pin:'<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.3"/>',
   camera:'<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>',
   inbox:'<path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/>',
+  send:'<path d="M7 17L17 7"/><path d="M9 7h8v8"/>',
+  receive:'<path d="M17 7L7 17"/><path d="M7 9v8h8"/>',
+  warehouse:'<path d="M4 21V10l8-6 8 6v11H4z"/><path d="M9 21v-6h6v6"/>',
+  truck:'<path d="M3 16V7h10v9"/><path d="M13 10h4l3 3v3h-2"/><path d="M5.9 18h9.2"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
 };
+/* ícone de linha (mesmo padrão svgI/IC) colorido sob medida — usado nas tiles/botões do Estoque
+   que trocaram emoji por ícone simples (17/07/2026, pedido do Raphael: "evite ícones com muito
+   detalhe gráfico"). cor pode ser hex (tile clara, ícone na cor da marca) ou '#fff' (bloco cheio). */
+function estoqIcoSvg(nome,cor,tam){
+  tam=tam||20;
+  return `<svg viewBox="0 0 24 24" style="width:${tam}px;height:${tam}px;display:block;fill:none;stroke:${cor};stroke-width:2;stroke-linecap:round;stroke-linejoin:round">${IC[nome]||''}</svg>`;
+}
 function svgI(n){ return `<svg viewBox="0 0 24 24">${IC[n]||''}</svg>`; }
 function tile(n,color){ return `<span class="tile" style="background:${color}">${svgI(n)}</span>`; }
 function inI(n){ return `<span class="ico">${svgI(n)}</span>`; }
@@ -3231,11 +3242,15 @@ function renderEstoque(){
   ['separar','emsep'].forEach(k=>{
     const t=ESTOQ_TILES.find(x=>x.key===k);
     const n=sepsDia.filter(t.f).length;
-    grid.appendChild(estoqTileEl(t.label,t.icon,t.cor,n,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,t.key); }));
+    /* ícone de linha (17/07/2026, pedido do Raphael: "evite ícones com muito detalhe gráfico") —
+       só 'separar' trocou por enquanto (o exemplo dele foi a caixa/caminhão); os demais tiles
+       continuam com o emoji de sempre, mudança cirúrgica. */
+    const ic=(k==='separar')?estoqIcoSvg('box',t.cor):t.icon;
+    grid.appendChild(estoqTileEl(t.label,ic,t.cor,n,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,t.key); }));
   });
   /* "Entradas pendentes" é tile VIRTUAL (não vem de ESTOQ_TILES/sepListAll — usa recpPendentesCount,
      atualizado a cada hydrate por recpAtualizarPendentesCount) e abre direto o fluxo recp*. */
-  grid.appendChild(estoqTileEl('Entradas pendentes','📥','#3E7EB0',recpPendentesCount,false,()=>{ recpReset(); estoqView.origem='home'; estoqGo('recebimentos'); recpCarregarLista(); }));
+  grid.appendChild(estoqTileEl('Entradas pendentes',estoqIcoSvg('truck','#3E7EB0'),'#3E7EB0',recpPendentesCount,false,()=>{ recpReset(); estoqView.origem='home'; estoqGo('recebimentos'); recpCarregarLista(); }));
   const tCanc=ESTOQ_TILES.find(x=>x.key==='cancelamento');
   const nCanc=sepsDia.filter(tCanc.f).length;
   if(nCanc) grid.appendChild(estoqTileEl(tCanc.label,tCanc.icon,tCanc.cor,nCanc,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'cancelamento'); }));
@@ -3243,22 +3258,26 @@ function renderEstoque(){
   const nRetC=sepsDia.filter(tRetC.f).length;
   if(nRetC) grid.appendChild(estoqTileEl(tRetC.label,tRetC.icon,tRetC.cor,nRetC,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'retornosconf'); }));
   wrap.appendChild(grid);
-  /* 3 botões empilhados "Versão A": Enviar (cheio) > Receber (contornado) > Armazém (discreto) */
+  /* Enviar/Receber mesclados em split 50/50 (17/07/2026, pedido do Raphael — "Versão C" dos
+     mockups pro par Enviar/Receber, combinada com as tiles grandes da "Versão A" acima); Armazém
+     continua discreto/pequeno embaixo, como já era. */
   const btnWrap=document.createElement('div'); btnWrap.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:14px';
+  const splitWrap=document.createElement('div'); splitWrap.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
   const btnEnviar=document.createElement('div');
-  btnEnviar.style.cssText='background:#3E7EB0;color:#fff;border-radius:12px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px';
-  btnEnviar.innerHTML=`<span style="font-size:20px">📤</span><span style="flex:1;font-weight:700;font-size:14.5px">Enviar</span><span style="font-size:18px">›</span>`;
+  btnEnviar.style.cssText='background:#3E7EB0;color:#fff;border-radius:12px;padding:18px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px';
+  btnEnviar.innerHTML=`${estoqIcoSvg('send','#fff',22)}<span style="font-weight:700;font-size:14.5px">Enviar</span>`;
   btnEnviar.onclick=()=>{ estoqGo('enviar'); };
-  btnWrap.appendChild(btnEnviar);
+  splitWrap.appendChild(btnEnviar);
   const btnReceber=document.createElement('div');
   const nAlertasHome=acmpAlertas.length;
-  btnReceber.style.cssText='background:#fff;border:1.5px solid #3E7EB0;color:#3E7EB0;border-radius:12px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px';
-  btnReceber.innerHTML=`<span style="font-size:20px">📥</span><span style="flex:1;font-weight:700;font-size:14.5px">Receber</span>${nAlertasHome?('<span class="lz lz-warn" style="margin-right:2px">'+nAlertasHome+'</span>'):''}<span style="font-size:18px">›</span>`;
+  btnReceber.style.cssText='background:#2e844a;color:#fff;border-radius:12px;padding:18px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px';
+  btnReceber.innerHTML=`${estoqIcoSvg('receive','#fff',22)}<span style="font-weight:700;font-size:14.5px">Receber${nAlertasHome?(' <span class="lz lz-warn" style="margin-left:2px">'+nAlertasHome+'</span>'):''}</span>`;
   btnReceber.onclick=()=>{ estoqGo('receber'); };
-  btnWrap.appendChild(btnReceber);
+  splitWrap.appendChild(btnReceber);
+  btnWrap.appendChild(splitWrap);
   const btnArmazem=document.createElement('div');
   btnArmazem.style.cssText='background:#fff;border:1px solid #e5e8ec;color:#4A5560;border-radius:12px;padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px';
-  btnArmazem.innerHTML=`<span style="font-size:16px">🏗️</span><span style="flex:1;font-weight:600">Armazém</span><span style="font-size:16px">›</span>`;
+  btnArmazem.innerHTML=`${estoqIcoSvg('warehouse','#4A5560',16)}<span style="flex:1;font-weight:600">Armazém</span><span style="font-size:16px">›</span>`;
   btnArmazem.onclick=()=>{ estoqGo('armazem'); };
   btnWrap.appendChild(btnArmazem);
   wrap.appendChild(btnWrap);
