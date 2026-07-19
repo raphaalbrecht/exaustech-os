@@ -113,7 +113,8 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v145'; // v145 18/07: botão "Registrar separação" pendente fica LARANJA (#C25E0A, mesma cor do "falta separar" no sepRow) em vez de azul esmaecido — chama mais atenção pra pendência (pedido do Raphael)
+const CACHE = 'exaustech-os-v146'; // v146 18/07: botão "Imprimir etiquetas (envio + retorno)" troca height fixo por min-height — mesmo bug do "Confirmar separação" (v142), texto de 2 linhas vazava pra fora do botão
+// v145 18/07: botão "Registrar separação" pendente fica LARANJA (#C25E0A, mesma cor do "falta separar" no sepRow) em vez de azul esmaecido — chama mais atenção pra pendência (pedido do Raphael)
 // v144 18/07: botão final da tela de separação vira "Registrar separação" e fica verde quando todos os itens já foram separados (era sempre azul, texto "Confirmar separação concluída")
 // v143 18/07: etiquetas de envio/retorno ganham ORIGEM/DESTINO explícitos — DESTINO em faixa preta/texto branco pra dar destaque (pedido do Raphael); envio ORIGEM=Estoque Exaustech→DESTINO=cliente, retorno invertido; nº da separação (SEP-xxxx) e QR continuam os mesmos nas duas
 // v142 18/07: fix real (achado testando ao vivo) — PDF de etiquetas envio+retorno vira 1 download só (Safari iOS bloqueava o 2º download automático, sumindo com a de envio); botão "Confirmar separação concluída" troca height fixo por min-height (texto que quebra em 2 linhas não vaza mais pra fora do botão)

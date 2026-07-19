@@ -6580,7 +6580,7 @@ function estoqueSepPage(wrap){
     <div style="display:flex;align-items:center;gap:10px">
       <label style="font-size:12.5px;color:#4A5560;font-weight:600">Volumes:</label>
       <input type="number" id="etqQtd" min="1" max="50" value="1" style="width:70px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;text-align:center">
-      <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;height:44px;margin:0" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas (envio + retorno)</button>
+      <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;min-height:44px;margin:0;line-height:1.25;padding:8px 10px" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas (envio + retorno)</button>
     </div>
     <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
   wrap.appendChild(etq);
