@@ -6585,9 +6585,13 @@ function estoqueSepPage(wrap){
     <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
   wrap.appendChild(etq);
   const todos=(s.materiais||[]).length>0 && (s.materiais||[]).every(m=>(m.embarcado||0)>=(m.solicitado||0)&&(m.solicitado||0)>0);
+  /* 18/07/2026 (pedido do Raphael): texto vira "Registrar separação"; fica azul (brand) enquanto
+     falta separar item, e vira VERDE quando todos os itens já foram separados — cor dá o mesmo
+     sinal que o toggle "separado ✓" de cada item, só que agregado no botão final. */
   const done=document.createElement('button'); done.className='btn btn-brand'; done.style.cssText='width:100%;margin-top:12px;min-height:52px;font-size:15px;line-height:1.3';
-  done.textContent='📦 Confirmar separação concluída'; done.disabled=!todos;
+  done.textContent='📦 Registrar separação'; done.disabled=!todos;
   if(!todos){ done.style.opacity='.5'; }
+  else { done.style.background='#2e844a'; }
   done.onclick=()=>{ if(!todos) return toast('⚠️ Separe todos os itens antes de confirmar');
     s.status='Pronta para embarque';
     if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Pronta para embarque'},'Separação pronta')
