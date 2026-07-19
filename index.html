@@ -6593,7 +6593,7 @@ function estoqueSepPage(wrap){
      (var(--brand-d)) quando habilitado. Verde fica reservado pro toggle de cada item (acima), que é
      quem sinaliza "esse material está separado"; o botão final só sinaliza "pronto pra registrar". */
   const done=document.createElement('button'); done.className='btn'; done.style.cssText='width:100%;margin-top:12px;min-height:52px;font-size:15px;line-height:1.3;color:#fff;border:none';
-  done.textContent='📦 Registrar separação'; done.disabled=!todos;
+  done.textContent='📦 Confirmar: Etiquetado e pronto para embarque'; done.disabled=!todos;
   if(todos){ done.style.background='var(--brand-d)'; done.style.opacity='1'; }
   else { done.style.background='var(--brand)'; done.style.opacity='.5'; }
   done.onclick=()=>{ if(!todos) return toast('⚠️ Separe todos os itens antes de confirmar');
