@@ -6706,7 +6706,7 @@ function etqZPLRetorno(s,o,i,n){ /* mesma etiqueta 100×50mm, com bloco invertid
     +'^FO30,182^A0N,24,24^FDORIGEM: '+cli+'^FS'
     +'^FO30,216^GB540,55,55^FS' /* faixa preta = DESTINO (volta pro estoque) */
     +'^FO40,226^A0N,28,28^FR^FDDESTINO: '+ETQ_BASE+'^FS'
-    +'^FO30,300^A0N,40,40^FDSACO '+i+' / '+n+'^FS'
+    +'^FO30,300^A0N,40,40^FDVOLUME '+i+' / '+n+'^FS'
     +'^FO590,120^BQN,2,7^FDQA,'+s.id+'^FS'
     +'^PQ1^XZ';
 }
@@ -6742,7 +6742,7 @@ function etqPDFCombinado(s,o,n){
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
     doc.text('DESTINO: '+ETQ_BASE,7,35.5);
     doc.setTextColor(0,0,0);
-    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('SACO '+i+' / '+n,5,45);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('VOLUME '+i+' / '+n,5,45);
     desenharQR(doc,s.id,71,12,24);
     doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.text(s.id,83,39,{align:'center'});
   }

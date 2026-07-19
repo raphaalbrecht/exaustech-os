@@ -113,7 +113,8 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v148'; // v148 18/07: texto do botão final da tela de separação vira "Confirmar: Etiquetado e pronto para embarque" (era "Registrar separação")
+const CACHE = 'exaustech-os-v149'; // v149 18/07: etiqueta de RETORNO passa a dizer "VOLUME X/Y" (era "SACO X/Y"), igual à de envio — pedido do Raphael
+// v148 18/07: texto do botão final da tela de separação vira "Confirmar: Etiquetado e pronto para embarque" (era "Registrar separação")
 // v147 18/07: reorganiza cores dos botões da tela de separação (pedido do Raphael) — toggle por item vira "Registrar separação" azul→VERDE quando separado; botão final volta a ser azul esmaecido→AZUL ESCURO (reverte o laranja/verde do v145, que agora fica só no toggle por item)
 // v146 18/07: botão "Imprimir etiquetas (envio + retorno)" troca height fixo por min-height — mesmo bug do "Confirmar separação" (v142), texto de 2 linhas vazava pra fora do botão
 // v145 18/07: botão "Registrar separação" pendente fica LARANJA (#C25E0A, mesma cor do "falta separar" no sepRow) em vez de azul esmaecido — chama mais atenção pra pendência (pedido do Raphael)
