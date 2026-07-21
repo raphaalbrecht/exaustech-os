@@ -9910,10 +9910,31 @@ function motAmpliarExtra(t,k){
   document.getElementById('mot-refhd-tit').textContent='📷 Foto extra';
   const rb=document.getElementById('mot-refbody');
   rb.innerHTML='<div class="mot-refimg" id="mot-extra-img" style="'+motFotoBgStyle(m)+'"><span class="mot-reftag">EXTRA</span></div>'+
-    '<div class="mot-reffoot">foto extra anexada à tarefa'+(m.data?' · '+motFmtHora(m.data):'')+'</div>';
+    '<div class="mot-reffoot">foto extra anexada à tarefa'+(m.data?' · '+motFmtHora(m.data):'')+'</div>'+
+    '<button class="mot-refflagbtn" id="mot-extra-remove">🗑 Remover esta foto</button>';
   document.getElementById('mot-refmodal').classList.add('on');
   document.getElementById('mot-refscrim').classList.add('on');
   if(!m._localUrl&&m.driveId) beArquivoDataURL(m.driveId).then(du=>{ const el=document.getElementById('mot-extra-img'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{});
+  rb.querySelector('#mot-extra-remove').addEventListener('click',()=>motRemoverFotoExtra(t,k));
+}
+/* 21/07/2026: "remover" pedido pelo Raphael — só existia "trocar" (Refazer foto). Ambos os slots
+   (antes/depois e extras) guardam array de capturas; remover = tirar a última (antes/depois) ou
+   a específica (extra) do array local + apagar o Midia_OS__c no Salesforce (best-effort — igual
+   ao padrão já usado em removeFotoExtra() da OS clássica: nunca bloqueia por falha de rede, só avisa). */
+function motRemoverFotoPrincipal(t,tipo){
+  const arr=t.fotos[tipo]||[]; if(!arr.length) return;
+  const m=arr.pop();
+  if(m._midiaId) beDelete('/midias/'+m._midiaId,'Remover foto '+tipo).catch(()=>toast('⚠️ Registro não removido no Salesforce'));
+  motMarcarEdicao(t); toast('✅ Foto removida');
+  motRenderReview();
+}
+function motRemoverFotoExtra(t,k){
+  const arr=t.fotos.adicionais||[]; const m=arr[k]; if(!m) return;
+  if(m._midiaId) beDelete('/midias/'+m._midiaId,'Remover foto extra').catch(()=>toast('⚠️ Registro não removido no Salesforce'));
+  arr.splice(k,1);
+  motMarcarEdicao(t); toast('✅ Foto removida');
+  motFecharRef();
+  motRenderAtual();
 }
 function motAdicionarFotoExtra(t){
   pickPhoto(async file=>{
@@ -9923,7 +9944,7 @@ function motAdicionarFotoExtra(t){
     motMarcarEdicao(t); motRenderAtual();
     try{
       const r=await motUploadFoto(t.id,blob,t.id+'_extra_'+Date.now()+'.jpg','Foto Adicional');
-      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; } else if(r&&r._queued) toast('📡 Foto extra salva no aparelho — envia quando houver sinal');
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto extra salva no aparelho — envia quando houver sinal');
     }catch(e){ toast('Falha ao enviar foto extra: '+e.message); }
     motRenderAtual();
   });
@@ -9951,7 +9972,7 @@ function motCapturar(tipo){
     const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
     try{
       const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
     }catch(e){ toast('Falha ao enviar foto: '+e.message); }
     motRenderPosFoto(tipo);
   });
@@ -10295,9 +10316,11 @@ function motRenderReview(){
       motCkRowsHtml(t,true);
   }else{
     const tipo=MOT.rev;
+    const temFoto=!!(t.fotos[tipo]&&t.fotos[tipo].length);
     h+='<div class="mot-revhd">revisão · foto '+tipo.toUpperCase()+'</div>'+motFotoHtml(t,tipo)+motExtrasRowHtml(t);
-    h+='<div class="mot-fotorow"><button class="mot-addfoto mot-refoto">📷 '+((t.fotos[tipo]&&t.fotos[tipo].length)?'Refazer foto':'Tirar foto agora')+'</button>'+
-      '<button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
+    h+='<div class="mot-fotorow"><button class="mot-addfoto mot-refoto">📷 '+(temFoto?'Refazer foto':'Tirar foto agora')+'</button>'+
+      '<button class="mot-addfoto mot-addextra">+ foto extra</button>'+
+      (temFoto?'<button class="mot-addfoto mot-refremove">🗑 Remover foto</button>':'')+'</div>';
   }
   h+='<button class="mot-justok mot-contbtn">Continuar</button>';
   body.innerHTML=h;
@@ -10315,10 +10338,12 @@ function motRenderReview(){
       try{
         const backendTipo=MOT.rev==='antes'?'Foto Antes':'Foto Depois';
         const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; }
+        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; }
       }catch(e){ toast('Falha ao enviar foto: '+e.message); }
     });
   });
+  const rm=body.querySelector('.mot-refremove');
+  if(rm) rm.addEventListener('click',()=>motRemoverFotoPrincipal(t,MOT.rev));
   body.querySelector('.mot-contbtn').addEventListener('click',motSairRevisao);
   motHidratarThumbs(body);
 }
