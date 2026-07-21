@@ -739,7 +739,7 @@
   #mot-scrim.on{display:block}
   #mot-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(105%);width:100%;max-width:430px;background:var(--mot-surface);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(11,34,57,.28);transition:transform .25s;z-index:20;max-height:80vh;display:flex;flex-direction:column}
   #mot-sheet.on{transform:translateX(-50%) translateY(0)}
-  #mot-handle{width:44px;height:5px;border-radius:3px;background:#D5DAE0;margin:8px auto 2px;cursor:pointer}
+  #mot-handle{width:44px;height:5px;border-radius:3px;background:#D5DAE0;margin:6px auto 0;cursor:pointer;touch-action:none;padding:8px 30px;background-clip:content-box}
   #mot-shHead{padding:6px 16px 8px;border-bottom:1px solid var(--mot-border)}
   #mot-shHead b{font-size:.92rem;color:var(--mot-navy);display:block;line-height:1.25}
   #mot-shHead small{font-size:.68rem;color:var(--mot-text-soft)}
@@ -10658,6 +10658,32 @@ function motInitStatic(){
   const hd=document.getElementById('mot-handle'); if(hd) hd.addEventListener('click',motFecharSheet);
   const rs=document.getElementById('mot-refscrim'); if(rs) rs.addEventListener('click',motFecharRef);
   const rx=document.getElementById('mot-refx'); if(rx) rx.addEventListener('click',motFecharRef);
+  motWireDragFechar();
+}
+/* 21/07/2026: pedido do Raphael — arrastar a alcinha do sheet pra baixo também fecha (gesto
+   padrão de bottom sheet), além do toque simples que já fechava. Solta antes do limiar volta
+   pro lugar; solta depois do limiar (ou flick rápido) fecha, inclusive logo após concluir a OT. */
+function motWireDragFechar(){
+  const sheet=document.getElementById('mot-sheet'), handle=document.getElementById('mot-handle');
+  if(!sheet||!handle) return;
+  let startY=0, dy=0, dragging=false, startT=0;
+  function onStart(y){ dragging=true; startY=y; dy=0; startT=Date.now(); sheet.style.transition='none'; }
+  function onMove(y){ if(!dragging) return; dy=Math.max(0,y-startY); sheet.style.transform='translateX(-50%) translateY('+dy+'px)'; }
+  function onEnd(){
+    if(!dragging) return; dragging=false;
+    sheet.style.transition=''; sheet.style.transform='';
+    const dt=Math.max(1,Date.now()-startT), vel=dy/dt;
+    if(dy>90||(dy>24&&vel>0.5)) motFecharSheet();
+  }
+  handle.addEventListener('touchstart',e=>onStart(e.touches[0].clientY),{passive:true});
+  handle.addEventListener('touchmove',e=>onMove(e.touches[0].clientY),{passive:true});
+  handle.addEventListener('touchend',onEnd);
+  handle.addEventListener('mousedown',e=>{
+    onStart(e.clientY);
+    const mm=ev=>onMove(ev.clientY);
+    const mu=()=>{ onEnd(); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
+    window.addEventListener('mousemove',mm); window.addEventListener('mouseup',mu);
+  });
 }
 document.addEventListener('DOMContentLoaded',motInitStatic);
 
