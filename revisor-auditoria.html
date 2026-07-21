@@ -1509,13 +1509,13 @@ async function naAnalisarPdf(){
   const btn = document.getElementById('btnAnalisarPdf');
   const status = document.getElementById('naAnaliseStatus');
   btn.disabled = true; document.getElementById('btnAnalisarPdfTxt').textContent = 'Analisando…';
-  status.textContent = 'Lendo o PDF com IA (pode levar até ~60s)…';
-  // 17/07/2026: pedido do Raphael — 60s agora é o teto de 100% (era 25s estimados com teto de 92%,
-  // ver comentário de naProgressoIniciar acima). Passado esse tempo, o cronômetro (' · Ns' anexado
+  status.textContent = 'Lendo o PDF com IA (pode levar até ~80s)…';
+  // 17/07/2026: pedido do Raphael — 80s agora é o teto de 100% (era 60s, que antes era 25s c/ teto de
+  // 92%, ver comentário de naProgressoIniciar acima). Passado esse tempo, o cronômetro (' · Ns' anexado
   // ao %, já existente desde a rodada 19/11-07) entra em cena sozinho — mesma mecânica, só os
   // números mudaram; e msgLonga (3º parâmetro) reforça com texto explícito, mesmo padrão já usado
   // no fluxo "criar auditoria e importar PDF" (linha ~1675).
-  naProgressoIniciar(60000, 100, 'Ainda analisando — PDFs grandes ou com muitas páginas podem levar mais que 60s. Aguarde.');
+  naProgressoIniciar(80000, 100, 'Ainda analisando — PDFs grandes ou com muitas páginas podem levar mais que 80s. Aguarde.');
   let ok = false;
   try {
     const fd = new FormData();
