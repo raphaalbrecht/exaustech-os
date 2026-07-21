@@ -10047,6 +10047,7 @@ function motAvancarDe(tipo){
 }
 function motRenderJustif(tipo){
   const t=MOT.tarefas[MOT.atual];
+  const draftKey=tipo==='antes'?'_draftJustAntes':'_draftJustDepois';
   const body=document.getElementById('mot-shBody');
   body.innerHTML=
     '<div class="mot-justtit">Sem foto — registre o motivo</div>'+
@@ -10057,10 +10058,17 @@ function motRenderJustif(tipo){
     '<textarea class="mot-jtxt" placeholder="Outro motivo…"></textarea>'+
     '<button class="mot-justok">Registrar justificativa e continuar</button>'+
     '<button class="mot-voltalink" id="mot-jvoltar">← voltar e tentar fotografar</button>';
-  body.querySelectorAll('.mot-justchip').forEach(c=>{ c.addEventListener('click',()=>{ t[tipo==='antes'?'_antesJust':'_depoisJust']=c.textContent; motAvancarDe(tipo); }); });
+  const ta=body.querySelector('.mot-jtxt');
+  if(t[draftKey]) ta.value=t[draftKey];
+  /* 21/07/2026: pedido do Raphael — nada digitado pode se perder, mesmo sem botão "salvar".
+     Guarda um rascunho em memória a cada tecla; se a pessoa sair da tela (gesto, troca de
+     tarefa etc.) sem confirmar, o texto reaparece ao voltar aqui. Só vira definitivo (_antesJust/
+     _depoisJust) quando ela realmente confirma. */
+  ta.addEventListener('input',()=>{ t[draftKey]=ta.value; });
+  body.querySelectorAll('.mot-justchip').forEach(c=>{ c.addEventListener('click',()=>{ t[tipo==='antes'?'_antesJust':'_depoisJust']=c.textContent; t[draftKey]=null; motAvancarDe(tipo); }); });
   body.querySelector('.mot-justok').addEventListener('click',()=>{
     const v=body.querySelector('.mot-jtxt').value.trim(); if(!v){ body.querySelector('.mot-jtxt').focus(); return; }
-    t[tipo==='antes'?'_antesJust':'_depoisJust']=v; motAvancarDe(tipo);
+    t[tipo==='antes'?'_antesJust':'_depoisJust']=v; t[draftKey]=null; motAvancarDe(tipo);
   });
   body.querySelector('#mot-jvoltar').addEventListener('click',()=>{ t._fase=tipo; motRenderAtual(); });
 }
@@ -10269,8 +10277,10 @@ function motRenderAnota(){
     '<div class="mot-anhint" hidden>Descreva o achado antes de escolher a severidade.</div>'+
     '<button class="mot-voltalink" id="mot-anvoltar">← voltar</button>';
   const ta=body.querySelector('.mot-antxt');
-  if(MOT.edit&&t._desfechoLocal&&t._desfechoLocal.tipo==='nota'&&t._desfechoLocal.txt) ta.value=t._desfechoLocal.txt;
+  if(t._draftAnota) ta.value=t._draftAnota;
+  else if(MOT.edit&&t._desfechoLocal&&t._desfechoLocal.tipo==='nota'&&t._desfechoLocal.txt) ta.value=t._desfechoLocal.txt;
   else if(sugTxt) ta.value=sugTxt;
+  ta.addEventListener('input',()=>{ t._draftAnota=ta.value; }); /* rascunho em memória — nunca perde o que foi digitado */
   body.querySelector('#mot-anfoto').addEventListener('click',function(){
     const btn=this; btn.disabled=true; btn.textContent='Enviando…';
     pickPhoto(async file=>{
@@ -10288,6 +10298,7 @@ function motRenderAnota(){
     b.addEventListener('click',()=>{
       const txt=body.querySelector('.mot-antxt').value.trim();
       if(!txt){ body.querySelector('.mot-anhint').hidden=false; body.querySelector('.mot-antxt').focus(); return; }
+      t._draftAnota=null;
       if(MOT.edit) motAplicarDesfechoEdit('nota',b.dataset.sev,txt); else motConcluir('nota',b.dataset.sev,txt);
     });
   });
@@ -10326,6 +10337,9 @@ function motRenderNaoExec(){
     '<div class="mot-outrow" hidden><textarea class="mot-jtxt" placeholder="Descreva o motivo…"></textarea>'+
     '<button class="mot-justok">Registrar e ir para a próxima</button></div>'+
     '<button class="mot-voltalink" id="mot-nevoltar">'+(MOT.edit?'← voltar à edição do registro':'← voltar e tentar executar')+'</button>';
+  const outrow=body.querySelector('.mot-outrow'), ta=body.querySelector('.mot-jtxt');
+  if(t._draftNaoExec){ outrow.hidden=false; ta.value=t._draftNaoExec; }
+  ta.addEventListener('input',()=>{ t._draftNaoExec=ta.value; }); /* rascunho em memória — nunca perde o que foi digitado */
   body.querySelectorAll('.mot-justchip').forEach(c=>{
     c.addEventListener('click',()=>{
       if(c.dataset.m==='outro'){ body.querySelector('.mot-outrow').hidden=false; body.querySelector('.mot-jtxt').focus(); return; }
@@ -10349,6 +10363,7 @@ async function motConcluirNaoExec(motivo){
     const r=await bePost('/motor/execucao/itens/'+t.id+'/nao-executado',{motivo},'Não executado — '+(t.tarefaNome||''));
     t.statusItem=(r&&r.statusItem)||'Não Executado'; t.motivoNaoExecucao=motivo;
     t._desfechoLocal={tipo:'naoexec',motivo,hora:motHoraAgora()};
+    t._draftNaoExec=null;
     t._fase='fim';
     if(MOT.edit){ t._editado=motHoraAgora(); motAtualizarLinha(t); motAtualizarProgresso(); motRenderEdicaoNaoExec(); return; }
     if(MOT.ordem.indexOf(MOT.atual)<0) MOT.ordem.push(MOT.atual);
