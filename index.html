@@ -630,6 +630,256 @@
   .tr-confetti{position:absolute;inset:0 0 auto 0;height:340px;overflow:hidden;pointer-events:none}
   .tr-confetti i{position:absolute;top:-12px;width:8px;height:13px;border-radius:2px;opacity:.95;animation:conf 1.9s linear forwards}
   @keyframes conf{to{transform:translateY(360px) rotate(340deg);opacity:0}}
+  /* ===== MOTOR DE EXECUÇÃO DA OT — porte de mockup-execucao-FINAL-v3-ref-popup.html (canônico) =====
+     Todas as classes/ids deste bloco usam o prefixo mot- para nunca colidir com o CSS existente. */
+  #mot-root{ --mot-bg:#F4F5F7; --mot-surface:#FFFFFF; --mot-border:#E2E5E9; --mot-text:#3A4552; --mot-text-soft:#7A8794;
+    --mot-navy:#0B2239; --mot-blue:#3E7EB0; --mot-blue-soft:#E9F1F8; --mot-ok:#1E8E5A; --mot-ok-soft:#EAF6F0;
+    --mot-warn:#C4451B; --mot-warn-soft:#FBEDE8; --mot-radius:12px; font-size:15px; color:var(--mot-text); }
+  #mot-root .mot-empty{padding:34px 16px;text-align:center}
+  #mot-root .mot-empty .mot-emico{font-size:2.2rem;margin-bottom:8px}
+  #mot-root .mot-empty h3{font-size:1rem;color:var(--mot-navy);margin-bottom:6px}
+  #mot-root .mot-empty p{font-size:.8rem;color:var(--mot-text-soft);line-height:1.5;margin-bottom:16px}
+  .mot-otform{display:flex;gap:8px;max-width:340px;margin:0 auto}
+  .mot-otinput{flex:1;border:1.5px solid var(--mot-border);border-radius:10px;padding:11px 12px;font-size:.9rem;font-family:inherit}
+  .mot-otbtn{background:var(--mot-blue);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-size:.86rem;font-weight:700;cursor:pointer}
+  .mot-otbtn:disabled{opacity:.6}
+  .mot-oterr{margin-top:10px;font-size:.74rem;color:var(--mot-warn);font-weight:600}
+  .mot-ctx{background:var(--mot-navy);color:#fff;padding:8px 14px;font-size:.76rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mot-ctx b{font-weight:600}
+  .mot-ctx .mot-loc{opacity:.8;margin-left:auto;font-size:.7rem}
+  .mot-viewbar{background:var(--mot-surface);border-bottom:1px solid var(--mot-border);padding:6px 14px;display:flex;justify-content:flex-end;align-items:center}
+  .mot-vsw{display:inline-flex;background:#EEF1F4;border-radius:9px;padding:2px;gap:2px}
+  .mot-vbtn{border:none;background:none;font-size:.62rem;font-weight:700;color:var(--mot-text-soft);border-radius:7px;padding:4px 10px;cursor:pointer;letter-spacing:.2px}
+  .mot-vbtn.on{background:var(--mot-surface);color:var(--mot-navy);box-shadow:0 1px 2px rgba(11,34,57,.14)}
+  .mot-progwrap{background:var(--mot-surface);border-bottom:1px solid var(--mot-border);padding:8px 14px 10px}
+  .mot-fsel{font-size:.64rem;font-weight:700;color:#5F6B77;background:#EEF1F4;border:1px solid var(--mot-border);border-radius:8px;padding:3px 6px;font-family:inherit;cursor:pointer}
+  .mot-fsel.on{background:var(--mot-blue);border-color:var(--mot-blue);color:#fff}
+  .mot-fvazio{display:none;padding:20px 14px;color:#8A96A3;font-size:13px;text-align:center}
+  .mot-heroProgCard{cursor:pointer}
+  .mot-heroProgCard.fon{border-color:#6FA6CF;box-shadow:0 0 0 1px #6FA6CF inset}
+  .mot-progtxt{font-size:.72rem;font-weight:700;color:var(--mot-navy);display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .mot-progtxt small{font-weight:400;color:var(--mot-text-soft)}
+  .mot-progbar{height:6px;background:#E6EAEE;border-radius:4px;margin-top:6px;overflow:hidden}
+  .mot-progbar i{display:block;height:100%;width:0;background:var(--mot-blue);border-radius:4px;transition:width .3s}
+  #mot-root .mot-main{padding-bottom:24px}
+  .mot-vista{display:none}
+  .mot-vista.on{display:block}
+  .mot-sechd{font-size:.66rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--mot-text-soft);margin:12px 14px 5px}
+  .mot-dlist{margin:0 14px;background:var(--mot-surface);border:1px solid var(--mot-border);border-radius:var(--mot-radius);overflow:hidden}
+  .mot-trow{display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--mot-border);gap:8px;cursor:pointer}
+  .mot-trow:last-child{border-bottom:none}
+  .mot-trow.mot-critrow{border-left:4px solid var(--mot-warn);padding-left:8px;background:#FFFBFA}
+  .mot-stdot{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid transparent}
+  .mot-stdot.pend{background:#fff;border-color:#C9D2DB}
+  .mot-stdot.run{background:var(--mot-blue)}
+  .mot-stdot.ok{background:var(--mot-ok)}
+  .mot-stdot.nota{background:#fff;border-color:var(--mot-warn)}
+  .mot-stdot.skip{background:#9AA6B2;border-color:#9AA6B2}
+  .mot-tinfo{flex:1;min-width:0}
+  .mot-tinfo .mot-nm{font-size:.8rem;font-weight:600;color:var(--mot-navy);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mot-tinfo .mot-meta{font-size:.62rem;color:var(--mot-text-soft);margin-top:2px}
+  .mot-tres{flex-shrink:0;text-align:right;font-size:.66rem;color:var(--mot-text-soft)}
+  .mot-res{font-size:.62rem;font-weight:800;border-radius:10px;padding:3px 8px;white-space:nowrap}
+  .mot-res.ok{background:var(--mot-ok-soft);color:#16744A}
+  .mot-res.obs{background:var(--mot-blue-soft);color:#2B5A7E}
+  .mot-res.aten{background:var(--mot-warn-soft);color:var(--mot-warn)}
+  .mot-res.crit{background:var(--mot-warn);color:#fff}
+  .mot-res.skip{background:#EEF1F4;color:#5F6B77}
+  .mot-legend{font-size:.64rem;color:var(--mot-text-soft);margin:8px 14px 12px;line-height:1.45}
+  .mot-legend b{color:var(--mot-text)}
+  .mot-fimchip{margin:10px 14px 0;display:none;font-size:.7rem;font-weight:700;color:#16744A;background:var(--mot-ok-soft);border:1px solid #BFE6D2;border-radius:10px;padding:8px 11px}
+  .mot-hero{background:var(--mot-navy);color:#fff;padding:14px 16px;border-radius:0 0 18px 18px}
+  .mot-hero .mot-top{display:flex;gap:12px;align-items:center}
+  .mot-hero .mot-hic{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0}
+  .mot-hero .mot-tt{flex:1;min-width:0}
+  .mot-hero .mot-tt b{font-size:.95rem;display:block;line-height:1.25}
+  .mot-hero .mot-tt small{font-size:.7rem;opacity:.8}
+  .mot-health{display:flex;gap:8px;margin-top:12px}
+  .mot-hcard{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:11px;padding:8px 10px}
+  .mot-hcard .mot-k{font-size:.56rem;text-transform:uppercase;letter-spacing:.6px;opacity:.7}
+  .mot-hcard .mot-v{font-size:.88rem;font-weight:700;margin-top:2px}
+  .mot-hcard .mot-v.ok{color:#7BD8A8}
+  .mot-hcard small{font-size:.6rem;opacity:.75;display:block;margin-top:1px}
+  .mot-tl{position:relative;margin:0 16px;padding-left:26px}
+  .mot-tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:#C9D2DB}
+  .mot-ev{position:relative;margin-bottom:14px}
+  .mot-ev .mot-dot{position:absolute;left:-26px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--mot-surface);border:2.5px solid #9AA6B2;display:flex;align-items:center;justify-content:center;font-size:.55rem}
+  .mot-ev.done .mot-dot{border-color:var(--mot-ok);background:var(--mot-ok-soft)}
+  .mot-ev.cbm .mot-dot{border-color:var(--mot-blue);background:var(--mot-blue-soft)}
+  .mot-ev.fut .mot-dot{border-color:var(--mot-blue);background:var(--mot-surface)}
+  .mot-ev.alert .mot-dot{border-color:var(--mot-warn);background:var(--mot-warn-soft)}
+  .mot-ev.skip .mot-dot{border-color:#9AA6B2;background:#EEF1F4}
+  .mot-ev .mot-when{font-size:.64rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--mot-text-soft);margin-bottom:3px}
+  .mot-evcard{background:var(--mot-surface);border:1.5px solid var(--mot-border);border-radius:12px;padding:11px 13px}
+  .mot-ev.fut .mot-evcard{border-style:dashed}
+  .mot-ev.cbm .mot-evcard{border-color:#BFD5E6;background:#FBFDFF}
+  .mot-ev.alert .mot-evcard{border-color:var(--mot-warn);background:#FFFBFA}
+  .mot-ev.skip .mot-evcard{background:#FAFBFC}
+  .mot-evreg .mot-evcard,.mot-evtask .mot-evcard{cursor:pointer}
+  .mot-evcard .mot-t{font-size:.84rem;font-weight:600;color:var(--mot-navy);line-height:1.3}
+  .mot-evcard .mot-d{font-size:.72rem;color:var(--mot-text-soft);margin-top:3px;line-height:1.45}
+  .mot-evcard .mot-d b{color:var(--mot-text)}
+  .mot-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+  .mot-chip{font-size:.6rem;font-weight:700;border-radius:12px;padding:3px 9px;background:#EEF1F4;color:#5F6B77}
+  .mot-chip.g{background:var(--mot-ok-soft);color:#16744A}
+  .mot-chip.o{background:var(--mot-blue-soft);color:#2B5A7E}
+  .mot-chip.w{background:var(--mot-warn-soft);color:var(--mot-warn)}
+  .mot-today{position:relative;margin:18px 0 14px}
+  .mot-today .mot-lbl{position:relative;z-index:1;display:inline-block;background:#E8730C;color:#fff;font-size:.62rem;font-weight:800;letter-spacing:.6px;border-radius:12px;padding:3px 11px;margin-left:-6px}
+  .mot-recal{margin-top:7px;background:var(--mot-blue-soft);border-radius:8px;padding:6px 10px;font-size:.7rem;color:#2B5A7E;font-weight:600}
+  .mot-recal b{color:var(--mot-navy)}
+  .mot-recal.skip{background:#EEF1F4;color:#5F6B77}
+  .mot-recal.skip b{color:#5F6B77}
+  .mot-evfotos{display:flex;gap:6px;margin-top:8px}
+  .mot-evfotos .mot-fcol{flex:1;min-width:0}
+  .mot-evfotos .mot-flbl{font-size:.56rem;font-weight:800;letter-spacing:.4px;color:var(--mot-text-soft);margin-bottom:3px;text-transform:uppercase}
+  .mot-evmore{font-size:.6rem;font-weight:700;color:var(--mot-blue);margin-top:7px}
+  .mot-abrirlista{margin-top:9px;border:1.5px solid var(--mot-blue);background:var(--mot-surface);color:var(--mot-blue);border-radius:9px;padding:7px 12px;font-size:.7rem;font-weight:800;cursor:pointer}
+  #mot-scrim{position:fixed;inset:0;background:rgba(11,34,57,.30);display:none;z-index:15}
+  #mot-scrim.on{display:block}
+  #mot-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(105%);width:100%;max-width:430px;background:var(--mot-surface);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(11,34,57,.28);transition:transform .25s;z-index:20;max-height:80vh;display:flex;flex-direction:column}
+  #mot-sheet.on{transform:translateX(-50%) translateY(0)}
+  #mot-handle{width:44px;height:5px;border-radius:3px;background:#D5DAE0;margin:8px auto 2px;cursor:pointer}
+  #mot-shHead{padding:6px 16px 8px;border-bottom:1px solid var(--mot-border)}
+  #mot-shHead b{font-size:.92rem;color:var(--mot-navy);display:block;line-height:1.25}
+  #mot-shHead small{font-size:.68rem;color:var(--mot-text-soft)}
+  #mot-shBody{padding:12px 16px 18px;overflow-y:auto}
+  .mot-fsteps{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+  .mot-fstep{font-size:.6rem;font-weight:800;border-radius:12px;padding:3px 9px;background:#EEF1F4;color:#8A96A3;letter-spacing:.2px}
+  .mot-fstep.on{background:var(--mot-blue);color:#fff}
+  .mot-fstep.done{background:var(--mot-ok-soft);color:#16744A}
+  .mot-fstep.nav{cursor:pointer}
+  .mot-fstep.rev{background:var(--mot-navy);color:#fff}
+  .mot-revhd{display:inline-block;font-size:.6rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#2B5A7E;background:var(--mot-blue-soft);border-radius:10px;padding:3px 9px;margin-bottom:9px}
+  .mot-refnote{font-size:.64rem;color:var(--mot-text-soft);font-style:italic;margin-top:6px}
+  .mot-ckrow.ro{cursor:default}
+  .mot-recline{font-size:.74rem;color:var(--mot-text);margin-top:9px;line-height:1.45}
+  .mot-recline b{color:var(--mot-navy)}
+  .mot-recnota{margin-top:8px;background:var(--mot-warn-soft);border:1px solid #F3C9BB;border-radius:9px;padding:8px 10px;font-size:.72rem;color:var(--mot-warn);font-weight:600;line-height:1.4}
+  .mot-recnota.obs{background:var(--mot-blue-soft);border-color:#BFD5E6;color:#2B5A7E}
+  .mot-recnota.skip{background:#EEF1F4;border-color:var(--mot-border);color:#5F6B77}
+  .mot-editlink{display:block;margin:12px auto 0;border:1px solid #BFD5E6;background:var(--mot-surface);color:var(--mot-blue);font-size:.7rem;font-weight:700;border-radius:8px;padding:6px 14px;cursor:pointer}
+  .mot-locknote{margin-top:12px;text-align:center;font-size:.66rem;color:var(--mot-text-soft)}
+  .mot-camtap{border:2px dashed var(--mot-blue);background:var(--mot-blue-soft);border-radius:14px;padding:20px 14px 22px;text-align:center;cursor:pointer;position:relative}
+  .mot-camtap .mot-fase{font-size:2.1rem;font-weight:800;color:var(--mot-navy);letter-spacing:1.5px;line-height:1}
+  .mot-camtap .mot-fase small{display:block;font-size:.62rem;font-weight:700;color:var(--mot-blue);letter-spacing:2.5px;text-transform:uppercase;margin-top:3px}
+  .mot-camtap .mot-cic{font-size:1.5rem;margin-top:12px}
+  .mot-camtap .mot-hint{color:var(--mot-text-soft);font-size:.74rem;margin-top:4px}
+  .mot-camtap b{display:block;color:#2B5A7E;font-size:.9rem;margin-top:6px}
+  .mot-camtap small{color:var(--mot-text-soft);font-size:.7rem;display:block;margin-top:2px}
+  .mot-camtap.snap{background:var(--mot-navy);border-color:var(--mot-navy)}
+  .mot-camtap.snap b,.mot-camtap.snap small{color:#fff}
+  .mot-nofoto{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .mot-fsim{position:relative;border-radius:10px;height:120px;overflow:hidden;display:flex;align-items:flex-end;background-color:#C9D2DB;background-size:cover;background-position:center}
+  .mot-fsim .mot-cap{width:100%;background:rgba(11,34,57,.55);color:#fff;font-size:.6rem;font-weight:700;padding:4px 8px;letter-spacing:.4px}
+  .mot-fsim.mini{height:74px}
+  .mot-fsim.evf{height:64px;border-radius:8px}
+  .mot-fsim.nophoto{background:#EEF1F4;border:1.5px dashed #C9D2DB;align-items:center;justify-content:center;text-align:center;font-size:.64rem;color:var(--mot-text-soft);padding:6px;line-height:1.4}
+  .mot-fotorow{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
+  .mot-addfoto{border:1.5px dashed var(--mot-border);background:none;border-radius:9px;padding:7px 12px;font-size:.72rem;font-weight:700;color:var(--mot-text-soft);cursor:pointer}
+  .mot-autohint{font-size:.66rem;color:var(--mot-blue);font-weight:700}
+  .mot-justtit{font-size:.8rem;font-weight:700;color:var(--mot-navy);margin-bottom:4px}
+  .mot-justsub{font-size:.68rem;color:var(--mot-text-soft);line-height:1.4;margin-bottom:10px}
+  .mot-justchip{display:block;width:100%;text-align:left;border:1.5px solid var(--mot-border);background:var(--mot-surface);border-radius:10px;padding:11px 12px;font-size:.78rem;font-weight:600;color:var(--mot-text);cursor:pointer;margin-bottom:7px}
+  .mot-jtxt{width:100%;border:1.5px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:.8rem;min-height:58px;resize:vertical;font-family:inherit;margin-top:2px}
+  .mot-justok{width:100%;margin-top:8px;background:var(--mot-blue);color:#fff;border:none;border-radius:10px;padding:11px;font-size:.8rem;font-weight:700;cursor:pointer}
+  .mot-voltalink{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .mot-ckhd{font-size:.7rem;color:var(--mot-text-soft);margin-bottom:2px}
+  .mot-ckrow{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px dashed var(--mot-border);cursor:pointer}
+  .mot-ckrow:last-of-type{border-bottom:none}
+  .mot-ckrow .mot-box{width:22px;height:22px;border-radius:7px;border:2px solid #C9D2DB;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#fff;flex-shrink:0}
+  .mot-ckrow.on .mot-box{background:var(--mot-ok);border-color:var(--mot-ok)}
+  .mot-ckrow .mot-tx{font-size:.82rem;color:var(--mot-text);line-height:1.3}
+  .mot-ckrow.on .mot-tx{color:var(--mot-text-soft);text-decoration:line-through}
+  .mot-cksk{flex-shrink:0;margin-left:auto;width:20px;height:20px;border-radius:50%;border:1.5px solid #D5DAE0;background:none;color:#B0BAC4;font-size:.7rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  .mot-cksk:active{color:#5F6B77;border-color:#9AA6B2}
+  .mot-ckrow.skp .mot-tx{color:var(--mot-text-soft);opacity:.75}
+  .mot-ckrow.skp .mot-box{background:#EEF1F4;border-color:#C9D2DB;color:#8A96A3;font-size:.75rem}
+  .mot-skbdg{flex-shrink:0;margin-left:auto;font-size:.56rem;font-weight:700;border-radius:10px;padding:2px 7px;background:#EEF1F4;color:#5F6B77;max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mot-popline{margin-top:9px;font-size:.68rem;color:#5F6B77}
+  .mot-abwrap{display:flex;gap:8px}
+  .mot-abcol{flex:1;min-width:0}
+  .mot-ablbl{font-size:.6rem;font-weight:800;letter-spacing:.5px;color:var(--mot-text-soft);margin-bottom:4px;text-transform:uppercase}
+  .mot-okbig{width:100%;background:var(--mot-ok);color:#fff;border:none;border-radius:12px;padding:14px;font-size:.98rem;font-weight:800;cursor:pointer;margin-top:14px}
+  .mot-notabtn{width:100%;background:var(--mot-surface);border:1.5px solid var(--mot-border);color:var(--mot-text);border-radius:12px;padding:11px;font-size:.8rem;font-weight:700;cursor:pointer;margin-top:8px}
+  .mot-notabtn small{display:block;font-weight:400;font-size:.64rem;color:var(--mot-text-soft);margin-top:1px}
+  .mot-antit{font-size:.86rem;font-weight:700;color:var(--mot-navy);margin-bottom:8px}
+  .mot-antxt{width:100%;border:1.5px solid var(--mot-border);border-radius:10px;padding:10px 11px;font-size:.82rem;min-height:72px;resize:vertical;font-family:inherit}
+  .mot-anfoto{margin-top:8px;border:1.5px dashed var(--mot-border);background:none;border-radius:9px;padding:8px 12px;font-size:.72rem;font-weight:700;color:var(--mot-text-soft);cursor:pointer}
+  .mot-sevlbl{font-size:.7rem;color:var(--mot-text-soft);margin:12px 0 6px}
+  .mot-sevrow{display:flex;gap:7px}
+  .mot-sev{flex:1;border:1.5px solid var(--mot-border);background:var(--mot-surface);border-radius:10px;padding:11px 4px;font-size:.72rem;font-weight:700;cursor:pointer;color:var(--mot-text)}
+  .mot-sev[data-sev="Atenção"]{border-color:#F3C9BB;color:var(--mot-warn)}
+  .mot-sev[data-sev="Crítico"]{background:var(--mot-warn-soft);border-color:var(--mot-warn);color:var(--mot-warn)}
+  .mot-anhint{margin-top:8px;font-size:.7rem;color:var(--mot-warn);font-weight:600}
+  .mot-transw{text-align:center;padding:20px 6px 8px}
+  .mot-transw .mot-tic{width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;background:var(--mot-ok)}
+  .mot-transw.crit .mot-tic{background:var(--mot-warn)}
+  .mot-transw.skip .mot-tic{background:#7A8794}
+  .mot-transw b{font-size:.9rem;color:var(--mot-navy);display:block}
+  .mot-transw small{font-size:.7rem;color:var(--mot-text-soft);display:block;margin-top:4px}
+  .mot-fimwrap{text-align:center;padding:6px 2px}
+  .mot-sumpills{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .mot-pill{font-size:.68rem;font-weight:700;border-radius:20px;padding:5px 11px;background:var(--mot-surface);border:1px solid var(--mot-border);color:var(--mot-text)}
+  .mot-pill.g{background:var(--mot-ok-soft);border-color:#BFE6D2;color:#16744A}
+  .mot-pill.o{background:var(--mot-blue-soft);border-color:#BFD5E6;color:#2B5A7E}
+  .mot-critban{margin-top:12px;background:var(--mot-warn);color:#fff;border-radius:10px;padding:10px 12px;font-size:.74rem;font-weight:700;line-height:1.4;text-align:left}
+  .mot-skiplist{margin-top:12px;background:#EEF1F4;border:1px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:.7rem;color:#5F6B77;line-height:1.55;text-align:left}
+  .mot-skiplist b{color:#5F6B77}
+  .mot-refbtn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);border:1px solid #BFD5E6;color:#2B5A7E;font-size:.6rem;font-weight:800;letter-spacing:.4px;border-radius:9px;padding:4px 9px;cursor:pointer}
+  .mot-refbtn.inline{position:static;background:var(--mot-surface)}
+  .mot-norefnote{margin-top:10px;text-align:center;font-size:.62rem;color:#8A96A3;font-style:italic}
+  #mot-refscrim{position:fixed;inset:0;background:rgba(11,34,57,.45);display:none;z-index:30}
+  #mot-refscrim.on{display:block}
+  #mot-refmodal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:calc(100% - 44px);max-width:382px;background:var(--mot-surface);border-radius:14px;box-shadow:0 12px 40px rgba(11,34,57,.4);z-index:35;display:none}
+  #mot-refmodal.on{display:block}
+  .mot-refhd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--mot-border)}
+  .mot-refhd b{font-size:.82rem;color:var(--mot-navy)}
+  .mot-refx{border:none;background:#EEF1F4;color:#5F6B77;width:26px;height:26px;border-radius:50%;font-size:.8rem;cursor:pointer;line-height:1}
+  .mot-refbody{padding:12px 14px 14px}
+  .mot-refimg{position:relative;border-radius:10px;height:190px;border:3px solid #fff;box-shadow:0 0 0 2px #2B5A7E,0 4px 14px rgba(11,34,57,.25);background-color:#C9D2DB;background-size:cover;background-position:center}
+  .mot-reftag{position:absolute;top:8px;left:8px;background:rgba(11,34,57,.75);color:#fff;font-size:.58rem;font-weight:800;letter-spacing:1.2px;border-radius:8px;padding:3px 8px}
+  .mot-refnota{margin-top:10px;font-size:.76rem;color:var(--mot-text);line-height:1.45;background:var(--mot-blue-soft);border-radius:9px;padding:8px 10px}
+  .mot-reffoot{margin-top:8px;font-size:.62rem;color:var(--mot-text-soft);font-style:italic}
+  .mot-reftap{cursor:pointer}
+  .mot-refflagbtn{display:block;margin:10px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .mot-refflagged{margin-top:10px;text-align:center;font-size:.62rem;color:#8A96A3;font-style:italic}
+  .mot-ckrow.info{cursor:default}
+  .mot-iico{width:22px;height:22px;border-radius:7px;background:#EEF1F4;color:#5F6B77;display:flex;align-items:center;justify-content:center;font-size:.72rem;flex-shrink:0}
+  .mot-ckrow.val .mot-box{background:var(--mot-ok);border-color:var(--mot-ok)}
+  .mot-ckstep{padding:10px 2px;border-bottom:1px dashed var(--mot-border)}
+  .mot-ckstep:last-of-type{border-bottom:none}
+  .mot-cklbl{display:flex;align-items:center;gap:10px}
+  .mot-cklbl .mot-tx{font-size:.82rem;color:var(--mot-text);line-height:1.3;flex:1}
+  .mot-ckun{color:var(--mot-text-soft);font-size:.7rem;font-weight:600}
+  .mot-medrow{display:flex;align-items:center;gap:8px;margin-top:7px}
+  .mot-medin{width:110px;border:1.5px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:1rem;font-family:inherit;font-weight:700;color:var(--mot-navy)}
+  .mot-medun{font-size:.78rem;font-weight:700;color:var(--mot-text-soft)}
+  .mot-medflag{font-size:.62rem;font-weight:800;border-radius:10px;padding:3px 8px}
+  .mot-medflag.ok{background:var(--mot-ok-soft);color:#16744A}
+  .mot-medflag.fora{background:var(--mot-warn-soft);color:var(--mot-warn)}
+  .mot-faixahint{font-size:.64rem;color:var(--mot-text-soft);margin-top:5px}
+  .mot-sugbox{margin-top:8px;background:var(--mot-warn-soft);border:1px solid #F3C9BB;border-radius:10px;padding:9px 11px}
+  .mot-sugbox b{font-size:.72rem;color:var(--mot-warn)}
+  .mot-sugtx{font-size:.72rem;color:var(--mot-text);margin-top:4px;line-height:1.45}
+  .mot-sugrow{display:flex;gap:7px;margin-top:8px}
+  .mot-sugok{flex:1;background:var(--mot-blue);color:#fff;border:none;border-radius:9px;padding:9px;font-size:.74rem;font-weight:700;cursor:pointer}
+  .mot-sugdisp{flex:1;background:var(--mot-surface);border:1.5px solid var(--mot-border);color:var(--mot-text-soft);border-radius:9px;padding:9px;font-size:.74rem;font-weight:700;cursor:pointer}
+  .mot-sughint{font-size:.6rem;color:var(--mot-text-soft);margin-top:6px;font-style:italic}
+  .mot-sugfeita{margin-top:8px;font-size:.68rem;font-weight:700;color:#2B5A7E;background:var(--mot-blue-soft);border-radius:9px;padding:7px 10px}
+  .mot-coptrow{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
+  .mot-copt{flex:1;border:1.5px solid var(--mot-border);background:var(--mot-surface);border-radius:10px;padding:10px 4px;font-size:.74rem;font-weight:700;cursor:pointer;color:var(--mot-text);min-width:64px}
+  .mot-copt.on{background:var(--mot-blue);border-color:var(--mot-blue);color:#fff}
+  .mot-vidtap,.mot-fototap{display:block;width:100%;margin-top:7px;border:2px dashed var(--mot-blue);background:var(--mot-blue-soft);color:#2B5A7E;border-radius:12px;padding:13px 10px;font-size:.76rem;font-weight:700;cursor:pointer;text-align:center}
+  .mot-fsim.vid{background:linear-gradient(135deg,#3A4552,#0B2239)}
+  .mot-condnote{font-size:.6rem;color:var(--mot-text-soft);font-style:italic;margin-top:5px}
+  .mot-exrow{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+  .mot-exthumb{width:54px;height:40px;border-radius:8px;position:relative;cursor:pointer;display:flex;align-items:flex-end;overflow:hidden;background-color:#C9D2DB;background-size:cover;background-position:center}
+  .mot-exthumb span{width:100%;background:rgba(11,34,57,.55);color:#fff;font-size:.48rem;font-weight:700;padding:2px 4px;white-space:nowrap}
+  .mot-fallrow{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px dashed var(--mot-border)}
+  .mot-fallrow:last-of-type{border-bottom:none}
+  .mot-fallrow .mot-tx{flex:1;font-size:.82rem;color:var(--mot-text);line-height:1.3}
+  .mot-fallbdg{flex-shrink:0;font-size:.58rem;font-weight:700;border-radius:10px;padding:3px 8px;background:#EEF1F4;color:#5F6B77}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -835,6 +1085,24 @@
       </div>
     </section>
 
+    <!-- EXECUÇÃO DA OT (motor novo — Ordem_de_Trabalho__c/Item_OS__c/Passo_Item_OS__c) -->
+    <section class="screen" id="scr-motor">
+      <div id="mot-root">
+        <div id="motorBody"></div>
+        <div id="mot-scrim"></div>
+        <div id="mot-refscrim"></div>
+        <div id="mot-refmodal">
+          <div class="mot-refhd"><b id="mot-refhd-tit">📐 Foto de referência</b><button class="mot-refx" id="mot-refx" title="fechar">✕</button></div>
+          <div class="mot-refbody" id="mot-refbody"></div>
+        </div>
+        <div id="mot-sheet">
+          <div id="mot-handle"></div>
+          <div id="mot-shHead"></div>
+          <div id="mot-shBody"></div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- FOOTER: botão de status -->
@@ -853,6 +1121,7 @@
     <button id="nav-bipar" onclick="go('bipar')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h3v3M20 14v3M14 20h3M20 17.5V20h-2.5"/></svg>Bipar</button>
     <button id="nav-cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
     <button id="nav-trein" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
+    <button id="nav-motor" onclick="go('motor')" style="display:none"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Execução</button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
 
@@ -1337,7 +1606,7 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
   document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
@@ -1350,8 +1619,9 @@ function go(scr){
   else if(scr==='trilha'){ tt.textContent=curTrilhaTitle||'Módulo'; ts.textContent='Treinamento'; }
   else if(scr==='bipar'){ tt.textContent='Bipar'; ts.textContent='Retirada/recebimento por QR'; }
   else if(scr==='producao'){ tt.textContent='Produção'; ts.textContent='Fabricação própria'; }
+  else if(scr==='motor'){ tt.textContent='Execução da OT'; ts.textContent='Checklist e registro de campo'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
@@ -1364,6 +1634,7 @@ function go(scr){
   if(scr==='notifs') renderNotifs();
   if(scr==='appt') renderAppt();
   if(scr==='bipar') renderBipar();
+  if(scr==='motor') renderMotor();
   renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
@@ -7279,13 +7550,18 @@ function canLancarAvisoGlobal(r){ return canAprovarAviso(r); }
 function canProducaoAprovar(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
 function canProducaoOperar(r){ return r==='Produção'; }
 function canProducaoTab(r){ return canProducaoAprovar(r)||canProducaoOperar(r); }
+/* Execução da OT (motor novo): tela do técnico de campo — permissivo pra quem executa serviço
+   (Auxiliar/Líder de Equipe/Supervisor/Sócio), não só supervisão; fora do escopo pra papéis
+   puramente administrativos/de estoque/produção que não têm essa tela desenhada ainda. */
+function canMotor(r){ return !['Estoquista','Produção'].includes(r); }
 function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
   const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
   const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
   const t=document.getElementById('nav-trein'); if(t) t.style.display=canTreino(ROLE)?'flex':'none';
   const ap=document.getElementById('nav-approvals'); if(ap) ap.style.display=canApprovalsTab(ROLE)?'flex':'none';
   const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none';
-  const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none'; }
+  const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none';
+  const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none'; }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
 const TREINOS=[
@@ -8882,6 +9158,7 @@ async function offDrain(){
         else if(j.kind==='delete') await beDelete(j.path);
         else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
+        else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true);
         await offDel(j._id); n++;
       }catch(e){
         if(netFail(e)){
@@ -9245,6 +9522,1052 @@ if(beTok()) setTimeout(beHydrate, 300);  /* já logado (reload): recarrega as OS
 /* verificação periódica (1-2 min) pra detectar separações marcadas como urgentes enquanto o app está aberto —
    sem toast de carregamento nem navegação, só atualiza dados + badge/sino (ver aviso-separacao-urgente-estoquista) */
 setInterval(()=>{ if(beTok() && SF_LIVE && document.visibilityState==='visible') beHydrate(true).catch(()=>{}); }, 90000);
+
+/* ============================================================================================
+   MOTOR DE EXECUÇÃO DA OT — porte de cadastro-de-ativos/mockup-execucao-FINAL-v3-ref-popup.html
+   (canônico, headless-testado) pro motor novo real: Ordem_de_Trabalho__c / Item_OS__c /
+   Passo_Item_OS__c, via backend/execucaoMotorRoutes.js (NÃO modificado por este porte).
+   Escopo desta rodada: Lista + Linha do tempo, bottom sheet (antes→checklist→depois→desfecho),
+   checklist clássico + M10 (instrução/medição/condição/mídia/cond-se), ⊘ por item, "sem foto",
+   "não vou conseguir executar", fotos extras, REF por passo + sinalizar, revisão e edição de
+   registro concluído, reabrir não-executado. EXCLUÍDO (sem fonte de dado real / sem UI desenhada):
+   filtro "Futuras", tipos de campo Picklist/Multi-Picklist/Texto/Contador/Data/NFC (fallback
+   genérico), lista "minhas OTs de hoje" (sem campo de técnico responsável no objeto novo ainda —
+   entrada manual "Abrir OT por Id" temporária).
+   GAPS DOCUMENTADOS (sem endpoint/campo no schema hoje — nunca bloqueiam, mas não persistem):
+     - "não consigo fotografar": justificativa fica só na sessão do app (sem campo por foto).
+     - Sugestão de Anotação Técnica aceita em medição/condição fora da faixa: não existe anotação
+       por PASSO no schema; o texto aceito só pré-preenche a Anotação Técnica do DESFECHO do item
+       (POST /concluir) se o técnico realmente registrar uma. Se o desfecho final for "✓ Está OK",
+       o texto sugerido não é persistido em lugar nenhum (mesmo comportamento do mockup, que também
+       não persiste — aqui a diferença é que no mockup fica pelo menos na "prog" local; aqui não há
+       backend real de storage de longo prazo pra isso).
+     - Reabrir (POST /reabrir) só é chamado no fluxo "não executada → Executar agora" (onde faz
+       sentido genuíno voltar a Pendente/Motivo limpo); trocar desfecho OK↔NC não chama /reabrir —
+       só regrava direto via /concluir quando o técnico confirma a troca, pra nunca deixar a OS
+       "aberta" no servidor se o técnico entrar em Editar e simplesmente fechar sem mudar nada.
+     - "Com NC" recarregado do servidor (reload/nova sessão) não traz de volta severidade/texto da
+       Anotação Técnica (o GET não expõe isso) — mostra aviso "detalhe não disponível nesta tela".
+   ============================================================================================ */
+let MOT={ot:null,tarefas:[],atual:-1,rev:null,edit:false,vista:'lista',filtro:0,ordem:[],timer:null,refTimer:null,otId:null,loading:false,curPassoRefId:null,_erro:null,_lastOtInput:'',_shellOtId:null};
+const MOT_FILTROS=['todas','pendentes','concluídas'];
+
+function motEsc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function motFmt(n){ return String(n).replace('.',','); }
+function motHoraAgora(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function motFmtHora(iso){ if(!iso) return ''; try{ const d=new Date(iso); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }catch(e){ return ''; } }
+function motFotoBgStyle(m){ return (m&&m._localUrl)?('background-image:url('+m._localUrl+')'):''; }
+function motAcharPassoPorId(t,id){ return (t.passos||[]).find(p=>p.id===id); }
+function motRespostaAtual(p){ return p.valorOpcao!=null?p.valorOpcao:(p.valorTexto!=null?p.valorTexto:null); }
+function motMedForaFaixa(p){ if(p.valorMinVigente==null||p.valorMaxVigente==null||p.valorNumerico==null) return false; return p.valorNumerico<p.valorMinVigente||p.valorNumerico>p.valorMaxVigente; }
+function motItemVisivel(t,p){
+  if(!p.condDe) return true;
+  const pai=motAcharPassoPorId(t,p.condDe.passoPaiId); if(!pai) return true;
+  const v=motRespostaAtual(pai);
+  return v!=null && p.condDe.valores.indexOf(v)>=0;
+}
+function motItemResolvido(t,p){
+  if(!motItemVisivel(t,p)) return true;
+  if(p.statusPasso==='Não realizado') return true;
+  if(p.tipoCampo==='Instrução') return true;
+  if(p.tipoCampo==='Checkbox') return p.statusPasso==='Feito';
+  if(p.tipoCampo==='Medição'){ if(p.valorNumerico==null) return false; return !motMedForaFaixa(p)||!!p._dec; }
+  if(p.tipoCampo==='Condição'){ if(!p.valorOpcao) return false; return p.valorOpcao!=='Ruim'||!!p._dec; }
+  if(p.tipoCampo==='Mídia') return p.statusPasso==='Feito';
+  if(['Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) return p.statusPasso==='Feito';
+  return p.statusPasso==='Feito';
+}
+function motCkTodosResolvidos(t){ return (t.passos||[]).every(p=>motItemResolvido(t,p)); }
+function motFaseInicial(t){
+  if(t.statusItem!=='Pendente') return 'fim';
+  const temAntes=t.fotos.antes&&t.fotos.antes.length>0, temDepois=t.fotos.depois&&t.fotos.depois.length>0;
+  if(!temAntes) return 'antes';
+  if(t.passos&&t.passos.length&&!motCkTodosResolvidos(t)) return 'exec';
+  if(!temDepois) return 'depois';
+  return 'desfecho';
+}
+function motNormalizarFase(t){
+  if(t._fase==='antes'&&t.fotos.antes.length) t._fase=(t.passos&&t.passos.length)?'exec':'depois';
+  else if(t._fase==='depois'&&t.fotos.depois.length) t._fase='desfecho';
+  else if(t._fase==='exec'&&t.passos&&t.passos.length&&motCkTodosResolvidos(t)) t._fase='depois';
+}
+function motNormalizarTarefa(t){
+  t.fotos=t.fotos||{antes:[],depois:[],adicionais:[]};
+  t.fotos.antes=t.fotos.antes||[]; t.fotos.depois=t.fotos.depois||[]; t.fotos.adicionais=t.fotos.adicionais||[];
+  t.passos=t.passos||[];
+  t._notasSugeridas=[]; t._desfechoLocal=null; t._editado=null; t._antesJust=null; t._depoisJust=null;
+  t._fase=motFaseInicial(t);
+  return t;
+}
+function motDesfecho(t){
+  if(t._desfechoLocal) return t._desfechoLocal;
+  if(t.statusItem==='OK') return {tipo:'ok',hora:null};
+  if(t.statusItem==='Com NC') return {tipo:'nota',sev:null,txt:null,hora:null,_semDetalhe:true};
+  if(t.statusItem==='Não Executado') return {tipo:'naoexec',motivo:t.motivoNaoExecucao,hora:null};
+  return null;
+}
+function motMarcarEdicao(t){ if(MOT.edit) t._editado=motHoraAgora(); }
+
+/* ---------- upload real de mídia do item (offline-safe, mesmo padrão de beUploadMidia) ---------- */
+async function motUploadFoto(itemId, blob, filename, tipo, noQ){
+  try{
+    const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
+    const r=await fetch(BACKEND+'/motor/execucao/itens/'+itemId+'/fotos',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
+    return j;
+  }catch(e){
+    if(!noQ && netFail(e)){ await offAdd({kind:'midiaMotor',itemId,blob,filename,tipo,label:'Foto ('+tipo+')'}); return {ok:true,_queued:true}; }
+    throw e;
+  }
+}
+async function motSalvarPasso(t,p,payload){
+  try{ await bePost('/motor/execucao/passos/'+p.id,payload,'Passo do checklist — '+(t.tarefaNome||'')); }
+  catch(e){ toast('Falha ao salvar passo: '+e.message); }
+}
+function motHidratarThumbs(root){
+  if(!root) return;
+  root.querySelectorAll('[data-driveid]').forEach(el=>{
+    const id=el.dataset.driveid;
+    if(!id||el.dataset.hidratado||el.style.backgroundImage) return;
+    el.dataset.hidratado='1';
+    beArquivoDataURL(id).then(du=>{ if(el.isConnected) el.style.backgroundImage='url('+du+')'; }).catch(()=>{ el.dataset.hidratado=''; });
+  });
+}
+
+/* ---------- entrada: empty state + "Abrir OT por Id" (temporário — sem worklist real ainda) ---------- */
+function renderMotor(){
+  const root=document.getElementById('motorBody'); if(!root) return;
+  if(!MOT.ot){ motRenderEmpty(root); return; }
+  if(MOT._shellOtId!==MOT.ot.id){ motRenderShell(root); MOT._shellOtId=MOT.ot.id; }
+}
+function motRenderEmpty(root){
+  root.innerHTML='<div class="mot-empty"><div class="mot-emico">🧰</div><h3>Nenhuma OT aberta</h3>'+
+    '<p>Ainda não existe uma lista de "minhas OTs de hoje" — o modelo novo (Ordem_de_Trabalho__c) não tem campo de técnico responsável ainda. Por enquanto, abra a OT pelo <b>Id do registro</b> (Salesforce) pra testar a execução.</p>'+
+    (MOT._erro?'<div class="mot-oterr">'+motEsc(MOT._erro)+'</div>':'')+
+    '<div class="mot-otform"><input class="mot-otinput" id="mot-otinput" placeholder="Id do registro (15-18 caracteres) — não o Name"><button class="mot-otbtn" id="mot-otbtn">'+(MOT.loading?'Abrindo…':'Abrir OT')+'</button></div></div>';
+  const btn=document.getElementById('mot-otbtn'), inp=document.getElementById('mot-otinput');
+  if(MOT._lastOtInput) inp.value=MOT._lastOtInput;
+  btn.disabled=!!MOT.loading;
+  btn.addEventListener('click',motAbrirOtId);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') motAbrirOtId(); });
+}
+async function motAbrirOtId(){
+  const inp=document.getElementById('mot-otinput'); const v=(inp&&inp.value||'').trim();
+  MOT._lastOtInput=v; MOT._erro=null;
+  if(!/^[a-zA-Z0-9]{15,18}$/.test(v)){ MOT._erro='Informe o Id do registro da OT (Salesforce, 15-18 caracteres) — não o Name.'; renderMotor(); return; }
+  MOT.loading=true; renderMotor();
+  try{
+    const j=await beGet('/motor/execucao/'+v);
+    MOT.ot=j.ot; MOT.tarefas=(j.tarefas||[]).map(motNormalizarTarefa);
+    MOT.otId=v; MOT.atual=-1; MOT.rev=null; MOT.edit=false; MOT.vista='lista'; MOT.filtro=0; MOT.ordem=[]; MOT._shellOtId=null;
+    MOT.tarefas.forEach((t,i)=>{ if(t.statusItem!=='Pendente') MOT.ordem.push(i); });
+    toast('OT '+(MOT.ot.name||v)+' carregada — '+MOT.tarefas.length+' tarefa'+(MOT.tarefas.length===1?'':'s'));
+  }catch(e){ MOT._erro='Não foi possível abrir a OT: '+e.message; }
+  MOT.loading=false; renderMotor();
+}
+
+/* ---------- shell (ctx + viewbar + progresso + lista + linha do tempo) — construído 1x por OT ---------- */
+function motRowHtml(t,i){
+  return '<div class="mot-trow" id="mot-row-'+i+'"><span class="mot-stdot pend" id="mot-dot-'+i+'"></span>'+
+    '<div class="mot-tinfo"><div class="mot-nm">'+motEsc(t.tarefaNome)+'</div><div class="mot-meta">'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</div></div>'+
+    '<div class="mot-tres" id="mot-st-'+i+'">pendente</div></div>';
+}
+function motRenderShell(root){
+  const ot=MOT.ot;
+  root.innerHTML=
+    '<div class="mot-ctx"><b>'+motEsc(ot.name||'')+'</b><span>'+motEsc(ot.contaNome||'')+(ot.localNome?' · '+motEsc(ot.localNome):'')+'</span>'+
+      '<span class="mot-loc">'+motEsc(ot.tipo||'')+'</span></div>'+
+    '<div class="mot-viewbar"><div class="mot-vsw"><button class="mot-vbtn on" id="mot-vbLista">☰ Lista</button><button class="mot-vbtn" id="mot-vbTl">🕒 Linha do tempo</button></div></div>'+
+    '<div class="mot-progwrap"><div class="mot-progtxt"><span id="mot-progTxt"></span>'+
+      '<select class="mot-fsel" id="mot-fsel" title="filtrar tarefas"><option value="todas">Todas</option><option value="pendentes">Pendentes</option><option value="concluídas">Concluídas</option></select>'+
+      '<small id="mot-progSub"></small></div><div class="mot-progbar"><i id="mot-progFill"></i></div></div>'+
+    '<div class="mot-main">'+
+      '<div class="mot-vista on" id="mot-vista-lista">'+
+        '<div class="mot-fimchip" id="mot-fimchip">✓ OT concluída</div>'+
+        '<div class="mot-sechd">Tarefas da visita</div>'+
+        '<div class="mot-dlist" id="mot-lista">'+MOT.tarefas.map((t,i)=>motRowHtml(t,i)).join('')+'</div>'+
+        '<div class="mot-fvazio" id="mot-fvazio">nenhuma tarefa neste filtro</div>'+
+        '<div class="mot-legend">Toque numa tarefa pendente pra iniciar; toque numa concluída pra abrir o registro. Filtre por Todas/Pendentes/Concluídas no seletor acima. '+
+        'Cada tarefa: foto ANTES → checklist → foto DEPOIS → <b>✓ Está OK</b> ou <b>Anotação Técnica</b>. Sem foto? "não consigo fotografar" nunca trava. '+
+        'Não dá pra executar? um link discreto registra o motivo. Item de POP que não deu? o <b>⊘</b> registra o motivo em 1 toque e conta como resolvido.</div>'+
+      '</div>'+
+      '<div class="mot-vista" id="mot-vista-tl">'+
+        '<div class="mot-hero"><div class="mot-top"><div class="mot-hic">🧰</div><div class="mot-tt"><b>'+motEsc(ot.name||'')+'</b><small>'+motEsc(ot.contaNome||'')+(ot.localNome?' · '+motEsc(ot.localNome):'')+'</small></div></div>'+
+          '<div class="mot-health"><div class="mot-hcard"><div class="mot-k">Tipo</div><div class="mot-v">'+motEsc(ot.tipo||'—')+'</div></div>'+
+          '<div class="mot-hcard mot-heroProgCard" id="mot-heroProgCard" title="toque para filtrar"><div class="mot-k">Progresso</div><div class="mot-v" id="mot-heroProg">0 de '+MOT.tarefas.length+'</div><small id="mot-heroProgSub">tarefas registradas</small></div></div></div>'+
+        '<div class="mot-sechd">Linha do tempo — o mesmo registro, visto pela OT</div>'+
+        '<div class="mot-tl"><div class="mot-today"><span class="mot-lbl">HOJE'+(ot.name?' · '+motEsc(ot.name):'')+'</span></div><div id="mot-tlHoje"></div></div>'+
+        '<div class="mot-legend">Aqui é visualização: cada conclusão vira um evento com foto antes/depois. Toque num evento de hoje pra abrir o registro em leitura. Pra executar, use "▶ abrir na lista".</div>'+
+      '</div>'+
+    '</div>';
+  document.getElementById('mot-vbLista').addEventListener('click',()=>motSetVista('lista'));
+  document.getElementById('mot-vbTl').addEventListener('click',()=>motSetVista('tl'));
+  document.getElementById('mot-fsel').addEventListener('change',function(){ motSetFiltro(this.value); });
+  document.getElementById('mot-heroProgCard').addEventListener('click',motAlternarFiltro);
+  MOT.tarefas.forEach((t,i)=>{
+    const row=document.getElementById('mot-row-'+i);
+    if(row) row.addEventListener('click',()=>{ if(motDesfecho(t)) motAbrirLeitura(i); else motAbrir(i); });
+  });
+  MOT.tarefas.forEach(t=>motAtualizarLinha(t));
+  motAtualizarProgresso();
+  motHidratarThumbs(root);
+}
+function motSetVista(v){
+  MOT.vista=v;
+  const vl=document.getElementById('mot-vista-lista'), vt=document.getElementById('mot-vista-tl');
+  if(vl) vl.classList.toggle('on',v==='lista'); if(vt) vt.classList.toggle('on',v==='tl');
+  const bl=document.getElementById('mot-vbLista'), bt=document.getElementById('mot-vbTl');
+  if(bl) bl.classList.toggle('on',v==='lista'); if(bt) bt.classList.toggle('on',v==='tl');
+  if(v==='tl') motRenderTimeline();
+}
+function motSetFiltro(nome){ const i=MOT_FILTROS.indexOf(nome); MOT.filtro=i<0?0:i; motAplicarFiltro(); }
+function motAlternarFiltro(){ MOT.filtro=(MOT.filtro+1)%MOT_FILTROS.length; motAplicarFiltro(); }
+function motAplicarFiltro(){
+  const nome=MOT_FILTROS[MOT.filtro]; let vis=0;
+  MOT.tarefas.forEach((t,i)=>{
+    const done=!!motDesfecho(t);
+    const mostra=nome==='todas'||(nome==='pendentes'&&!done)||(nome==='concluídas'&&done);
+    const row=document.getElementById('mot-row-'+i); if(row){ row.style.display=mostra?'':'none'; if(mostra) vis++; }
+  });
+  const fs=document.getElementById('mot-fsel'); if(fs){ fs.value=nome; fs.classList.toggle('on',MOT.filtro>0); }
+  const fv=document.getElementById('mot-fvazio'); if(fv) fv.style.display=vis?'none':'block';
+  const hs=document.getElementById('mot-heroProgSub'); if(hs) hs.textContent=MOT.filtro?('filtro: '+nome):'tarefas registradas';
+  const hc=document.getElementById('mot-heroProgCard'); if(hc) hc.classList.toggle('fon',MOT.filtro>0);
+  motRenderTimeline();
+}
+function motAtualizarLinha(t){
+  const i=MOT.tarefas.indexOf(t), d=motDesfecho(t);
+  const dot=document.getElementById('mot-dot-'+i), st=document.getElementById('mot-st-'+i), row=document.getElementById('mot-row-'+i);
+  if(!dot||!st) return;
+  if(row) row.classList.remove('mot-critrow');
+  if(!d) return;
+  if(d.tipo==='naoexec'){ dot.className='mot-stdot skip'; st.innerHTML='<span class="mot-res skip">⊘ Não executada</span>'; }
+  else if(d.tipo==='ok'){ dot.className='mot-stdot ok'; st.innerHTML='<span class="mot-res ok">✓ OK</span>'; }
+  else if(d.sev==='Crítico'){ dot.className='mot-stdot nota'; st.innerHTML='<span class="mot-res crit">⚠ CRÍTICO</span>'; if(row) row.classList.add('mot-critrow'); }
+  else if(d.sev==='Atenção'){ dot.className='mot-stdot nota'; st.innerHTML='<span class="mot-res aten">📝 Atenção</span>'; }
+  else{ dot.className='mot-stdot nota'; st.innerHTML='<span class="mot-res obs">📝 '+motEsc(d.sev||'Com NC')+'</span>'; }
+}
+function motAtualizarProgresso(){
+  const total=MOT.tarefas.length, done=MOT.tarefas.filter(t=>motDesfecho(t)).length;
+  const skips=MOT.tarefas.filter(t=>{ const d=motDesfecho(t); return d&&d.tipo==='naoexec'; }).length;
+  const fill=document.getElementById('mot-progFill'); if(fill) fill.style.width=(total?(done/total*100):0)+'%';
+  const ptxt=document.getElementById('mot-progTxt');
+  if(ptxt) ptxt.textContent=(total&&done>=total)?(total+' de '+total+(skips?' · '+skips+' não executada'+(skips>1?'s':''):' · concluída')):('Tarefa '+Math.min(done+1,total||1)+' de '+total);
+  const psub=document.getElementById('mot-progSub');
+  if(psub) psub.textContent=(total&&done>=total)?'':('concluídas: '+done+(skips?' · '+skips+' não executada'+(skips>1?'s':''):''));
+  const hp=document.getElementById('mot-heroProg'); if(hp) hp.textContent=done+' de '+total;
+  const fc=document.getElementById('mot-fimchip'); if(fc) fc.style.display=(total&&done>=total)?'block':'none';
+  motAplicarFiltro();
+}
+
+/* ---------- abrir / fechar o bottom sheet de execução ---------- */
+function motAbrir(i){
+  if(MOT.vista!=='lista') motSetVista('lista');
+  MOT.atual=i; MOT.rev=null;
+  const t=MOT.tarefas[i];
+  motNormalizarFase(t);
+  const dot=document.getElementById('mot-dot-'+i), st=document.getElementById('mot-st-'+i);
+  if(dot) dot.className='mot-stdot run'; if(st) st.innerHTML='em execução';
+  document.getElementById('mot-sheet').classList.add('on');
+  document.getElementById('mot-scrim').classList.add('on');
+  motRenderAtual();
+}
+function motFecharSheet(){
+  if(MOT.edit&&MOT.atual>=0){
+    const te=MOT.tarefas[MOT.atual];
+    if(motDesfecho(te)) te._fase='fim';
+    MOT.edit=false; MOT.rev=null;
+    motAtualizarLinha(te); motAtualizarProgresso();
+  }
+  document.getElementById('mot-sheet').classList.remove('on');
+  document.getElementById('mot-scrim').classList.remove('on');
+  if(MOT.atual>=0){
+    const t=MOT.tarefas[MOT.atual];
+    if(!motDesfecho(t)){
+      const dot=document.getElementById('mot-dot-'+MOT.atual), st=document.getElementById('mot-st-'+MOT.atual);
+      if(dot) dot.className='mot-stdot run'; if(st) st.innerHTML='em andamento';
+    }
+  }
+}
+function motProxima(){
+  let i=-1; MOT.tarefas.forEach((t,k)=>{ if(i<0&&!motDesfecho(t)) i=k; });
+  if(i<0){ motResumo(); return; }
+  motAbrir(i);
+}
+function motResumo(){
+  let oks=0,notas=0,crit=0,skips=[];
+  MOT.tarefas.forEach(t=>{ const d=motDesfecho(t); if(!d) return;
+    if(d.tipo==='ok') oks++; else if(d.tipo==='naoexec') skips.push({nome:t.tarefaNome,motivo:d.motivo}); else{ notas++; if(d.sev==='Crítico') crit++; } });
+  const head=document.getElementById('mot-shHead');
+  head.innerHTML='<b>'+motEsc(MOT.ot.name||'')+' concluída</b><small>'+motEsc(MOT.ot.contaNome||'')+'</small>';
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML='<div class="mot-fimwrap"><div class="mot-transw"><div class="mot-tic">✓</div><b>Todas as tarefas registradas</b></div>'+
+    '<div class="mot-sumpills"><span class="mot-pill g">'+oks+' OK</span><span class="mot-pill o">'+notas+' anotaç'+(notas===1?'ão':'ões')+'</span>'+
+    (skips.length?'<span class="mot-pill">⊘ '+skips.length+' não executada'+(skips.length>1?'s':'')+'</span>':'')+'</div>'+
+    (crit?'<div class="mot-critban">⚠ '+crit+' achado CRÍTICO — coordenador notificado.</div>':'')+
+    (skips.length?'<div class="mot-skiplist"><b>⊘ Não executadas</b> — serão reprogramadas:'+skips.map(s=>'<br>• '+motEsc(s.nome)+' — '+motEsc(s.motivo||'')).join('')+'</div>':'')+
+    '<div class="mot-justsub" style="margin-top:12px">A OT fecha automaticamente no servidor quando todas as tarefas saem de "Pendente".</div>'+
+    '<button class="mot-okbig" id="mot-fecharfim">Fechar</button></div>';
+  document.getElementById('mot-fecharfim').addEventListener('click',motFecharSheet);
+}
+
+/* ---------- fase machine (chips Antes/Execução/Depois/Desfecho + revisão) ---------- */
+function motStepsHtml(t){
+  let seq=[['antes','Antes'],['exec','Execução'],['depois','Depois'],['desfecho','Desfecho']];
+  if(!(t.passos&&t.passos.length)) seq=seq.filter(s=>s[0]!=='exec');
+  const fase=t._fase;
+  const cur=fase==='justif-antes'?'antes':fase==='justif-depois'?'depois':fase==='anota'?'desfecho':fase==='naoexec'?'antes':fase;
+  let ic=-1; seq.forEach((s,i)=>{ if(s[0]===cur) ic=i; });
+  return '<div class="mot-fsteps">'+seq.map((s,i)=>{
+    const c=i<ic?(MOT.rev===s[0]?'rev nav':'done nav'):i===ic?'on':'';
+    return '<span class="mot-fstep '+c+'" data-step="'+s[0]+'">'+(i<ic&&MOT.rev!==s[0]?'✓ ':'')+s[1]+'</span>';
+  }).join('')+'</div>';
+}
+function motWireSteps(root){
+  root.querySelectorAll('.mot-fstep.nav').forEach(ch=>{ ch.addEventListener('click',()=>motEntrarRevisao(ch.dataset.step)); });
+  const on=root.querySelector('.mot-fstep.on');
+  if(on) on.addEventListener('click',()=>{ if(MOT.rev) motSairRevisao(); });
+}
+function motEntrarRevisao(step){
+  clearTimeout(MOT.timer);
+  const t=MOT.tarefas[MOT.atual]; motNormalizarFase(t);
+  MOT.rev=step; motRenderAtual();
+}
+function motSairRevisao(){ MOT.rev=null; motRenderAtual(); }
+function motRenderAtual(){
+  const t=MOT.tarefas[MOT.atual]; if(!t) return;
+  const head=document.getElementById('mot-shHead');
+  head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+motStepsHtml(t);
+  motWireSteps(head);
+  if(MOT.rev){ motRenderReview(); return; }
+  if(t._fase==='antes'||t._fase==='depois') motRenderFoto(t._fase);
+  else if(t._fase==='justif-antes'||t._fase==='justif-depois') motRenderJustif(t._fase==='justif-antes'?'antes':'depois');
+  else if(t._fase==='exec') motRenderCheck();
+  else if(t._fase==='desfecho'){ if(MOT.edit) motRenderEdicaoDesfecho(); else motRenderDesfecho(); }
+  else if(t._fase==='anota') motRenderAnota();
+  else if(t._fase==='naoexec') motRenderNaoExec();
+  motHidratarThumbs(document.getElementById('mot-shBody'));
+}
+
+/* ---------- fotos ANTES/DEPOIS ---------- */
+function motFotoHtml(t,tipo,cls){
+  const arr=(t.fotos&&t.fotos[tipo])||[];
+  const c=cls===true?'mot-fsim mini':(cls||'mot-fsim');
+  const just=tipo==='antes'?t._antesJust:t._depoisJust;
+  if(!arr.length){
+    if(just) return '<div class="'+c+' nophoto">🚫 sem foto<br><small>'+motEsc(just)+'</small></div>';
+    return '<div class="'+c+' nophoto">—</div>';
+  }
+  const last=arr[arr.length-1];
+  return '<div class="'+c+'" data-driveid="'+motEsc(last.driveId||'')+'" style="'+motFotoBgStyle(last)+'"><div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div></div>';
+}
+function motExtrasRowHtml(t){
+  const arr=(t.fotos&&t.fotos.adicionais)||[];
+  if(!arr.length) return '';
+  return '<div class="mot-exrow">'+arr.map((m,k)=>'<div class="mot-exthumb" data-k="'+k+'" data-driveid="'+motEsc(m.driveId||'')+'" title="foto extra — toque para ampliar" style="'+motFotoBgStyle(m)+'"><span>EXTRA'+(m.data?' · '+motFmtHora(m.data):'')+'</span></div>').join('')+'</div>';
+}
+function motAbcolHtml(t,withAdd){
+  let h='<div class="mot-abwrap"><div class="mot-abcol"><div class="mot-ablbl">Antes</div>'+motFotoHtml(t,'antes',true)+'</div>'+
+    '<div class="mot-abcol"><div class="mot-ablbl">Depois</div>'+motFotoHtml(t,'depois',true)+'</div></div>'+
+    motExtrasRowHtml(t);
+  if(withAdd) h+='<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
+  return h;
+}
+function motWireExtras(cont,t){
+  cont.querySelectorAll('.mot-exthumb').forEach(th=>{ th.addEventListener('click',ev=>{ ev.stopPropagation(); motAmpliarExtra(t,+th.dataset.k); }); });
+  const addBtn=cont.querySelector('.mot-addextra'); if(addBtn) addBtn.addEventListener('click',()=>motAdicionarFotoExtra(t));
+}
+function motAmpliarExtra(t,k){
+  const m=(t.fotos.adicionais||[])[k]; if(!m) return;
+  document.getElementById('mot-refhd-tit').textContent='📷 Foto extra';
+  const rb=document.getElementById('mot-refbody');
+  rb.innerHTML='<div class="mot-refimg" id="mot-extra-img" style="'+motFotoBgStyle(m)+'"><span class="mot-reftag">EXTRA</span></div>'+
+    '<div class="mot-reffoot">foto extra anexada à tarefa'+(m.data?' · '+motFmtHora(m.data):'')+'</div>';
+  document.getElementById('mot-refmodal').classList.add('on');
+  document.getElementById('mot-refscrim').classList.add('on');
+  if(!m._localUrl&&m.driveId) beArquivoDataURL(m.driveId).then(du=>{ const el=document.getElementById('mot-extra-img'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{});
+}
+function motAdicionarFotoExtra(t){
+  pickPhoto(async blob=>{
+    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+    t.fotos.adicionais=t.fotos.adicionais||[]; t.fotos.adicionais.push(tmp);
+    motMarcarEdicao(t); motRenderAtual();
+    try{
+      const r=await motUploadFoto(t.id,blob,t.id+'_extra_'+Date.now()+'.jpg','Foto Adicional');
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; } else if(r&&r._queued) toast('📡 Foto extra salva no aparelho — envia quando houver sinal');
+    }catch(e){ toast('Falha ao enviar foto extra: '+e.message); }
+    motRenderAtual();
+  });
+}
+function motRenderFoto(tipo){
+  const t=MOT.tarefas[MOT.atual], fase=tipo==='antes'?'ANTES':'DEPOIS';
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=
+    '<div class="mot-camtap"><div class="mot-fase">'+fase+'<small>da execução</small></div><div class="mot-cic">📷</div><div class="mot-hint">Toque para fotografar</div></div>'+
+    '<button class="mot-nofoto" id="mot-semfoto">não consigo fotografar</button>'+
+    (tipo==='antes'?'<button class="mot-nofoto" id="mot-naoexeclink">não vou conseguir executar esta tarefa</button>':'');
+  body.querySelector('.mot-camtap').addEventListener('click',()=>motCapturar(tipo));
+  body.querySelector('#mot-semfoto').addEventListener('click',()=>{ t._fase='justif-'+tipo; motRenderAtual(); });
+  const ne=body.querySelector('#mot-naoexeclink');
+  if(ne) ne.addEventListener('click',()=>{ t._fase='naoexec'; motRenderAtual(); });
+}
+function motCapturar(tipo){
+  const t=MOT.tarefas[MOT.atual];
+  pickPhoto(async blob=>{
+    const area=document.querySelector('#mot-shBody .mot-camtap');
+    if(area){ area.classList.add('snap'); area.innerHTML='<div class="mot-cic">✦</div><b>Enviando…</b>'; }
+    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+    t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
+    const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
+    try{
+      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+    }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+    motRenderPosFoto(tipo);
+  });
+}
+function motRenderPosFoto(tipo){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=motFotoHtml(t,tipo)+motExtrasRowHtml(t)+
+    '<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button><span class="mot-autohint">✓ capturada — avançando…</span></div>';
+  motWireExtras(body,t);
+  const addBtn=body.querySelector('.mot-addextra'); addBtn.addEventListener('click',()=>clearTimeout(MOT.timer),{once:true});
+  motHidratarThumbs(body);
+  MOT.timer=setTimeout(()=>motAvancarDe(tipo),900);
+}
+function motAvancarDe(tipo){
+  const t=MOT.tarefas[MOT.atual];
+  t._fase=(tipo==='antes')?((t.passos&&t.passos.length)?'exec':'depois'):'desfecho';
+  motRenderAtual();
+}
+function motRenderJustif(tipo){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=
+    '<div class="mot-justtit">Sem foto — registre o motivo</div>'+
+    '<div class="mot-justsub">Nada trava aqui: escolha o motivo (1 toque) ou escreva. A justificativa fica só nesta sessão do app.</div>'+
+    '<button class="mot-justchip">Local sem acesso seguro para foto</button>'+
+    '<button class="mot-justchip">Câmera indisponível / danificada</button>'+
+    '<button class="mot-justchip">Equipamento energizado — risco na aproximação</button>'+
+    '<textarea class="mot-jtxt" placeholder="Outro motivo…"></textarea>'+
+    '<button class="mot-justok">Registrar justificativa e continuar</button>'+
+    '<button class="mot-voltalink" id="mot-jvoltar">← voltar e tentar fotografar</button>';
+  body.querySelectorAll('.mot-justchip').forEach(c=>{ c.addEventListener('click',()=>{ t[tipo==='antes'?'_antesJust':'_depoisJust']=c.textContent; motAvancarDe(tipo); }); });
+  body.querySelector('.mot-justok').addEventListener('click',()=>{
+    const v=body.querySelector('.mot-jtxt').value.trim(); if(!v){ body.querySelector('.mot-jtxt').focus(); return; }
+    t[tipo==='antes'?'_antesJust':'_depoisJust']=v; motAvancarDe(tipo);
+  });
+  body.querySelector('#mot-jvoltar').addEventListener('click',()=>{ t._fase=tipo; motRenderAtual(); });
+}
+
+/* ---------- checklist: clássico (Checkbox) + M10 (Instrução/Medição/Condição/Mídia) + fallback ---------- */
+function motRefBtnHtml(p){
+  return (p.referencia&&p.referencia.disponivel)?('<button class="mot-refbtn inline" data-pid="'+p.id+'" style="margin:6px 0 2px" title="ver foto de referência (definida pelo supervisor)">REF 📐</button>'):'';
+}
+function motSkipRowHtml(p){
+  return '<div class="mot-ckrow skp" data-pid="'+p.id+'"><span class="mot-box">⊘</span><span class="mot-tx">'+motEsc(p.descricao)+'</span><span class="mot-skbdg" title="'+motEsc(p.motivo||'')+'">⊘ '+motEsc(p.motivo||'')+'</span></div>';
+}
+function motCheckboxRowHtml(p,aff){
+  const on=p.statusPasso==='Feito';
+  return '<div class="mot-ckrow'+(on?' on':'')+'" data-pid="'+p.id+'"><span class="mot-box">'+(on?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span>'+
+    (aff&&!on?'<button class="mot-cksk" data-sk="'+p.id+'" title="este item não pôde ser feito">⊘</button>':'')+'</div>';
+}
+function motFallbackRowHtml(p){
+  const bdg=p.statusPasso==='Feito'?'registrado':'sem campo nesta versão do app';
+  return '<div class="mot-fallrow" data-pid="'+p.id+'"><span class="mot-tx">'+motEsc(p.descricao)+' <small style="color:var(--mot-text-soft)">('+motEsc(p.tipoCampo)+')</small></span>'+
+    '<span class="mot-fallbdg">'+bdg+'</span><button class="mot-cksk" data-sk="'+p.id+'" title="não se aplica / não pôde ser feito">⊘</button></div>';
+}
+function motSugTexto(p){
+  if(p.tipoCampo==='Medição') return p.descricao+': '+motFmt(p.valorNumerico)+' '+(p.unidade||'')+' — fora da faixa do ativo ('+motFmt(p.valorMinVigente)+'–'+motFmt(p.valorMaxVigente)+' '+(p.unidade||'')+')';
+  return p.descricao+': '+p.valorOpcao+' — descrever o dano observado';
+}
+function motSugBoxHtml(p){
+  return '<div class="mot-sugbox"><b>📝 Anotação Técnica sugerida</b>'+
+    '<div class="mot-sugtx">"'+motEsc(motSugTexto(p))+'" · severidade sugerida: <b>Atenção</b></div>'+
+    '<div class="mot-sugrow"><button class="mot-sugok" data-pid="'+p.id+'">Aceitar</button><button class="mot-sugdisp" data-pid="'+p.id+'">Dispensar</button></div>'+
+    '<div class="mot-sughint">texto pré-preenchido — se você registrar Anotação Técnica nesta tarefa, ele entra automaticamente. Nunca trava.</div></div>';
+}
+function motTypedStepHtml(t,p,aff){
+  let h='<div class="mot-ckstep" data-pid="'+p.id+'"><div class="mot-cklbl"><span class="mot-tx">'+motEsc(p.descricao)+(p.unidade?' <span class="mot-ckun">('+motEsc(p.unidade)+')</span>':'')+'</span>'+
+    (aff&&!motItemResolvido(t,p)?'<button class="mot-cksk" data-sk="'+p.id+'" title="não se aplica / não pôde ser feito">⊘</button>':'')+'</div>';
+  if(p.tipoCampo==='Medição'){
+    const fora=motMedForaFaixa(p);
+    h+='<div class="mot-medrow"><input class="mot-medin" data-pid="'+p.id+'" inputmode="decimal" placeholder="0,0" value="'+(p.valorNumerico!=null?motFmt(p.valorNumerico):'')+'"><span class="mot-medun">'+motEsc(p.unidade||'')+'</span>'+
+      (p.valorNumerico!=null?(fora?'<span class="mot-medflag fora">fora da faixa</span>':'<span class="mot-medflag ok">✓ na faixa</span>'):'')+'</div>'+
+      (p.valorMinVigente!=null&&p.valorMaxVigente!=null?'<div class="mot-faixahint">faixa vigente do ativo: '+motFmt(p.valorMinVigente)+'–'+motFmt(p.valorMaxVigente)+' '+motEsc(p.unidade||'')+'</div>':'')+
+      (p.valorNumerico!=null&&fora&&!p._dec?motSugBoxHtml(p):'')+
+      (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+  }else if(p.tipoCampo==='Condição'){
+    const ops=(p.opcoes&&p.opcoes.length)?p.opcoes:['Bom','Regular','Ruim'];
+    h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
+      (p.valorOpcao==='Ruim'&&!p._dec?motSugBoxHtml(p):'')+
+      (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+  }else if(p.tipoCampo==='Mídia'){
+    h+=p.statusPasso==='Feito'?('<div class="mot-fsim mini vid"><div class="mot-cap">VÍDEO · anexado'+(p.horaRegistro?' · '+motFmtHora(p.horaRegistro):'')+'</div></div>'):('<button class="mot-vidtap" data-pid="'+p.id+'">🎥 vídeo curto (máx 30s) — toque para gravar</button>');
+  }
+  return h+'</div>';
+}
+function motPassoRowHtml(t,p,aff){
+  if(!motItemVisivel(t,p)) return '';
+  let inner;
+  if(p.statusPasso==='Não realizado') inner=motSkipRowHtml(p);
+  else if(p.tipoCampo==='Instrução') inner='<div class="mot-ckrow info" data-pid="'+p.id+'"><span class="mot-iico">⚠</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
+  else if(p.tipoCampo==='Checkbox') inner=motCheckboxRowHtml(p,aff);
+  else if(['Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) inner=motFallbackRowHtml(p);
+  else inner=motTypedStepHtml(t,p,aff);
+  if(p.statusPasso!=='Não realizado') inner+=motRefBtnHtml(p);
+  if(p.condDe){ const pai=motAcharPassoPorId(t,p.condDe.passoPaiId);
+    inner+='<div class="mot-condnote">passo condicional — aparece porque a condição = '+motEsc(pai?(motRespostaAtual(pai)||''):'')+'</div>'; }
+  return inner;
+}
+function motCkRowsHtml(t,aff){ return (t.passos||[]).map(p=>motPassoRowHtml(t,p,aff)).join(''); }
+function motWireRefButtons(cont){ cont.querySelectorAll('.mot-refbtn').forEach(rb=>{ rb.addEventListener('click',ev=>{ ev.stopPropagation(); motAbrirRef(rb.dataset.pid); }); }); }
+function motWireTyped(cont,t){
+  cont.querySelectorAll('.mot-medin').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      const val=parseFloat(String(inp.value).trim().replace(',','.')); if(isNaN(val)) return;
+      p.valorNumerico=val; p._dec=null; p.horaRegistro=new Date().toISOString();
+      motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:val});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  cont.querySelectorAll('.mot-copt').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      p.valorOpcao=b.dataset.v; p._dec=null; p.horaRegistro=new Date().toISOString();
+      motSalvarPasso(t,p,{statusPasso:'Feito',valorOpcao:b.dataset.v});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  cont.querySelectorAll('.mot-sugok').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      p._dec='aceita'; t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora()});
+      motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  cont.querySelectorAll('.mot-sugdisp').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      p._dec='disp'; motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  cont.querySelectorAll('.mot-vidtap').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      motGravarVideoPasso(t,p,b);
+    });
+  });
+}
+function motGravarVideoPasso(t,p,btn){
+  const inp=document.getElementById('videoInput'); if(!inp){ toast('Câmera indisponível'); return; }
+  inp.value=''; inp.onchange=async()=>{
+    const f=inp.files&&inp.files[0]; if(!f) return;
+    btn.textContent='✦ Enviando vídeo…';
+    try{
+      const r=await motUploadFoto(t.id,f,t.id+'_video_'+Date.now()+'.mp4','Vídeo');
+      p.statusPasso='Feito'; p.horaRegistro=new Date().toISOString();
+      motSalvarPasso(t,p,{statusPasso:'Feito'});
+      if(r&&r._queued) toast('📡 Vídeo salvo no aparelho — envia quando houver sinal');
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    }catch(e){ toast('Falha no vídeo: '+e.message); btn.textContent='🎥 vídeo curto (máx 30s) — toque para gravar'; }
+  };
+  inp.click();
+}
+function motMaybeAvancaChecklist(t){
+  if(MOT.rev||MOT.edit||t._fase!=='exec') return;
+  if(motCkTodosResolvidos(t)) MOT.timer=setTimeout(()=>{ t._fase='depois'; motRenderAtual(); },600);
+}
+function motWireCkRows(cont,t){
+  motWireRefButtons(cont);
+  cont.querySelectorAll('.mot-cksk').forEach(s=>{ s.addEventListener('click',ev=>{ ev.stopPropagation(); motRenderSkipItem(s.dataset.sk); }); });
+  cont.querySelectorAll('.mot-ckrow').forEach(r=>{
+    r.addEventListener('click',()=>{
+      const pid=r.dataset.pid; if(!pid) return;
+      const p=motAcharPassoPorId(t,pid); if(!p) return;
+      if(p.tipoCampo==='Instrução') return;
+      if(p.tipoCampo!=='Checkbox'&&p.statusPasso!=='Não realizado') return;
+      clearTimeout(MOT.timer);
+      if(p.statusPasso==='Não realizado'){ p.statusPasso='Pendente'; p.motivo=null; motMarcarEdicao(t); motRenderAtual(); return; }
+      const novo=p.statusPasso==='Feito'?'Pendente':'Feito';
+      p.statusPasso=novo;
+      if(novo==='Feito'){ p.horaRegistro=new Date().toISOString(); motSalvarPasso(t,p,{statusPasso:'Feito'}); }
+      motMarcarEdicao(t); motRenderAtual();
+      if(!MOT.rev&&t._fase==='exec'&&motCkTodosResolvidos(t)) MOT.timer=setTimeout(()=>{ t._fase='depois'; motRenderAtual(); },600);
+    });
+  });
+}
+function motRenderCheck(){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML='<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true);
+  motWireTyped(body,t); motWireCkRows(body,t);
+  motHidratarThumbs(body);
+}
+function motRenderSkipItem(passoId){
+  const t=MOT.tarefas[MOT.atual], p=motAcharPassoPorId(t,passoId); if(!p) return;
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=
+    '<div class="mot-justtit">⊘ Este item não pôde ser feito</div>'+
+    '<div class="mot-justsub">"'+motEsc(p.descricao)+'"<br>Nada trava: toque no motivo (1 toque). O item fica justificado e conta como resolvido.</div>'+
+    '<button class="mot-justchip" data-m="Faltou material">Faltou material</button>'+
+    '<button class="mot-justchip" data-m="Inacessível">Inacessível</button>'+
+    '<button class="mot-justchip" data-m="Risco de segurança">Risco de segurança</button>'+
+    '<button class="mot-justchip" data-m="outro">Outro motivo…</button>'+
+    '<div class="mot-outrow" hidden><textarea class="mot-jtxt" placeholder="Descreva o motivo…"></textarea>'+
+    '<button class="mot-justok">Registrar motivo do item</button></div>'+
+    '<button class="mot-voltalink" id="mot-svoltar">← voltar ao checklist</button>';
+  function regSkip(m){
+    p.statusPasso='Não realizado'; p.motivo=m; p._dec=null;
+    motSalvarPasso(t,p,{statusPasso:'Não realizado',motivo:m});
+    motMarcarEdicao(t); motRenderAtual();
+    if(!MOT.rev&&t._fase==='exec'&&motCkTodosResolvidos(t)) MOT.timer=setTimeout(()=>{ t._fase='depois'; motRenderAtual(); },600);
+  }
+  body.querySelectorAll('.mot-justchip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      if(c.dataset.m==='outro'){ body.querySelector('.mot-outrow').hidden=false; body.querySelector('.mot-jtxt').focus(); return; }
+      regSkip(c.dataset.m);
+    });
+  });
+  body.querySelector('.mot-justok').addEventListener('click',()=>{
+    const v=body.querySelector('.mot-jtxt').value.trim(); if(!v){ body.querySelector('.mot-jtxt').focus(); return; }
+    regSkip(v);
+  });
+  body.querySelector('#mot-svoltar').addEventListener('click',motRenderAtual);
+}
+
+/* ---------- desfecho: ✓ Está OK / Anotação Técnica / Não Executado ---------- */
+function motRenderDesfecho(){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=motAbcolHtml(t,true)+
+    '<button class="mot-okbig" id="mot-okbig">✓ Está OK</button>'+
+    '<button class="mot-notabtn" id="mot-notabtn">Anotação Técnica<small>registrar achado ou problema</small></button>';
+  motWireExtras(body,t);
+  body.querySelector('#mot-okbig').addEventListener('click',()=>motConcluir('ok'));
+  body.querySelector('#mot-notabtn').addEventListener('click',()=>{ t._fase='anota'; motRenderAtual(); });
+  motHidratarThumbs(body);
+}
+function motRenderAnota(){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  const sugTxt=(t._notasSugeridas&&t._notasSugeridas.length)?t._notasSugeridas.map(n=>n.txt).join(' · '):'';
+  body.innerHTML=
+    '<div class="mot-antit">📝 Anotação Técnica</div>'+
+    '<textarea class="mot-antxt" placeholder="Descreva o achado (ex.: folga no mancal, correia ressecada…)"></textarea>'+
+    '<button class="mot-anfoto" id="mot-anfoto">📷 Foto do achado (opcional)</button><div id="mot-anthumb"></div>'+
+    '<div class="mot-sevlbl">Toque na severidade para registrar:</div>'+
+    '<div class="mot-sevrow"><button class="mot-sev" data-sev="Observação">Observação</button><button class="mot-sev" data-sev="Atenção">Atenção</button><button class="mot-sev" data-sev="Crítico">⚠ Crítico</button></div>'+
+    '<div class="mot-anhint" hidden>Descreva o achado antes de escolher a severidade.</div>'+
+    '<button class="mot-voltalink" id="mot-anvoltar">← voltar</button>';
+  const ta=body.querySelector('.mot-antxt');
+  if(MOT.edit&&t._desfechoLocal&&t._desfechoLocal.tipo==='nota'&&t._desfechoLocal.txt) ta.value=t._desfechoLocal.txt;
+  else if(sugTxt) ta.value=sugTxt;
+  body.querySelector('#mot-anfoto').addEventListener('click',function(){
+    const btn=this; btn.disabled=true; btn.textContent='Enviando…';
+    pickPhoto(async blob=>{
+      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+      t.fotos.adicionais=t.fotos.adicionais||[]; t.fotos.adicionais.push(tmp);
+      const anthumb=document.getElementById('mot-anthumb');
+      if(anthumb) anthumb.innerHTML='<div class="mot-fsim mini" style="margin-top:8px;'+motFotoBgStyle(tmp)+'"><div class="mot-cap">ACHADO · anexado</div></div>';
+      btn.style.display='none';
+      try{ const r=await motUploadFoto(t.id,blob,t.id+'_achado_'+Date.now()+'.jpg','Foto Adicional'); if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; } }
+      catch(e){ toast('Falha ao enviar foto do achado: '+e.message); }
+    });
+  });
+  body.querySelectorAll('.mot-sev').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const txt=body.querySelector('.mot-antxt').value.trim();
+      if(!txt){ body.querySelector('.mot-anhint').hidden=false; body.querySelector('.mot-antxt').focus(); return; }
+      if(MOT.edit) motAplicarDesfechoEdit('nota',b.dataset.sev,txt); else motConcluir('nota',b.dataset.sev,txt);
+    });
+  });
+  body.querySelector('#mot-anvoltar').addEventListener('click',()=>{ t._fase='desfecho'; motRenderAtual(); });
+}
+async function motConcluir(tipo,sev,txt){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  const crit=sev==='Crítico';
+  body.innerHTML='<div class="mot-transw'+(crit?' crit':'')+'"><div class="mot-tic">'+(tipo==='ok'?'✓':crit?'⚠':'📝')+'</div><b>Salvando…</b></div>';
+  try{
+    const payload=tipo==='ok'?{resultado:'ok'}:{resultado:'nc',severidade:sev,descricao:txt};
+    const r=await bePost('/motor/execucao/itens/'+t.id+'/concluir',payload,'Conclusão da tarefa — '+(t.tarefaNome||''));
+    t.statusItem=(r&&r.statusItem)||(tipo==='ok'?'OK':'Com NC');
+    t._desfechoLocal=tipo==='ok'?{tipo:'ok',hora:motHoraAgora()}:{tipo:'nota',sev:sev,txt:txt,hora:motHoraAgora()};
+    t._fase='fim';
+    if(MOT.ordem.indexOf(MOT.atual)<0) MOT.ordem.push(MOT.atual);
+    motAtualizarLinha(t); motAtualizarProgresso();
+    body.innerHTML='<div class="mot-transw'+(crit?' crit':'')+'"><div class="mot-tic">'+(tipo==='ok'?'✓':crit?'⚠':'📝')+'</div>'+
+      '<b>'+(tipo==='ok'?'Tarefa OK — registrada':crit?'CRÍTICO registrado':'Anotação registrada — '+motEsc(sev))+'</b>'+
+      '<small>'+(r&&r._queued?'salva no aparelho — envia quando houver sinal':(crit?'Coordenador será notificado · corretiva sugerida':'indo para a próxima tarefa…'))+'</small></div>';
+    MOT.timer=setTimeout(motProxima,1000);
+  }catch(e){ toast('Falha ao concluir: '+e.message); t._fase='desfecho'; motRenderAtual(); }
+}
+function motRenderNaoExec(){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=
+    '<div class="mot-justtit">⊘ Não foi possível executar</div>'+
+    '<div class="mot-justsub">Nada trava: toque no motivo (1 toque). O registro grava motivo + horário e a tarefa fica para reprogramação.</div>'+
+    '<button class="mot-justchip" data-m="Local fechado / sem chaves">Local fechado / sem chaves</button>'+
+    '<button class="mot-justchip" data-m="Chuva">Chuva</button>'+
+    '<button class="mot-justchip" data-m="Acesso negado pelo cliente">Acesso negado pelo cliente</button>'+
+    '<button class="mot-justchip" data-m="Equipamento em operação">Equipamento em operação</button>'+
+    '<button class="mot-justchip" data-m="outro">Outro motivo…</button>'+
+    '<div class="mot-outrow" hidden><textarea class="mot-jtxt" placeholder="Descreva o motivo…"></textarea>'+
+    '<button class="mot-justok">Registrar e ir para a próxima</button></div>'+
+    '<button class="mot-voltalink" id="mot-nevoltar">'+(MOT.edit?'← voltar à edição do registro':'← voltar e tentar executar')+'</button>';
+  body.querySelectorAll('.mot-justchip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      if(c.dataset.m==='outro'){ body.querySelector('.mot-outrow').hidden=false; body.querySelector('.mot-jtxt').focus(); return; }
+      motConcluirNaoExec(c.dataset.m);
+    });
+  });
+  body.querySelector('.mot-justok').addEventListener('click',()=>{
+    const v=body.querySelector('.mot-jtxt').value.trim(); if(!v){ body.querySelector('.mot-jtxt').focus(); return; }
+    motConcluirNaoExec(v);
+  });
+  body.querySelector('#mot-nevoltar').addEventListener('click',()=>{
+    if(MOT.edit){ t._fase='fim'; motRenderEdicaoNaoExec(); return; }
+    t._fase='antes'; motRenderAtual();
+  });
+}
+async function motConcluirNaoExec(motivo){
+  const t=MOT.tarefas[MOT.atual];
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML='<div class="mot-transw skip"><div class="mot-tic">⊘</div><b>Salvando…</b></div>';
+  try{
+    const r=await bePost('/motor/execucao/itens/'+t.id+'/nao-executado',{motivo},'Não executado — '+(t.tarefaNome||''));
+    t.statusItem=(r&&r.statusItem)||'Não Executado'; t.motivoNaoExecucao=motivo;
+    t._desfechoLocal={tipo:'naoexec',motivo,hora:motHoraAgora()};
+    t._fase='fim';
+    if(MOT.edit){ t._editado=motHoraAgora(); motAtualizarLinha(t); motAtualizarProgresso(); motRenderEdicaoNaoExec(); return; }
+    if(MOT.ordem.indexOf(MOT.atual)<0) MOT.ordem.push(MOT.atual);
+    motAtualizarLinha(t); motAtualizarProgresso();
+    body.innerHTML='<div class="mot-transw skip"><div class="mot-tic">⊘</div><b>Não executada — motivo registrado</b>'+
+      '<small>'+(r&&r._queued?'salvo no aparelho — envia quando houver sinal':'será reprogramada · indo para a próxima tarefa…')+'</small></div>';
+    MOT.timer=setTimeout(motProxima,1000);
+  }catch(e){ toast('Falha ao registrar não-execução: '+e.message); t._fase='naoexec'; motRenderAtual(); }
+}
+
+/* ---------- revisão de passo/foto já concluído (chips do fsteps) ---------- */
+function motRenderReview(){
+  const t=MOT.tarefas[MOT.atual]; let h='';
+  const body=document.getElementById('mot-shBody');
+  if(MOT.rev==='exec'){
+    h+='<div class="mot-revhd">revisão · checklist</div>'+
+      '<div class="mot-ckhd">Toque num item para corrigir a marcação (item ⊘ volta a pendente); o ⊘ registra impedimento:</div>'+
+      motCkRowsHtml(t,true);
+  }else{
+    const tipo=MOT.rev;
+    h+='<div class="mot-revhd">revisão · foto '+tipo.toUpperCase()+'</div>'+motFotoHtml(t,tipo)+motExtrasRowHtml(t);
+    h+='<div class="mot-fotorow"><button class="mot-addfoto mot-refoto">📷 '+((t.fotos[tipo]&&t.fotos[tipo].length)?'Refazer foto':'Tirar foto agora')+'</button>'+
+      '<button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
+  }
+  h+='<button class="mot-justok mot-contbtn">Continuar</button>';
+  body.innerHTML=h;
+  motWireExtras(body,t);
+  if(MOT.rev==='exec'){ motWireTyped(body,t); motWireCkRows(body,t); }
+  else motWireRefButtons(body);
+  const rf=body.querySelector('.mot-refoto');
+  if(rf) rf.addEventListener('click',()=>{
+    rf.textContent='✦ Capturando…';
+    pickPhoto(async blob=>{
+      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+      t.fotos[MOT.rev]=t.fotos[MOT.rev]||[]; t.fotos[MOT.rev].push(tmp);
+      motMarcarEdicao(t); motRenderReview();
+      try{
+        const backendTipo=MOT.rev==='antes'?'Foto Antes':'Foto Depois';
+        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; }
+      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+    });
+  });
+  body.querySelector('.mot-contbtn').addEventListener('click',motSairRevisao);
+  motHidratarThumbs(body);
+}
+
+/* ---------- registro em leitura (tarefa concluída) — usado por Lista e Linha do tempo ---------- */
+function motChecklistLeituraHtml(t){
+  if(!(t.passos&&t.passos.length)) return '';
+  return '<div class="mot-ckhd" style="margin-top:10px">Checklist:</div>'+t.passos.map(p=>{
+    if(!motItemVisivel(t,p)) return '';
+    let row;
+    if(p.statusPasso==='Não realizado') row=motSkipRowHtml(p);
+    else if(p.tipoCampo==='Instrução') row='<div class="mot-ckrow ro info"><span class="mot-iico">⚠</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
+    else if(p.tipoCampo==='Checkbox'){ const on=p.statusPasso==='Feito'; row='<div class="mot-ckrow ro'+(on?' on':'')+'"><span class="mot-box">'+(on?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>'; }
+    else if(['Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) row='<div class="mot-ckrow ro"><span class="mot-box">'+(p.statusPasso==='Feito'?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
+    else{
+      let d='—';
+      if(p.tipoCampo==='Medição') d=p.valorNumerico!=null?(motFmt(p.valorNumerico)+' '+(p.unidade||'')+(motMedForaFaixa(p)?' · fora da faixa':' · na faixa')):'—';
+      else if(p.tipoCampo==='Condição') d=p.valorOpcao||'—';
+      else if(p.tipoCampo==='Mídia') d=p.statusPasso==='Feito'?'vídeo anexado':'—';
+      row='<div class="mot-ckrow ro val"><span class="mot-box">✓</span><span class="mot-tx">'+motEsc(p.descricao)+' — <b>'+motEsc(d)+'</b></span></div>';
+    }
+    if(p.statusPasso!=='Não realizado') row+=motRefBtnHtml(p);
+    return row;
+  }).join('');
+}
+function motRegistroHtml(t){
+  const d=motDesfecho(t); if(!d) return '';
+  if(d.tipo==='naoexec'){
+    return '<div class="mot-recnota skip">⊘ Não executada — '+motEsc(d.motivo||'')+'<br>Será reprogramada pelo plano de manutenção.</div>'+
+      (t._editado?'<div class="mot-refnote">editado às '+t._editado+'</div>':'');
+  }
+  let h=motAbcolHtml(t,false)+motChecklistLeituraHtml(t);
+  if(t._notasSugeridas&&t._notasSugeridas.length) h+=t._notasSugeridas.map(n=>'<div class="mot-recnota obs">📝 Atenção — '+motEsc(n.txt)+' <small style="font-weight:400">· anotação sugerida do passo · '+n.hora+'</small></div>').join('');
+  (t.passos||[]).filter(p=>p.sinalizacao).forEach(p=>{ h+='<div class="mot-refnote">⚑ referência sinalizada ("'+motEsc(p.descricao)+'") — '+motEsc(p.sinalizacao.motivo)+'</div>'; });
+  if(d.tipo==='ok') h+='<div class="mot-recline"><b>✓ Está OK</b> — sem achados.</div>';
+  else{
+    const cls=d.sev==='Observação'?'mot-recnota obs':'mot-recnota';
+    h+='<div class="'+cls+'">📝 '+motEsc(d.sev||'Com NC')+(d.txt?' — '+motEsc(d.txt):(d._semDetalhe?' — detalhe da anotação não disponível nesta tela (registro recarregado do servidor)':''))+'</div>';
+    if(d.sev==='Crítico') h+='<div class="mot-critban">⚠ Achado crítico — coordenador notificado; corretiva sugerida.</div>';
+  }
+  if(t._editado) h+='<div class="mot-refnote">editado às '+t._editado+'</div>';
+  return h;
+}
+function motAbrirLeitura(i){
+  MOT.rev=null; const t=MOT.tarefas[i];
+  const head=document.getElementById('mot-shHead');
+  head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+
+    '<div class="mot-fsteps"><span class="mot-fstep done">✓ registro concluído · leitura</span></div>';
+  const bloqueada=!!(MOT.ot&&MOT.ot.bloqueada);
+  const acao=bloqueada?'<div class="mot-locknote">🔒 registro travado — OT em revisão/mediação, sem edição</div>':'<button class="mot-editlink" id="mot-editlink">✎ Editar registro</button>';
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML=motRegistroHtml(t)+acao+'<button class="mot-voltalink" id="mot-fecharlk">fechar</button>';
+  motWireExtras(body,t); motWireRefButtons(body);
+  const el=document.getElementById('mot-editlink'); if(el) el.addEventListener('click',()=>motEntrarEdicao(i));
+  document.getElementById('mot-fecharlk').addEventListener('click',motFecharSheet);
+  document.getElementById('mot-sheet').classList.add('on');
+  document.getElementById('mot-scrim').classList.add('on');
+  motHidratarThumbs(body);
+}
+
+/* ---------- edição de registro concluído (trocar desfecho / reabrir não-executado) ---------- */
+function motEntrarEdicao(i){
+  const t=MOT.tarefas[i];
+  const desfechoAntes=motDesfecho(t);
+  if(desfechoAntes) t._desfechoLocal=desfechoAntes;
+  MOT.atual=i; MOT.rev=null; MOT.edit=true;
+  if(desfechoAntes&&desfechoAntes.tipo==='naoexec'){ motRenderEdicaoNaoExec(); return; }
+  t._fase='desfecho';
+  motRenderAtual();
+}
+function motConcluirEdicao(){
+  const t=MOT.tarefas[MOT.atual];
+  MOT.edit=false; MOT.rev=null; t._fase='fim';
+  motAtualizarLinha(t); motAtualizarProgresso();
+  motAbrirLeitura(MOT.atual);
+}
+async function motAplicarDesfechoEdit(tipo,sev,txt){
+  const t=MOT.tarefas[MOT.atual];
+  try{
+    const payload=tipo==='ok'?{resultado:'ok'}:{resultado:'nc',severidade:sev,descricao:txt};
+    const r=await bePost('/motor/execucao/itens/'+t.id+'/concluir',payload,'Edição da conclusão — '+(t.tarefaNome||''));
+    t.statusItem=(r&&r.statusItem)||(tipo==='ok'?'OK':'Com NC');
+    const horaOriginal=(t._desfechoLocal&&t._desfechoLocal.hora)||motHoraAgora();
+    t._desfechoLocal=tipo==='ok'?{tipo:'ok',hora:horaOriginal}:{tipo:'nota',sev,txt,hora:horaOriginal};
+    t._editado=motHoraAgora(); t._fase='desfecho';
+    motAtualizarLinha(t); motAtualizarProgresso();
+    motRenderAtual();
+  }catch(e){ toast('Falha ao trocar desfecho: '+e.message); }
+}
+function motRenderEdicaoDesfecho(){
+  const t=MOT.tarefas[MOT.atual], d=motDesfecho(t); let h='';
+  const body=document.getElementById('mot-shBody');
+  h+='<div class="mot-revhd">✎ edição do registro</div>'+motAbcolHtml(t,true);
+  if(d.tipo==='ok'){
+    h+='<div class="mot-recline"><b>✓ Está OK</b> — sem achados.</div>'+
+      '<button class="mot-notabtn" id="mot-trocanota">Trocar desfecho: Anotação Técnica<small>registrar achado ou problema</small></button>';
+  }else{
+    h+='<div class="'+(d.sev==='Observação'?'mot-recnota obs':'mot-recnota')+'">📝 '+motEsc(d.sev||'Com NC')+(d.txt?' — '+motEsc(d.txt):'')+'</div>'+
+      '<button class="mot-notabtn" id="mot-editanota">Editar anotação<small>texto e severidade</small></button>'+
+      '<button class="mot-notabtn" id="mot-trocaok">Trocar desfecho: ✓ Está OK</button>';
+  }
+  h+='<div class="mot-justsub" style="margin-top:10px">Toque num passo acima (chips) para refazer foto ou corrigir o checklist.</div>'+
+    '<button class="mot-okbig" id="mot-fimedit">Concluir edição</button>';
+  body.innerHTML=h;
+  motWireExtras(body,t);
+  const bt=body.querySelector('#mot-trocanota')||body.querySelector('#mot-editanota');
+  if(bt) bt.addEventListener('click',()=>{ t._fase='anota'; motRenderAtual(); });
+  const tk=body.querySelector('#mot-trocaok'); if(tk) tk.addEventListener('click',()=>motAplicarDesfechoEdit('ok'));
+  body.querySelector('#mot-fimedit').addEventListener('click',motConcluirEdicao);
+  motHidratarThumbs(body);
+}
+function motRenderEdicaoNaoExec(){
+  const t=MOT.tarefas[MOT.atual], d=motDesfecho(t);
+  const head=document.getElementById('mot-shHead');
+  head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+'</small>'+
+    '<div class="mot-fsteps"><span class="mot-fstep rev">✎ edição · não executada</span></div>';
+  const body=document.getElementById('mot-shBody');
+  body.innerHTML='<div class="mot-revhd">✎ edição do registro</div>'+
+    '<div class="mot-recnota skip">⊘ Não executada — '+motEsc((d&&d.motivo)||'')+'</div>'+
+    (t._editado?'<div class="mot-refnote">editado às '+t._editado+'</div>':'')+
+    '<button class="mot-notabtn" id="mot-edmotivo">Alterar motivo<small>trocar a justificativa registrada</small></button>'+
+    '<button class="mot-notabtn" id="mot-edexec">Executar agora<small>reabre desde a foto ANTES — o evento ⊘ é substituído pela conclusão</small></button>'+
+    '<button class="mot-okbig" id="mot-fimedit">Concluir edição</button>';
+  body.querySelector('#mot-edmotivo').addEventListener('click',()=>{ t._fase='naoexec'; motRenderAtual(); });
+  body.querySelector('#mot-edexec').addEventListener('click',()=>motExecutarAgora(t));
+  body.querySelector('#mot-fimedit').addEventListener('click',motConcluirEdicao);
+}
+async function motExecutarAgora(t){
+  try{
+    const r=await bePost('/motor/execucao/itens/'+t.id+'/reabrir',{},null);
+    t.statusItem=(r&&r.statusItem)||'Pendente';
+  }catch(e){ toast(e.status===409?'OT travada para edição — não é possível reabrir esta tarefa.':('Não foi possível reabrir: '+e.message)); return; }
+  MOT.edit=false; MOT.rev=null;
+  t._desfechoLocal=null; t.motivoNaoExecucao=null; t._fase='antes';
+  MOT.ordem=MOT.ordem.filter(k=>k!==MOT.atual);
+  motAtualizarProgresso();
+  motAbrir(MOT.atual);
+}
+
+/* ---------- foto de referência por PASSO (proxy autenticado) + sinalizar ---------- */
+const _motRefCache={};
+async function motRefImgDataURL(passoId){
+  if(_motRefCache[passoId]) return _motRefCache[passoId];
+  const r=await fetch(BACKEND+'/motor/execucao/passos/'+passoId+'/referencia/imagem',{headers:{Authorization:'Bearer '+beTok()}});
+  if(!r.ok) throw new Error('Erro '+r.status);
+  const bl=await r.blob();
+  const du=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(bl); });
+  _motRefCache[passoId]=du; return du;
+}
+function motAbrirRef(passoId){
+  const t=MOT.tarefas[MOT.atual]; if(!t) return;
+  const p=motAcharPassoPorId(t,passoId); if(!p||!p.referencia||!p.referencia.disponivel) return;
+  MOT.curPassoRefId=passoId;
+  document.getElementById('mot-refhd-tit').textContent='📐 Foto de referência';
+  const rb=document.getElementById('mot-refbody');
+  rb.innerHTML=
+    '<div class="mot-refimg mot-reftap" id="mot-refimg" title="toque na imagem para fechar"><span class="mot-reftag">REFERÊNCIA</span></div>'+
+    (p.referencia.nota?'<div class="mot-refnota">📝 '+motEsc(p.referencia.nota)+'</div>':'')+
+    '<div class="mot-reffoot">'+(p.referencia.autor?'definida por '+motEsc(p.referencia.autor)+' · ':'')+(p.referencia.data?motEsc(p.referencia.data)+' — ':'')+'o técnico consulta, não edita</div>'+
+    (p.sinalizacao?('<div class="mot-refflagged">⚑ referência sinalizada — '+motEsc(p.sinalizacao.motivo)+' · aguardando revisão do supervisor</div>'):('<button class="mot-refflagbtn" id="mot-refflagbtn">⚑ Algo errado com esta referência?</button>'));
+  document.getElementById('mot-refmodal').classList.add('on');
+  document.getElementById('mot-refscrim').classList.add('on');
+  rb.querySelector('.mot-reftap').addEventListener('click',motFecharRef);
+  const fb=rb.querySelector('#mot-refflagbtn'); if(fb) fb.addEventListener('click',ev=>{ ev.stopPropagation(); motRenderRefFlag(t,p); });
+  motRefImgDataURL(passoId).then(du=>{ const el=document.getElementById('mot-refimg'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{ const el=document.getElementById('mot-refimg'); if(el) el.innerHTML='<span class="mot-reftag">sem imagem</span>'; });
+}
+function motRenderRefFlag(t,p){
+  document.getElementById('mot-refhd-tit').textContent='⚑ Sinalizar referência';
+  const rb=document.getElementById('mot-refbody');
+  rb.innerHTML=
+    '<div class="mot-justtit">⚑ Algo errado com esta referência?</div>'+
+    '<div class="mot-justsub">Toque no motivo (1 toque). O aviso vai pro supervisor — a referência continua valendo até ele revisar.</div>'+
+    '<button class="mot-justchip" data-m="Desatualizada">Desatualizada</button>'+
+    '<button class="mot-justchip" data-m="Ângulo não bate com o local">Ângulo não bate com o local</button>'+
+    '<button class="mot-justchip" data-m="Equipamento diferente">Equipamento diferente</button>'+
+    '<button class="mot-justchip" data-m="outro">Outro motivo…</button>'+
+    '<div class="mot-outrow" hidden><textarea class="mot-jtxt" placeholder="Descreva o problema…"></textarea>'+
+    '<button class="mot-justok">Enviar ao supervisor</button></div>'+
+    '<button class="mot-voltalink" id="mot-refvoltar">← voltar à referência</button>';
+  async function regFlag(m){
+    try{
+      await bePost('/motor/execucao/passos/'+p.id+'/sinalizar-referencia',{motivo:m},'Sinalização de referência');
+      p.sinalizacao={motivo:m,hora:motHoraAgora()};
+      rb.innerHTML='<div class="mot-transw"><div class="mot-tic">⚑</div><b>Enviado ao supervisor</b><small>a referência continua valendo até ele revisar</small></div>';
+      clearTimeout(MOT.refTimer); MOT.refTimer=setTimeout(motFecharRef,1000);
+    }catch(e){ toast('Falha ao enviar sinalização: '+e.message); }
+  }
+  rb.querySelectorAll('.mot-justchip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      if(c.dataset.m==='outro'){ rb.querySelector('.mot-outrow').hidden=false; rb.querySelector('.mot-jtxt').focus(); return; }
+      regFlag(c.dataset.m);
+    });
+  });
+  rb.querySelector('.mot-justok').addEventListener('click',()=>{
+    const v=rb.querySelector('.mot-jtxt').value.trim(); if(!v){ rb.querySelector('.mot-jtxt').focus(); return; }
+    regFlag(v);
+  });
+  rb.querySelector('#mot-refvoltar').addEventListener('click',()=>motAbrirRef(p.id));
+}
+function motFecharRef(){
+  clearTimeout(MOT.refTimer);
+  document.getElementById('mot-refmodal').classList.remove('on');
+  document.getElementById('mot-refscrim').classList.remove('on');
+}
+
+/* ---------- linha do tempo (visualização — mesmo estado) ---------- */
+function motPopChip(t){
+  const n=(t.passos||[]).filter(p=>p.statusPasso==='Não realizado').length;
+  return n?('<span class="mot-chip">⊘ '+n+' '+(n>1?'itens':'item')+' de POP no registro</span>'):'';
+}
+function motNotaChip(t){
+  const n=(t._notasSugeridas||[]).length;
+  return n?('<span class="mot-chip w">📝 '+n+' anotaç'+(n>1?'ões':'ão')+' de passo</span>'):'';
+}
+function motEventoHtml(t,i){
+  const d=motDesfecho(t);
+  if(!d){
+    const andamento=(t._fase!=='antes')||(t.fotos.antes&&t.fotos.antes.length>0);
+    return '<div class="mot-ev fut mot-evtask" data-t="'+i+'"><div class="mot-dot">'+(andamento?'▶':'🗓')+'</div>'+
+      '<div class="mot-when">hoje · '+(andamento?'em andamento':'pendente')+'</div>'+
+      '<div class="mot-evcard"><div class="mot-t">'+motEsc(t.tarefaNome)+'</div>'+
+      '<div class="mot-d">'+motEsc(t.ativoNome||'')+' — a execução acontece na vista Lista</div>'+
+      '<button class="mot-abrirlista">▶ abrir na lista</button></div></div>';
+  }
+  const cls=d.tipo==='ok'?'done':d.tipo==='naoexec'?'skip':(d.sev==='Crítico'?'alert':'cbm');
+  const ic=d.tipo==='ok'?'✓':d.tipo==='naoexec'?'⊘':(d.sev==='Crítico'?'!':'📋');
+  let h='<div class="mot-ev '+cls+' mot-evreg" data-t="'+i+'"><div class="mot-dot">'+ic+'</div>'+
+    '<div class="mot-when">Hoje'+(d.hora?' · '+d.hora:'')+'</div><div class="mot-evcard"><div class="mot-t">'+motEsc(t.tarefaNome)+'</div>';
+  if(d.tipo==='naoexec'){
+    h+='<div class="mot-chips"><span class="mot-chip">⊘ não executada</span></div>'+
+      '<div class="mot-d" style="margin-top:7px"><b>Motivo:</b> '+motEsc(d.motivo||'')+'</div>'+
+      '<div class="mot-recal skip">Será <b>reprogramada</b> pelo plano de manutenção.</div>';
+  }else{
+    h+='<div class="mot-evfotos"><div class="mot-fcol"><div class="mot-flbl">Antes</div>'+motFotoHtml(t,'antes','mot-fsim evf')+'</div>'+
+      '<div class="mot-fcol"><div class="mot-flbl">Depois</div>'+motFotoHtml(t,'depois','mot-fsim evf')+'</div></div>';
+    if(d.tipo==='ok') h+='<div class="mot-chips"><span class="mot-chip g">✓ está OK</span>'+motPopChip(t)+motNotaChip(t)+'</div>';
+    else{
+      h+='<div class="mot-d" style="margin-top:7px"><b>'+motEsc(d.sev||'Com NC')+'</b>'+(d.txt?' — '+motEsc(d.txt):'')+'</div>';
+      const pc=motPopChip(t)+motNotaChip(t); if(pc) h+='<div class="mot-chips">'+pc+'</div>';
+      if(d.sev==='Crítico') h+='<div class="mot-critban">⚠ Achado crítico — coordenador notificado; corretiva sugerida.</div>';
+      else h+='<div class="mot-recal">Condição observada alimenta o CBM.</div>';
+    }
+  }
+  if(t._editado) h+='<div class="mot-refnote">editado às '+t._editado+'</div>';
+  h+='<div class="mot-evmore">toque para abrir o registro ▸</div></div></div>';
+  return h;
+}
+function motEventoOTHtml(){
+  let oks=0,notas=0,crit=0,skips=[],pops=0;
+  MOT.tarefas.forEach(t=>{ const d=motDesfecho(t); pops+=(t.passos||[]).filter(p=>p.statusPasso==='Não realizado').length; if(!d) return;
+    if(d.tipo==='ok') oks++; else if(d.tipo==='naoexec') skips.push({nome:t.tarefaNome,motivo:d.motivo}); else{ notas++; if(d.sev==='Crítico') crit++; } });
+  return '<div class="mot-ev done" id="mot-evOTfim"><div class="mot-dot">✓</div>'+
+    '<div class="mot-when">Hoje · '+motEsc(MOT.ot.name||'')+' concluída</div><div class="mot-evcard">'+
+    '<div class="mot-t">'+motEsc(MOT.ot.name||'')+' concluída</div>'+
+    '<div class="mot-d">'+oks+' tarefa'+(oks===1?'':'s')+' OK · '+notas+' anotaç'+(notas===1?'ão':'ões')+' técnica'+(notas===1?'':'s')+
+    (skips.length?' · '+skips.length+' não executada'+(skips.length>1?'s':''):'')+'</div>'+
+    (crit?'<div class="mot-critban">⚠ '+crit+' achado CRÍTICO — coordenador notificado.</div>':'')+
+    (pops?'<div class="mot-popline">⊘ '+pops+' '+(pops>1?'itens':'item')+' de POP não realizado'+(pops>1?'s':'')+' — motivo no registro da tarefa</div>':'')+
+    '</div></div>';
+}
+function motRenderTimeline(){
+  const cont=document.getElementById('mot-tlHoje'); if(!cont) return;
+  let h=''; const nome=MOT_FILTROS[MOT.filtro];
+  if(nome!=='pendentes') MOT.ordem.forEach(i=>{ h+=motEventoHtml(MOT.tarefas[i],i); });
+  if(nome!=='concluídas') MOT.tarefas.forEach((t,i)=>{ if(!motDesfecho(t)) h+=motEventoHtml(t,i); });
+  if(MOT.tarefas.length&&MOT.ordem.length===MOT.tarefas.length) h+=motEventoOTHtml();
+  cont.innerHTML=h;
+  cont.querySelectorAll('.mot-evtask').forEach(ev=>{ ev.querySelector('.mot-evcard').addEventListener('click',()=>{ motSetVista('lista'); motAbrir(+ev.dataset.t); }); });
+  cont.querySelectorAll('.mot-evreg').forEach(ev=>{ ev.querySelector('.mot-evcard').addEventListener('click',()=>motAbrirLeitura(+ev.dataset.t)); });
+  motHidratarThumbs(cont);
+}
+
+/* ---------- wiring estático (scrim/handle/ref — existem 1x no HTML, fora de #motorBody) ---------- */
+function motInitStatic(){
+  const sc=document.getElementById('mot-scrim'); if(sc) sc.addEventListener('click',motFecharSheet);
+  const hd=document.getElementById('mot-handle'); if(hd) hd.addEventListener('click',motFecharSheet);
+  const rs=document.getElementById('mot-refscrim'); if(rs) rs.addEventListener('click',motFecharRef);
+  const rx=document.getElementById('mot-refx'); if(rx) rx.addEventListener('click',motFecharRef);
+}
+document.addEventListener('DOMContentLoaded',motInitStatic);
 
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
