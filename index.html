@@ -771,6 +771,7 @@
   .mot-camtap.snap b,.mot-camtap.snap small{color:#fff}
   .mot-nofoto{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
   .mot-fsim{position:relative;border-radius:10px;height:120px;overflow:hidden;display:flex;align-items:flex-end;background-color:#C9D2DB;background-size:cover;background-position:center}
+  .mot-fsim[data-abtipo]{cursor:pointer}
   .mot-fsim .mot-cap{width:100%;background:rgba(11,34,57,.55);color:#fff;font-size:.6rem;font-weight:700;padding:4px 8px;letter-spacing:.4px}
   .mot-fsim.mini{height:74px}
   .mot-fsim.evf{height:64px;border-radius:8px}
@@ -9887,7 +9888,7 @@ function motFotoHtml(t,tipo,cls){
     return '<div class="'+c+' nophoto">—</div>';
   }
   const last=arr[arr.length-1];
-  return '<div class="'+c+'" data-driveid="'+motEsc(last.driveId||'')+'" style="'+motFotoBgStyle(last)+'"><div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div></div>';
+  return '<div class="'+c+'" data-abtipo="'+tipo+'" data-driveid="'+motEsc(last.driveId||'')+'" style="'+motFotoBgStyle(last)+'"><div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div></div>';
 }
 function motExtrasRowHtml(t){
   const arr=(t.fotos&&t.fotos.adicionais)||[];
@@ -9904,6 +9905,12 @@ function motAbcolHtml(t,withAdd){
 function motWireExtras(cont,t){
   cont.querySelectorAll('.mot-exthumb').forEach(th=>{ th.addEventListener('click',ev=>{ ev.stopPropagation(); motAmpliarExtra(t,+th.dataset.k); }); });
   const addBtn=cont.querySelector('.mot-addextra'); if(addBtn) addBtn.addEventListener('click',()=>motAdicionarFotoExtra(t));
+}
+/* 21/07/2026: bug reportado pelo Raphael — tocar na miniatura Antes/Depois não fazia nada
+   ("miniatura travada"), só dava pra excluir/trocar entrando pelos chips do topo (pouco óbvio).
+   Agora a própria miniatura abre o mesmo popup usado nas fotos extra. */
+function motWireAB(cont,t){
+  cont.querySelectorAll('.mot-fsim[data-abtipo]').forEach(el=>{ el.addEventListener('click',ev=>{ ev.stopPropagation(); motAmpliarPrincipal(t,el.dataset.abtipo); }); });
 }
 function motAmpliarExtra(t,k){
   const m=(t.fotos.adicionais||[])[k]; if(!m) return;
@@ -9926,7 +9933,37 @@ function motRemoverFotoPrincipal(t,tipo){
   const m=arr.pop();
   if(m._midiaId) beDelete('/midias/'+m._midiaId,'Remover foto '+tipo).catch(()=>toast('⚠️ Registro não removido no Salesforce'));
   motMarcarEdicao(t); toast('✅ Foto removida');
-  motRenderReview();
+  motRenderAtual(); /* dispara pra motRenderReview() se MOT.rev tiver setado, senão redesenha a tela atual (Desfecho/Edição) */
+}
+/* Ampliar a foto ANTES/DEPOIS ao tocar na miniatura — mesmo popup usado nas fotos extra,
+   com "Trocar" e "Remover" ali dentro. Chamável de qualquer tela (Desfecho/Edição/Revisão/Leitura). */
+function motAmpliarPrincipal(t,tipo){
+  const arr=t.fotos[tipo]||[]; if(!arr.length) return;
+  const m=arr[arr.length-1];
+  document.getElementById('mot-refhd-tit').textContent='📷 Foto '+tipo.toUpperCase();
+  const rb=document.getElementById('mot-refbody');
+  rb.innerHTML='<div class="mot-refimg" id="mot-principal-img" style="'+motFotoBgStyle(m)+'"><span class="mot-reftag">'+tipo.toUpperCase()+'</span></div>'+
+    '<div class="mot-reffoot">'+tipo.toUpperCase()+(m.data?' · '+motFmtHora(m.data):'')+(arr.length>1?' · '+arr.length+' fotos':'')+'</div>'+
+    '<button class="mot-refflagbtn" id="mot-principal-refazer">🔄 Trocar foto</button>'+
+    '<button class="mot-refflagbtn" id="mot-principal-remove">🗑 Remover foto</button>';
+  document.getElementById('mot-refmodal').classList.add('on');
+  document.getElementById('mot-refscrim').classList.add('on');
+  if(!m._localUrl&&m.driveId) beArquivoDataURL(m.driveId).then(du=>{ const el=document.getElementById('mot-principal-img'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{});
+  rb.querySelector('#mot-principal-remove').addEventListener('click',()=>{ motFecharRef(); motRemoverFotoPrincipal(t,tipo); });
+  rb.querySelector('#mot-principal-refazer').addEventListener('click',()=>{
+    motFecharRef();
+    pickPhoto(async file=>{
+      const blob=await motProcessFoto(file);
+      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+      t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
+      motMarcarEdicao(t); motRenderAtual();
+      try{
+        const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
+        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+    });
+  });
 }
 function motRemoverFotoExtra(t,k){
   const arr=t.fotos.adicionais||[]; const m=arr[k]; if(!m) return;
@@ -10198,7 +10235,7 @@ function motRenderDesfecho(){
   body.innerHTML=motAbcolHtml(t,true)+
     '<button class="mot-okbig" id="mot-okbig">✓ Está OK</button>'+
     '<button class="mot-notabtn" id="mot-notabtn">Anotação Técnica<small>registrar achado ou problema</small></button>';
-  motWireExtras(body,t);
+  motWireExtras(body,t); motWireAB(body,t);
   body.querySelector('#mot-okbig').addEventListener('click',()=>motConcluir('ok'));
   body.querySelector('#mot-notabtn').addEventListener('click',()=>{ t._fase='anota'; motRenderAtual(); });
   motHidratarThumbs(body);
@@ -10324,7 +10361,7 @@ function motRenderReview(){
   }
   h+='<button class="mot-justok mot-contbtn">Continuar</button>';
   body.innerHTML=h;
-  motWireExtras(body,t);
+  motWireExtras(body,t); motWireAB(body,t);
   if(MOT.rev==='exec'){ motWireTyped(body,t); motWireCkRows(body,t); }
   else motWireRefButtons(body);
   const rf=body.querySelector('.mot-refoto');
@@ -10396,7 +10433,7 @@ function motAbrirLeitura(i){
   const acao=bloqueada?'<div class="mot-locknote">🔒 registro travado — OT em revisão/mediação, sem edição</div>':'<button class="mot-editlink" id="mot-editlink">✎ Editar registro</button>';
   const body=document.getElementById('mot-shBody');
   body.innerHTML=motRegistroHtml(t)+acao+'<button class="mot-voltalink" id="mot-fecharlk">fechar</button>';
-  motWireExtras(body,t); motWireRefButtons(body);
+  motWireExtras(body,t); motWireRefButtons(body); motWireAB(body,t);
   const el=document.getElementById('mot-editlink'); if(el) el.addEventListener('click',()=>motEntrarEdicao(i));
   document.getElementById('mot-fecharlk').addEventListener('click',motFecharSheet);
   document.getElementById('mot-sheet').classList.add('on');
@@ -10445,10 +10482,10 @@ function motRenderEdicaoDesfecho(){
       '<button class="mot-notabtn" id="mot-editanota">Editar anotação<small>texto e severidade</small></button>'+
       '<button class="mot-notabtn" id="mot-trocaok">Trocar desfecho: ✓ Está OK</button>';
   }
-  h+='<div class="mot-justsub" style="margin-top:10px">Toque num passo acima (chips) para refazer foto ou corrigir o checklist.</div>'+
+  h+='<div class="mot-justsub" style="margin-top:10px">Toque na foto pra trocar ou remover, ou num passo acima (chips) pra corrigir o checklist.</div>'+
     '<button class="mot-okbig" id="mot-fimedit">Concluir edição</button>';
   body.innerHTML=h;
-  motWireExtras(body,t);
+  motWireExtras(body,t); motWireAB(body,t);
   const bt=body.querySelector('#mot-trocanota')||body.querySelector('#mot-editanota');
   if(bt) bt.addEventListener('click',()=>{ t._fase='anota'; motRenderAtual(); });
   const tk=body.querySelector('#mot-trocaok'); if(tk) tk.addEventListener('click',()=>motAplicarDesfechoEdit('ok'));
