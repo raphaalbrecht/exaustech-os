@@ -10659,6 +10659,7 @@ function motInitStatic(){
   const rs=document.getElementById('mot-refscrim'); if(rs) rs.addEventListener('click',motFecharRef);
   const rx=document.getElementById('mot-refx'); if(rx) rx.addEventListener('click',motFecharRef);
   motWireDragFechar();
+  motWireSwipeTarefa();
 }
 /* 21/07/2026: pedido do Raphael — arrastar a alcinha do sheet pra baixo também fecha (gesto
    padrão de bottom sheet), além do toque simples que já fechava. Solta antes do limiar volta
@@ -10684,6 +10685,35 @@ function motWireDragFechar(){
     const mu=()=>{ onEnd(); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
     window.addEventListener('mousemove',mm); window.addEventListener('mouseup',mu);
   });
+}
+/* 21/07/2026: pedido do Raphael — arrastar pro lado dentro do sheet avança/retrocede pra
+   próxima/anterior tarefa da OT (mesma ordem da lista), sem precisar fechar e reabrir. Tarefa já
+   concluída abre em leitura, pendente abre na execução — igual ao toque na linha da lista.
+   Bloqueado durante revisão/edição e nas telas com texto livre ainda não salvo (anotação técnica,
+   justificativa de "sem foto"/"não executado") pra não perder o que a pessoa estava digitando. */
+function motWireSwipeTarefa(){
+  const sheet=document.getElementById('mot-sheet'); if(!sheet) return;
+  let sx=0, sy=0, active=false;
+  function onStart(x,y,target){
+    active=!(target&&target.closest&&target.closest('input,textarea,#mot-handle'));
+    sx=x; sy=y;
+  }
+  function onEnd(x,y){
+    if(!active) return; active=false;
+    const dx=x-sx, dy=y-sy;
+    if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4) return;
+    motIrTarefaSwipe(dx<0?1:-1);
+  }
+  sheet.addEventListener('touchstart',e=>{ const tt=e.touches[0]; onStart(tt.clientX,tt.clientY,e.target); },{passive:true});
+  sheet.addEventListener('touchend',e=>{ const tt=e.changedTouches[0]; onEnd(tt.clientX,tt.clientY); },{passive:true});
+}
+function motIrTarefaSwipe(dir){
+  const t0=MOT.tarefas[MOT.atual];
+  const bloqueado=MOT.rev||MOT.edit||(t0&&['anota','justif-antes','justif-depois','naoexec'].includes(t0._fase));
+  if(bloqueado) return;
+  const i=MOT.atual+dir; if(i<0||i>=MOT.tarefas.length) return;
+  const t=MOT.tarefas[i];
+  if(motDesfecho(t)) motAbrirLeitura(i); else motAbrir(i);
 }
 document.addEventListener('DOMContentLoaded',motInitStatic);
 
