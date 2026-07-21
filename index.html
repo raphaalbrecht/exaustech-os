@@ -10661,27 +10661,43 @@ function motInitStatic(){
   motWireDragFechar();
   motWireSwipeTarefa();
 }
-/* 21/07/2026: pedido do Raphael — arrastar a alcinha do sheet pra baixo também fecha (gesto
-   padrão de bottom sheet), além do toque simples que já fechava. Solta antes do limiar volta
-   pro lugar; solta depois do limiar (ou flick rápido) fecha, inclusive logo após concluir a OT. */
+/* 21/07/2026: pedido do Raphael — arrastar pra baixo fecha o sheet. Na alcinha (#mot-handle)
+   funciona sempre. Na área branca da tarefa (cabeçalho + corpo) só arrasta-fecha quando o
+   conteúdo já está no topo (scrollTop 0) — assim não briga com o scroll normal de um checklist
+   comprido; rolando no meio da lista, arrastar só rola. Se o gesto vira mais horizontal que
+   vertical no meio do caminho, larga o arrasto de fechar (aí quem decide é motWireSwipeTarefa). */
 function motWireDragFechar(){
   const sheet=document.getElementById('mot-sheet'), handle=document.getElementById('mot-handle');
+  const head=document.getElementById('mot-shHead'), body=document.getElementById('mot-shBody');
   if(!sheet||!handle) return;
-  let startY=0, dy=0, dragging=false, startT=0;
-  function onStart(y){ dragging=true; startY=y; dy=0; startT=Date.now(); sheet.style.transition='none'; }
-  function onMove(y){ if(!dragging) return; dy=Math.max(0,y-startY); sheet.style.transform='translateX(-50%) translateY('+dy+'px)'; }
+  let startX=0, startY=0, dy=0, dragging=false, startT=0, fromHandle=false;
+  function onStart(x,y,isHandle){
+    fromHandle=isHandle;
+    if(!isHandle&&!(body&&body.scrollTop<=0)){ dragging=false; return; }
+    dragging=true; startX=x; startY=y; dy=0; startT=Date.now(); sheet.style.transition='none';
+  }
+  function onMove(x,y){
+    if(!dragging) return;
+    const rawX=x-startX, rawY=y-startY;
+    if(!fromHandle&&Math.abs(rawX)>Math.abs(rawY)*1.3){ dragging=false; sheet.style.transition=''; sheet.style.transform=''; return; }
+    dy=Math.max(0,rawY);
+    sheet.style.transform='translateX(-50%) translateY('+dy+'px)';
+  }
   function onEnd(){
     if(!dragging) return; dragging=false;
     sheet.style.transition=''; sheet.style.transform='';
     const dt=Math.max(1,Date.now()-startT), vel=dy/dt;
     if(dy>90||(dy>24&&vel>0.5)) motFecharSheet();
   }
-  handle.addEventListener('touchstart',e=>onStart(e.touches[0].clientY),{passive:true});
-  handle.addEventListener('touchmove',e=>onMove(e.touches[0].clientY),{passive:true});
-  handle.addEventListener('touchend',onEnd);
+  [[handle,true],[head,false],[body,false]].forEach(([el,isHandle])=>{
+    if(!el) return;
+    el.addEventListener('touchstart',e=>{ const tt=e.touches[0]; onStart(tt.clientX,tt.clientY,isHandle); },{passive:true});
+    el.addEventListener('touchmove',e=>{ const tt=e.touches[0]; onMove(tt.clientX,tt.clientY); },{passive:true});
+    el.addEventListener('touchend',onEnd);
+  });
   handle.addEventListener('mousedown',e=>{
-    onStart(e.clientY);
-    const mm=ev=>onMove(ev.clientY);
+    onStart(e.clientX,e.clientY,true);
+    const mm=ev=>onMove(ev.clientX,ev.clientY);
     const mu=()=>{ onEnd(); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
     window.addEventListener('mousemove',mm); window.addEventListener('mouseup',mu);
   });
