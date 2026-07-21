@@ -772,6 +772,11 @@
   .mot-nofoto{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
   .mot-fsim{position:relative;border-radius:10px;height:120px;overflow:hidden;display:flex;align-items:flex-end;background-color:#C9D2DB;background-size:cover;background-position:center}
   .mot-fsim[data-abtipo]{cursor:pointer}
+  .mot-fsim.camvazio{background:var(--mot-blue-soft);border:1.5px dashed var(--mot-blue);align-items:center;justify-content:center;flex-direction:column;text-align:center;color:var(--mot-blue);gap:2px}
+  .mot-fsim.camvazio .mot-cic{font-size:1.3rem;line-height:1}
+  .mot-fsim.camvazio .mot-camhint{font-size:.6rem;font-weight:700;letter-spacing:.3px;line-height:1.25}
+  .mot-fsim.mini.camvazio .mot-cic{font-size:1.05rem}
+  .mot-fsim.mini.camvazio .mot-camhint{font-size:.54rem}
   .mot-fsim .mot-cap{width:100%;background:rgba(11,34,57,.55);color:#fff;font-size:.6rem;font-weight:700;padding:4px 8px;letter-spacing:.4px}
   .mot-fsim.mini{height:74px}
   .mot-fsim.evf{height:64px;border-radius:8px}
@@ -9879,12 +9884,15 @@ function motRenderAtual(){
 }
 
 /* ---------- fotos ANTES/DEPOIS ---------- */
-function motFotoHtml(t,tipo,cls){
+function motFotoHtml(t,tipo,cls,editavel){
   const arr=(t.fotos&&t.fotos[tipo])||[];
   const c=cls===true?'mot-fsim mini':(cls||'mot-fsim');
   const just=tipo==='antes'?t._antesJust:t._depoisJust;
   if(!arr.length){
     if(just) return '<div class="'+c+' nophoto">🚫 sem foto<br><small>'+motEsc(just)+'</small></div>';
+    /* 21/07/2026: pedido do Raphael — em telas editáveis, o retângulo vazio já é o "tirar foto",
+       igual ao padrão da tela ANTES/DEPOIS original (mot-camtap), sem precisar de botão separado. */
+    if(editavel) return '<div class="'+c+' camvazio" data-abtipo="'+tipo+'" data-abcap="1"><div class="mot-cic">📷</div><div class="mot-camhint">toque para<br>fotografar</div></div>';
     return '<div class="'+c+' nophoto">—</div>';
   }
   const last=arr[arr.length-1];
@@ -9895,9 +9903,9 @@ function motExtrasRowHtml(t){
   if(!arr.length) return '';
   return '<div class="mot-exrow">'+arr.map((m,k)=>'<div class="mot-exthumb" data-k="'+k+'" data-driveid="'+motEsc(m.driveId||'')+'" title="foto extra — toque para ampliar" style="'+motFotoBgStyle(m)+'"><span>EXTRA'+(m.data?' · '+motFmtHora(m.data):'')+'</span></div>').join('')+'</div>';
 }
-function motAbcolHtml(t,withAdd){
-  let h='<div class="mot-abwrap"><div class="mot-abcol"><div class="mot-ablbl">Antes</div>'+motFotoHtml(t,'antes',true)+'</div>'+
-    '<div class="mot-abcol"><div class="mot-ablbl">Depois</div>'+motFotoHtml(t,'depois',true)+'</div></div>'+
+function motAbcolHtml(t,withAdd,editavel){
+  let h='<div class="mot-abwrap"><div class="mot-abcol"><div class="mot-ablbl">Antes</div>'+motFotoHtml(t,'antes',true,editavel)+'</div>'+
+    '<div class="mot-abcol"><div class="mot-ablbl">Depois</div>'+motFotoHtml(t,'depois',true,editavel)+'</div></div>'+
     motExtrasRowHtml(t);
   if(withAdd) h+='<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
   return h;
@@ -9910,7 +9918,28 @@ function motWireExtras(cont,t){
    ("miniatura travada"), só dava pra excluir/trocar entrando pelos chips do topo (pouco óbvio).
    Agora a própria miniatura abre o mesmo popup usado nas fotos extra. */
 function motWireAB(cont,t){
-  cont.querySelectorAll('.mot-fsim[data-abtipo]').forEach(el=>{ el.addEventListener('click',ev=>{ ev.stopPropagation(); motAmpliarPrincipal(t,el.dataset.abtipo); }); });
+  cont.querySelectorAll('.mot-fsim[data-abtipo]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const tipo=el.dataset.abtipo;
+      if(el.dataset.abcap) motCapturarPrincipal(t,tipo); else motAmpliarPrincipal(t,tipo);
+    });
+  });
+}
+/* captura (1ª foto ou troca) de ANTES/DEPOIS a partir de qualquer tela editável — usada tanto
+   pelo retângulo vazio tocável quanto pelo botão "Trocar foto" dentro do popup de ampliar. */
+function motCapturarPrincipal(t,tipo){
+  pickPhoto(async file=>{
+    const blob=await motProcessFoto(file);
+    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+    t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
+    motMarcarEdicao(t); motRenderAtual();
+    try{
+      const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
+      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+    }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+  });
 }
 function motAmpliarExtra(t,k){
   const m=(t.fotos.adicionais||[])[k]; if(!m) return;
@@ -9950,20 +9979,7 @@ function motAmpliarPrincipal(t,tipo){
   document.getElementById('mot-refscrim').classList.add('on');
   if(!m._localUrl&&m.driveId) beArquivoDataURL(m.driveId).then(du=>{ const el=document.getElementById('mot-principal-img'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{});
   rb.querySelector('#mot-principal-remove').addEventListener('click',()=>{ motFecharRef(); motRemoverFotoPrincipal(t,tipo); });
-  rb.querySelector('#mot-principal-refazer').addEventListener('click',()=>{
-    motFecharRef();
-    pickPhoto(async file=>{
-      const blob=await motProcessFoto(file);
-      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
-      t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
-      motMarcarEdicao(t); motRenderAtual();
-      try{
-        const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
-        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
-      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
-    });
-  });
+  rb.querySelector('#mot-principal-refazer').addEventListener('click',()=>{ motFecharRef(); motCapturarPrincipal(t,tipo); });
 }
 function motRemoverFotoExtra(t,k){
   const arr=t.fotos.adicionais||[]; const m=arr[k]; if(!m) return;
@@ -10232,7 +10248,7 @@ function motRenderSkipItem(passoId){
 function motRenderDesfecho(){
   const t=MOT.tarefas[MOT.atual];
   const body=document.getElementById('mot-shBody');
-  body.innerHTML=motAbcolHtml(t,true)+
+  body.innerHTML=motAbcolHtml(t,true,true)+
     '<button class="mot-okbig" id="mot-okbig">✓ Está OK</button>'+
     '<button class="mot-notabtn" id="mot-notabtn">Anotação Técnica<small>registrar achado ou problema</small></button>';
   motWireExtras(body,t); motWireAB(body,t);
@@ -10353,34 +10369,17 @@ function motRenderReview(){
       motCkRowsHtml(t,true);
   }else{
     const tipo=MOT.rev;
-    const temFoto=!!(t.fotos[tipo]&&t.fotos[tipo].length);
-    h+='<div class="mot-revhd">revisão · foto '+tipo.toUpperCase()+'</div>'+motFotoHtml(t,tipo)+motExtrasRowHtml(t);
-    h+='<div class="mot-fotorow"><button class="mot-addfoto mot-refoto">📷 '+(temFoto?'Refazer foto':'Tirar foto agora')+'</button>'+
-      '<button class="mot-addfoto mot-addextra">+ foto extra</button>'+
-      (temFoto?'<button class="mot-addfoto mot-refremove">🗑 Remover foto</button>':'')+'</div>';
+    /* 21/07/2026: pedido do Raphael — o retângulo grande já é a ação (vazio = toca pra fotografar,
+       com foto = toca pra trocar/remover no popup); os botões "Tirar foto"/"Refazer"/"Remover"
+       separados abaixo saíram, ficou só o "+ foto extra" que continua sendo uma ação à parte. */
+    h+='<div class="mot-revhd">revisão · foto '+tipo.toUpperCase()+'</div>'+motFotoHtml(t,tipo,null,true)+motExtrasRowHtml(t);
+    h+='<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
   }
   h+='<button class="mot-justok mot-contbtn">Continuar</button>';
   body.innerHTML=h;
   motWireExtras(body,t); motWireAB(body,t);
   if(MOT.rev==='exec'){ motWireTyped(body,t); motWireCkRows(body,t); }
   else motWireRefButtons(body);
-  const rf=body.querySelector('.mot-refoto');
-  if(rf) rf.addEventListener('click',()=>{
-    rf.textContent='✦ Capturando…';
-    pickPhoto(async file=>{
-      const blob=await motProcessFoto(file);
-      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
-      t.fotos[MOT.rev]=t.fotos[MOT.rev]||[]; t.fotos[MOT.rev].push(tmp);
-      motMarcarEdicao(t); motRenderReview();
-      try{
-        const backendTipo=MOT.rev==='antes'?'Foto Antes':'Foto Depois';
-        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; }
-      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
-    });
-  });
-  const rm=body.querySelector('.mot-refremove');
-  if(rm) rm.addEventListener('click',()=>motRemoverFotoPrincipal(t,MOT.rev));
   body.querySelector('.mot-contbtn').addEventListener('click',motSairRevisao);
   motHidratarThumbs(body);
 }
@@ -10473,7 +10472,7 @@ async function motAplicarDesfechoEdit(tipo,sev,txt){
 function motRenderEdicaoDesfecho(){
   const t=MOT.tarefas[MOT.atual], d=motDesfecho(t); let h='';
   const body=document.getElementById('mot-shBody');
-  h+='<div class="mot-revhd">✎ edição do registro</div>'+motAbcolHtml(t,true);
+  h+='<div class="mot-revhd">✎ edição do registro</div>'+motAbcolHtml(t,true,true);
   if(d.tipo==='ok'){
     h+='<div class="mot-recline"><b>✓ Está OK</b> — sem achados.</div>'+
       '<button class="mot-notabtn" id="mot-trocanota">Trocar desfecho: Anotação Técnica<small>registrar achado ou problema</small></button>';
