@@ -9927,18 +9927,38 @@ function motWireAB(cont,t){
   });
 }
 /* captura (1ª foto ou troca) de ANTES/DEPOIS a partir de qualquer tela editável — usada tanto
-   pelo retângulo vazio tocável quanto pelo botão "Trocar foto" dentro do popup de ampliar. */
+   pelo retângulo vazio tocável quanto pelo botão "Trocar foto" dentro do popup de ampliar.
+   21/07/2026: Raphael reportou que, após trocar a foto, a miniatura só atualizava fechando e
+   reabrindo a tarefa — motRenderAtual() sozinho não bastava em algum caso. Além do re-render
+   normal, agora força também a atualização direta do(s) retângulo(s) já em tela (motForcarThumbAB),
+   e qualquer erro no processamento vira toast em vez de falhar calado sem re-renderizar nada. */
 function motCapturarPrincipal(t,tipo){
   pickPhoto(async file=>{
-    const blob=await motProcessFoto(file);
-    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
-    t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
-    motMarcarEdicao(t); motRenderAtual();
     try{
-      const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
-      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
-    }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+      const blob=await motProcessFoto(file);
+      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
+      t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
+      motMarcarEdicao(t); motRenderAtual(); motForcarThumbAB(t,tipo);
+      try{
+        const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
+        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+    }catch(e){ toast('Falha ao processar a foto: '+e.message); }
+  });
+}
+/* atualiza na hora o(s) retângulo(s) Antes/Depois já visíveis em tela (Desfecho/Edição/Revisão),
+   sem depender só do re-render geral — garante que a miniatura nunca fique "presa" na foto antiga. */
+function motForcarThumbAB(t,tipo){
+  const sheet=document.getElementById('mot-sheet'); if(!sheet) return;
+  const arr=t.fotos[tipo]||[]; if(!arr.length) return;
+  const last=arr[arr.length-1];
+  sheet.querySelectorAll('.mot-fsim[data-abtipo="'+tipo+'"]').forEach(el=>{
+    el.classList.remove('camvazio');
+    el.setAttribute('style',motFotoBgStyle(last));
+    el.dataset.driveid=last.driveId||'';
+    el.dataset.hidratado='';
+    el.innerHTML='<div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div>';
   });
 }
 function motAmpliarExtra(t,k){
