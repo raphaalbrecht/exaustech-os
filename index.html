@@ -895,7 +895,9 @@
      1ª rodada (22/07/2026, task #60): só mestre-detalhe (Editor) — linha do tempo fica pra depois. */
   #pln-root{ --pln-bg:#F4F5F7; --pln-surface:#FFFFFF; --pln-border:#E2E5E9; --pln-text:#3A4552; --pln-text-soft:#7A8794;
     --pln-navy:#0B2239; --pln-blue:#3E7EB0; --pln-blue-soft:#E9F1F8; --pln-ok:#1E8E5A; --pln-ok-soft:#EAF6F0;
-    --pln-warn:#C4451B; --pln-warn-soft:#FBEDE8; --pln-radius:12px; font-size:15px; color:var(--pln-text); }
+    --pln-warn:#C4451B; --pln-warn-soft:#FBEDE8; --pln-radius:12px; font-size:15px; color:var(--pln-text);
+    max-width:100%; overflow-x:hidden; }
+  .pln-kv .v{flex:1; min-width:0; overflow-wrap:break-word}
   #pln-root .pln-empty{padding:34px 16px;text-align:center}
   #pln-root .pln-empty .pln-emico{font-size:2.2rem;margin-bottom:8px}
   #pln-root .pln-empty h3{font-size:1rem;color:var(--pln-navy);margin-bottom:6px}
@@ -10940,8 +10942,12 @@ function plnRenderShell(root){
     '<button class="'+(PLN.tab==='agenda'?'on':'')+'" data-tab="agenda">Agenda de OTs</button>'+
   '</div>';
   if(PLN.locais.length>1){
-    h+='<select id="pln-localsel" style="margin:8px 12px;padding:7px 8px;border:1px solid var(--pln-border);border-radius:8px;font-size:.72rem;width:calc(100% - 24px);font-family:inherit">'+
-      PLN.locais.map(l=>'<option value="'+l.id+'"'+(l.id===PLN.localId?' selected':'')+'>'+motEsc(l.contaNome?l.contaNome+' — ':'')+motEsc(l.nome)+'</option>').join('')+
+    // texto truncado no próprio option — <select> nativo nem sempre respeita text-overflow no
+    // valor fechado, então garante que nenhuma option force o container a alargar (achado no
+    // teste E2E, 22/07: overflow horizontal do #app inteiro com nome de local longo).
+    const plnTrunc=(s,n)=>{ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; };
+    h+='<select id="pln-localsel" style="display:block;margin:8px 12px;padding:7px 8px;border:1px solid var(--pln-border);border-radius:8px;font-size:.72rem;width:calc(100% - 24px);max-width:calc(100% - 24px);box-sizing:border-box;font-family:inherit">'+
+      PLN.locais.map(l=>'<option value="'+l.id+'"'+(l.id===PLN.localId?' selected':'')+'>'+motEsc(plnTrunc((l.contaNome?l.contaNome+' — ':'')+l.nome,48))+'</option>').join('')+
     '</select>';
   }
   h+='<div id="pln-tabbody"></div>';
