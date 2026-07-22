@@ -890,6 +890,90 @@
   .mot-fallrow:last-of-type{border-bottom:none}
   .mot-fallrow .mot-tx{flex:1;font-size:.82rem;color:var(--mot-text);line-height:1.3}
   .mot-fallbdg{flex-shrink:0;font-size:.58rem;font-weight:700;border-radius:10px;padding:3px 8px;background:#EEF1F4;color:#5F6B77}
+  /* ===== PLANO DE MANUTENÇÃO (retaguarda) — porte de mockup-plano-FINAL-mestre-detalhe-timeline.html =====
+     Todas as classes/ids deste bloco usam o prefixo pln- pra nunca colidir com o CSS existente.
+     1ª rodada (22/07/2026, task #60): só mestre-detalhe (Editor) — linha do tempo fica pra depois. */
+  #pln-root{ --pln-bg:#F4F5F7; --pln-surface:#FFFFFF; --pln-border:#E2E5E9; --pln-text:#3A4552; --pln-text-soft:#7A8794;
+    --pln-navy:#0B2239; --pln-blue:#3E7EB0; --pln-blue-soft:#E9F1F8; --pln-ok:#1E8E5A; --pln-ok-soft:#EAF6F0;
+    --pln-warn:#C4451B; --pln-warn-soft:#FBEDE8; --pln-radius:12px; font-size:15px; color:var(--pln-text); }
+  #pln-root .pln-empty{padding:34px 16px;text-align:center}
+  #pln-root .pln-empty .pln-emico{font-size:2.2rem;margin-bottom:8px}
+  #pln-root .pln-empty h3{font-size:1rem;color:var(--pln-navy);margin-bottom:6px}
+  #pln-root .pln-empty p{font-size:.8rem;color:var(--pln-text-soft);line-height:1.5;margin-bottom:16px}
+  .pln-topnav{display:flex;background:var(--pln-surface);border-bottom:1px solid var(--pln-border);position:sticky;top:0;z-index:2}
+  .pln-topnav button{border:none;background:none;padding:11px 14px;font-size:.72rem;font-weight:700;color:var(--pln-text-soft);cursor:pointer;border-bottom:2.5px solid transparent;flex:1}
+  .pln-topnav button.on{color:var(--pln-blue);border-bottom-color:var(--pln-blue)}
+  .pln-split{display:flex;min-height:340px}
+  .pln-master{width:230px;flex-shrink:0;border-right:1px solid var(--pln-border);background:var(--pln-surface);padding:8px 0;overflow-y:auto}
+  .pln-detail{flex:1;min-width:0;padding:10px 14px 30px}
+  @media(max-width:620px){.pln-split{flex-direction:column;min-height:0}.pln-master{width:100%;border-right:none;border-bottom:1px solid var(--pln-border);display:flex;overflow-x:auto;padding:8px}.pln-mitem{min-width:180px;border-left:none!important;border:1px solid var(--pln-border);border-radius:10px;margin-right:6px}.pln-mhd{display:none}}
+  .pln-mhd{font-size:.58rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--pln-text-soft);padding:6px 12px}
+  .pln-mitem{display:block;width:100%;text-align:left;border:none;background:none;padding:9px 12px;cursor:pointer;border-left:3px solid transparent}
+  .pln-mitem.on{background:var(--pln-blue-soft);border-left-color:var(--pln-blue)}
+  .pln-mitem b{font-size:.76rem;color:var(--pln-navy);display:block;line-height:1.25}
+  .pln-mitem small{font-size:.62rem;color:var(--pln-text-soft);display:block;margin-top:2px;line-height:1.35}
+  .pln-mbadges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+  .pln-mini{font-size:.56rem;font-weight:700;border-radius:9px;padding:1px 7px}
+  .pln-mini.g{background:var(--pln-ok-soft);color:#16744A}
+  .pln-mini.o{background:var(--pln-blue-soft);color:#2B5A7E}
+  .pln-mini.w{background:var(--pln-warn-soft);color:var(--pln-warn)}
+  #pln-root h2{font-size:.92rem;color:var(--pln-navy)}
+  .pln-dsub{font-size:.68rem;color:var(--pln-text-soft);margin:2px 0 10px;line-height:1.4}
+  .pln-sumline{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}
+  .pln-pill{font-size:.64rem;font-weight:700;border-radius:14px;padding:3px 9px;background:var(--pln-surface);border:1px solid var(--pln-border);color:var(--pln-text)}
+  .pln-pill.g{background:var(--pln-ok-soft);border-color:#BFE6D2;color:#16744A}
+  .pln-pill.o{background:var(--pln-blue-soft);border-color:#BFD5E6;color:#2B5A7E}
+  .pln-pill.w{background:var(--pln-warn-soft);border-color:#F3C9BB;color:var(--pln-warn)}
+  .pln-card{background:var(--pln-surface);border:1px solid var(--pln-border);border-radius:var(--pln-radius);padding:11px 13px;margin-bottom:10px}
+  .pln-kv{display:flex;font-size:.72rem;padding:3px 0;gap:8px}
+  .pln-kv .k{color:var(--pln-text-soft);width:110px;flex-shrink:0}
+  .pln-kv .v{color:var(--pln-text);font-weight:600}
+  .pln-sechd{font-size:.62rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--pln-text-soft);margin:14px 0 6px}
+  .pln-dlist{background:var(--pln-surface);border:1px solid var(--pln-border);border-radius:var(--pln-radius);overflow:hidden}
+  .pln-trow{display:flex;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--pln-border);gap:9px;flex-wrap:wrap;cursor:pointer}
+  .pln-trow:last-child{border-bottom:none}
+  .pln-trow:hover{background:#FAFBFC}
+  .pln-tdot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:4px}
+  .pln-tdot.ok{background:var(--pln-ok)}
+  .pln-tdot.conf{background:var(--pln-blue)}
+  .pln-tdot.pend{background:#fff;border:2px solid var(--pln-blue)}
+  .pln-tdot.off{background:#C9D2DB}
+  .pln-tinfo{flex:1;min-width:150px}
+  .pln-tinfo .nm{font-size:.78rem;font-weight:600;color:var(--pln-navy);line-height:1.25}
+  .pln-tinfo .meta{font-size:.6rem;color:var(--pln-text-soft);margin-top:2px;line-height:1.4}
+  .pln-org{font-size:.52rem;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:.3px}
+  .pln-org.bib{background:#EDF0F3;color:#415061}
+  .pln-org.ia{background:linear-gradient(90deg,#3E7EB0,#0B2239);color:#fff}
+  .pln-org.man{background:var(--pln-warn-soft);color:var(--pln-warn)}
+  .pln-tfreq{text-align:right;flex-shrink:0}
+  .pln-tfreq .ef{font-size:.8rem;font-weight:700;color:var(--pln-navy)}
+  .pln-tfreq .calc{font-size:.56rem;color:var(--pln-text-soft)}
+  .pln-crit{font-size:.7rem;color:var(--pln-text);padding:3px 0 3px 10px;border-left:2.5px solid var(--pln-blue-soft)}
+  .pln-crit b{color:var(--pln-navy)}
+  .pln-bomrow{display:flex;font-size:.72rem;padding:5px 0;gap:8px;align-items:center;border-bottom:1px dashed var(--pln-border)}
+  .pln-bomrow:last-child{border-bottom:none}
+  .pln-bomrow .p{flex:1;color:var(--pln-text)}
+  .pln-bomrow .qt{color:var(--pln-text-soft);white-space:nowrap}
+  .pln-critic{font-size:.54rem;font-weight:800;border-radius:4px;padding:2px 6px}
+  .pln-critic.blk{background:var(--pln-warn-soft);color:var(--pln-warn)}
+  .pln-critic.rec{background:#EEF1F4;color:#5F6B77}
+  .pln-poprow{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:.7rem;color:var(--pln-text);border-bottom:1px dashed var(--pln-border);flex-wrap:wrap}
+  .pln-poprow:last-child{border-bottom:none}
+  .pln-poprow .num{font-size:.6rem;font-weight:800;color:var(--pln-text-soft);width:14px}
+  .pln-tname{font-size:.52rem;font-weight:800;color:#2B5A7E;letter-spacing:.4px;background:var(--pln-blue-soft);border-radius:4px;padding:1px 6px;flex-shrink:0;width:72px;text-align:center}
+  .pln-poprow .ds{flex:1;min-width:140px;font-weight:600;color:var(--pln-navy)}
+  .pln-poprow .pp{font-size:.6rem;color:var(--pln-text-soft);width:100%;padding-left:22px;line-height:1.45}
+  .pln-refok{font-size:.58rem;color:#16744A;font-weight:800;flex-shrink:0}
+  .pln-modrow{display:flex;align-items:center;padding:7px 0;font-size:.72rem;gap:8px;border-bottom:1px dashed var(--pln-border)}
+  .pln-modrow:last-child{border-bottom:none}
+  .pln-modrow .nm{flex:1;color:var(--pln-text)}
+  .pln-fator{font-size:.74rem;font-weight:800;padding:2px 8px;border-radius:6px;background:var(--pln-warn-soft);color:var(--pln-warn)}
+  .pln-docrow{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.72rem;color:var(--pln-text);flex-wrap:wrap}
+  .pln-docst{font-size:.56rem;font-weight:800;border-radius:5px;padding:2px 7px}
+  .pln-docst.med{background:var(--pln-blue-soft);color:#2B5A7E}
+  .pln-docst.env{background:var(--pln-ok-soft);color:#16744A}
+  .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
+  .pln-legend b{color:var(--pln-text)}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1113,6 +1197,11 @@
       </div>
     </section>
 
+    <!-- PLANO DE MANUTENÇÃO (retaguarda) -->
+    <section class="screen" id="scr-plano">
+      <div id="pln-root"></div>
+    </section>
+
   </main>
 
   <!-- FOOTER: botão de status -->
@@ -1132,6 +1221,7 @@
     <button id="nav-cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
     <button id="nav-trein" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
     <button id="nav-motor" onclick="go('motor')" style="display:none"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Execução</button>
+    <button id="nav-plano" onclick="go('plano')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/><circle cx="18" cy="12" r="2"/></svg>Plano</button>
     <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
   </nav>
 
@@ -1616,7 +1706,7 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor'||scr==='plano');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
   document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
@@ -1630,8 +1720,9 @@ function go(scr){
   else if(scr==='bipar'){ tt.textContent='Bipar'; ts.textContent='Retirada/recebimento por QR'; }
   else if(scr==='producao'){ tt.textContent='Produção'; ts.textContent='Fabricação própria'; }
   else if(scr==='motor'){ tt.textContent='Execução da OT'; ts.textContent='Checklist e registro de campo'; }
+  else if(scr==='plano'){ tt.textContent='Plano de Manutenção'; ts.textContent='Retaguarda — ficha, biblioteca e agenda'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); const npl=document.getElementById('nav-plano'); if(npl) npl.classList.toggle('on',scr==='plano'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
@@ -1645,6 +1736,7 @@ function go(scr){
   if(scr==='appt') renderAppt();
   if(scr==='bipar') renderBipar();
   if(scr==='motor') renderMotor();
+  if(scr==='plano') renderPlano();
   renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
@@ -7567,6 +7659,9 @@ function canProducaoTab(r){ return canProducaoAprovar(r)||canProducaoOperar(r); 
    (Auxiliar/Líder de Equipe/Supervisor/Sócio), não só supervisão; fora do escopo pra papéis
    puramente administrativos/de estoque/produção que não têm essa tela desenhada ainda. */
 function canMotor(r){ return !['Estoquista','Produção'].includes(r); }
+// Plano de Manutenção (retaguarda/engenharia) — mesma lista de canCadastrar/canAloc, não é
+// escopo do técnico de campo. Espelha FUNCAO_PLANO em backend/planoRoutes.js.
+function canPlano(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
 function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
   const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
   const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
@@ -7574,7 +7669,8 @@ function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.s
   const ap=document.getElementById('nav-approvals'); if(ap) ap.style.display=canApprovalsTab(ROLE)?'flex':'none';
   const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none';
   const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none';
-  const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none'; }
+  const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none';
+  const pl=document.getElementById('nav-plano'); if(pl) pl.style.display=canPlano(ROLE)?'flex':'none'; }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
 const TREINOS=[
@@ -10791,6 +10887,237 @@ function motIrTarefaSwipe(dir){
   if(motDesfecho(t)) motAbrirLeitura(i); else motAbrir(i);
 }
 document.addEventListener('DOMContentLoaded',motInitStatic);
+
+/* ===== PLANO DE MANUTENÇÃO (retaguarda) — porte do mockup-plano-FINAL-mestre-detalhe-timeline.html,
+   task #60 (22/07/2026). Só LEITURA nesta 1ª rodada, consumindo os 4 endpoints de planoRoutes.js
+   (ver DECISAO_contrato-api-plano-retaguarda.md). Fora de escopo aqui, documentado não esquecido:
+   edição (frequência/critérios/POP/promover regra), linha do tempo, kit em tempo real. */
+let PLN=null;
+function plnReset(){
+  PLN={ tab:'ficha', loading:false, erro:null,
+    locais:[], localId:null,
+    ficha:null, selAtivo:0,
+    biblioteca:null, selRegra:0,
+    agenda:null, selVisita:0 };
+}
+function renderPlano(){
+  const root=document.getElementById('pln-root'); if(!root) return;
+  if(!PLN) plnReset();
+  if(!PLN.locais.length && !PLN.loading){ plnCarregarLocais(); return; }
+  plnRenderShell(root);
+  if(PLN.localId) plnCarregarTab();
+}
+async function plnCarregarLocais(){
+  PLN.loading=true; PLN.erro=null;
+  plnRenderShell(document.getElementById('pln-root'));
+  try{
+    const r=await beGet('/plano/locais');
+    PLN.locais=r.locais||[];
+    if(PLN.locais.length) PLN.localId=PLN.locais[0].id;
+  }catch(e){ PLN.erro='Falha ao carregar locais: '+e.message; }
+  PLN.loading=false;
+  const root=document.getElementById('pln-root');
+  plnRenderShell(root);
+  if(PLN.localId) plnCarregarTab();
+}
+function plnRenderShell(root){
+  if(!root) return;
+  if(PLN.erro && !PLN.locais.length){
+    root.innerHTML='<div class="pln-empty"><div class="pln-emico">⚠️</div><h3>Falha ao carregar</h3><p>'+motEsc(PLN.erro)+'</p></div>';
+    return;
+  }
+  if(PLN.loading && !PLN.locais.length){
+    root.innerHTML='<div class="pln-empty"><div class="pln-emico">⏳</div><h3>Carregando…</h3></div>';
+    return;
+  }
+  if(!PLN.locais.length){
+    root.innerHTML='<div class="pln-empty"><div class="pln-emico">📍</div><h3>Nenhum local</h3><p>Nenhum local cadastrado.</p></div>';
+    return;
+  }
+  let h='<div class="pln-topnav">'+
+    '<button class="'+(PLN.tab==='ficha'?'on':'')+'" data-tab="ficha">Ficha do ativo</button>'+
+    '<button class="'+(PLN.tab==='biblioteca'?'on':'')+'" data-tab="biblioteca">Biblioteca de regras</button>'+
+    '<button class="'+(PLN.tab==='agenda'?'on':'')+'" data-tab="agenda">Agenda de OTs</button>'+
+  '</div>';
+  if(PLN.locais.length>1){
+    h+='<select id="pln-localsel" style="margin:8px 12px;padding:7px 8px;border:1px solid var(--pln-border);border-radius:8px;font-size:.72rem;width:calc(100% - 24px);font-family:inherit">'+
+      PLN.locais.map(l=>'<option value="'+l.id+'"'+(l.id===PLN.localId?' selected':'')+'>'+motEsc(l.contaNome?l.contaNome+' — ':'')+motEsc(l.nome)+'</option>').join('')+
+    '</select>';
+  }
+  h+='<div id="pln-tabbody"></div>';
+  root.innerHTML=h;
+  const sel=root.querySelector('#pln-localsel');
+  if(sel) sel.addEventListener('change',()=>{ PLN.localId=sel.value; PLN.ficha=null; PLN.agenda=null; PLN.erro=null; plnCarregarTab(); });
+  root.querySelectorAll('.pln-topnav button').forEach(b=>{
+    b.addEventListener('click',()=>{ PLN.tab=b.dataset.tab; PLN.erro=null; plnRenderShell(root); plnCarregarTab(); });
+  });
+  plnRenderTabBody();
+}
+async function plnCarregarTab(){
+  if(!PLN.localId) return;
+  const jaTem=(PLN.tab==='ficha'&&PLN.ficha)||(PLN.tab==='biblioteca'&&PLN.biblioteca)||(PLN.tab==='agenda'&&PLN.agenda);
+  if(jaTem){ plnRenderTabBody(); return; }
+  PLN.loading=true; PLN.erro=null; plnRenderTabBody();
+  try{
+    if(PLN.tab==='ficha'){ PLN.ficha=await beGet('/plano/ficha/'+PLN.localId); PLN.selAtivo=0; }
+    else if(PLN.tab==='biblioteca'){ PLN.biblioteca=await beGet('/plano/biblioteca'); PLN.selRegra=0; }
+    else { PLN.agenda=await beGet('/plano/agenda/'+PLN.localId); PLN.selVisita=0; }
+  }catch(e){ PLN.erro='Falha ao carregar: '+e.message; }
+  PLN.loading=false;
+  plnRenderTabBody();
+}
+function plnRenderTabBody(){
+  const body=document.getElementById('pln-tabbody'); if(!body) return;
+  if(PLN.loading){ body.innerHTML='<div class="pln-empty"><div class="pln-emico">⏳</div><h3>Carregando…</h3></div>'; return; }
+  if(PLN.erro){ body.innerHTML='<div class="pln-empty"><div class="pln-emico">⚠️</div><h3>Falha</h3><p>'+motEsc(PLN.erro)+'</p></div>'; return; }
+  if(PLN.tab==='ficha') plnRenderFicha(body);
+  else if(PLN.tab==='biblioteca') plnRenderBiblioteca(body);
+  else plnRenderAgenda(body);
+}
+function plnFmtData(iso){
+  if(!iso) return '—';
+  try{ const d=new Date(iso.length<=10?iso+'T00:00:00':iso); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
+  catch(e){ return iso; }
+}
+function plnFreqLabel(rec){
+  if(!rec) return '—';
+  if(rec.frequenciaBaseDias!=null) return rec.frequenciaBaseDias+'d';
+  if(rec.frequenciaBaseHoras!=null) return rec.frequenciaBaseHoras+'h';
+  if(rec.diaDoMes!=null) return 'todo dia '+rec.diaDoMes+(rec.intervaloRecorrencia?' a cada '+rec.intervaloRecorrencia+' mês(es)':'');
+  if(rec.mesDoAno) return 'anual em '+rec.mesDoAno;
+  if(rec.diaDaSemana) return 'semanal, '+rec.diaDaSemana;
+  return rec.padrao||'—';
+}
+
+function plnRenderFicha(body){
+  const d=PLN.ficha;
+  if(!d || !d.ativos.length){
+    body.innerHTML='<div class="pln-empty"><div class="pln-emico">🧰</div><h3>Nenhum ativo</h3><p>Este local não tem ativos cadastrados.</p></div>';
+    return;
+  }
+  const ativos=d.ativos;
+  if(PLN.selAtivo>=ativos.length) PLN.selAtivo=0;
+  let master='<div class="pln-mhd">'+motEsc(d.local.contaNome||'')+' — '+motEsc(d.local.nome||'')+'</div>';
+  ativos.forEach((a,i)=>{
+    const ok=a.tarefas.filter(t=>t.status==='OK'||t.status==='Confirmada').length;
+    const conferir=a.tarefas.filter(t=>t.status==='A conferir').length;
+    master+='<button class="pln-mitem'+(i===PLN.selAtivo?' on':'')+'" data-i="'+i+'">'+
+      '<b>'+motEsc(a.nome)+'</b><small>'+motEsc(a.tipoAtivoNome||'')+' · '+a.tarefas.length+' tarefa'+(a.tarefas.length===1?'':'s')+'</small>'+
+      '<div class="pln-mbadges">'+(ok?'<span class="pln-mini g">'+ok+' ok</span>':'')+(conferir?'<span class="pln-mini o">'+conferir+' a conferir</span>':'')+'</div>'+
+    '</button>';
+  });
+  const a=ativos[PLN.selAtivo];
+  let det='<h2>'+motEsc(a.nome)+'</h2><div class="pln-dsub">'+motEsc(a.tipoAtivoNome||'')+'</div>';
+  det+='<div class="pln-card"><div class="pln-kv"><span class="k">Data-base</span><span class="v">'+plnFmtData(a.dataBaseManutencao)+
+    (a.confiancaDataBase?' <small style="color:var(--pln-text-soft);font-weight:400">('+motEsc(a.confiancaDataBase)+')</small>':'')+'</span></div>'+
+    '<div class="pln-kv"><span class="k">Baseline</span><span class="v">'+(a.baselineConcluida?'concluída':'pendente')+'</span></div></div>';
+  if(!a.tarefas.length){
+    det+='<div class="pln-empty" style="padding:16px 0"><p>Nenhuma tarefa materializada pra este ativo ainda.</p></div>';
+  } else {
+    det+='<div class="pln-dlist">';
+    a.tarefas.forEach(t=>{
+      const dotCls=(t.status==='OK'||t.status==='Confirmada')?'ok':(t.status==='A conferir'?'pend':(t.status==='Não se aplica'?'off':'conf'));
+      const org=(t.origem||'').toLowerCase();
+      const orgCls=org==='biblioteca'?'bib':(org==='ia'?'ia':'man');
+      det+='<div class="pln-trow"><span class="pln-tdot '+dotCls+'"></span>'+
+        '<div class="pln-tinfo"><div class="nm">'+motEsc(t.descricao)+'</div><div class="meta">'+
+          '<span class="pln-org '+orgCls+'">'+motEsc((t.origem||'—').toUpperCase())+'</span> '+
+          (t.fonte?motEsc(t.fonte):'')+(t.fatorTotalAplicado!=null&&t.fatorTotalAplicado!==1?' · fator ×'+t.fatorTotalAplicado:'')+
+        '</div></div>'+
+        '<div class="pln-tfreq"><div class="ef">'+(t.frequenciaEfetivaDias!=null?t.frequenciaEfetivaDias+'d':'—')+'</div>'+
+          '<div class="calc">'+(t.proximaExecucao?'próx. '+plnFmtData(t.proximaExecucao):'')+'</div></div>'+
+      '</div>';
+    });
+    det+='</div>';
+  }
+  body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
+  body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selAtivo=+el.dataset.i; plnRenderTabBody(); }); });
+}
+
+function plnRenderBiblioteca(body){
+  const d=PLN.biblioteca;
+  if(!d || !d.regras.length){
+    body.innerHTML='<div class="pln-empty"><div class="pln-emico">📚</div><h3>Nenhuma regra</h3><p>Biblioteca ainda vazia — aguardando curadoria.</p></div>';
+    return;
+  }
+  const regras=d.regras;
+  if(PLN.selRegra>=regras.length) PLN.selRegra=0;
+  let master='<div class="pln-mhd">Regras · engenharia</div>';
+  regras.forEach((r,i)=>{
+    master+='<button class="pln-mitem'+(i===PLN.selRegra?' on':'')+'" data-i="'+i+'">'+
+      '<b>'+motEsc(r.descricao)+'</b><small>'+motEsc(r.tipoAtivoNome||'')+' · '+motEsc(plnFreqLabel(r.recorrencia))+'</small>'+
+      '<div class="pln-mbadges">'+(r.pop.length?'<span class="pln-mini o">POP '+r.pop.length+' passos</span>':'')+(!r.ativa?'<span class="pln-mini w">inativa</span>':'')+'</div>'+
+    '</button>';
+  });
+  const r=regras[PLN.selRegra];
+  let det='<h2>'+motEsc(r.descricao)+'</h2><div class="pln-dsub">'+motEsc(r.tipoAtivoNome||'')+(r.tipoTrabalhoNome?' · '+motEsc(r.tipoTrabalhoNome):'')+'</div>';
+  det+='<div class="pln-card">'+
+    '<div class="pln-kv"><span class="k">Origem</span><span class="v">'+motEsc(r.origemRegra||'—')+(r.fonte?' — '+motEsc(r.fonte):'')+'</span></div>'+
+    '<div class="pln-kv"><span class="k">Recorrência</span><span class="v">'+motEsc(plnFreqLabel(r.recorrencia))+'</span></div>'+
+    (r.absorvidaPorNome?'<div class="pln-kv"><span class="k">Absorvida por</span><span class="v">'+motEsc(r.absorvidaPorNome)+'</span></div>':'')+
+  '</div>';
+  if(r.criterios.length){
+    det+='<div class="pln-sechd">Critérios de match</div><div class="pln-card">';
+    r.criterios.forEach(c=>{ det+='<div class="pln-crit"><b>'+motEsc(c.campoNome||'—')+'</b> '+motEsc(c.operador||'=')+' '+motEsc(c.valor||'')+'</div>'; });
+    det+='</div>';
+  }
+  if(r.bom.length){
+    det+='<div class="pln-sechd">Peças previstas (BOM)</div><div class="pln-card">';
+    r.bom.forEach(m=>{
+      const bloqueia=/bloq/i.test(m.criticidade||'');
+      det+='<div class="pln-bomrow"><span class="p">'+motEsc(m.produtoNome||'—')+'</span><span class="qt">'+(m.quantidade!=null?m.quantidade:'—')+'</span>'+
+        (bloqueia?'<span class="pln-critic blk">BLOQUEIA</span>':(m.criticidade?'<span class="pln-critic rec">'+motEsc(m.criticidade.toUpperCase())+'</span>':''))+'</div>';
+    });
+    det+='</div>';
+  }
+  if(r.pop.length){
+    det+='<div class="pln-sechd">POP — passos</div><div class="pln-card">';
+    r.pop.forEach(p=>{
+      det+='<div class="pln-poprow"><span class="num">'+p.ordem+'</span><span class="pln-tname">'+motEsc((p.tipoCampo||'').toUpperCase())+'</span><span class="ds">'+motEsc(p.descricao)+'</span>'+
+        (p.temReferencia?'<span class="pln-refok">REF ✓</span>':'')+
+        (p.unidade||p.valorMin!=null||p.valorMax!=null?'<span class="pp">'+(p.unidade?'unidade <b>'+motEsc(p.unidade)+'</b>':'')+
+          ((p.valorMin!=null||p.valorMax!=null)?' · faixa <b>'+(p.valorMin!=null?p.valorMin:'')+'–'+(p.valorMax!=null?p.valorMax:'')+'</b>':'')+'</span>':'')+
+      '</div>';
+    });
+    det+='</div>';
+  }
+  body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
+  body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selRegra=+el.dataset.i; plnRenderTabBody(); }); });
+}
+
+function plnRenderAgenda(body){
+  const d=PLN.agenda;
+  if(!d || !d.visitas.length){
+    body.innerHTML='<div class="pln-empty"><div class="pln-emico">🗓</div><h3>Nenhuma OT</h3><p>Nenhuma Ordem de Trabalho encontrada pra este local.</p></div>';
+    return;
+  }
+  const visitas=d.visitas;
+  if(PLN.selVisita>=visitas.length) PLN.selVisita=0;
+  let master='<div class="pln-mhd">Ordens de Trabalho</div>';
+  visitas.forEach((v,i)=>{
+    const completo=/complet/i.test(v.statusPecas||'');
+    master+='<button class="pln-mitem'+(i===PLN.selVisita?' on':'')+'" data-i="'+i+'">'+
+      '<b>'+(v.dataHoraPrevista?plnFmtData(v.dataHoraPrevista):motEsc(v.name))+' · '+motEsc(v.tipo||v.name)+'</b><small>'+v.itens.length+' tarefa'+(v.itens.length===1?'':'s')+' · '+motEsc(v.status||'—')+'</small>'+
+      '<div class="pln-mbadges">'+(v.statusPecas?'<span class="pln-mini '+(completo?'g':'w')+'">'+motEsc(v.statusPecas.toUpperCase())+'</span>':'')+(v.dataAjustada?'<span class="pln-mini o">🗓 ajustada</span>':'')+'</div>'+
+    '</button>';
+  });
+  const v=visitas[PLN.selVisita];
+  let det='<h2>'+motEsc(v.name)+' — '+motEsc(v.tipo||'')+'</h2><div class="pln-dsub">'+motEsc(v.status||'')+(v.dataHoraPrevista?' · '+plnFmtData(v.dataHoraPrevista):'')+'</div>';
+  if(v.dataAjustada) det+='<div class="pln-card" style="border-left:3px solid var(--pln-warn)">🗓 data ajustada pelo motor (feriado/fim de semana/janela de bloqueio)</div>';
+  det+='<div class="pln-card"><div class="pln-sechd" style="margin-top:0">Itens</div>';
+  v.itens.forEach(it=>{ det+='<div class="pln-kv"><span class="k">'+motEsc(it.ativoNome||'—')+'</span><span class="v">'+motEsc(it.tarefaNome)+' · '+motEsc(it.statusItem)+'</span></div>'; });
+  det+='</div>';
+  if(v.documento){
+    const doc=v.documento;
+    det+='<div class="pln-sechd">Documento do cliente</div><div class="pln-card">'+
+      '<div class="pln-docrow"><span>📄 '+motEsc(doc.tipo||'Relatório')+(doc.versao!=null?' — v'+doc.versao:'')+'</span>'+
+        '<span class="pln-docst '+(doc.status==='Enviado'?'env':'med')+'">'+motEsc((doc.status||'—').toUpperCase())+'</span></div>'+
+      (doc.motivoRejeicao?'<div class="pln-legend">rejeitado: '+motEsc(doc.motivoRejeicao)+'</div>':'')+
+    '</div>';
+  }
+  body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
+  body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selVisita=+el.dataset.i; plnRenderTabBody(); }); });
+}
 
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
