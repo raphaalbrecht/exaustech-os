@@ -777,6 +777,10 @@
   .mot-fsim.camvazio .mot-camhint{font-size:.6rem;font-weight:700;letter-spacing:.3px;line-height:1.25}
   .mot-fsim.mini.camvazio .mot-cic{font-size:1.05rem}
   .mot-fsim.mini.camvazio .mot-camhint{font-size:.54rem}
+  .mot-navbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .mot-navbtn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--mot-blue);background:#fff;color:var(--mot-blue);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+  .mot-navbtn:disabled{opacity:.28;border-color:#C7CDD3;color:#9AA3AD}
+  .mot-navpos{font-size:.72rem;font-weight:700;color:#6B7480;letter-spacing:.2px}
   .mot-fsim .mot-cap{width:100%;background:rgba(11,34,57,.55);color:#fff;font-size:.6rem;font-weight:700;padding:4px 8px;letter-spacing:.4px}
   .mot-fsim.mini{height:74px}
   .mot-fsim.evf{height:64px;border-radius:8px}
@@ -9868,11 +9872,26 @@ function motEntrarRevisao(step){
   MOT.rev=step; motRenderAtual();
 }
 function motSairRevisao(){ MOT.rev=null; motRenderAtual(); }
+function motNavHtml(){
+  const n=MOT.tarefas.length; if(n<2) return '';
+  const i=MOT.atual, t0=MOT.tarefas[i];
+  const bloqueado=!!(MOT.rev||MOT.edit||(t0&&['anota','justif-antes','justif-depois','naoexec'].includes(t0._fase)));
+  const prevOk=!bloqueado&&i>0, nextOk=!bloqueado&&i<n-1;
+  return '<div class="mot-navbar">'+
+    '<button class="mot-navbtn" id="mot-navprev"'+(prevOk?'':' disabled')+'>‹</button>'+
+    '<span class="mot-navpos">'+(i+1)+' de '+n+'</span>'+
+    '<button class="mot-navbtn" id="mot-navnext"'+(nextOk?'':' disabled')+'>›</button>'+
+  '</div>';
+}
+function motWireNav(head){
+  const p=head.querySelector('#mot-navprev'); if(p) p.addEventListener('click',()=>motIrTarefaSwipe(-1));
+  const nx=head.querySelector('#mot-navnext'); if(nx) nx.addEventListener('click',()=>motIrTarefaSwipe(1));
+}
 function motRenderAtual(){
   const t=MOT.tarefas[MOT.atual]; if(!t) return;
   const head=document.getElementById('mot-shHead');
-  head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+motStepsHtml(t);
-  motWireSteps(head);
+  head.innerHTML=motNavHtml()+'<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+motStepsHtml(t);
+  motWireSteps(head); motWireNav(head);
   if(MOT.rev){ motRenderReview(); return; }
   if(t._fase==='antes'||t._fase==='depois') motRenderFoto(t._fase);
   else if(t._fase==='justif-antes'||t._fase==='justif-depois') motRenderJustif(t._fase==='justif-antes'?'antes':'depois');
@@ -10459,10 +10478,11 @@ function motRegistroHtml(t){
   return h;
 }
 function motAbrirLeitura(i){
-  MOT.rev=null; const t=MOT.tarefas[i];
+  MOT.rev=null; MOT.atual=i; const t=MOT.tarefas[i];
   const head=document.getElementById('mot-shHead');
-  head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+
+  head.innerHTML=motNavHtml()+'<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+
     '<div class="mot-fsteps"><span class="mot-fstep done">✓ registro concluído · leitura</span></div>';
+  motWireNav(head);
   const bloqueada=!!(MOT.ot&&MOT.ot.bloqueada);
   const acao=bloqueada?'<div class="mot-locknote">🔒 registro travado — OT em revisão/mediação, sem edição</div>':'<button class="mot-editlink" id="mot-editlink">✎ Editar registro</button>';
   const body=document.getElementById('mot-shBody');
