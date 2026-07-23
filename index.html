@@ -3779,13 +3779,27 @@ function renderFprod(wrap){
   fprodSt.resultados.forEach(p=>{
     const row=document.createElement('div');
     row.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px';
+    /* thumbnail via fetch+blob (padrão cadLoadImg): <img src> puro não manda o Bearer, o
+       GET /arquivos devolve 403 e a imagem some — bug achado no teste E2E de 22/07. */
     const thumb=p.fotoDriveId
-      ?`<img src="${BACKEND}/arquivos/${_esc(p.fotoDriveId)}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#f2f2f2" onerror="this.style.display='none'">`
+      ?`<img id="fprodthumb-${_esc(p.id)}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#f2f2f2">`
       :`<div style="width:42px;height:42px;border-radius:8px;background:#f2f2f2;display:flex;align-items:center;justify-content:center;font-size:17px;color:#999">📷</div>`;
     row.innerHTML=thumb+`<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${_esc(p.nome)}</div><div style="font-size:12px;color:var(--weak)">${_esc(p.codigo||'sem código')}${p.fotoDriveId?' · tem foto':''}</div></div><span style="color:#999;font-size:18px">›</span>`;
     row.onclick=()=>{ fprodSt.sel=p; fprodSt.okMsg=''; renderEstoque(); };
     wrap.appendChild(row);
+    if(p.fotoDriveId) fprodLoadImg(p.fotoDriveId,'fprodthumb-'+p.id);
   });
+}
+let _fprodImgCache={};
+async function fprodLoadImg(driveId,imgElId){
+  const el=document.getElementById(imgElId); if(!el) return;
+  if(_fprodImgCache[driveId]){ el.src=_fprodImgCache[driveId]; return; }
+  try{
+    const r=await fetch(BACKEND+'/arquivos/'+encodeURIComponent(driveId),{headers:{Authorization:'Bearer '+beTok()}});
+    if(!r.ok){ el.style.display='none'; return; }
+    const u=URL.createObjectURL(await r.blob()); _fprodImgCache[driveId]=u;
+    const el2=document.getElementById(imgElId); if(el2) el2.src=u;
+  }catch(e){ const el2=document.getElementById(imgElId); if(el2) el2.style.display='none'; }
 }
 let _fprodDebounce=null;
 function fprodBuscarDebounced(){ clearTimeout(_fprodDebounce); _fprodDebounce=setTimeout(fprodBuscar,350); }
@@ -3801,7 +3815,7 @@ function fprodDetalhe(wrap){
   const back=document.createElement('button'); back.className='btn btn-neutral'; back.style.cssText='margin:0 0 10px'; back.textContent='‹ Outra busca'; back.onclick=()=>{ fprodSt.sel=null; fprodSt.okMsg=''; renderEstoque(); }; wrap.appendChild(back);
   const card=document.createElement('div'); card.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:16px';
   const fotoAtual=p.fotoDriveId
-    ?`<img src="${BACKEND}/arquivos/${_esc(p.fotoDriveId)}" style="width:100%;max-height:260px;border-radius:12px;object-fit:contain;background:#f7f8f9" onerror="this.outerHTML='<div class=subnote>Não deu pra carregar a foto atual.</div>'">`
+    ?`<img id="fprodprev" style="width:100%;max-height:260px;border-radius:12px;object-fit:contain;background:#f7f8f9">`
     :`<div style="background:#f7f8f9;border-radius:12px;padding:30px 10px;text-align:center;color:#999;font-size:13px">Este produto ainda não tem foto.</div>`;
   card.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">${_esc(p.nome)}</div>
     <div style="font-size:12.5px;color:var(--weak);margin-bottom:12px">${_esc(p.codigo||'sem código')}</div>
@@ -3812,6 +3826,7 @@ function fprodDetalhe(wrap){
       <input type="file" accept="image/*" capture="environment" style="display:none" ${fprodSt.enviando?'disabled':''} onchange="fprodFotoEscolhida(this)">
     </label>`;
   wrap.appendChild(card);
+  if(p.fotoDriveId) fprodLoadImg(p.fotoDriveId,'fprodprev');
 }
 async function fprodFotoEscolhida(input){
   const file=input.files&&input.files[0]; if(!file) return;
