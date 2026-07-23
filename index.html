@@ -3606,6 +3606,7 @@ function renderEstoque(){
   if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); return; }
   if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); return; }
   if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); return; }
+  if(estoqView.mode==='fotoprod'){ renderFprod(wrap); return; }
   /* ===== HOME DO ESTOQUISTA (Home enxuta + "Versão A", 17/07/2026 — desenho aprovado pelo
      Raphael entre 3 mockups): só as pendências que pedem atenção agora, seguidas dos 3 botões-hub
      Enviar/Receber/Armazém com destaque decrescente (Enviar cheio de cor, Receber contornado,
@@ -3749,6 +3750,81 @@ function estoqueArmazemHub(wrap){
     gestBtn.onclick=()=>{ gestReset(); estoqView.origem='armazem'; estoqGo('estrutura'); gestCarregarLocais(); };
     wrap.appendChild(gestBtn);
   }
+  /* Fotos de produto (22/07/2026): catálogo com foto no Drive — busca Product2 e sobe imagem
+     via POST /produtos/:id/foto (par Foto_URL__c/Foto_Drive_Id__c, convenção RespostaAtivo). */
+  const fotoBtn=document.createElement('div');
+  fotoBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+  fotoBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">📷</div>
+    <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Fotos de produto</div><div style="font-size:12px;color:#4A5560">Tirar/trocar a foto de catálogo de um produto</div></div>
+    <span style="color:#999;font-size:18px">›</span>`;
+  fotoBtn.onclick=()=>{ fprodReset(); estoqView.origem='armazem'; estoqGo('fotoprod'); };
+  wrap.appendChild(fotoBtn);
+}
+/* ===== FOTOS DE PRODUTO (fprod*, 22/07/2026): busca de Product2 (mesmo GET /estoque/produtos do
+   vincular-produto) + upload da foto de catálogo pro Drive. Namespace próprio, mesma receita de
+   upload do cadastro de ativos (FormData + Bearer). ===== */
+let fprodSt={q:'',resultados:[],buscando:false,sel:null,enviando:false,okMsg:''};
+function fprodReset(){ fprodSt={q:'',resultados:[],buscando:false,sel:null,enviando:false,okMsg:''}; }
+function renderFprod(wrap){
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao Armazém'; bk.onclick=()=>{ estoqGo('armazem'); }; wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📷 Fotos de produto'; wrap.appendChild(h);
+  if(fprodSt.sel){ fprodDetalhe(wrap); return; }
+  const inp=document.createElement('input');
+  inp.type='search'; inp.placeholder='Buscar produto por nome ou código…'; inp.value=fprodSt.q;
+  inp.style.cssText='width:100%;height:44px;border:1px solid #d8dde3;border-radius:12px;padding:0 14px;font-size:14px;margin:4px 0 10px';
+  inp.oninput=()=>{ fprodSt.q=inp.value; fprodBuscarDebounced(); };
+  wrap.appendChild(inp); setTimeout(()=>inp.focus(),50);
+  if(fprodSt.buscando){ const d=document.createElement('div'); d.className='subnote'; d.textContent='Buscando…'; wrap.appendChild(d); return; }
+  if(fprodSt.q.trim().length>=2 && !fprodSt.resultados.length){ const d=document.createElement('div'); d.className='subnote'; d.textContent='Nenhum produto encontrado.'; wrap.appendChild(d); return; }
+  fprodSt.resultados.forEach(p=>{
+    const row=document.createElement('div');
+    row.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px';
+    const thumb=p.fotoDriveId
+      ?`<img src="${BACKEND}/arquivos/${_esc(p.fotoDriveId)}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#f2f2f2" onerror="this.style.display='none'">`
+      :`<div style="width:42px;height:42px;border-radius:8px;background:#f2f2f2;display:flex;align-items:center;justify-content:center;font-size:17px;color:#999">📷</div>`;
+    row.innerHTML=thumb+`<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">${_esc(p.nome)}</div><div style="font-size:12px;color:var(--weak)">${_esc(p.codigo||'sem código')}${p.fotoDriveId?' · tem foto':''}</div></div><span style="color:#999;font-size:18px">›</span>`;
+    row.onclick=()=>{ fprodSt.sel=p; fprodSt.okMsg=''; renderEstoque(); };
+    wrap.appendChild(row);
+  });
+}
+let _fprodDebounce=null;
+function fprodBuscarDebounced(){ clearTimeout(_fprodDebounce); _fprodDebounce=setTimeout(fprodBuscar,350); }
+async function fprodBuscar(){
+  const q=fprodSt.q.trim(); if(q.length<2){ fprodSt.resultados=[]; renderEstoque(); return; }
+  fprodSt.buscando=true; renderEstoque();
+  try{ const d=await beGet('/estoque/produtos?q='+encodeURIComponent(q)); fprodSt.resultados=d.produtos||[]; }
+  catch(e){ toast('Erro na busca: '+e.message); fprodSt.resultados=[]; }
+  fprodSt.buscando=false; renderEstoque();
+}
+function fprodDetalhe(wrap){
+  const p=fprodSt.sel;
+  const back=document.createElement('button'); back.className='btn btn-neutral'; back.style.cssText='margin:0 0 10px'; back.textContent='‹ Outra busca'; back.onclick=()=>{ fprodSt.sel=null; fprodSt.okMsg=''; renderEstoque(); }; wrap.appendChild(back);
+  const card=document.createElement('div'); card.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:16px';
+  const fotoAtual=p.fotoDriveId
+    ?`<img src="${BACKEND}/arquivos/${_esc(p.fotoDriveId)}" style="width:100%;max-height:260px;border-radius:12px;object-fit:contain;background:#f7f8f9" onerror="this.outerHTML='<div class=subnote>Não deu pra carregar a foto atual.</div>'">`
+    :`<div style="background:#f7f8f9;border-radius:12px;padding:30px 10px;text-align:center;color:#999;font-size:13px">Este produto ainda não tem foto.</div>`;
+  card.innerHTML=`<div style="font-weight:800;font-size:15px;margin-bottom:2px">${_esc(p.nome)}</div>
+    <div style="font-size:12.5px;color:var(--weak);margin-bottom:12px">${_esc(p.codigo||'sem código')}</div>
+    ${fotoAtual}
+    ${fprodSt.okMsg?`<div style="background:#EAF7EE;color:#1e6b3a;border-radius:10px;padding:10px;font-size:13px;font-weight:600;margin-top:10px">${_esc(fprodSt.okMsg)}</div>`:''}
+    <label style="display:block;text-align:center;background:${fprodSt.enviando?'#9db6c9':'#3E7EB0'};color:#fff;border-radius:12px;padding:13px;font-size:14px;font-weight:700;margin-top:12px;${fprodSt.enviando?'pointer-events:none':'cursor:pointer'}">
+      ${fprodSt.enviando?'Enviando…':(p.fotoDriveId?'Trocar foto':'📷 Tirar/escolher foto')}
+      <input type="file" accept="image/*" capture="environment" style="display:none" ${fprodSt.enviando?'disabled':''} onchange="fprodFotoEscolhida(this)">
+    </label>`;
+  wrap.appendChild(card);
+}
+async function fprodFotoEscolhida(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  fprodSt.enviando=true; fprodSt.okMsg=''; renderEstoque();
+  try{
+    const fd=new FormData(); fd.append('file',file,file.name||'foto.jpg');
+    const r=await fetch(BACKEND+'/produtos/'+fprodSt.sel.id+'/foto',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
+    fprodSt.sel.fotoDriveId=j.driveId; fprodSt.okMsg='Foto salva no Drive e vinculada ao produto.';
+    const naLista=fprodSt.resultados.find(x=>x.id===fprodSt.sel.id); if(naLista) naLista.fotoDriveId=j.driveId;
+  }catch(e){ toast('Erro ao enviar foto: '+e.message); }
+  fprodSt.enviando=false; renderEstoque();
 }
 /* ===== ENDEREÇO DE ESTOQUE (wizard endr* — Fase 3, 09/07/2026): criação guiada
    (local→lista→tipo→nome→capacidade→revisão→criação) + provisionamento de etiqueta NFC
