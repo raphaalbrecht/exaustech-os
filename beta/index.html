@@ -145,6 +145,11 @@
   .subhead .st{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
   .subhead .ss{font-size:12px;color:var(--weak);margin-top:2px}
   .subnote{font-size:12px;color:var(--weak);padding:10px 16px 2px}
+  /* Campo de quantidade com unidade colada na direita (v153). O spinner do type=number fica
+     exatamente onde o adorno da unidade mora, entao ele sai — e ninguem ajusta quantidade
+     conferida de 1 em 1 clicando seta, se digita. */
+  .qtd-uni::-webkit-outer-spin-button,.qtd-uni::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .qtd-uni{-moz-appearance:textfield;appearance:textfield}
   .subcard{background:#fff;border:1px solid var(--border);border-radius:.25rem;margin:10px 14px;padding:14px}
   .eq-pill{font-size:9.5px;font-weight:800;background:var(--brand-dk);color:#fff;padding:2px 6px;border-radius:5px;letter-spacing:.3px}
   .eq-name{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -1083,10 +1088,14 @@
     <section class="screen" id="scr-estoque">
       <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
         <div style="display:flex;gap:8px">
-          <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-            style="flex:1;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
-            oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+          <div style="position:relative;flex:1;min-width:0;display:flex">
+            <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              style="width:100%;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 44px 0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
+              oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+            <button type="button" id="estoqBuscaX" onclick="estoqBuscaLimparX()" title="Limpar busca" aria-label="Limpar busca"
+              style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:#EDF1F5;color:#5B6B7C;font-size:16px;font-weight:600;line-height:34px;padding:0;cursor:pointer">✕</button>
+          </div>
           <button type="button" id="estoqBtnCam" onclick="estoqScanCamAbrir()" title="Bipar com a câmera"
             style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0">📷</button>
           <button type="button" id="estoqBtnNfc" onclick="estoqNfcToggle()" title="Ativar leitura NFC"
@@ -2390,7 +2399,7 @@ function sepAddRow(){
   const row=document.createElement('div'); row.className='sep-row'; row.style.cssText='display:flex;gap:6px;margin-bottom:6px;align-items:center';
   row.innerHTML=`<input type="text" placeholder="Material (ex.: Desengraxante 5L)" style="flex:1;min-width:0">
     <input type="text" class="sep-un" placeholder="un" style="width:52px" value="un">
-    <input type="number" class="sep-qtd" placeholder="qtd" min="0" style="width:64px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 8px">
+    <input type="number" class="sep-qtd" inputmode="numeric" placeholder="qtd" min="0" style="width:64px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 8px">
     <button onclick="this.parentNode.remove()" style="border:none;background:none;font-size:18px;color:#ba0517;cursor:pointer">×</button>`;
   box.appendChild(row);
 }
@@ -3386,11 +3395,27 @@ function estoqBuscaFiltrar(q){
     estoqBuscaNorm(s.id).includes(nq) || estoqBuscaNorm(o.id).includes(nq) || estoqBuscaNorm(o.cli).includes(nq)
   );
 }
+/* X de limpar dentro do campo (26/07/2026, pedido do Raphael). So aparece com texto digitado:
+   campo vazio nao ganha botao que nao faz nada. */
+function estoqBuscaXAtualizar(){
+  const inp=document.getElementById('estoqBusca'), bx=document.getElementById('estoqBuscaX');
+  if(!bx) return;
+  bx.style.display = (inp && String(inp.value||'').length) ? 'block' : 'none';
+}
+/* Clique no X: limpa E devolve o foco pro campo. Quem limpa no galpao limpa pra digitar de novo
+   (ou pra bipar a proxima etiqueta), entao perder o foco aqui custaria um toque a mais.
+   O foco NAO entra no estoqBuscaLimpar() porque ele tambem roda no estoqBuscaAbrir(), que sai
+   desta tela — abrir o teclado numa tela que o usuario acabou de deixar seria efeito colateral. */
+function estoqBuscaLimparX(){
+  estoqBuscaLimpar();
+  const inp=document.getElementById('estoqBusca'); if(inp) inp.focus();
+}
 function estoqBuscaLimpar(){
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value='';
   const res=document.getElementById('estoqBuscaResults'); if(res) res.innerHTML='';
   clearTimeout(estoqBuscaProdTimer); estoqBuscaProdSeq++; estoqBuscaProdBuscando=false;
   estoqBuscaProdCache={q:'',lista:null};
+  estoqBuscaXAtualizar();
 }
 function estoqBuscaAbrir(o,s){ estoqBuscaLimpar(); estoqAbrirSep(o,s); }
 function estoqBuscaRenderResultados(lista,q){
@@ -3412,6 +3437,7 @@ function estoqBuscaRenderResultados(lista,q){
 }
 function estoqBuscaInput(){
   const inp=document.getElementById('estoqBusca'); if(!inp) return;
+  estoqBuscaXAtualizar();
   const q=inp.value; const lista=estoqBuscaFiltrar(q);
   // bipagem por scanner: quando o texto lido bate EXATO com o Name de 1 única separação, abre
   // direto sem esperar Enter (alguns leitores não mandam Enter automaticamente).
@@ -3449,6 +3475,7 @@ function estoqProcessarCodigoLido(texto){
   if(lista.length===1){ estoqBuscaAbrir(lista[0].o,lista[0].s); return; }
   if(!lista.length){ estoqBuscaTentarSerie(String(texto||'').trim()); return; }
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value=texto;
+  estoqBuscaXAtualizar();
   estoqBuscaRenderResultados(lista,texto);
 }
 /* Consulta avulsa por série (17/07/2026, PROPOSTA_rastreio-selecao-unidade-serializada.md, §5 —
@@ -4552,7 +4579,7 @@ function endrHubRenderSecaoEndereco(card){
     +'<div id="endrHubCodigoStatus" style="padding:0 0 4px;font-size:12px;min-height:16px"></div>'
     +'<div class="subnote" style="padding:0 0 12px">'+(endrSt.codigoSugerido?'Sugerido automaticamente — pode editar.':'Deixe em branco pra sugerir automaticamente.')+'</div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional)</label>'
-    +'<input id="endrHubCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
+    +'<input id="endrHubCap" type="number" inputmode="decimal" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">';
   sec.appendChild(form);
   /* Bug (revisão pós-v115): estas notas entravam por sec.innerHTML+= — que serializa e reparseia a
      seção inteira, destruindo o onclick dos chips de tipo já anexados acima (mesma classe do bug
@@ -5061,13 +5088,13 @@ function endrRenderCamposLote(container){
     de.innerHTML+='<input id="endrFaixaDe" maxlength="1" value="'+cadEsc(endrSt.faixaDe)+'" placeholder="A" style="'+inpStyle+';text-transform:uppercase">';
     ate.innerHTML+='<input id="endrFaixaAte" maxlength="1" value="'+cadEsc(endrSt.faixaAte)+'" placeholder="J" style="'+inpStyle+';text-transform:uppercase">';
   } else {
-    de.innerHTML+='<input id="endrFaixaDe" type="number" min="0" value="'+cadEsc(endrSt.faixaDe)+'" placeholder="1" style="'+inpStyle+'">';
-    ate.innerHTML+='<input id="endrFaixaAte" type="number" min="0" value="'+cadEsc(endrSt.faixaAte)+'" placeholder="10" style="'+inpStyle+'">';
+    de.innerHTML+='<input id="endrFaixaDe" type="number" inputmode="numeric" min="0" value="'+cadEsc(endrSt.faixaDe)+'" placeholder="1" style="'+inpStyle+'">';
+    ate.innerHTML+='<input id="endrFaixaAte" type="number" inputmode="numeric" min="0" value="'+cadEsc(endrSt.faixaAte)+'" placeholder="10" style="'+inpStyle+'">';
   }
   linha.appendChild(de); linha.appendChild(ate); container.appendChild(linha);
   if(endrSt.faixaModo==='numero'){
     const lLbl=document.createElement('label'); lLbl.style.cssText='font-size:12.5px;color:#4A5560;font-weight:600'; lLbl.textContent='Zeros à esquerda (largura)'; container.appendChild(lLbl);
-    const largura=document.createElement('input'); largura.id='endrFaixaLargura'; largura.type='number'; largura.min='1'; largura.max='6';
+    const largura=document.createElement('input'); largura.id='endrFaixaLargura'; largura.type='number'; largura.inputMode='numeric'; largura.min='1'; largura.max='6';
     largura.value=endrSt.faixaLargura; largura.style.cssText=inpStyle+';margin-bottom:10px'; container.appendChild(largura);
   }
   const nomeBase=document.createElement('div'); nomeBase.style.cssText='margin-top:6px';
@@ -5077,7 +5104,7 @@ function endrRenderCamposLote(container){
   container.appendChild(nomeBase);
   const cap=document.createElement('div');
   cap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Capacidade máxima (opcional, igual pra todos)</label>'
-    +'<input id="endrLoteCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="'+inpStyle+'">';
+    +'<input id="endrLoteCap" type="number" inputmode="decimal" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="'+inpStyle+'">';
   container.appendChild(cap);
   if(endrSt.erro){ const e=document.createElement('div'); e.className='subnote'; e.style.color='#C4451B'; e.style.paddingTop='6px'; e.textContent=endrSt.erro; container.appendChild(e); }
   const faltaModeloBin=(endrSt.tipo==='Bin' && !endrSt.modeloBinId);
@@ -5276,7 +5303,7 @@ function endrRenderNome(card){
 function endrRenderCapacidade(card){
   card.innerHTML=endrBreadcrumbHTML(null)+'<div class="sec-title2" style="margin-top:0">Capacidade máxima (opcional)</div>'
     +'<div class="subnote" style="padding:0 0 8px">Limite genérico de ocupação deste endereço (mesma unidade do saldo). Deixe em branco se não quiser controlar.</div>'
-    +'<input id="endrCap" type="number" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 14px;box-sizing:border-box">';
+    +'<input id="endrCap" type="number" inputmode="decimal" min="0" step="0.01" value="'+cadEsc(endrSt.capacidade)+'" placeholder="Ex.: 50" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 14px;box-sizing:border-box">';
   endrBcScroll(card);
   const cont=document.createElement('button'); cont.className='btn btn-brand'; cont.style.cssText='width:100%;height:48px'; cont.textContent='Continuar';
   cont.onclick=()=>{ endrSt.capacidade=(document.getElementById('endrCap').value||'').trim(); endrSt.step='revisao'; renderEstoque(); };
@@ -5402,7 +5429,7 @@ function endrRenderDetalhe(card){
       edBox.innerHTML='<label style="font-size:12px;color:#4A5560;font-weight:600">Nome amigável</label>'
         +'<input id="endrEditNome" type="text" value="'+cadEsc(d.nome)+'" style="width:100%;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
         +'<label style="font-size:12px;color:#4A5560;font-weight:600">Capacidade máxima</label>'
-        +'<input id="endrEditCap" type="number" min="0" step="0.01" value="'+cadEsc(d.capacidade==null?'':d.capacidade)+'" placeholder="Sem limite" style="width:100%;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
+        +'<input id="endrEditCap" type="number" inputmode="decimal" min="0" step="0.01" value="'+cadEsc(d.capacidade==null?'':d.capacidade)+'" placeholder="Sem limite" style="width:100%;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 10px;box-sizing:border-box">'
         +'<div class="subnote" style="padding:0 0 8px">O código ("'+_esc(d.codigo||'')+'") não muda aqui — a etiqueta NFC já gravada continua válida.</div>';
       const salvar=document.createElement('button'); salvar.className='btn btn-brand'; salvar.style.cssText='width:100%;height:42px'; salvar.textContent='Salvar'; salvar.onclick=endrSalvarEdicao; edBox.appendChild(salvar);
       const cancelar=document.createElement('button'); cancelar.className='btn btn-neutral'; cancelar.style.cssText='width:100%;height:38px;margin-top:6px'; cancelar.textContent='Cancelar'; cancelar.onclick=()=>endrEditarToggle(false); edBox.appendChild(cancelar);
@@ -6152,7 +6179,11 @@ async function recpAbrirRecebimento(id){
     (d.itens||[]).forEach(it=>{
       if(it.status && it.status!=='Pendente'){
         recpSt.conf[it.id]={ status:it.status, quantidade:it.quantidade, observacao:'', salvo:true, _salvando:false,
-          quantidadeAvariada:it.quantidadeAvariada||null, motivoDivergencia:it.motivoDivergencia||null };
+          quantidadeAvariada:it.quantidadeAvariada||null, motivoDivergencia:it.motivoDivergencia||null,
+          /* fator entra na re-hidratacao pelo mesmo motivo do resto: item ja conferido e reaberto
+             tem que voltar mostrando o que foi decidido, nao em branco — em branco o conferente
+             re-decide do zero e pode carimbar 1 por cima de um fator correto. */
+          fatorConversao:recpFatorInicial(it) };
       }
     });
     if(d.localId){
@@ -6207,7 +6238,7 @@ function recpRenderRecebimento(card){
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
     const desc=item.produto||item.descricaoNF||'(sem descrição)';
     const semProduto=!item.produtoId?' <span style="font-size:10px;color:#999;background:#f2f2f2;padding:1px 6px;border-radius:6px">sem produto vinculado</span>':'';
-    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(desc)+semProduto+'</div><div style="font-size:12px;color:var(--weak)">NF: '+_esc(item.quantidadeNF)+(resumo?(' · '+_esc(resumo)):'')+'</div></div><span class="lz '+st.cls+'">'+_esc(st.label)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(desc)+semProduto+'</div><div style="font-size:12px;color:var(--weak)">NF: '+_esc(item.quantidadeNF)+(recpUnidade(item)?(' '+_esc(recpUnidade(item))):'')+(resumo?(' · '+_esc(resumo)):'')+'</div></div><span class="lz '+st.cls+'">'+_esc(st.label)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
     row.onclick=()=>recpAbrirItem(item.id);
     card.appendChild(row);
   });
@@ -6231,7 +6262,7 @@ function recpAbrirItem(itemId){
   /* Item 2 do roadmap (§3.4, contagem semi-cega): quantidade nasce em branco — o operador PRECISA
      contar de verdade, não confirmar um valor pré-preenchido com o esperado da NF (que continua
      visível no card, só não vai mais dentro do campo). */
-  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:null, observacao:'', salvo:false, _salvando:false, quantidadeAvariada:null, motivoDivergencia:null, numerosSerie:(item&&item.numerosSerie?item.numerosSerie.slice():[]) };
+  if(!recpSt.conf[itemId]) recpSt.conf[itemId]={ status:'Pendente', quantidade:null, observacao:'', salvo:false, _salvando:false, quantidadeAvariada:null, motivoDivergencia:null, fatorConversao:recpFatorInicial(item), numerosSerie:(item&&item.numerosSerie?item.numerosSerie.slice():[]) };
   const existente=recpSt.aloc[itemId];
   if(existente && existente.length) recpSt.itemAloc=existente.map(a=>({...a}));
   else if(item.sugestao) recpSt.itemAloc=[{ enderecoId:item.sugestao.enderecoId, quantidade:recpSt.conf[itemId].quantidade||item.quantidade, enderecoSugeridoId:item.sugestao.enderecoId, forcado:false, verificado:null }];
@@ -6328,12 +6359,142 @@ function recpMontarHint(idx, container){
   btnRow.appendChild(outras);
   container.appendChild(btnRow);
 }
+/* ===== Unidade de medida na conferencia (26/07/2026, pedido do Raphael) =====
+   Sao DUAS unidades e elas podem divergir: item.unidadeNF e como o fornecedor faturou (uCom do
+   XML da NF) e e a unidade em que quantidadeNF/quantidade estao; item.unidadeProduto e como a
+   Exaustech conta o item no estoque. Quem manda no numero da tela e a NF, por isso ela vem
+   primeiro — mostrar a unidade do produto ao lado de um numero que esta em unidade de NF seria
+   mentira. Fallback pra unidade do produto so quando a NF nao trouxe nada (item criado a mao ou
+   registro antigo: UnidadeNF__c so passou a ser gravado pelo ManifestacaoService). */
+/* v153 26/07 — a virgula do teclado numerico (pedido do Raphael: "quando clicar em um campo
+   numerico, alternar imediatamente para teclado numerico do aparelho"). O inputmode faz o
+   aparelho abrir o teclado numerico grande na hora, mas em portugues a tecla de separador
+   desse teclado e VIRGULA — e input[type=number] recusa virgula CALADO: quem digita "1,5"
+   fica com 15. Num app de recebimento isso vira saldo 10x maior sem ninguem perceber, e o
+   erro so aparece no inventario.
+   Nao da pra trocar a virgula por ponto na hora que ela e digitada, porque "1." nao e valor
+   valido num input numerico — o navegador zera o campo. Entao a virgula fica PENDENTE e o
+   ponto entra junto com o proximo digito: "1" + "," + "5" -> "1.5". Se a pessoa parar logo
+   depois da virgula, o valor continua "1", que e o que ela quis dizer mesmo.
+   So vale pra inputmode="decimal": em campo inteiro (contador de etiqueta, faixa de
+   enderecos) virgula nao quer dizer nada e continua sendo ignorada.
+   Limitacao conhecida: input[type=number] nao expoe posicao de cursor, entao o ponto entra
+   no fim do que ja esta escrito. So incomoda quem toca no meio de um numero ja digitado. */
+function qtdVirgulaDecimal(e){
+  const el=e.target;
+  if(!el || el.tagName!=='INPUT' || el.type!=='number') return;
+  if((el.getAttribute('inputmode')||'')!=='decimal') return;
+  if(e.data===','){
+    e.preventDefault();
+    /* se ja existe separador, a virgula so e engolida — nao vira segundo ponto */
+    el.__decPend = String(el.value).indexOf('.')<0;
+    return;
+  }
+  if(el.__decPend){
+    if(e.data && /^[0-9]$/.test(e.data)){
+      e.preventDefault();
+      el.__decPend=false;
+      el.value=(el.value===''?'0':el.value)+'.'+e.data;
+      /* value setado por script nao dispara input sozinho, e ha campo que recalcula no
+         oninput (avaria, retorno de separacao) */
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      return;
+    }
+    el.__decPend=false;
+  }
+}
+document.addEventListener('beforeinput', qtdVirgulaDecimal, true);
+document.addEventListener('blur', function(e){ if(e.target) e.target.__decPend=false; }, true);
+
+function recpUnidade(item){
+  if(!item) return '';
+  return String(item.unidadeNF || item.unidadeProduto || '').trim();
+}
+/* Sinonimos: a unidade da NF e texto livre do fornecedor, entao 'UNID'/'UND'/'PECA' chegam como
+   coisas diferentes da picklist UnidadeMedida__c. Sem isso o alerta de divergencia dispararia em
+   quase toda nota e viraria ruido que ninguem le — alerta que grita sempre nao alerta nada. */
+/* PC/PECA caem em UN de proposito: verificado no historico do mob3 (26/07) que 'PC' na NF e
+   sempre peca-unitaria — CALCA TAM G 2 PC, CAMISA TAM GG 2 PC — e vale 1:1 com UN. Nao silencia
+   o caso perigoso: CANTONEIRA vem '15 PC' com estoque em M, e ai PC(=UN) != M continua avisando. */
+const RECP_UNI_SINONIMOS={UNID:'UN',UND:'UN',UNIDADE:'UN',UNS:'UN',PC:'UN',PECA:'UN',PECAS:'UN',PCS:'UN',
+  CAIXA:'CX',CAIXAS:'CX',CXS:'CX',PACOTE:'PCT',PAC:'PCT',PARES:'PAR',PR:'PAR',QUILO:'KG',
+  QUILOS:'KG',KGS:'KG',LITRO:'L',LITROS:'L',LT:'L',LTS:'L',METRO:'M',METROS:'M',MT:'M',MTS:'M',
+  MTQ:'M2',ROLO:'RL',ROLOS:'RL',RLS:'RL',FRASCO:'FR',TUBO:'TB',HORA:'HR',H:'HR'};
+function recpUniNorm(u){
+  if(u==null) return '';
+  /* NFKD (e nao NFD) de proposito: alem de separar acento, ele decompoe caracteres de
+     compatibilidade — e o que faz 'M2' da NF casar com 'M²' da picklist. */
+  const base=String(u).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return RECP_UNI_SINONIMOS[base]||base;
+}
+/* true so quando as duas existem E sao mesmo diferentes. Item sem produto vinculado nunca acusa. */
+function recpUnidadeDiverge(item){
+  if(!item || !item.unidadeNF || !item.unidadeProduto) return false;
+  return recpUniNorm(item.unidadeNF)!==recpUniNorm(item.unidadeProduto);
+}
+/* Fator de conversão NF → estoque (26/07/2026, DECISAO_conversao-unidade-nf-estoque.md, passo 5).
+   Pré-preenchimento com a MESMA precedência do Apex (RecebimentoEstoqueService.resolverFatores),
+   com uma ausência deliberada:
+     — fatorAplicado (carimbo já feito neste item) vence tudo, igual lá;
+     — fatorDePara pré-preenche, porque é embalagem que um humano já contou com a mercadoria na
+       mão numa conferência anterior; e só vale se converte a partir da MESMA unidade que veio na
+       NF (espelho de unidadeCombina: fator sem unidade registrada é cadastro manual e aplica);
+     — fatorSugerido (o qTrib/qCom que o FORNECEDOR declarou no XML) NÃO entra aqui. Número
+       pré-preenchido é número confirmado por reflexo, e a regra do passo é propor, não decidir.
+       Ele aparece como chip de um toque — a diferença entre aceitar e nem perceber. */
+function recpFatorInicial(item){
+  if(!item) return null;
+  if(item.fatorAplicado!=null && item.fatorAplicado>0) return item.fatorAplicado;
+  if(item.fatorDePara!=null && item.fatorDePara>0){
+    if(!item.fatorDeParaUnidadeNF) return item.fatorDePara;
+    if(item.unidadeNF && recpUniNorm(item.fatorDeParaUnidadeNF)===recpUniNorm(item.unidadeNF)) return item.fatorDePara;
+  }
+  return null;
+}
+function recpNumFmt(n){
+  /* 4 casas porque FatorConversaoAplicado__c é Number(12,4) — mostrar mais do que o banco guarda
+     seria prometer precisão que o insert trunca em silêncio. */
+  return String(Math.round((Number(n)||0)*10000)/10000).replace('.',',');
+}
+/* a quantidade só entra em c.quantidade no clique de "Confirmar item" (contagem semi-cega), então
+   a aritmética do fator lê o input AO VIVO — senão a conta mostrada seria sempre a de zero. */
+function recpFatorQtdViva(c){
+  const qi=document.getElementById('recpQtd');
+  if(qi && qi.value!=='') return Number(qi.value)||0;
+  return Number(c&&c.quantidade)||0;
+}
+/* A conta escrita por extenso, nos DOIS estados. Sem fator o texto não pode ser um aviso vago:
+   tem que dizer o número errado que vai entrar, porque é isso que faz alguém parar e conferir. */
+function recpFatorTexto(item,c){
+  const uniNF=recpUnidade(item)||'un', uniProd=item.unidadeProduto||'un';
+  const q=recpFatorQtdViva(c);
+  const f=(c&&c.fatorConversao!=null&&Number(c.fatorConversao)>0)?Number(c.fatorConversao):null;
+  if(f==null){
+    if(q>0) return 'Sem fator, entram '+recpNumFmt(q)+' '+uniProd+' no estoque — cada '+uniNF+' vira 1 '+uniProd+'.';
+    return 'Sem fator, cada '+uniNF+' entra como 1 '+uniProd+'. Não sabe a embalagem? Pode confirmar assim mesmo.';
+  }
+  if(q>0) return recpNumFmt(q)+' '+uniNF+' × '+recpNumFmt(f)+' = '+recpNumFmt(q*f)+' '+uniProd+' entram no estoque.';
+  return 'Cada '+uniNF+' entra como '+recpNumFmt(f)+' '+uniProd+'.';
+}
+/* Campo numerico com a unidade colada na borda direita, dentro do proprio campo. O padding-right
+   do input acompanha o tamanho do texto ('UN' ocupa menos que 'MES'), senao o numero digitado
+   passa por baixo da unidade. */
+function recpCampoQtdHtml(id, valor, unidade, disabled, placeholder){
+  const un=String(unidade||'').trim();
+  const padDir=un?(un.length*9+22):12;
+  const inp='<input id="'+id+'" class="qtd-uni" type="number" inputmode="decimal" min="0" step="0.01" value="'+cadEsc(valor)+'"'
+    +(placeholder?(' placeholder="'+placeholder+'"'):'')+(disabled?' disabled':'')
+    +' style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 '+padDir+'px 0 12px;box-sizing:border-box">';
+  if(!un) return '<div style="margin:4px 0 12px">'+inp+'</div>';
+  return '<div style="position:relative;display:flex;margin:4px 0 12px">'+inp
+    +'<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#8a94a3;pointer-events:none;letter-spacing:.2px">'+_esc(un)+'</span></div>';
+}
 function recpRenderItem(card){
   const item=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
   if(!item){ card.innerHTML='<div class="subnote">Item não encontrado.</div>'; return; }
   const c=recpSt.conf[recpSt.itemId];
   card.innerHTML='<div class="sec-title2" style="margin-top:0">'+_esc(item.produto||item.descricaoNF||'(sem descrição)')+'</div>'
-    +'<div class="subnote" style="padding:0 0 8px">Quantidade na NF: '+_esc(item.quantidadeNF)+'</div>';
+    +'<div class="subnote" style="padding:0 0 8px">Quantidade na NF: '+_esc(item.quantidadeNF)+(recpUnidade(item)?(' '+_esc(recpUnidade(item))):'')+'</div>';
   if(!item.produtoId){
     /* item 1 do roadmap (proposta-recebimento-conferencia-armazenamento.md §3.1): matching
        automático (DePara) não achou o item — expõe a vinculação manual, que já aprende o DePara
@@ -6359,11 +6520,60 @@ function recpRenderItem(card){
   const qtdBoa=recpQtdBoa(c);
   const semSecaoB=c.status==='Item Não Chegou' || (c.status==='Avariado' && qtdBoa<=0);
   const qtdWrap=document.createElement('div');
+  const uniItem=recpUnidade(item);
   qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
-    +'<input id="recpQtd" type="number" min="0" step="0.01" value="'+cadEsc(c.quantidade)+'" placeholder="conte de verdade" '+(c.status==='Item Não Chegou'?'disabled':'')+' style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
+    +recpCampoQtdHtml('recpQtd', c.quantidade, uniItem, c.status==='Item Não Chegou', 'conte de verdade')
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
     +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
   card.appendChild(qtdWrap);
+  /* Divergencia de unidade: a NF faturou em CX e o estoque conta em UN, por exemplo.
+     Ate o v155 aqui havia so uma nota dizendo "o saldo entra como CX, sem conversao". Isso deixou
+     de ser verdade quando o passo 2 subiu: RecebimentoEstoqueService agora MULTIPLICA a quantidade
+     recebida pelo fator antes de somar no SaldoFisico__c. O que continua verdade e que, sem fator,
+     o fator vale 1 — ou seja, 2 caixas viram 2 unidades. Entao a nota virou campo: quem esta com a
+     caixa na mao e a unica pessoa no mundo que sabe quantas unidades tem dentro dela.
+     Nao bloqueia de proposito. Fator em branco reproduz exatamente o comportamento de hoje, e
+     travar a conferencia por um numero que o conferente pode legitimamente nao saber transformaria
+     "nao sei" em chute — que e pior que 1, porque chute nao da pra distinguir de conhecimento. */
+  if(recpUnidadeDiverge(item)){
+    const uniNF=recpUnidade(item), uniProd=item.unidadeProduto;
+    const box=document.createElement('div');
+    box.style.cssText='background:#fff8ec;border:1px solid #f0dcb8;border-radius:10px;padding:10px 12px;margin:-4px 0 12px';
+    const tit=document.createElement('div');
+    tit.style.cssText='font-size:12px;color:#7a5300;font-weight:700;margin-bottom:8px;line-height:1.45';
+    tit.textContent='A NF faturou em '+uniNF+' e o estoque conta em '+uniProd+'. Quantos '+uniProd+' vêm em 1 '+uniNF+'?';
+    box.appendChild(tit);
+    const fInp=document.createElement('input');
+    fInp.id='recpFator'; fInp.type='number'; fInp.inputMode='decimal'; fInp.min='0'; fInp.step='0.0001';
+    fInp.placeholder='deixe em branco se não souber';
+    fInp.value=(c.fatorConversao!=null?c.fatorConversao:'');
+    fInp.style.cssText='width:100%;height:46px;border:1.5px solid #e0c48a;border-radius:10px;padding:0 12px;box-sizing:border-box;background:#fff;font-size:15px';
+    box.appendChild(fInp);
+    const eco=document.createElement('div');
+    eco.style.cssText='font-size:12px;color:#7a5300;font-weight:600;margin-top:8px;line-height:1.45';
+    eco.textContent=recpFatorTexto(item,c);
+    box.appendChild(eco);
+    const repintarEco=()=>{ eco.textContent=recpFatorTexto(item, recpSt.conf[recpSt.itemId]); };
+    fInp.oninput=()=>{
+      const v=fInp.value===''?null:Number(fInp.value);
+      recpSt.conf[recpSt.itemId].fatorConversao=(v!=null&&Number.isFinite(v)&&v>0)?v:null;
+      /* so o eco se repinta: renderEstoque() aqui refaria o card inteiro e arrancaria o foco do
+         teclado numerico no meio da digitacao — o mesmo motivo pelo qual #recpQtd nao re-renderiza. */
+      repintarEco();
+    };
+    const qInp=card.querySelector('#recpQtd');
+    if(qInp) qInp.addEventListener('input', repintarEco);
+    /* A proposta do XML (qTrib/qCom, gravada por RecebimentoMatchingService). Chip e nao valor
+       inicial: o fornecedor declarou, nao provou. Um toque aceita — nenhum toque tambem e resposta. */
+    if(item.fatorSugerido!=null && item.fatorSugerido>0 && Number(c.fatorConversao)!==Number(item.fatorSugerido)){
+      const chip=document.createElement('div');
+      chip.style.cssText='margin-top:8px;display:inline-block;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #e0b060;background:#fff;color:#7a5300;line-height:1.35';
+      chip.textContent='A NF declarou '+recpNumFmt(item.fatorSugerido)+' '+uniProd+' por '+uniNF+' — usar';
+      chip.onclick=()=>{ recpSt.conf[recpSt.itemId].fatorConversao=item.fatorSugerido; renderEstoque(); };
+      box.appendChild(chip);
+    }
+    card.appendChild(box);
+  }
   /* Item 2 do roadmap (§3.5, tolerância soft de over-receipt): banner que NUNCA bloqueia, só
      avisa — dado fica visível pro financeiro via StatusConferencia__c='Recebido com Divergência'
      de qualquer forma, quando o status não é Conferido OK. */
@@ -6383,8 +6593,8 @@ function recpRenderItem(card){
     const avWrap=document.createElement('div');
     const avValor=c.quantidadeAvariada!=null?c.quantidadeAvariada:(c.quantidade||0);
     avWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade avariada</label>'
-      +'<input id="recpQtdAvariada" type="number" min="0" step="0.01" value="'+cadEsc(avValor)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 4px;box-sizing:border-box">'
-      +'<div class="subnote" style="padding:0 0 10px">de '+_esc(c.quantidade||0)+' recebida(s) — o que não for avariado vai pro endereço escolhido embaixo.</div>';
+      +recpCampoQtdHtml('recpQtdAvariada', avValor, uniItem, false, null)
+      +'<div class="subnote" style="padding:0 0 10px">de '+_esc(c.quantidade||0)+(uniItem?(' '+_esc(uniItem)):'')+' recebida(s) — o que não for avariado vai pro endereço escolhido embaixo.</div>';
     card.appendChild(avWrap);
     const avInp=avWrap.querySelector('#recpQtdAvariada');
     avInp.oninput=()=>{ recpSt.conf[recpSt.itemId].quantidadeAvariada=Number(avInp.value)||0; renderEstoque(); };
@@ -6461,7 +6671,7 @@ function recpRenderItem(card){
         +(linha.verificado==='ok'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ verificado na prateleira</span></div>':'')
         +(linha.verificado==='corrigido'?'<div style="margin-top:6px"><span style="font-size:10px;font-weight:800;color:#1D9E75;background:#e6f7f0;padding:2px 8px;border-radius:8px">✓ corrigido na prateleira</span></div>':'');
       const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px';
-      const inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.step='0.01'; inp.value=linha.quantidade; inp.style.cssText='flex:1;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box';
+      const inp=document.createElement('input'); inp.type='number'; inp.inputMode='decimal'; inp.min='0'; inp.step='0.01'; inp.value=linha.quantidade; inp.style.cssText='flex:1;height:42px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;box-sizing:border-box';
       inp.oninput=()=>{ recpSt.itemAloc[idx].quantidade=Number(inp.value)||0; recpAtualizaResumoSoma(); recpAtualizaHint(idx); };
       row.appendChild(inp);
       const vb=document.createElement('button'); vb.className='btn btn-neutral'; vb.style.cssText='width:auto;height:42px;margin:0;padding:0 12px;font-size:12px'; vb.textContent='📶 Verificar';
@@ -6545,6 +6755,8 @@ function recpRenderItem(card){
     const cc=recpSt.conf[recpSt.itemId];
     cc.quantidade=Number(document.getElementById('recpQtd').value)||0;
     cc.observacao=(document.getElementById('recpObs').value||'').trim();
+    const fEl=document.getElementById('recpFator');
+    if(fEl){ const fv=fEl.value===''?null:Number(fEl.value); cc.fatorConversao=(fv!=null&&Number.isFinite(fv)&&fv>0)?fv:null; }
     /* §3.4 — contagem semi-cega: se o operador não mexeu em nenhum chip (ainda 'Pendente') mas
        digitou uma quantidade, deriva o status pela comparação com a NF em vez de exigir um clique
        extra. Não pisa em cima de uma escolha manual (Avariado/Item Não Chegou/Item Não Pedido). */
@@ -6627,6 +6839,15 @@ function recpRenderVincularProduto(wrap){
 /* ---- validação + excedente (§3 da proposta) ---- */
 function recpValidarItem(){
   const c=recpSt.conf[recpSt.itemId];
+  /* Espelho das validation rules de ItemRecebimento__c (26/07/2026). O Salesforce agora recusa
+     esses estados na gravação, mas o erro que voltaria pro conferente é um DML cru do tipo
+     "FIELD_CUSTOM_VALIDATION_EXCEPTION". Pegar aqui é só pra dizer o que fazer, em português —
+     a regra de verdade continua no banco e no Apex da confirmação, não aqui. */
+  const itemRef=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  if(c.status==='Pendente') return {ok:false, msg:'Escolha o status do item antes de salvar.'};
+  const moveSaldoV = c.status==='Conferido OK' || c.status==='Quantidade Divergente' || c.status==='Avariado';
+  if(moveSaldoV && itemRef && !itemRef.produtoId) return {ok:false, msg:'Vincule o produto antes de conferir este item — sem produto o saldo não tem onde entrar.'};
+  if(c.status==='Conferido OK' && !(Number(c.quantidade)>0)) return {ok:false, msg:'Conferido OK com quantidade zero não faz sentido. Se o item não chegou, marque "Item Não Chegou".'};
   if(recpPrecisaMotivo(c) && !c.motivoDivergencia) return {ok:false, msg:'Escolha o motivo da divergência.'};
   if(c.status==='Avariado'){
     const av=c.quantidadeAvariada!=null?Number(c.quantidadeAvariada):(c.quantidade||0);
@@ -6735,6 +6956,11 @@ async function recpConfirmarItem(){
     if(c.quantidadeAvariada!=null) body.quantidadeAvariada=c.quantidadeAvariada;
     if(c.motivoDivergencia) body.motivoDivergencia=c.motivoDivergencia;
     const itemAtual=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+    /* Fator so vai no corpo quando a unidade diverge. Em item sem divergencia, mandar null
+       apagaria um carimbo feito por outro caminho sem ninguem ter pedido. Aqui o null e o
+       oposto disso: e o conferente dizendo "nao sei", e o Apex entende — cai no DePara e,
+       se nem isso, em 1. */
+    if(itemAtual && recpUnidadeDiverge(itemAtual)) body.fatorConversao=(c.fatorConversao!=null?c.fatorConversao:null);
     if(itemAtual && itemAtual.rastreavelSerie){
       /* loop explícito (não .map/.filter em array possivelmente esparso) + cortado no N validado —
          nunca manda sobra de série de uma quantidade maior que já foi digitada antes. */
@@ -6748,6 +6974,7 @@ async function recpConfirmarItem(){
     // espelha numerosSerie no item em memória — recpRenderSucesso decide "precisa etiqueta" a
     // partir daqui, sem refetch do recebimento inteiro.
     if(itemAtual && body.numerosSerie) itemAtual.numerosSerie=body.numerosSerie.slice();
+    if(itemAtual && body.fatorConversao!==undefined) itemAtual.fatorAplicado=body.fatorConversao;
     recpSt.step='recebimento'; renderEstoque();
   }catch(e){ c._salvando=false; recpSt.erro='Erro ao salvar: '+e.message; renderEstoque(); }
 }
@@ -7187,7 +7414,7 @@ function estoqueSepPage(wrap){
     (s.materiais||[]).forEach((m,mi)=>{
       retHtml+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef0f3">
         <div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13.5px;line-height:1.3">${_esc(m.nome)}</div><div style="font-size:12px;color:var(--weak);margin-top:2px">Embarcado: <b>${m.embarcado||0}${m.un}</b></div></div>
-        <input type="number" min="0" max="${m.embarcado||0}" value="${m.retorno||0}" style="width:76px;height:40px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 8px;text-align:center;flex:0 0 auto" oninput="sepSetRetorno(${mi},this.value)">
+        <input type="number" inputmode="numeric" min="0" max="${m.embarcado||0}" value="${m.retorno||0}" style="width:76px;height:40px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 8px;text-align:center;flex:0 0 auto" oninput="sepSetRetorno(${mi},this.value)">
       </div>`;
     });
     retHtml+='<div class="subnote" style="padding:6px 0 0">Depois de registrar, cole a etiqueta de RETORNO no saco e bipe pra confirmar \'Pronto para retorno\'.</div>';
@@ -7199,7 +7426,7 @@ function estoqueSepPage(wrap){
   etq.innerHTML=`<div class="sec-title2" style="margin-top:0">🖨️ Etiquetas dos volumes</div>
     <div style="display:flex;align-items:center;gap:10px">
       <label style="font-size:12.5px;color:#4A5560;font-weight:600">Volumes:</label>
-      <input type="number" id="etqQtd" min="1" max="50" value="1" style="width:70px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;text-align:center">
+      <input type="number" id="etqQtd" inputmode="numeric" min="1" max="50" value="1" style="width:70px;height:44px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 10px;text-align:center">
       <button class="btn btn-neutral" style="width:auto;flex:1 1 auto;min-height:44px;margin:0;line-height:1.25;padding:8px 10px" onclick="imprimirEtiquetas()">🖨️ Imprimir etiquetas (envio + retorno)</button>
     </div>
     <div class="subnote" style="padding:6px 0 0">Com a Zebra conectada neste computador (Browser Print), sai direto. Sem Zebra, gera um PDF de etiquetas 100×50&nbsp;mm.</div>`;
@@ -11367,7 +11594,7 @@ function plnRenderAgenda(body){
 /* PWA — registro do service worker (offline + instalável) */
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
-    navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}
+    /* BETA: SEM service worker de proposito. Aqui NAO se registra SW nem se chamam as APIs de gestao de registro/cache do navegador — elas valem pra ORIGEM inteira (campo.exaustech.com.br) e apagariam o cache do app da RAIZ que os operadores usam. A raiz e network-first pra HTML, entao o beta carrega fresco online. Offline o beta nao funciona, e tudo bem (ambiente de teste). NAO 'consertar' isso re-registrando o SW. */
   });
 }
 </script>
