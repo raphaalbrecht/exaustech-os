@@ -6523,9 +6523,44 @@ function recpRenderItem(card){
   const uniItem=recpUnidade(item);
   qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
     +recpCampoQtdHtml('recpQtd', c.quantidade, uniItem, c.status==='Item Não Chegou', 'conte de verdade')
+    +'<div id="recpQtdBtns" style="display:flex;gap:8px;margin:-6px 0 12px;flex-wrap:wrap"></div>'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
     +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
   card.appendChild(qtdWrap);
+  /* Entrada por toque (26/07/2026) — botoes grandes de contagem ao lado do campo digitavel.
+     Operam SOBRE O INPUT (#recpQtd), nunca sobre c.quantidade: a quantidade so sincroniza no
+     clique de "Confirmar item" e escrever em c.quantidade aqui quebraria a contagem semi-cega.
+     Sem renderEstoque(): bater 24 vezes num botao que re-renderiza a tela inteira e inutilizavel
+     de luva. NAO existe botao "= NF" de proposito — ver CLAUDE.md, armadilhas conhecidas. */
+  (function(){
+    const box=document.getElementById('recpQtdBtns'); if(!box) return;
+    const emb=Number(item.qtdPadraoEmbalagem)||0;
+    const desab=c.status==='Item Não Chegou';
+    const somar=(d)=>{
+      const inp=document.getElementById('recpQtd'); if(!inp||inp.disabled) return;
+      const atual=Number(inp.value)||0;
+      inp.value=String(Math.max(0, Math.round((atual+d)*100)/100));
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){}
+    };
+    const passos=[{rot:'−1',d:-1},{rot:'+1',d:1}];
+    if(emb>1) passos.push({rot:'+'+emb+(uniItem?(' '+uniItem):''), d:emb, largo:true});
+    passos.forEach(p=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='btn btn-neutral'; b.disabled=desab;
+      b.style.cssText='flex:'+(p.largo?'1.6':'1')+';min-width:64px;height:64px;margin:0;font-size:'
+        +(p.largo?'15':'20')+'px;font-weight:800'+(desab?';opacity:.4':'');
+      b.textContent=p.rot;
+      b.onclick=()=>somar(p.d);
+      box.appendChild(b);
+    });
+    const lim=document.createElement('button');
+    lim.type='button'; lim.className='btn btn-neutral'; lim.disabled=desab;
+    lim.style.cssText='flex:0 0 auto;width:auto;height:64px;margin:0;padding:0 14px;font-size:12px'+(desab?';opacity:.4':'');
+    lim.textContent='limpar';
+    lim.onclick=()=>{ const inp=document.getElementById('recpQtd'); if(inp&&!inp.disabled){ inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); } };
+    box.appendChild(lim);
+  })();
   /* Divergencia de unidade: a NF faturou em CX e o estoque conta em UN, por exemplo.
      Ate o v155 aqui havia so uma nota dizendo "o saldo entra como CX, sem conversao". Isso deixou
      de ser verdade quando o passo 2 subiu: RecebimentoEstoqueService agora MULTIPLICA a quantidade
