@@ -113,7 +113,8 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v152'; // v152 26/07: X de limpar dentro do campo de busca da home do Estoque (pedido do Raphael)
+const CACHE = 'exaustech-os-v153'; // v153 26/07: (a) unidade de medida ao lado do campo de quantidade recebida na conferência (pedido do Raphael) — mostra a unidade da NF (uCom do XML) e avisa quando ela diverge da unidade em que o estoque conta o produto, porque a confirmação soma QuantidadeRecebida__c no SaldoFisico__c SEM conversão; (b) todo campo numérico do app declara inputmode (numeric/decimal), então o teclado numérico do aparelho abre direto ao tocar (pedido do Raphael), e a vírgula desse teclado passa a virar ponto decimal em vez de ser engolida — "1,5" virava 15
+// v152 26/07: X de limpar dentro do campo de busca da home do Estoque (pedido do Raphael)
 // v149 18/07: etiqueta de RETORNO passa a dizer "VOLUME X/Y" (era "SACO X/Y"), igual a de envio — pedido do Raphael
 // v148 18/07: texto do botão final da tela de separação vira "Confirmar: Etiquetado e pronto para embarque" (era "Registrar separação")
 // v147 18/07: reorganiza cores dos botões da tela de separação (pedido do Raphael) — toggle por item vira "Registrar separação" azul→VERDE quando separado; botão final volta a ser azul esmaecido→AZUL ESCURO (reverte o laranja/verde do v145, que agora fica só no toggle por item)
