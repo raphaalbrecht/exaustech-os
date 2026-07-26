@@ -6753,6 +6753,15 @@ function recpRenderVincularProduto(wrap){
 /* ---- validação + excedente (§3 da proposta) ---- */
 function recpValidarItem(){
   const c=recpSt.conf[recpSt.itemId];
+  /* Espelho das validation rules de ItemRecebimento__c (26/07/2026). O Salesforce agora recusa
+     esses estados na gravação, mas o erro que voltaria pro conferente é um DML cru do tipo
+     "FIELD_CUSTOM_VALIDATION_EXCEPTION". Pegar aqui é só pra dizer o que fazer, em português —
+     a regra de verdade continua no banco e no Apex da confirmação, não aqui. */
+  const itemRef=(recpSt.rec.itens||[]).find(i=>i.id===recpSt.itemId);
+  if(c.status==='Pendente') return {ok:false, msg:'Escolha o status do item antes de salvar.'};
+  const moveSaldoV = c.status==='Conferido OK' || c.status==='Quantidade Divergente' || c.status==='Avariado';
+  if(moveSaldoV && itemRef && !itemRef.produtoId) return {ok:false, msg:'Vincule o produto antes de conferir este item — sem produto o saldo não tem onde entrar.'};
+  if(c.status==='Conferido OK' && !(Number(c.quantidade)>0)) return {ok:false, msg:'Conferido OK com quantidade zero não faz sentido. Se o item não chegou, marque "Item Não Chegou".'};
   if(recpPrecisaMotivo(c) && !c.motivoDivergencia) return {ok:false, msg:'Escolha o motivo da divergência.'};
   if(c.status==='Avariado'){
     const av=c.quantidadeAvariada!=null?Number(c.quantidadeAvariada):(c.quantidade||0);
