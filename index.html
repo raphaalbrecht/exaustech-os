@@ -6409,7 +6409,10 @@ function recpUnidade(item){
 /* Sinonimos: a unidade da NF e texto livre do fornecedor, entao 'UNID'/'UND'/'PECA' chegam como
    coisas diferentes da picklist UnidadeMedida__c. Sem isso o alerta de divergencia dispararia em
    quase toda nota e viraria ruido que ninguem le — alerta que grita sempre nao alerta nada. */
-const RECP_UNI_SINONIMOS={UNID:'UN',UND:'UN',UNIDADE:'UN',UNS:'UN',PECA:'PC',PECAS:'PC',PCS:'PC',
+/* PC/PECA caem em UN de proposito: verificado no historico do mob3 (26/07) que 'PC' na NF e
+   sempre peca-unitaria — CALCA TAM G 2 PC, CAMISA TAM GG 2 PC — e vale 1:1 com UN. Nao silencia
+   o caso perigoso: CANTONEIRA vem '15 PC' com estoque em M, e ai PC(=UN) != M continua avisando. */
+const RECP_UNI_SINONIMOS={UNID:'UN',UND:'UN',UNIDADE:'UN',UNS:'UN',PC:'UN',PECA:'UN',PECAS:'UN',PCS:'UN',
   CAIXA:'CX',CAIXAS:'CX',CXS:'CX',PACOTE:'PCT',PAC:'PCT',PARES:'PAR',PR:'PAR',QUILO:'KG',
   QUILOS:'KG',KGS:'KG',LITRO:'L',LITROS:'L',LT:'L',LTS:'L',METRO:'M',METROS:'M',MT:'M',MTS:'M',
   MTQ:'M2',ROLO:'RL',ROLOS:'RL',RLS:'RL',FRASCO:'FR',TUBO:'TB',HORA:'HR',H:'HR'};
