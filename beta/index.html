@@ -6530,12 +6530,36 @@ function recpRenderItem(card){
   const semSecaoB=c.status==='Item Não Chegou' || (c.status==='Avariado' && qtdBoa<=0);
   const qtdWrap=document.createElement('div');
   const uniItem=recpUnidade(item);
+  /* Observacao minimizada (26/07/2026, pedido do Raphael): o campo de observacao nasce fechado
+     atras de um botao pequeno, porque na esmagadora maioria dos itens nao ha observacao nenhuma
+     e o campo aberto empurrava o "Confirmar item" pra fora da tela do celular. Abre sozinho
+     quando JA existe observacao gravada — senao o operador nao veria o que ele mesmo escreveu.
+     O estado de aberto e guardado POR ITEM (recpSt.obsAbertaItem) pra sobreviver aos re-renders
+     que os chips de status disparam; assim nao precisa ser limpo em recpAbrirItem. */
+  const obsAberta = !!String(c.observacao||'').trim() || recpSt.obsAbertaItem===recpSt.itemId;
   qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
     +recpCampoQtdHtml('recpQtd', c.quantidade, uniItem, c.status==='Item Não Chegou', 'conte de verdade')
     +'<div id="recpQtdBtns" style="display:flex;gap:8px;margin:-6px 0 12px;flex-wrap:wrap"></div>'
+    +'<button type="button" id="recpObsBtn" class="btn btn-neutral" style="display:'+(obsAberta?'none':'inline-block')+';width:auto;height:44px;margin:0 0 12px;padding:0 14px;font-size:12.5px;font-weight:700">+ Adicionar observação</button>'
+    +'<div id="recpObsWrap" style="display:'+(obsAberta?'block':'none')+'">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
-    +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
+    +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
+    +'</div>';
   card.appendChild(qtdWrap);
+  /* Abre a observacao no toque. Sem renderEstoque(), pela mesma razao dos botoes de quantidade:
+     re-renderizar aqui apagaria a quantidade que o operador acabou de digitar (o campo e nao
+     controlado, so sincroniza no Confirmar item). Nao existe botao de FECHAR de proposito: texto
+     escondido continuaria sendo gravado no clique de confirmar, e observacao invisivel no momento
+     de confirmar e pior que campo aberto. */
+  (function(){
+    const b=document.getElementById('recpObsBtn'), w=document.getElementById('recpObsWrap');
+    if(!b||!w) return;
+    b.onclick=()=>{
+      recpSt.obsAbertaItem=recpSt.itemId;
+      b.style.display='none'; w.style.display='block';
+      const i=document.getElementById('recpObs'); if(i){ try{ i.focus(); }catch(e){} }
+    };
+  })();
   /* Entrada por toque (26/07/2026) — botoes grandes de contagem ao lado do campo digitavel.
      Operam SOBRE O INPUT (#recpQtd), nunca sobre c.quantidade: a quantidade so sincroniza no
      clique de "Confirmar item" e escrever em c.quantidade aqui quebraria a contagem semi-cega.
