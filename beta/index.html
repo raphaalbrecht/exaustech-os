@@ -6406,9 +6406,18 @@ function qtdVirgulaDecimal(e){
 document.addEventListener('beforeinput', qtdVirgulaDecimal, true);
 document.addEventListener('blur', function(e){ if(e.target) e.target.__decPend=false; }, true);
 
+/* 26/07/2026 — o uCom da NF e texto livre do fornecedor e as vezes chega com o multiplicador
+   colado: '1UN' em vez de 'UN' (visto pelo Raphael na conferencia do beta). Tiramos o prefixo
+   NUMERICO SO QUANDO ELE E 1 (aceita '1', '1,00', '1.00' e espaco no meio): 1UN e UN sao a mesma
+   coisa, nada de informacao se perde. Prefixo DIFERENTE de 1 fica intacto de PROPOSITO — '10UN'
+   quer dizer pacote de 10 e limpar pra 'UN' esconderia um fator 10, que e exatamente o erro de
+   saldo silencioso que o alerta de recpUnidadeDiverge existe pra pegar. */
+function recpUniLimpa(u){
+  return String(u==null?'':u).trim().replace(/^1(?:[.,]0+)?\s*(?=[A-Za-z\u00C0-\u024F])/, '');
+}
 function recpUnidade(item){
   if(!item) return '';
-  return String(item.unidadeNF || item.unidadeProduto || '').trim();
+  return recpUniLimpa(item.unidadeNF || item.unidadeProduto || '');
 }
 /* Sinonimos: a unidade da NF e texto livre do fornecedor, entao 'UNID'/'UND'/'PECA' chegam como
    coisas diferentes da picklist UnidadeMedida__c. Sem isso o alerta de divergencia dispararia em
@@ -6424,7 +6433,7 @@ function recpUniNorm(u){
   if(u==null) return '';
   /* NFKD (e nao NFD) de proposito: alem de separar acento, ele decompoe caracteres de
      compatibilidade — e o que faz 'M2' da NF casar com 'M²' da picklist. */
-  const base=String(u).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const base=recpUniLimpa(u).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   return RECP_UNI_SINONIMOS[base]||base;
 }
 /* true so quando as duas existem E sao mesmo diferentes. Item sem produto vinculado nunca acusa. */
