@@ -113,7 +113,7 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v150'; // v150 26/07: busca da home do Estoque passa a achar PRODUTO por nome/codigo e mostrar saldo disponivel (pedido do Raphael)
+const CACHE = 'exaustech-os-v151'; // v151 26/07: card de Entradas Pendentes — pilula de status na mesma linha do REC (a direita) e FORNECEDOR no lugar da empresa recebedora (pedido do Raphael)
 // v149 18/07: etiqueta de RETORNO passa a dizer "VOLUME X/Y" (era "SACO X/Y"), igual a de envio — pedido do Raphael
 // v148 18/07: texto do botão final da tela de separação vira "Confirmar: Etiquetado e pronto para embarque" (era "Registrar separação")
 // v147 18/07: reorganiza cores dos botões da tela de separação (pedido do Raphael) — toggle por item vira "Registrar separação" azul→VERDE quando separado; botão final volta a ser azul esmaecido→AZUL ESCURO (reverte o laranja/verde do v145, que agora fica só no toggle por item)

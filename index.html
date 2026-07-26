@@ -6075,7 +6075,12 @@ function recpRenderLista(card){
   recpSt.recebimentos.forEach(r=>{
     const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef0f3;cursor:pointer';
     const lzCls=r.status==='Em Conferência'?'lz-info':'lz-neu';
-    row.innerHTML='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13.5px">'+_esc(r.fornecedor||r.name)+'</div><div style="font-size:12px;color:var(--weak)">NF '+_esc(r.numeroNF||'—')+' · '+_esc(r.empresaFiscal||'')+' · '+_esc(fmtDataBR(r.dataEmissao))+'</div></div><span class="lz '+lzCls+'">'+_esc(r.status)+'</span><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+    /* 26/07/2026 (pedido do Raphael): topo do card = REC-xxxxxx a esquerda + pilula de status a
+       direita, na mesma linha; a linha de baixo troca a empresa RECEBEDORA pelo FORNECEDOR — a
+       recebedora era a mesma em 100% dos cards e nao ajudava a identificar a entrada. Segmento
+       vazio (fornecedor nao preenchido) some em vez de virar ' ·  · '. */
+    const sub=['NF '+(r.numeroNF||'—'), r.fornecedor||'', fmtDataBR(r.dataEmissao)].filter(Boolean).join(' · ');
+    row.innerHTML='<div style="flex:1;min-width:0">'+'<div style="display:flex;align-items:center;gap:8px">'+'<div style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(r.name)+'</div>'+'<span class="lz '+lzCls+'" style="flex-shrink:0">'+_esc(r.status)+'</span>'+'</div>'+'<div style="font-size:12px;color:var(--weak);margin-top:3px">'+_esc(sub)+'</div>'+'</div><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
     row.onclick=()=>recpAbrirRecebimento(r.id);
     card.appendChild(row);
   });
