@@ -1083,7 +1083,7 @@
     <section class="screen" id="scr-estoque">
       <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
         <div style="display:flex;gap:8px">
-          <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar OS ou cliente…"
+          <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
             style="flex:1;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
             oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
@@ -3389,16 +3389,26 @@ function estoqBuscaFiltrar(q){
 function estoqBuscaLimpar(){
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value='';
   const res=document.getElementById('estoqBuscaResults'); if(res) res.innerHTML='';
+  clearTimeout(estoqBuscaProdTimer); estoqBuscaProdSeq++; estoqBuscaProdBuscando=false;
+  estoqBuscaProdCache={q:'',lista:null};
 }
 function estoqBuscaAbrir(o,s){ estoqBuscaLimpar(); estoqAbrirSep(o,s); }
 function estoqBuscaRenderResultados(lista,q){
   const res=document.getElementById('estoqBuscaResults'); if(!res) return;
   res.innerHTML='';
   if(!q){ return; }
-  if(!lista.length){ res.innerHTML='<div class="subnote" style="padding:8px 2px">Nada encontrado pra "'+_esc(q)+'".</div>'; return; }
-  const box=document.createElement('div'); box.style.cssText='margin-top:6px;border:1px solid #e5e8ec;border-radius:12px;overflow:hidden;background:#fff';
-  lista.slice(0,8).forEach(({o,s})=>{ const row=sepRow(o,s,()=>estoqBuscaAbrir(o,s)); box.appendChild(row); });
-  res.appendChild(box);
+  const prods=estoqBuscaProdutosDoCache(q);
+  if(!lista.length && !prods.length){
+    res.innerHTML='<div class="subnote" style="padding:8px 2px">'
+      +(estoqBuscaProdBuscando?'Buscando produtos…':'Nada encontrado pra "'+_esc(q)+'".')+'</div>';
+    return;
+  }
+  if(lista.length){
+    const box=document.createElement('div'); box.style.cssText='margin-top:6px;border:1px solid #e5e8ec;border-radius:12px;overflow:hidden;background:#fff';
+    lista.slice(0,8).forEach(({o,s})=>{ const row=sepRow(o,s,()=>estoqBuscaAbrir(o,s)); box.appendChild(row); });
+    res.appendChild(box);
+  }
+  if(prods.length) res.appendChild(estoqBuscaProdutosBox(prods));
 }
 function estoqBuscaInput(){
   const inp=document.getElementById('estoqBusca'); if(!inp) return;
@@ -3408,6 +3418,7 @@ function estoqBuscaInput(){
   const nq=estoqBuscaNorm(q);
   const exato=nq?lista.filter(({s})=>estoqBuscaNorm(s.id)===nq):[];
   if(exato.length===1){ estoqBuscaAbrir(exato[0].o,exato[0].s); return; }
+  estoqBuscaProdutosAgendar(q);
   estoqBuscaRenderResultados(lista,q);
 }
 function estoqBuscaKey(e){
@@ -3415,7 +3426,17 @@ function estoqBuscaKey(e){
   e.preventDefault();
   const inp=document.getElementById('estoqBusca'); const q=inp?inp.value:'';
   const lista=estoqBuscaFiltrar(q);
-  if(!lista.length){ const t=q.trim(); if(t) estoqBuscaTentarSerie(t); else toast('Digite algo pra buscar'); return; }
+  if(!lista.length){
+    const t=q.trim();
+    if(!t){ toast('Digite algo pra buscar'); return; }
+    // ordem de desempate no Enter: 1 produto exato abre a ficha; varios so listam; nenhum cai na
+    // serie (o caso do bip de etiqueta, que era o comportamento original desta linha).
+    const prods=estoqBuscaProdutosDoCache(t);
+    if(prods.length===1){ estoqAbrirFichaProduto(prods[0]); return; }
+    if(prods.length>1){ estoqBuscaRenderResultados(lista,q); return; }
+    estoqBuscaTentarSerie(t);
+    return;
+  }
   estoqBuscaAbrir(lista[0].o,lista[0].s);
 }
 /* processa um código lido por QUALQUER canal fora da digitação (câmera one-shot ou NFC) — mesma
@@ -3444,6 +3465,128 @@ async function estoqBuscaTentarSerie(texto){
     if(e.status===404) toast('Nenhuma separação nem unidade encontrada pra "'+texto+'"');
     else toast('⚠️ Erro ao buscar "'+texto+'": '+e.message);
   }
+}
+/* ===== Consulta de PRODUTO pela mesma caixa de busca (26/07/2026) =====
+   Pedido do Raphael: "usar o campo de pesquisa da home Estoque pra consultar produtos por nome e
+   saber estoque disponivel". estoqBuscaFiltrar() so enxerga separacao/OS/cliente, que ja estao em
+   memoria; produto e saldo moram no Salesforce, entao vai por backend com debounce — sem debounce
+   seria 1 query por tecla digitada. Rota: GET /estoque/consulta-produtos (estoqueRoutes.js), que
+   devolve saldo agregado + quebra por local/endereco. */
+let estoqBuscaProdTimer=null, estoqBuscaProdSeq=0, estoqBuscaProdBuscando=false;
+let estoqBuscaProdCache={q:'',lista:null};
+function estoqBuscaProdutosDoCache(q){
+  const termo=String(q||'').trim();
+  return (termo && estoqBuscaProdCache.q===termo) ? (estoqBuscaProdCache.lista||[]) : [];
+}
+function estoqBuscaProdutosAgendar(q){
+  clearTimeout(estoqBuscaProdTimer);
+  const termo=String(q||'').trim();
+  if(termo.length<2){ estoqBuscaProdBuscando=false; estoqBuscaProdCache={q:'',lista:null}; return; }
+  if(estoqBuscaProdCache.q===termo) return; /* ja tenho essa resposta */
+  estoqBuscaProdBuscando=true;
+  estoqBuscaProdTimer=setTimeout(async()=>{
+    const seq=++estoqBuscaProdSeq;
+    try{
+      const r=await beGet('/estoque/consulta-produtos?q='+encodeURIComponent(termo));
+      if(seq!==estoqBuscaProdSeq) return; /* resposta de uma tecla anterior — descarta */
+      const inp=document.getElementById('estoqBusca');
+      if(!inp || String(inp.value||'').trim()!==termo) return; /* o usuario ja mudou o texto */
+      estoqBuscaProdCache={q:termo,lista:(r&&r.produtos)||[]};
+      estoqBuscaRenderResultados(estoqBuscaFiltrar(inp.value),inp.value);
+    }catch(e){
+      /* silencioso de proposito: a busca local de separacao/OS nao pode parar de funcionar porque
+         o backend caiu ou o galpao esta sem sinal. */
+      if(seq===estoqBuscaProdSeq) estoqBuscaProdCache={q:termo,lista:[]};
+    }finally{
+      if(seq===estoqBuscaProdSeq){ estoqBuscaProdBuscando=false; }
+    }
+  },280);
+}
+function estoqFmtQtd(n){
+  const v=Number(n)||0;
+  return (Math.round(v*100)/100).toLocaleString('pt-BR',{maximumFractionDigits:2});
+}
+function estoqBuscaProdutosBox(prods){
+  const box=document.createElement('div');
+  box.style.cssText='margin-top:8px;border:1px solid #e5e8ec;border-radius:12px;overflow:hidden;background:#fff';
+  const cab=document.createElement('div');
+  cab.style.cssText='padding:7px 12px;background:#F4F7FA;font-size:11px;font-weight:800;letter-spacing:.4px;color:#5B7185';
+  cab.textContent='PRODUTOS NO ESTOQUE';
+  box.appendChild(cab);
+  prods.forEach((p,i)=>box.appendChild(estoqProdutoRow(p,i>0)));
+  return box;
+}
+function estoqProdutoRow(p,comBorda){
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer'+(comBorda?';border-top:1px solid #eef1f4':'');
+  row.onclick=()=>estoqAbrirFichaProduto(p);
+  const disp=Number(p.saldoDisponivel)||0;
+  const un=p.unidade?(' '+p.unidade):'';
+  const sub=[p.codigo,p.marca].filter(Boolean).join(' · ')||(p.tipo||'');
+  /* laranja = tem saldo mas esta abaixo do minimo; cinza = zerado. */
+  const abaixo=(p.estoqueMinimo!=null && disp<Number(p.estoqueMinimo));
+  const cor=disp>0?(abaixo?'#B26B00':'#1E7B34'):'#8A97A5';
+  row.innerHTML='<div style="flex:1;min-width:0">'
+    +'<div style="font-size:14px;font-weight:700;color:#0B2239;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(p.nome||'')+'</div>'
+    +(sub?('<div class="subnote" style="padding:0">'+_esc(sub)+'</div>'):'')
+    +'</div>'
+    +'<div style="text-align:right;flex:0 0 auto">'
+    +'<div style="font-size:15px;font-weight:800;color:'+cor+'">'+_esc(estoqFmtQtd(disp)+un)+'</div>'
+    +'<div class="subnote" style="padding:0;font-size:10px">disponível</div>'
+    +'</div>';
+  return row;
+}
+function estoqCardSaldo(rotulo,valor,cor){
+  return '<div style="flex:1;border:1px solid #e5e8ec;border-radius:10px;padding:8px;text-align:center">'
+    +'<div style="font-size:15px;font-weight:800;color:'+cor+'">'+_esc(valor)+'</div>'
+    +'<div class="subnote" style="padding:0;font-size:10px">'+_esc(rotulo)+'</div></div>';
+}
+/* Ficha do produto — mesmo padrao de estoqAbrirFichaUnidade: modal avulso anexado no <body>,
+   porque a consulta pode ser disparada de qualquer tela do modulo. Nao faz callout novo: usa o
+   payload que a busca ja trouxe. */
+function estoqAbrirFichaProduto(p){
+  if(!p) return;
+  const old=document.getElementById('estoqFichaProdutoOverlay'); if(old) old.remove();
+  const overlay=document.createElement('div'); overlay.id='estoqFichaProdutoOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const modal=document.createElement('div'); modal.style.cssText='background:#fff;border-radius:16px;padding:18px;max-width:440px;width:100%;box-sizing:border-box;max-height:85vh;overflow:auto';
+  const un=p.unidade?(' '+p.unidade):'';
+  const disp=Number(p.saldoDisponivel)||0;
+  const linhas=(p.locais||[]).map(l=>'<tr>'
+    +'<td style="padding:6px 0;font-size:12px;color:#0B2239;border-top:1px solid #f0f2f5">'+_esc(l.local||'—')
+      +(l.endereco?('<div class="subnote" style="padding:0;font-family:monospace">'+_esc(l.endereco)+'</div>'):'')+'</td>'
+    +'<td style="padding:6px 0;text-align:right;font-size:13px;font-weight:700;color:#0B2239;border-top:1px solid #f0f2f5">'+_esc(estoqFmtQtd(l.disponivel))+'</td>'
+    +'<td style="padding:6px 0;text-align:right;font-size:12px;color:#5B7185;border-top:1px solid #f0f2f5">'+_esc(estoqFmtQtd(l.fisico))+'</td>'
+    +'</tr>').join('');
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239">'+_esc(p.nome||'')+'</div>'
+    +'<div class="subnote" style="padding:0 0 12px">'+_esc([p.codigo,p.marca,p.tipo].filter(Boolean).join(' · ')||'sem código cadastrado')+'</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+      +estoqCardSaldo('disponível',estoqFmtQtd(disp)+un,disp>0?'#1E7B34':'#8A97A5')
+      +estoqCardSaldo('reservado',estoqFmtQtd(p.saldoReservado)+un,'#B26B00')
+      +estoqCardSaldo('físico',estoqFmtQtd(p.saldoFisico)+un,'#0B2239')
+    +'</div>'
+    +(linhas
+      ?('<div class="subnote" style="padding:0 0 2px">Onde está</div>'
+        +'<table style="width:100%;border-collapse:collapse">'
+        +'<tr><th style="text-align:left;font-size:10px;color:#8A97A5">LOCAL / ENDEREÇO</th>'
+        +'<th style="text-align:right;font-size:10px;color:#8A97A5">DISP.</th>'
+        +'<th style="text-align:right;font-size:10px;color:#8A97A5">FÍSICO</th></tr>'
+        +linhas+'</table>')
+      :'<div class="subnote" style="padding:0">Sem saldo em nenhum endereço.</div>')
+    +'<div style="font-size:12px;line-height:1.9;margin-top:14px;color:#5B7185">'
+    +(p.estoqueMinimo!=null?('<b>Estoque mínimo:</b> '+_esc(estoqFmtQtd(p.estoqueMinimo)+un)
+        +(disp<Number(p.estoqueMinimo)?' ⚠️ abaixo do mínimo':'')+'<br>'):'')
+    +(p.ultimoMovimento?('<b>Último movimento:</b> '+_esc(fmtDataBR(String(p.ultimoMovimento).slice(0,10)))+'<br>'):'')
+    +(p.rastreavelSerie?'Rastreado por número de série<br>':'')
+    +(p.controladoLote?'Controlado por lote<br>':'')
+    +'</div>';
+  const fechar=document.createElement('button'); fechar.className='btn btn-neutral';
+  fechar.style.cssText='width:100%;height:44px;margin-top:14px'; fechar.textContent='Fechar';
+  fechar.onclick=()=>overlay.remove();
+  modal.appendChild(fechar);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click',(e)=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 /* Ficha simples da unidade — modal avulso (não faz parte do fluxo de nenhuma tela específica,
    por isso é anexado direto no <body> em vez de depender do ciclo de renderEstoque()). */
