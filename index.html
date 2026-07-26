@@ -1083,10 +1083,14 @@
     <section class="screen" id="scr-estoque">
       <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
         <div style="display:flex;gap:8px">
-          <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-            style="flex:1;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
-            oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+          <div style="position:relative;flex:1;min-width:0;display:flex">
+            <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              style="width:100%;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 44px 0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
+              oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
+            <button type="button" id="estoqBuscaX" onclick="estoqBuscaLimparX()" title="Limpar busca" aria-label="Limpar busca"
+              style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:#EDF1F5;color:#5B6B7C;font-size:16px;font-weight:600;line-height:34px;padding:0;cursor:pointer">✕</button>
+          </div>
           <button type="button" id="estoqBtnCam" onclick="estoqScanCamAbrir()" title="Bipar com a câmera"
             style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0">📷</button>
           <button type="button" id="estoqBtnNfc" onclick="estoqNfcToggle()" title="Ativar leitura NFC"
@@ -3386,11 +3390,27 @@ function estoqBuscaFiltrar(q){
     estoqBuscaNorm(s.id).includes(nq) || estoqBuscaNorm(o.id).includes(nq) || estoqBuscaNorm(o.cli).includes(nq)
   );
 }
+/* X de limpar dentro do campo (26/07/2026, pedido do Raphael). So aparece com texto digitado:
+   campo vazio nao ganha botao que nao faz nada. */
+function estoqBuscaXAtualizar(){
+  const inp=document.getElementById('estoqBusca'), bx=document.getElementById('estoqBuscaX');
+  if(!bx) return;
+  bx.style.display = (inp && String(inp.value||'').length) ? 'block' : 'none';
+}
+/* Clique no X: limpa E devolve o foco pro campo. Quem limpa no galpao limpa pra digitar de novo
+   (ou pra bipar a proxima etiqueta), entao perder o foco aqui custaria um toque a mais.
+   O foco NAO entra no estoqBuscaLimpar() porque ele tambem roda no estoqBuscaAbrir(), que sai
+   desta tela — abrir o teclado numa tela que o usuario acabou de deixar seria efeito colateral. */
+function estoqBuscaLimparX(){
+  estoqBuscaLimpar();
+  const inp=document.getElementById('estoqBusca'); if(inp) inp.focus();
+}
 function estoqBuscaLimpar(){
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value='';
   const res=document.getElementById('estoqBuscaResults'); if(res) res.innerHTML='';
   clearTimeout(estoqBuscaProdTimer); estoqBuscaProdSeq++; estoqBuscaProdBuscando=false;
   estoqBuscaProdCache={q:'',lista:null};
+  estoqBuscaXAtualizar();
 }
 function estoqBuscaAbrir(o,s){ estoqBuscaLimpar(); estoqAbrirSep(o,s); }
 function estoqBuscaRenderResultados(lista,q){
@@ -3412,6 +3432,7 @@ function estoqBuscaRenderResultados(lista,q){
 }
 function estoqBuscaInput(){
   const inp=document.getElementById('estoqBusca'); if(!inp) return;
+  estoqBuscaXAtualizar();
   const q=inp.value; const lista=estoqBuscaFiltrar(q);
   // bipagem por scanner: quando o texto lido bate EXATO com o Name de 1 única separação, abre
   // direto sem esperar Enter (alguns leitores não mandam Enter automaticamente).
@@ -3449,6 +3470,7 @@ function estoqProcessarCodigoLido(texto){
   if(lista.length===1){ estoqBuscaAbrir(lista[0].o,lista[0].s); return; }
   if(!lista.length){ estoqBuscaTentarSerie(String(texto||'').trim()); return; }
   const inp=document.getElementById('estoqBusca'); if(inp) inp.value=texto;
+  estoqBuscaXAtualizar();
   estoqBuscaRenderResultados(lista,texto);
 }
 /* Consulta avulsa por série (17/07/2026, PROPOSTA_rastreio-selecao-unidade-serializada.md, §5 —
