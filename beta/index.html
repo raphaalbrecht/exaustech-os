@@ -3770,7 +3770,7 @@ function renderEstoque(){
   if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
   if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
   if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); return; }
-  if(estoqView.mode==='recebimentos'){ renderRecpFluxo(wrap); return; }
+  if(estoqView.mode==='recebimentos'){ if(coltAtivo){ if(!coltSt) coltReset(); coltRenderFluxo(wrap); } else { renderRecpFluxo(wrap); } return; }
   if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); return; }
   if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); return; }
   if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); return; }
@@ -5957,6 +5957,553 @@ function gestRenderModeloBin(card){
   });
 }
 
+/* ===== COLETOR DE RECEBIMENTO (colt* — reconstrução Onda 1, 27/07/2026) =====
+   Telas 1 (fila), 2 (cabeçalho) e 3 (bipagem) do briefing recuperado
+   (docs/02-RECEBIMENTO/BRIEFING_Tela_Recebimento_Coletor_26-07-2026.md), já com as revogações de
+   DECISAO_coletor-recebimento-onda1_26-07-2026.md e de
+   DECISAO_status-conferencia-e-substituicao-tela_27-07-2026.md.
+
+   ONDE ISTO ESTÁ, E O QUE DE PROPÓSITO AINDA NÃO FOI FEITO:
+   - só existe no /beta/. A raiz continua 100% na tela recp*.
+   - a decisão de 27/07 é SUBSTITUIR a recp*. A troca do despacho (renderEstoque, a linha do
+     estoqView.mode==='recebimentos') NÃO foi feita ainda, de propósito: as Telas 4/4b/6 não
+     existem, e trocar agora deixaria o almoxarife sem conseguir confirmar item nenhum — sem
+     rota de fuga, porque a decisão é justamente não ter as duas telas convivendo no fim.
+     A troca entra no MESMO commit da Tela 6. Até lá o fluxo novo abre por um botão declarado
+     "em construção" dentro da tela antiga, e a tela antiga continua sendo a que trabalha.
+   - ONLINE apenas: nenhuma chamada aqui passa label de fila offline. Offline é o passo 7.
+   - tema claro (o escuro é commit separado, por decisão).
+   - nenhum service worker é registrado ou limpo aqui — ver o aviso no fim do beta/index.html.
+
+   O QUE O BACKEND AINDA NÃO ENTREGA (conferido campo a campo em 27/07 — não é esquecimento):
+   - fila: PedidoCompra__c e PedidoCompra__r.FaturadoPara__c não vêm no JSON, então os chips
+     "Pedido PC-xxxxx", "SEM PEDIDO" e "CUSTÓDIA" do briefing não têm de onde sair.
+   - cabeçalho: NomeEmitente__c, CNPJEmitente__c, OrigemRecebimento__c, StatusMatching__c e
+     LocalEntrega__r.Name não vêm. O bloco "Emitente" usa Fornecedor__r.Name/EmpresaFiscal__r.Name
+     e o bloco "Matching" inteiro fica de fora.
+   - volumes: NÃO existe rota que grave QtdVolumes__c. O contador −/+ do briefing seria um botão
+     que finge salvar, então aqui a contagem é LEITURA e a tela diz isso em português.
+   - Tela 2b (recusar carga) não entrou neste passo, então o botão "Recusar carga" não existe —
+     botão que não faz nada é pior do que botão ausente.
+   Cada bloco acima está escrito pra aparecer sozinho no dia em que o campo passar a vir, e pra
+   sumir quando o valor é null: nunca escrever "null" na tela (DECISAO_...onda1:95-98). ===== */
+
+let coltSt = null, coltAtivo = false;
+
+/* clientTxId (uuid-v4) é obrigatório em toda escrita por decisão. crypto.randomUUID existe em
+   Chrome/Safari recentes; o fallback usa getRandomValues e só cai em Math.random se nem isso
+   houver — nesse caso ainda é um id, só não é criptograficamente forte. */
+function coltUuid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
+    const r = (window.crypto && crypto.getRandomValues) ? (crypto.getRandomValues(new Uint8Array(1))[0] & 15) : Math.floor(Math.random()*16);
+    const v = c==='x' ? r : ((r & 0x3) | 0x8);
+    return v.toString(16);
+  });
+}
+
+/* POST próprio em vez de bePost: o 409 da trava de operador NÃO é erro, é estado de tela — o app
+   precisa do CORPO da resposta (quem está com a nota) pra oferecer "assumir", e bePost joga fora
+   o corpo e sobe só a mensagem. Sem label de fila offline de propósito (passo 7). */
+async function coltPost(path, body){
+  const r = await fetch(BACKEND+path, {method:'POST', headers:{Authorization:'Bearer '+beTok(), 'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
+  if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); }
+  let j=null; try{ j=await r.json(); }catch(_){}
+  return {ok:r.ok, status:r.status, body:j||{}};
+}
+
+function coltReset(){
+  coltSt = {
+    step:'fila', erro:null,
+    fila:[], _filaCarregada:false, filtradoPorLocal:null, empresasNoLocal:null, busca:'',
+    chaveAberta:false, chave:'', chaveErro:null, chaveEnviando:false,
+    recId:null, rec:null, _recCarregado:false, erroRec:null,
+    iniciando:false, trava:null,
+    bipeErro:null, bipeOkId:null,
+  };
+}
+function coltGo(step){ coltSt.step=step; renderEstoque(); const m=document.querySelector('main'); if(m) m.scrollTop=0; }
+
+/* ---------- roteador das 3 telas ---------- */
+function coltRenderFluxo(wrap){
+  if(!coltSt) coltReset();
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px';
+  bk.textContent = coltSt.step==='fila' ? '‹ Voltar à tela atual' : '‹ Voltar à fila';
+  bk.onclick = ()=>{ if(coltSt.step==='fila'){ coltAtivo=false; renderEstoque(); } else { coltVoltarFila(); } };
+  wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='📥 Recebimento — coletor'; wrap.appendChild(h);
+  const av=document.createElement('div');
+  av.style.cssText='font-size:12px;font-weight:700;color:#C25E0A;background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:10px;padding:9px 12px;margin:0 0 4px';
+  av.textContent='Em construção: telas 1, 2 e 3. Contar item e finalizar ainda é na tela atual.';
+  wrap.appendChild(av);
+  const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
+  if(coltSt.step==='fila') coltRenderFila(card);
+  else if(coltSt.step==='cabecalho') coltRenderCabecalho(card);
+  else if(coltSt.step==='bipagem') coltRenderBipagem(card);
+  if(coltSt.trava) coltRenderTrava(wrap);
+}
+
+/* ============================ TELA 1 — FILA ============================ */
+
+async function coltCarregarFila(){
+  /* mesma disciplina da recpCarregarLista: zera o erro no INÍCIO de toda tentativa, senão o erro
+     de uma tentativa anterior fica grudado na tela mesmo depois de dar certo. */
+  coltSt.erro=null;
+  try{
+    const d = await beGet('/coletor/v1/recebimentos');
+    coltSt.fila = d.recebimentos||[];
+    coltSt.filtradoPorLocal = d.filtradoPorLocal||null;
+    coltSt.empresasNoLocal = (d.empresasNoLocal==null ? null : d.empresasNoLocal);
+    coltSt._filaCarregada=true; renderEstoque();
+  }catch(e){
+    coltSt._filaCarregada=true; coltSt.erro='Erro ao carregar a fila: '+e.message; renderEstoque();
+  }
+}
+function coltVoltarFila(){
+  coltSt.recId=null; coltSt.rec=null; coltSt._recCarregado=false; coltSt.erroRec=null;
+  coltSt.trava=null; coltSt.bipeErro=null; coltSt.bipeOkId=null; coltSt._filaCarregada=false;
+  coltGo('fila'); coltCarregarFila();
+}
+function coltFilaFiltrada(){
+  const q=(coltSt.busca||'').trim().toLowerCase();
+  if(!q) return coltSt.fila;
+  return coltSt.fila.filter(r => [r.name,r.numeroNF,r.fornecedor,r.empresaFiscal].filter(Boolean).join(' ').toLowerCase().includes(q));
+}
+function coltStatusCls(s){ return s==='Em Conferência' ? 'lz-info' : 'lz-neu'; }
+
+function coltRenderFila(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Notas aguardando conferência</div>';
+  /* busca com ✕ pra limpar — mesmo desenho da busca do Estoque (v152). A digitação repinta SÓ a
+     lista (coltPintarFila), nunca renderEstoque(): re-render do fluxo inteiro tira o foco do
+     campo no meio da palavra e o teclado do celular fecha. */
+  const bw=document.createElement('div'); bw.style.cssText='position:relative;margin:0 0 10px';
+  bw.innerHTML='<input id="coltBusca" type="search" autocomplete="off" placeholder="Buscar por REC, NF ou fornecedor" '
+    +'style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 46px 0 12px;box-sizing:border-box;font:inherit;font-size:14px">'
+    +'<button type="button" id="coltBuscaX" title="Limpar busca" aria-label="Limpar busca" '
+    +'style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:#EDF1F5;color:#5B6B7C;font-size:16px;font-weight:600;line-height:34px;padding:0;cursor:pointer">✕</button>';
+  card.appendChild(bw);
+  const lista=document.createElement('div'); lista.id='coltFilaLista'; card.appendChild(lista);
+  const inp=bw.querySelector('#coltBusca'), bx=bw.querySelector('#coltBuscaX');
+  inp.value=coltSt.busca||'';
+  inp.oninput=()=>{ coltSt.busca=inp.value; coltPintarFila(); };
+  bx.onclick=()=>{ coltSt.busca=''; inp.value=''; coltPintarFila(); inp.focus(); };
+  coltPintarFila();
+  coltRenderChave(card);
+}
+
+function coltPintarFila(){
+  const lista=document.getElementById('coltFilaLista'); if(!lista) return;
+  const bx=document.getElementById('coltBuscaX'); if(bx) bx.style.display=(coltSt.busca||'').length?'block':'none';
+  lista.innerHTML='';
+  /* ordem obrigatória dos três estados: erro → carregando → vazio (convenção da casa). */
+  if(coltSt.erro){ lista.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0;color:#C4451B">'+_esc(coltSt.erro)+'</div>'); return; }
+  if(!coltSt._filaCarregada){ lista.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0"><span class="ld-spin"></span>Carregando…</div>'); return; }
+  const rows=coltFilaFiltrada();
+  if(!rows.length){
+    let msg;
+    if((coltSt.busca||'').trim()) msg='Nenhuma nota bate com "'+_esc(coltSt.busca)+'".';
+    else if(coltSt.empresasNoLocal===0) msg='Nenhuma empresa está cadastrada neste local, por isso a fila veio vazia. Não é erro de conexão.';
+    else msg='Nenhuma nota aguardando conferência. 🎉';
+    lista.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0">'+msg+'</div>');
+    return;
+  }
+  rows.forEach(r=>lista.appendChild(coltCardFila(r)));
+}
+
+function coltCardFila(r){
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #eef0f3;cursor:pointer;min-height:60px';
+  const chips=[];
+  /* qtdVolumes null é "ninguém contou volume ainda" e é diferente de 0 — some do card em vez de
+     virar "0 volumes", que seria uma afirmação que ninguém fez. */
+  if(r.qtdVolumes!=null) chips.push('<span class="lz lz-neu">'+_esc(String(r.qtdVolumes))+(Number(r.qtdVolumes)===1?' volume':' volumes')+'</span>');
+  if(r.operador) chips.push('<span class="lz lz-warn">🔒 '+_esc(r.operador)+'</span>');
+  const sub=['NF '+(r.numeroNF||'—'), r.fornecedor||'', fmtDataBR(r.dataEmissao)].filter(Boolean).join(' · ');
+  row.innerHTML='<div style="flex:1;min-width:0">'
+    +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<div style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(r.name)+'</div>'
+      +'<span class="lz '+coltStatusCls(r.status)+'" style="flex-shrink:0">'+_esc(r.status||'—')+'</span>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--weak);margin-top:3px">'+_esc(sub)+'</div>'
+    +(chips.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+chips.join('')+'</div>':'')
+    +'</div><span style="color:#999;font-size:18px;margin-left:6px">›</span>';
+  row.onclick=()=>coltAbrir(r.id);
+  return row;
+}
+
+/* rodapé fixo da Tela 1: carga que chegou sem a NF-e estar no sistema */
+function coltRenderChave(card){
+  const box=document.createElement('div');
+  box.style.cssText='margin-top:16px;border:1.5px dashed #9fc6f0;border-radius:12px;padding:14px;background:var(--brand-l)';
+  if(!coltSt.chaveAberta){
+    box.innerHTML='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">Chegou carga sem NF-e no sistema?</div>'
+      +'<div style="font-size:12px;color:var(--weak);margin-bottom:10px">Bipe a chave de acesso do DANFE — 44 dígitos.</div>';
+    const b=document.createElement('button'); b.className='btn btn-neutral'; b.style.cssText='width:100%;height:48px';
+    b.textContent='Bipar chave de acesso';
+    b.onclick=()=>{ coltSt.chaveAberta=true; coltSt.chaveErro=null; renderEstoque(); setTimeout(()=>{ const i=document.getElementById('coltChaveInp'); if(i) i.focus(); }, 60); };
+    box.appendChild(b);
+    card.appendChild(box); return;
+  }
+  box.innerHTML='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">Chave de acesso do DANFE</div>';
+  const inp=document.createElement('input');
+  inp.id='coltChaveInp'; inp.type='text'; inp.autocomplete='off';
+  /* teclado numérico do aparelho já ao tocar no campo (decisão de 26/07 sobre campo numérico).
+     type=text + inputmode=numeric em vez de type=number: number some com zero à esquerda e a
+     chave da NF-e pode começar com zero. */
+  inp.inputMode='numeric'; inp.placeholder='44 dígitos';
+  inp.value=coltSt.chave||'';
+  inp.style.cssText='width:100%;height:54px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;box-sizing:border-box;font:inherit;font-size:16px;letter-spacing:.4px';
+  const cont=document.createElement('div'); cont.id='coltChaveCont';
+  cont.style.cssText='font-size:12px;color:var(--weak);margin:6px 0 10px';
+  cont.textContent=(coltSt.chave||'').length+'/44';
+  inp.oninput=()=>{
+    inp.value=inp.value.replace(/\D/g,'').slice(0,44);
+    coltSt.chave=inp.value;
+    const c=document.getElementById('coltChaveCont'); if(c) c.textContent=inp.value.length+'/44';
+  };
+  /* leitor de código de barras teclado-emulado termina a leitura com Enter */
+  inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); coltBuscarPorChave(); } };
+  box.appendChild(inp); box.appendChild(cont);
+  if(coltSt.chaveErro){
+    const er=document.createElement('div'); er.style.cssText='font-size:12.5px;color:#C4451B;margin:0 0 10px;line-height:1.45';
+    er.textContent=coltSt.chaveErro; box.appendChild(er);
+  }
+  const b=document.createElement('button'); b.className='btn btn-brand'; b.style.cssText='width:100%;height:48px';
+  b.textContent=coltSt.chaveEnviando?'Buscando…':'Buscar nota'; b.disabled=!!coltSt.chaveEnviando;
+  b.onclick=coltBuscarPorChave;
+  box.appendChild(b);
+  const c=document.createElement('div'); c.style.cssText='text-align:center;font-size:12.5px;color:#686868;padding:12px 0 0;cursor:pointer';
+  c.textContent='cancelar';
+  c.onclick=()=>{ coltSt.chaveAberta=false; coltSt.chaveErro=null; renderEstoque(); };
+  box.appendChild(c);
+  card.appendChild(box);
+}
+
+async function coltBuscarPorChave(){
+  if(coltSt.chaveEnviando) return;
+  const ch=(coltSt.chave||'').replace(/\D/g,'');
+  if(ch.length!==44){ coltSt.chaveErro='A chave da NF-e tem 44 dígitos — esta tem '+ch.length+'.'; renderEstoque(); return; }
+  coltSt.chaveEnviando=true; coltSt.chaveErro=null; renderEstoque();
+  try{
+    const r=await coltPost('/coletor/v1/recebimento/porChave', {chave:ch});
+    coltSt.chaveEnviando=false;
+    if(!r.ok){
+      /* 501 não é falha: é "essa parte não existe ainda". O backend manda o texto em português
+         explicando por quê (o token do Focus vive numa Named Credential). Mostro o texto dele em
+         vez de traduzir de novo — uma verdade só sobre o motivo. */
+      coltSt.chaveErro = r.body.error || ('Erro '+r.status);
+      renderEstoque(); return;
+    }
+    coltSt.chaveAberta=false; coltSt.chave='';
+    if(r.body.id){ toast(r.body.jaExistia ? 'Nota encontrada.' : 'Nota criada a partir da chave.'); coltAbrir(r.body.id); }
+    else { toast('Nota processada.'); coltSt._filaCarregada=false; renderEstoque(); coltCarregarFila(); }
+  }catch(e){
+    coltSt.chaveEnviando=false; coltSt.chaveErro='Erro ao buscar pela chave: '+e.message; renderEstoque();
+  }
+}
+
+/* ========================= TELA 2 — CABEÇALHO ========================= */
+
+async function coltAbrir(id){
+  coltSt.recId=id; coltSt.rec=null; coltSt._recCarregado=false; coltSt.erroRec=null; coltSt.trava=null;
+  coltGo('cabecalho');
+  await coltCarregarRec();
+}
+async function coltCarregarRec(){
+  try{
+    const d=await beGet('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId));
+    coltSt.rec=d; coltSt._recCarregado=true; coltSt.erroRec=null; renderEstoque();
+  }catch(e){
+    coltSt._recCarregado=true; coltSt.erroRec='Erro ao abrir a nota: '+e.message; renderEstoque();
+  }
+}
+/* linha rótulo/valor que SOME quando o valor não existe — a regra é nunca escrever "null",
+   "undefined" ou "—" pendurado numa linha que não tem o que dizer. */
+function coltLinha(rot, val){
+  if(val==null || val==='') return '';
+  return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f1f3f6">'
+    +'<div style="flex:0 0 40%;font-size:12px;color:var(--weak)">'+_esc(rot)+'</div>'
+    +'<div style="flex:1;font-size:13px;font-weight:600;color:#0B2239;word-break:break-word">'+_esc(val)+'</div></div>';
+}
+function coltMoedaBR(v){
+  if(v==null||v==='') return null;
+  const n=Number(v); if(!isFinite(n)) return null;
+  return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+/* os 20 últimos dígitos da chave, como o briefing pede: é o que o conferente usa pra bater com o
+   DANFE impresso sem ter que ler 44 números na tela do celular. */
+function coltChaveCurta(ch){
+  if(!ch) return null;
+  const s=String(ch).replace(/\D/g,'');
+  return s.length>20 ? ('…'+s.slice(-20)) : (s||null);
+}
+
+function coltRenderCabecalho(card){
+  card.innerHTML='';
+  if(coltSt.erroRec){ card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0;color:#C4451B">'+_esc(coltSt.erroRec)+'</div>'); return; }
+  if(!coltSt._recCarregado){ card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0"><span class="ld-spin"></span>Abrindo a nota…</div>'); return; }
+  const r=coltSt.rec;
+  if(!r){ card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0">Nota não encontrada.</div>'); return; }
+
+  card.insertAdjacentHTML('beforeend',
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<div style="flex:1;min-width:0;font-weight:800;font-size:15px;color:#0B2239">'+_esc(r.name||'')+'</div>'
+    +'<span class="lz '+coltStatusCls(r.status)+'" style="flex-shrink:0">'+_esc(r.status||'—')+'</span></div>');
+
+  /* ---- bloco Emitente (parcial: os campos NomeEmitente__c/CNPJEmitente__c/OrigemRecebimento__c
+     ainda não vêm do backend — ver o cabeçalho deste bloco) ---- */
+  const emit=document.createElement('div');
+  emit.innerHTML='<div class="sec-title2">Emitente</div>'
+    + coltLinha('Fornecedor', r.fornecedor)
+    + coltLinha('Empresa recebedora', r.empresa)
+    + coltLinha('Nota fiscal', r.numeroNF ? ('nº '+r.numeroNF+(r.serieNF?(' · série '+r.serieNF):'')) : null)
+    + coltLinha('Emissão', r.dataEmissao ? fmtDataBR(r.dataEmissao) : null)
+    + coltLinha('Valor total', coltMoedaBR(r.valorTotal))
+    + coltLinha('Chave (final)', coltChaveCurta(r.chaveNFe))
+    + coltLinha('Manifestação', r.statusManifestacao);
+  card.appendChild(emit);
+
+  /* ---- volumes na doca: LEITURA, e a tela diz por quê ---- */
+  const vol=document.createElement('div');
+  vol.style.cssText='margin-top:16px;border:1.5px solid #D7DEE6;border-radius:12px;padding:14px';
+  vol.innerHTML='<div class="sec-title2" style="margin-bottom:2px">Volumes na doca</div>'
+    +'<div style="font-size:12px;color:var(--weak);margin-bottom:10px">É a única conferência que precisa acontecer antes de liberar o motorista.</div>'
+    +'<div style="font-size:36px;font-weight:800;color:#0B2239;line-height:1">'+(r.qtdVolumes==null?'—':_esc(String(r.qtdVolumes)))+'</div>'
+    +'<div style="font-size:12px;color:#C25E0A;margin-top:10px;line-height:1.45">'
+      +(r.qtdVolumes==null?'Ninguém contou volume nesta nota ainda. ':'')
+      +'Ainda não dá pra mudar a contagem por aqui: falta a rota que grava esse número no servidor.</div>';
+  card.appendChild(vol);
+
+  /* ---- quem está com a nota (trava soft) ---- */
+  const cf=r.conferencia||{};
+  if(cf.operador){
+    const q=document.createElement('div');
+    q.style.cssText='margin-top:12px;font-size:12.5px;color:var(--weak);line-height:1.45';
+    q.textContent='Conferência aberta por '+cf.operador+(cf.assumidaPor?(' e assumida por '+cf.assumidaPor):'')+'.';
+    card.appendChild(q);
+  }
+
+  const nItens=(r.itens||[]).length;
+  if(nItens){
+    const q=document.createElement('div');
+    q.style.cssText='margin-top:6px;font-size:12.5px;color:var(--weak)';
+    q.textContent=nItens===1?'1 item na nota.':(nItens+' itens na nota.');
+    card.appendChild(q);
+  }
+
+  const btn=document.createElement('button'); btn.className='btn btn-brand';
+  btn.style.cssText='width:100%;height:60px;margin-top:16px;font-size:15px;font-weight:800';
+  btn.textContent = coltSt.iniciando ? 'Iniciando…' : (r.status==='Em Conferência' ? 'Continuar conferência' : 'Iniciar conferência');
+  btn.disabled=!!coltSt.iniciando;
+  btn.onclick=()=>coltIniciar(false);
+  card.appendChild(btn);
+  /* "Recusar carga" (Tela 2b) não entra neste passo — ver o cabeçalho deste bloco. */
+}
+
+async function coltIniciar(assumir){
+  if(coltSt.iniciando) return;
+  coltSt.iniciando=true; coltSt.erroRec=null; renderEstoque();
+  try{
+    const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/iniciar', {clientTxId:coltUuid(), assumir:!!assumir});
+    coltSt.iniciando=false;
+    /* 409 NÃO é erro: é disputa. Vira estado de tela com a saída "assumir". */
+    if(r.status===409 && r.body.travado){ coltSt.trava={operador:r.body.operador||'outro operador', msg:r.body.error||''}; renderEstoque(); return; }
+    if(!r.ok){ coltSt.erroRec=r.body.error||('Erro '+r.status); renderEstoque(); return; }
+    coltSt.trava=null;
+    if(r.body.assumida) toast('Você assumiu a conferência. Quem começou continua registrado.');
+    else if(r.body.travaSemOperador) toast('Sua sessão não tem recurso vinculado: a nota não ficou travada no seu nome.');
+    coltGo('bipagem');
+    coltCarregarRec();
+  }catch(e){
+    coltSt.iniciando=false; coltSt.erroRec='Erro ao iniciar a conferência: '+e.message; renderEstoque();
+  }
+}
+
+function coltRenderTrava(wrap){
+  const t=coltSt.trava; if(!t) return;
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  const modal=document.createElement('div');
+  modal.style.cssText='background:#fff;border-radius:16px 16px 0 0;padding:18px;width:100%;max-width:480px;box-sizing:border-box';
+  modal.innerHTML='<div style="font-size:15px;font-weight:800;color:#0B2239;margin-bottom:6px">🔒 '+_esc(t.operador)+' está conferindo esta nota</div>'
+    +'<div style="font-size:12.5px;color:var(--weak);line-height:1.5;margin-bottom:12px">'
+    +_esc(t.msg||'Você pode assumir a conferência.')
+    +' Quem começou continua registrado — nada é apagado.</div>';
+  const b=document.createElement('button'); b.className='btn btn-brand'; b.style.cssText='width:100%;height:52px';
+  b.textContent='Assumir a conferência';
+  b.onclick=()=>{ coltSt.trava=null; coltIniciar(true); };
+  modal.appendChild(b);
+  const c=document.createElement('div'); c.style.cssText='text-align:center;font-size:12.5px;color:#686868;padding:14px 0 2px;cursor:pointer';
+  c.textContent='deixar com ele';
+  c.onclick=()=>{ coltSt.trava=null; renderEstoque(); };
+  modal.appendChild(c);
+  overlay.appendChild(modal); wrap.appendChild(overlay);
+}
+
+/* ========================== TELA 3 — BIPAGEM ========================== */
+
+/* A cor da borda esquerda do card é, segundo o briefing, "o principal canal de leitura" da tela.
+   Os nomes vêm do picklist StatusItem__c que já existe na org (STATUS_ITEM_RECP), não de nomes
+   inventados: 'Item Não Chegou' é falta total (divergência) e 'Item Não Pedido' é o extra. */
+const COLT_COR_ITEM={
+  'Pendente':'#C9D2DB',
+  'Conferido OK':'#1B7F3B',
+  'Quantidade Divergente':'#C25E0A',
+  'Item Não Chegou':'#C25E0A',
+  'Avariado':'#C4451B',
+  'Item Não Pedido':'#2563EB',
+};
+function coltCorItem(s){ return COLT_COR_ITEM[s] || COLT_COR_ITEM['Pendente']; }
+function coltPendente(i){ return !i.status || i.status==='Pendente'; }
+function coltOk(i){ return i.status==='Conferido OK'; }
+
+/* unidade mostrada ao lado da quantidade. recpUnidade é helper compartilhado (não é estado da
+   tela antiga): unidade da NF quando existe, senão a do produto. O prefixo "1" colado — '1UN' em
+   vez de 'UN' — é tirado só quando ele é 1, conforme DECISAO_unidade-prefixo-1-da-nf.md: '10UN'
+   fica intacto de propósito, porque ali o 10 é pacote de 10 e limpar esconderia um fator 10. */
+function coltUni(item){
+  const u=(typeof recpUnidade==='function' ? recpUnidade(item) : String((item&&(item.unidadeNF||item.unidadeProduto))||'')).trim();
+  return u.replace(/^1([.,]0+)?\s*(?=[A-Za-z])/, '');
+}
+function coltNum(v){
+  if(v==null||v==='') return null;
+  const n=Number(v); if(!isFinite(n)) return null;
+  return (Math.round(n*1000)/1000).toLocaleString('pt-BR');
+}
+
+function coltRenderBipagem(card){
+  card.innerHTML='';
+  if(coltSt.erroRec){ card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0;color:#C4451B">'+_esc(coltSt.erroRec)+'</div>'); return; }
+  if(!coltSt._recCarregado){ card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0"><span class="ld-spin"></span>Carregando os itens…</div>'); return; }
+  const r=coltSt.rec, itens=(r&&r.itens)||[];
+
+  /* ---- scanbox ---- */
+  const sb=document.createElement('div');
+  sb.style.cssText='border:2px dashed #2563EB;border-radius:14px;padding:14px;background:var(--brand-l);margin-bottom:14px';
+  sb.innerHTML='<div style="font-size:13px;font-weight:800;color:#0B2239;margin-bottom:8px">Bipe o produto</div>';
+  const inp=document.createElement('input');
+  inp.id='coltBipe'; inp.type='text'; inp.autocomplete='off'; inp.placeholder='EAN ou código do fornecedor';
+  inp.style.cssText='width:100%;height:54px;border:1.5px solid #9fc6f0;border-radius:10px;padding:0 12px;box-sizing:border-box;font:inherit;font-size:16px;background:#fff';
+  inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); coltBipar(inp.value); inp.value=''; } };
+  sb.appendChild(inp);
+  const dica=document.createElement('div');
+  dica.style.cssText='font-size:11.5px;color:var(--weak);margin-top:7px;line-height:1.45';
+  dica.textContent='O leitor digita sozinho e termina com Enter. Sem leitor, digite e toque em Enter.';
+  sb.appendChild(dica);
+  if(coltSt.bipeErro){
+    const er=document.createElement('div'); er.style.cssText='font-size:12.5px;font-weight:700;color:#C4451B;margin-top:8px';
+    er.textContent=coltSt.bipeErro; sb.appendChild(er);
+  }
+  card.appendChild(sb);
+  /* foco permanente no campo de bipe, sem roubar o foco de quem está digitando na busca */
+  setTimeout(()=>{ const i=document.getElementById('coltBipe'); if(i && document.activeElement!==i) i.focus(); }, 80);
+
+  /* ---- barra de progresso + contadores ---- */
+  const nOk=itens.filter(coltOk).length;
+  const nPend=itens.filter(coltPendente).length;
+  const nDiv=itens.length-nOk-nPend;
+  const tot=itens.length||1;
+  const pOk=(nOk/tot*100), pDiv=(nDiv/tot*100);
+  const barra=document.createElement('div');
+  barra.innerHTML='<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:#E6EBF0">'
+    +'<div style="width:'+pOk.toFixed(2)+'%;background:#1B7F3B"></div>'
+    +'<div style="width:'+pDiv.toFixed(2)+'%;background:#C25E0A"></div></div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px">'
+    +'<div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:800;color:#1B7F3B;line-height:1.1">'+nOk+'</div><div style="font-size:11px;color:var(--weak)">conferidos</div></div>'
+    +'<div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:800;color:#C25E0A;line-height:1.1">'+nDiv+'</div><div style="font-size:11px;color:var(--weak)">divergentes</div></div>'
+    +'<div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:800;color:#5B6B7C;line-height:1.1">'+nPend+'</div><div style="font-size:11px;color:var(--weak)">pendentes</div></div>'
+    +'</div>';
+  barra.style.cssText='margin-bottom:14px';
+  card.appendChild(barra);
+
+  /* ---- lista de itens, na ordem da nota ---- */
+  if(!itens.length){
+    card.insertAdjacentHTML('beforeend','<div class="subnote" style="padding-left:0">Esta nota não tem itens.</div>');
+  } else {
+    const ord=itens.slice().sort((a,b)=>{
+      const sa=(a.sequencia==null?9999:Number(a.sequencia)), sb2=(b.sequencia==null?9999:Number(b.sequencia));
+      return sa-sb2;
+    });
+    ord.forEach(i=>card.appendChild(coltCardItem(i)));
+  }
+
+  /* ---- "+ item fora da nota" (leva à Tela 4b; ainda não existe) ---- */
+  const extra=document.createElement('div');
+  extra.style.cssText='margin-top:12px;border:1.5px dashed #C9D2DB;border-radius:12px;padding:14px;text-align:center;font-size:13px;font-weight:700;color:#5B6B7C;cursor:pointer';
+  extra.textContent='+ Item fora da nota';
+  extra.onclick=()=>toast('Item fora da nota entra junto com a Tela 4b, no próximo passo.');
+  card.appendChild(extra);
+
+  /* ---- rodapé: finalizar. Verde sem pendentes, âmbar com pendentes, NUNCA desabilitado. ---- */
+  const fin=document.createElement('button'); fin.className='btn';
+  const semPend = nPend===0;
+  fin.style.cssText='width:100%;height:60px;margin-top:16px;font-size:15px;font-weight:800;border:0;border-radius:10px;color:#fff;background:'+(semPend?'#1B7F3B':'#C25E0A');
+  fin.textContent = semPend ? 'Finalizar conferência' : ('Finalizar com '+nPend+(nPend===1?' pendente':' pendentes'));
+  fin.onclick=()=>toast('Finalizar é a Tela 6 — entra depois da contagem de item.');
+  card.appendChild(fin);
+  /* Lembrete de decisão, pra quem for escrever a Tela 6: fechar com pendente grava
+     "Conferido com Divergência". "Conferido Parcial" não existe mais
+     (DECISAO_status-conferencia-e-substituicao-tela_27-07-2026.md). */
+}
+
+function coltCardItem(i){
+  const row=document.createElement('div');
+  row.id='colt-item-'+i.id;
+  row.style.cssText='display:flex;align-items:center;gap:10px;padding:12px 10px;margin-bottom:8px;border-left:4px solid '+coltCorItem(i.status)
+    +';border-radius:0 10px 10px 0;background:#FAFBFC;cursor:pointer;min-height:64px;transition:background .2s';
+  const titulo=i.produto || i.descricaoNF || 'Item sem descrição';
+  const meta=[i.codigoFornecedor||'', i.ean||''].filter(Boolean).join(' · ');
+  const badges=[];
+  if(i.controladoLote) badges.push('<span class="lz lz-neu">LOTE</span>');
+  if(i.rastreavelSerie) badges.push('<span class="lz lz-neu">SÉRIE</span>');
+  const uni=coltUni(i);
+  const rec=coltNum(i.quantidadeRecebida);
+  const nf=coltNum(i.quantidadeNF);
+  row.innerHTML='<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:700;font-size:13.5px;color:#0B2239;line-height:1.35">'+_esc(titulo)+'</div>'
+      +(meta?'<div style="font-size:11.5px;color:var(--weak);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(meta)+'</div>':'')
+      +(badges.length?'<div style="display:flex;gap:5px;margin-top:6px">'+badges.join('')+'</div>':'')
+    +'</div>'
+    +'<div style="flex:0 0 auto;text-align:right">'
+      /* contagem semi-cega: quantidade que ninguém contou aparece como "—", nunca pré-preenchida
+         com a quantidade da nota (DECISAO_...onda1: a quantidade nasce vazia). */
+      +'<div style="font-size:20px;font-weight:800;color:'+(rec==null?'#B4BEC8':'#0B2239')+';line-height:1.1">'+(rec==null?'—':_esc(rec))+'</div>'
+      +(nf!=null?'<div style="font-size:11.5px;color:var(--weak);margin-top:2px">de '+_esc(nf)+(uni?(' '+_esc(uni)):'')+'</div>':'')
+    +'</div>';
+  row.onclick=()=>toast('Contar item é a Tela 4 — entra no próximo passo.');
+  return row;
+}
+
+/* Bipe resolvido contra os itens que JÁ estão na tela: nenhuma chamada nova ao servidor, porque o
+   detalhe veio inteiro numa tombada. Casa por EAN e por código do fornecedor, com normalização
+   frouxa (só maiúsculas e sem espaço) — código de fornecedor vem com espaço e hífen à vontade. */
+function coltChaveBipe(s){ return String(s==null?'':s).trim().toUpperCase().replace(/\s+/g,''); }
+function coltBipar(valor){
+  const v=coltChaveBipe(valor);
+  coltSt.bipeErro=null; coltSt.bipeOkId=null;
+  if(!v) return;
+  const itens=(coltSt.rec&&coltSt.rec.itens)||[];
+  const achou=itens.find(i => coltChaveBipe(i.ean)===v || coltChaveBipe(i.codigoFornecedor)===v);
+  if(!achou){
+    coltSt.bipeErro='"'+valor+'" não está nesta nota. Confira se é a nota certa ou use "+ Item fora da nota".';
+    if(navigator.vibrate) try{ navigator.vibrate([60,50,60]); }catch(_){ }
+    renderEstoque();
+    return;
+  }
+  if(navigator.vibrate) try{ navigator.vibrate(35); }catch(_){ }
+  coltSt.bipeOkId=achou.id;
+  renderEstoque();
+  /* pisca azul de 110ms no card + rola até ele: é o feedback do §5 que dá pra dar hoje, sem a
+     Tela 4. O beep entra junto com a etapa de hardware. */
+  setTimeout(()=>{
+    const el=document.getElementById('colt-item-'+achou.id);
+    if(!el) return;
+    el.scrollIntoView({block:'center', behavior:'smooth'});
+    el.style.background='#DCEAFB';
+    setTimeout(()=>{ el.style.background='#FAFBFC'; }, 700);
+  }, 40);
+}
+
 /* ===== ENTRADAS PENDENTES (recp* — Fase 4, 10/07/2026): conferência item a item do
    RecebimentoCompra__c + orientação de endereço (sugestão habitual/última entrada/vago) + alerta
    de excedente (dividir / criar ponto complementar via wizard endr* / forçar) + scan-to-confirm
@@ -6087,6 +6634,17 @@ function recpRenderEstornoModal(wrap){
 }
 function recpRenderLista(card){
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Entradas aguardando conferência</div>';
+  /* 27/07/2026 — porta de entrada TEMPORARIA para as telas novas do coletor (colt*, Telas 1/2/3).
+     A decisão de 27/07 é SUBSTITUIR esta tela; a troca do despacho em renderEstoque entra no
+     MESMO commit da Tela 6, porque hoje as Telas 4/4b/6 não existem e trocar agora deixaria o
+     almoxarife sem conseguir confirmar item nenhum. Este botão sai junto com a troca. */
+  {
+    const bColt=document.createElement('button'); bColt.className='btn btn-neutral';
+    bColt.style.cssText='width:100%;height:38px;margin-bottom:10px;font-size:12.5px;border:1px solid #E0A100;color:#8A5A00';
+    bColt.textContent='\u{1F6A7} Abrir a tela NOVA do coletor (em constru\u00e7\u00e3o)';
+    bColt.onclick=()=>{ coltAtivo=true; coltReset(); renderEstoque(); coltCarregarFila(); };
+    card.appendChild(bColt);
+  }
   // Estorno de Recebimento Confirmado (16/07/2026) — toggle exclusivo de Sócio (checagem exata,
   // não hierárquica: é a exceção deliberada de proposta-recebimento-conferencia-armazenamento.md).
   if(ROLE==='Sócio'){
@@ -6406,18 +6964,9 @@ function qtdVirgulaDecimal(e){
 document.addEventListener('beforeinput', qtdVirgulaDecimal, true);
 document.addEventListener('blur', function(e){ if(e.target) e.target.__decPend=false; }, true);
 
-/* 26/07/2026 — o uCom da NF e texto livre do fornecedor e as vezes chega com o multiplicador
-   colado: '1UN' em vez de 'UN' (visto pelo Raphael na conferencia do beta). Tiramos o prefixo
-   NUMERICO SO QUANDO ELE E 1 (aceita '1', '1,00', '1.00' e espaco no meio): 1UN e UN sao a mesma
-   coisa, nada de informacao se perde. Prefixo DIFERENTE de 1 fica intacto de PROPOSITO — '10UN'
-   quer dizer pacote de 10 e limpar pra 'UN' esconderia um fator 10, que e exatamente o erro de
-   saldo silencioso que o alerta de recpUnidadeDiverge existe pra pegar. */
-function recpUniLimpa(u){
-  return String(u==null?'':u).trim().replace(/^1(?:[.,]0+)?\s*(?=[A-Za-z\u00C0-\u024F])/, '');
-}
 function recpUnidade(item){
   if(!item) return '';
-  return recpUniLimpa(item.unidadeNF || item.unidadeProduto || '');
+  return String(item.unidadeNF || item.unidadeProduto || '').trim();
 }
 /* Sinonimos: a unidade da NF e texto livre do fornecedor, entao 'UNID'/'UND'/'PECA' chegam como
    coisas diferentes da picklist UnidadeMedida__c. Sem isso o alerta de divergencia dispararia em
@@ -6433,7 +6982,7 @@ function recpUniNorm(u){
   if(u==null) return '';
   /* NFKD (e nao NFD) de proposito: alem de separar acento, ele decompoe caracteres de
      compatibilidade — e o que faz 'M2' da NF casar com 'M²' da picklist. */
-  const base=recpUniLimpa(u).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const base=String(u).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   return RECP_UNI_SINONIMOS[base]||base;
 }
 /* true so quando as duas existem E sao mesmo diferentes. Item sem produto vinculado nunca acusa. */
@@ -6530,70 +7079,11 @@ function recpRenderItem(card){
   const semSecaoB=c.status==='Item Não Chegou' || (c.status==='Avariado' && qtdBoa<=0);
   const qtdWrap=document.createElement('div');
   const uniItem=recpUnidade(item);
-  /* Observacao minimizada (26/07/2026, pedido do Raphael): o campo de observacao nasce fechado
-     atras de um botao pequeno, porque na esmagadora maioria dos itens nao ha observacao nenhuma
-     e o campo aberto empurrava o "Confirmar item" pra fora da tela do celular. Abre sozinho
-     quando JA existe observacao gravada — senao o operador nao veria o que ele mesmo escreveu.
-     O estado de aberto e guardado POR ITEM (recpSt.obsAbertaItem) pra sobreviver aos re-renders
-     que os chips de status disparam; assim nao precisa ser limpo em recpAbrirItem. */
-  const obsAberta = !!String(c.observacao||'').trim() || recpSt.obsAbertaItem===recpSt.itemId;
   qtdWrap.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Quantidade recebida</label>'
     +recpCampoQtdHtml('recpQtd', c.quantidade, uniItem, c.status==='Item Não Chegou', 'conte de verdade')
-    +'<div id="recpQtdBtns" style="display:flex;gap:8px;margin:-6px 0 12px;flex-wrap:wrap"></div>'
-    +'<button type="button" id="recpObsBtn" class="btn btn-neutral" style="display:'+(obsAberta?'none':'inline-block')+';width:auto;height:44px;margin:0 0 12px;padding:0 14px;font-size:12.5px;font-weight:700">+ Adicionar observação</button>'
-    +'<div id="recpObsWrap" style="display:'+(obsAberta?'block':'none')+'">'
     +'<label style="font-size:12.5px;color:#4A5560;font-weight:600">Observação (opcional)</label>'
-    +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">'
-    +'</div>';
+    +'<input id="recpObs" type="text" maxlength="255" value="'+cadEsc(c.observacao)+'" style="width:100%;height:46px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 12px;margin:4px 0 12px;box-sizing:border-box">';
   card.appendChild(qtdWrap);
-  /* Abre a observacao no toque. Sem renderEstoque(), pela mesma razao dos botoes de quantidade:
-     re-renderizar aqui apagaria a quantidade que o operador acabou de digitar (o campo e nao
-     controlado, so sincroniza no Confirmar item). Nao existe botao de FECHAR de proposito: texto
-     escondido continuaria sendo gravado no clique de confirmar, e observacao invisivel no momento
-     de confirmar e pior que campo aberto. */
-  (function(){
-    const b=document.getElementById('recpObsBtn'), w=document.getElementById('recpObsWrap');
-    if(!b||!w) return;
-    b.onclick=()=>{
-      recpSt.obsAbertaItem=recpSt.itemId;
-      b.style.display='none'; w.style.display='block';
-      const i=document.getElementById('recpObs'); if(i){ try{ i.focus(); }catch(e){} }
-    };
-  })();
-  /* Entrada por toque (26/07/2026) — botoes grandes de contagem ao lado do campo digitavel.
-     Operam SOBRE O INPUT (#recpQtd), nunca sobre c.quantidade: a quantidade so sincroniza no
-     clique de "Confirmar item" e escrever em c.quantidade aqui quebraria a contagem semi-cega.
-     Sem renderEstoque(): bater 24 vezes num botao que re-renderiza a tela inteira e inutilizavel
-     de luva. NAO existe botao "= NF" de proposito — ver CLAUDE.md, armadilhas conhecidas. */
-  (function(){
-    const box=document.getElementById('recpQtdBtns'); if(!box) return;
-    const emb=Number(item.qtdPadraoEmbalagem)||0;
-    const desab=c.status==='Item Não Chegou';
-    const somar=(d)=>{
-      const inp=document.getElementById('recpQtd'); if(!inp||inp.disabled) return;
-      const atual=Number(inp.value)||0;
-      inp.value=String(Math.max(0, Math.round((atual+d)*100)/100));
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){}
-    };
-    const passos=[{rot:'−1',d:-1},{rot:'+1',d:1}];
-    if(emb>1) passos.push({rot:'+'+emb+(uniItem?(' '+uniItem):''), d:emb, largo:true});
-    passos.forEach(p=>{
-      const b=document.createElement('button');
-      b.type='button'; b.className='btn btn-neutral'; b.disabled=desab;
-      b.style.cssText='flex:'+(p.largo?'1.6':'1')+';min-width:64px;height:64px;margin:0;font-size:'
-        +(p.largo?'15':'20')+'px;font-weight:800'+(desab?';opacity:.4':'');
-      b.textContent=p.rot;
-      b.onclick=()=>somar(p.d);
-      box.appendChild(b);
-    });
-    const lim=document.createElement('button');
-    lim.type='button'; lim.className='btn btn-neutral'; lim.disabled=desab;
-    lim.style.cssText='flex:0 0 auto;width:auto;height:64px;margin:0;padding:0 14px;font-size:12px'+(desab?';opacity:.4':'');
-    lim.textContent='limpar';
-    lim.onclick=()=>{ const inp=document.getElementById('recpQtd'); if(inp&&!inp.disabled){ inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); } };
-    box.appendChild(lim);
-  })();
   /* Divergencia de unidade: a NF faturou em CX e o estoque conta em UN, por exemplo.
      Ate o v155 aqui havia so uma nota dizendo "o saldo entra como CX, sem conversao". Isso deixou
      de ser verdade quando o passo 2 subiu: RecebimentoEstoqueService agora MULTIPLICA a quantidade
