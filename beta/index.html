@@ -987,6 +987,11 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<script>
+/* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
+   GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
+if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
+</script>
 <div class="phone" id="app">
 
   <!-- SPLASH DE ABERTURA (usa o diafragma real do logo) -->
