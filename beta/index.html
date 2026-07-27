@@ -6521,9 +6521,10 @@ function coltCardFila(r){
   const nome = r.fornecedor || r.emitente || 'Sem fornecedor identificado';
   const semCadastro = !r.fornecedor && !!r.emitente;
   const sub=[];
-  if(r.numeroNF) sub.push('NF '+r.numeroNF);
+  /* 27/07: a razão social do destinatário (r.empresaFiscal, "Master Service…") saiu do card —
+     não é informação relevante pra quem confere. E a NF saiu da linha meta miúda pra ganhar
+     destaque próprio abaixo do fornecedor (render mais abaixo). Pedido do Raphael por foto. */
   if(r.dataEmissao) sub.push(fmtDataBR(r.dataEmissao));
-  if(r.empresaFiscal) sub.push(r.empresaFiscal);
   const chips=[];
   if(r.qtdVolumes!=null) chips.push(coltPill(r.qtdVolumes+(r.qtdVolumes===1?' volume':' volumes'), CD.mu, 'rgba(147,164,186,.12)'));
   if(r.operador) chips.push(coltPill('🔒 '+r.operador, CD.am, CD.amBg));
@@ -6538,6 +6539,7 @@ function coltCardFila(r){
     +'<div style="display:flex;align-items:flex-start;gap:10px">'
       +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:14.5px;font-weight:800;color:'+CD.tx+';line-height:1.3">'+_esc(nome)+'</div>'
+        +(r.numeroNF?'<div style="margin-top:5px;line-height:1.1"><span style="font-size:12.5px;font-weight:700;color:'+CD.mu+';letter-spacing:.5px">NF </span><span style="font-size:19px;font-weight:800;color:'+CD.tx+';letter-spacing:.3px">'+_esc(r.numeroNF)+'</span></div>':'')
         +(sub.length?'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px">'+_esc(sub.join(' · '))+'</div>':'')
       +'</div>'
       +'<div style="flex:0 0 auto;text-align:right">'+coltPill(r.status||'—', st[0], st[1])
