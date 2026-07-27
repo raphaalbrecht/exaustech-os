@@ -7357,6 +7357,10 @@ function coltRenderFluxo(wrap){
   const root=coltEl('div','position:fixed;inset:0;z-index:90000;background:'+CD.bg+';color:'+CD.tx
     +';overflow-y:auto;-webkit-overflow-scrolling:touch');
   root.id='coltRoot';
+  /* PENDURA O ROOT ANTES DE DESENHAR (conserto de 27/07). Antes isto acontecia na ultima linha da
+     funcao, e qualquer document.getElementById('colt...') feito durante a montagem devolvia null
+     -> TypeError -> tela em branco ao entrar em Entradas pendentes. */
+  wrap.appendChild(root);
   root.appendChild(coltBarraTopo());
   /* 27/07/2026 (item 14): quando os dados vieram do aparelho, a tela DIZ isso. Sem esta faixa o
      conferente não tem como saber que está olhando uma cópia local. */
@@ -7384,7 +7388,7 @@ function coltRenderFluxo(wrap){
   coltRenderRecusa(root);
   coltRenderDivergencia(root);
   coltRenderEstorno(root);
-  wrap.appendChild(root);
+  /* o wrap.appendChild(root) subiu para o inicio da funcao — ver comentario la em cima. */
   coltRelogio();
 }
 
