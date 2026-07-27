@@ -7631,8 +7631,9 @@ function coltRenderCabecalho(corpo, root){
       coltPill(rot[0], rot[1], rot[2]));
   }
 
-  const vbox=coltEl('div'); vbox.id='coltVolBox'; corpo.appendChild(vbox);
-  coltPintarVol(podeEditar);
+  /* 27/07: bloco "Volumes na doca" removido do cabeçalho por decisão do Raphael (achou
+     desnecessário). QtdVolumes__c e a rota POST .../volumes CONTINUAM existindo — nada apagado,
+     revertível; só saiu a UI. coltPintarVol/coltVolSalvar seguem no arquivo, sem chamador aqui. */
 
   let pe='';
   if(c.travaOperador || c.operador){
