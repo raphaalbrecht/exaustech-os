@@ -6068,6 +6068,11 @@ async function coltPost(path, body, q){
    - 'recusar' e 'porChave' também não: o servidor recusa gravar de propósito (501). */
 let COLT_PEND=0, COLT_MORTOS=0;
 
+/* DECISÃO DO RAPHAEL (27/07, pergunta h): recusa do servidor não pode ficar só no vermelho da
+   barra. Ela TRAVA a tela na hora e obriga o conferente a ver qual nota deu problema antes de
+   continuar. Guarda o último aviso; se o coletor estiver fechado, aparece quando ele abrir. */
+let COLT_RECUSA_ALERTA=null;
+
 /* apaga da fila as pendências de uma mesma chave (ex.: 'item:REC-1:3') e devolve quantas morreram.
    A escrita do coletor é de VALOR ABSOLUTO, então a última intenção é a única que interessa. */
 async function coltLimparDedup(dedup){
@@ -6084,8 +6089,8 @@ async function coltLimparDedup(dedup){
    apagar a pendência e mostrar um toast de 2,2s. Para dado de conferência isso é perda definitiva
    de trabalho físico já feito. Aqui a pendência recusada não evapora: vai para um cemitério no
    próprio aparelho e o contador da barra fica VERMELHO com "N recusada(s)" até alguém tratar.
-   PERGUNTA EM ABERTO (item h): cemitério, confirmação na tela, ou um registro de clientTxId no
-   servidor? Isto é o mínimo seguro, não a decisão final. */
+   DECIDIDO em 27/07 (pergunta h): cemitério E aviso que trava a tela na hora. O registro de
+   clientTxId no servidor continua sendo o conserto de raiz e vira entrega separada. */
 async function coltCemiterio(j, msg){
   try{
     const arr=(await offGet('colt_recusados'))||[];
@@ -6097,6 +6102,9 @@ async function coltCemiterio(j, msg){
   /* o fechamento morreu na recusa: a nota volta a ser conferível, senão o operador ficaria travado
      olhando uma nota que nunca vai fechar sozinha. */
   if(coltSt && j && j.dedup===('fin:'+coltSt.recId)) coltSt.finPendenteFila=false;
+  /* o aviso que trava a tela (decisão h). Fica guardado até alguém abrir a lista de recusadas. */
+  COLT_RECUSA_ALERTA={label:j.label||null, erro:String(msg||'')};
+  if(coltAtivo){ try{ renderEstoque(); }catch(e){} }
 }
 
 /* o fechamento desta nota já está esperando sinal? A própria fila é a fonte da verdade — não há
@@ -6106,6 +6114,28 @@ async function coltFechamentoNaFila(recId){
   try{
     const todos=await offAll();
     for(const j of todos){ if(j.kind==='coltPost' && j.dedup==='fin:'+recId) return true; }
+  }catch(e){}
+  return false;
+}
+
+/* DECISÃO DO RAPHAEL (27/07, pergunta i): sem sinal, só se continua a nota cujo 'iniciar' ESTE
+   aparelho confirmou COM O SERVIDOR. É o iniciar que resolve a trava de operador; sem essa marca,
+   duas pessoas poderiam contar a mesma nota offline e a segunda só descobriria ao sincronizar. */
+async function coltMarcarIniciada(recId){
+  if(!recId) return;
+  try{
+    let arr=(await offGet('colt_ini'))||[];
+    arr=arr.filter(function(x){ return x && x.id!==recId; });
+    arr.push({id:recId, quando:new Date().toISOString()});
+    while(arr.length>80) arr.shift();
+    await offPut('colt_ini', arr);
+  }catch(e){}
+}
+async function coltIniciadaAqui(recId){
+  if(!recId) return false;
+  try{
+    const arr=(await offGet('colt_ini'))||[];
+    for(const x of arr){ if(x && x.id===recId) return true; }
   }catch(e){}
   return false;
 }
@@ -6308,6 +6338,23 @@ async function coltPintarRecusadas(){
       +'<div style="font-size:12px;color:'+CD.vm+';margin-top:5px;line-height:1.45">'+_esc(r.erro||'o servidor recusou')+'</div>'
       +(quando?('<div style="font-size:11px;color:'+CD.mu+';margin-top:5px">tentou em '+_esc(quando)+'</div>'):'')));
   });
+}
+/* DECISÃO h: aviso que TRAVA a tela. Não tem "fechar": a única saída é ver a lista de recusadas.
+   De propósito — o vermelho da barra sozinho vira paisagem em uma semana. */
+function coltRenderRecusaAlerta(root){
+  const a=COLT_RECUSA_ALERTA;
+  if(!a || !coltSt || coltSt.step==='recusadas') return;
+  const ov=coltEl('div','position:fixed;inset:0;background:rgba(4,9,18,.85);z-index:100006;display:flex;align-items:center;justify-content:center;padding:18px');
+  const md=coltEl('div','background:'+CD.card+';border:1px solid '+CD.vm+';border-radius:18px;padding:18px;width:100%;max-width:460px;box-sizing:border-box',
+      '<div style="font-size:16px;font-weight:800;color:'+CD.vm+';margin-bottom:9px">⚠️ O servidor recusou um envio</div>'
+    +'<div style="font-size:13.5px;font-weight:700;color:'+CD.tx+';line-height:1.45">'+_esc(a.label||'envio sem descrição')+'</div>'
+    +(a.erro?('<div style="font-size:12.5px;color:'+CD.vm+';line-height:1.5;margin-top:6px">'+_esc(a.erro)+'</div>'):'')
+    +'<div style="font-size:12.5px;color:'+CD.mu+';line-height:1.55;margin-top:11px;margin-bottom:14px">O que você contou <b>não se perdeu</b>: está guardado neste aparelho. Veja qual nota precisa ser reconferida antes de continuar.</div>');
+  const b=coltEl('button', coltBotao('', '#fff', CD.vm, CD.vm), 'Ver o que foi recusado');
+  b.onclick=function(){ COLT_RECUSA_ALERTA=null; coltGo('recusadas'); };
+  md.appendChild(b);
+  ov.appendChild(md);
+  root.appendChild(ov);
 }
 function coltRenderRecusadas(corpo, root){
   coltTitulo(corpo, 'Recusadas pelo servidor',
@@ -6572,12 +6619,15 @@ const COLT_STATUS_EDITAVEL=['Aguardando Recebimento Físico','Em Conferência'];
 async function coltAbrir(id){
   coltSt.recId=id; coltSt.rec=null; coltSt._recCarregado=false; coltSt.erroRec=null; coltSt.trava=null;
   coltSt.volLocal=null; coltSt.volErro=null; coltSt.volSalvo=false;
-  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false;
+  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false; coltSt.semIniciarAqui=false;
   coltGo('cabecalho');
   /* ACHADO 3, 2ª volta: travar só o botão "iniciar" não bastava — o stepper de volumes do cabeçalho
      continuava editável e enfileirava um 'vol:' ATRÁS do 'fin:'. Nota com fechamento na fila entra
      como SÓ LEITURA. */
   coltSt.finPendenteFila=await coltFechamentoNaFila(id);
+  /* decisão i: sem sinal e sem a marca do iniciar deste aparelho, a nota entra SÓ DE LEITURA —
+     inclusive o contador de volumes, que também é contagem. */
+  coltSt.semIniciarAqui = (navigator.onLine===false) && !(await coltIniciadaAqui(id));
   await coltCarregarRec();
 }
 async function coltCarregarRec(){
@@ -6816,15 +6866,18 @@ async function coltIniciar(assumir){
   }
   /* 27/07/2026 (item 14): iniciar NÃO entra na fila offline. É ESTE post que resolve a trava de
      operador; enfileirar deixaria dois conferentes na mesma nota sem ninguém saber, e o 409 só
-     apareceria na drenagem, com a contagem já feita. EXCEÇÃO: nota que JÁ ESTÁ 'Em Conferência'
-     não precisa de post nenhum para continuar — o servidor já sabe, a trava já existe. */
+     apareceria na drenagem, com a contagem já feita.
+     DECISÃO DO RAPHAEL (27/07, pergunta i): a antiga exceção — "nota já 'Em Conferência' continua
+     offline" — CAIU. Status 'Em Conferência' não diz QUEM abriu: podia ser o colega do outro
+     aparelho. Agora só continua offline a nota cujo iniciar ESTE aparelho confirmou. */
   if(navigator.onLine===false){
-    if(coltSt.rec && coltSt.rec.status==='Em Conferência'){
-      coltSt.trava=null; coltGo('bipagem');
-      toast('Sem sinal: continuando a conferência já aberta. A trava de operador não pôde ser checada agora.');
+    if(await coltIniciadaAqui(coltSt.recId)){
+      coltSt.trava=null; coltSt.semIniciarAqui=false; coltGo('bipagem');
+      toast('Sem sinal: continuando a conferência que você abriu neste aparelho. O que você contar entra na fila.');
       return;
     }
-    coltSt.erroRec='Sem sinal para ABRIR uma conferência nova. É a rede que garante que dois conferentes não peguem a mesma nota. Contar e fechar funcionam offline; abrir, não.';
+    coltSt.semIniciarAqui=true;
+    coltSt.erroRec='Sem sinal, e a conferência desta nota não foi aberta por você neste aparelho. Contar agora poderia duplicar o trabalho de outra pessoa sem ninguém saber. Abra a conferência uma vez COM sinal — depois disso ela funciona offline até o fim.';
     renderEstoque(); return;
   }
   coltSt.iniciando=true; coltSt.erroRec=null; renderEstoque();
@@ -6835,6 +6888,9 @@ async function coltIniciar(assumir){
     if(r.status===409 && r.body.travado){ coltSt.trava={operador:r.body.operador||'outro operador', msg:r.body.error||''}; renderEstoque(); return; }
     if(!r.ok){ coltSt.erroRec=r.body.error||('Erro '+r.status); renderEstoque(); return; }
     coltSt.trava=null;
+    /* decisão i: é ESTA confirmação do servidor que libera a nota para trabalho offline depois. */
+    try{ await coltMarcarIniciada(coltSt.recId); }catch(_e){}
+    coltSt.semIniciarAqui=false;
     if(r.body.assumida) toast('Você assumiu a conferência. Quem começou continua registrado.');
     else if(r.body.travaSemOperador) toast('Sua sessão não tem recurso vinculado: a nota não ficou travada no seu nome.');
     coltGo('bipagem');
@@ -7172,10 +7228,15 @@ function coltSimularBipe(){
    - "Propriedade" e "Movimentação" do mockup da 4c: nenhum campo do detalhe entrega isso.
      O que existe de verdade é matching.faturadoPara — e é isso que aparece, quando existe. */
 
-/* motivos de divergência: os 7 valores reais do picklist MotivoDivergencia__c. A lista da tela
-   clara (MOTIVO_DIVERGENCIA_RECP) é a mesma; o typeof é só cinto de segurança de ordem de carga. */
-const COLT_MOTIVOS = (typeof MOTIVO_DIVERGENCIA_RECP!=='undefined') ? MOTIVO_DIVERGENCIA_RECP :
-  ['Avaria de transporte','Avaria de fábrica','Item errado','Quantidade a menos','Quantidade a mais','Validade/vencimento','Outro'];
+/* motivos de divergência: os 7 valores reais do picklist MotivoDivergencia__c.
+   BUG QUE MATOU O BETA (achado em 27/07 abrindo a página, não lendo o código): aqui havia
+     const COLT_MOTIVOS = (typeof MOTIVO_DIVERGENCIA_RECP!=='undefined') ? ... : [...]
+   e esse "cinto de segurança" NÃO funciona. MOTIVO_DIVERGENCIA_RECP é declarado com `const` mais
+   embaixo no arquivo (linha ~8480) e, antes da declaração, até `typeof` sobre um const lança
+   ReferenceError (temporal dead zone). O bloco de script inteiro morria na carga e o app parava na
+   logo. Agora a lista é literal, sem depender de ordem de carga. Se o picklist mudar na org, mude
+   NOS DOIS lugares: aqui e em MOTIVO_DIVERGENCIA_RECP. */
+const COLT_MOTIVOS = ['Avaria de transporte','Avaria de fábrica','Item errado','Quantidade a menos','Quantidade a mais','Validade/vencimento','Outro'];
 
 /* ---------- helpers novos ---------- */
 function coltItemAtual(){
@@ -7234,7 +7295,7 @@ function coltReset(){
     /* Telas 5/6 — fechamento */
     finErro:null, finEnviando:false, finOk:null,
     /* item 14: de onde vieram os dados e se a última escrita foi pra fila */
-    recDeCache:false, filaDeCache:false, volFila:false, finPendenteFila:false,
+    recDeCache:false, filaDeCache:false, volFila:false, finPendenteFila:false, semIniciarAqui:false,
     /* estorno e confirmados (mudaram de casa: viviam na recp*, que fica sem chamador) */
     confirmados:[], _confirmadosCarregados:false, confirmadosQuery:'', janelaEstornoMin:30, estorno:null,
   };
@@ -7256,7 +7317,7 @@ function coltVoltarFila(){
   coltSt.divAberta=false; coltSt.divErro=null;
   coltSt.endSelId=null; coltSt.endInfo=null; coltSt.endErro=null; coltSt.endSalvando=false;
   coltSt.finErro=null; coltSt.finEnviando=false; coltSt.finOk=null;
-  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false;
+  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false; coltSt.semIniciarAqui=false;
   coltGo('fila'); coltCarregarFila();
 }
 
@@ -7319,6 +7380,7 @@ function coltRenderFluxo(wrap){
   else if(coltSt.step==='confirmados') coltRenderConfirmados(corpo, root);
   else if(coltSt.step==='recusadas') coltRenderRecusadas(corpo, root);
   coltRenderTrava(root);
+  coltRenderRecusaAlerta(root);
   coltRenderRecusa(root);
   coltRenderDivergencia(root);
   coltRenderEstorno(root);
@@ -7516,13 +7578,14 @@ function coltRenderCabecalho(corpo, root){
   const st=coltCorStatus(c.status);
   const nomeGrande = (c.emitente && c.emitente.nome) || c.fornecedor || 'Sem emitente identificado';
   const itens=c.itens||[];
-  const podeEditar=!coltSt.finPendenteFila && COLT_STATUS_EDITAVEL.indexOf(c.status)>=0;
+  const podeEditar=!coltSt.finPendenteFila && !coltSt.semIniciarAqui && COLT_STATUS_EDITAVEL.indexOf(c.status)>=0;
 
   coltTitulo(corpo, c.numeroNF ? ('NF '+c.numeroNF) : (c.name||'Nota'),
     _esc(c.name||'')+' · '+coltPill(c.status||'—', st[0], st[1]), coltVoltarFila);
 
   if(coltSt.erroRec) corpo.innerHTML+=coltErroBox(coltSt.erroRec);
   if(coltSt.finPendenteFila) corpo.innerHTML+=coltErroBox('O fechamento desta nota está na fila deste aparelho e ainda não subiu. Até subir, a nota fica só de leitura — não conte de novo. Quando a rede voltar, o fechamento sobe sozinho e a nota libera.');
+  else if(coltSt.semIniciarAqui) corpo.innerHTML+=coltErroBox('Sem sinal, e esta conferência não foi aberta por você neste aparelho. A nota fica só de leitura para não duplicar a contagem de outra pessoa. Com sinal, toque em iniciar (ou assumir) e ela libera — inclusive para trabalhar offline depois.');
 
   let e1='<div style="font-size:16px;font-weight:800;color:'+CD.tx+';line-height:1.3">'+_esc(nomeGrande)+'</div>';
   const cnpj=coltCnpjBR(c.emitente && c.emitente.cnpj);
