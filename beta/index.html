@@ -7908,8 +7908,8 @@ function coltRenderItem(corpo, root){
   if(!item.produtoId){
     corpo.innerHTML+='<div style="font-size:12px;color:'+CD.am+';background:'+CD.amBg+';border:1px solid '+CD.bd2
       +';border-radius:12px;padding:10px 12px;margin-bottom:12px;line-height:1.5">Este item ainda não tem produto vinculado. '
-      +'A org não aceita "Conferido OK" sem produto, e sem produto não há sugestão de endereço. '
-      +'A vinculação manual (De-Para) ainda não tem tela no coletor — por enquanto ela é feita pela tela do escritório.</div>';
+      +'Você pode receber assim mesmo: conte e toque em "Receber sem vínculo". Ele entra como "Recebido sem Vínculo" '
+      +'(não move o estoque agora) e o escritório vincula o produto depois — aí a mercadoria entra no saldo.</div>';
   }
   /* produto controlado por lote: o servidor RECUSA lote pelo coletor (400 nomeando o campo) —
      custódia e saldo ficam no RecebimentoEstoqueService. Dizer isso aqui evita a surpresa. */
@@ -7996,7 +7996,7 @@ function coltRenderItem(corpo, root){
 
   /* ---- rodapé ---- */
   const f=coltRodape(root,'');
-  const b=coltEl('button', coltBotao('', '#fff', CD.vd, CD.vd), coltSt.itemSalvando?'Gravando…':'Confirmar item');
+  const b=coltEl('button', coltBotao('', '#fff', CD.vd, CD.vd), coltSt.itemSalvando?'Gravando…':(item.produtoId?'Confirmar item':'Receber sem vínculo'));
   b.onclick=()=>coltConfirmarItem();
   f.appendChild(b);
 
@@ -8066,16 +8066,16 @@ async function coltConfirmarItem(){
     coltSt.divErro='A quantidade avariada ('+coltNum(av)+') não pode passar da recebida ('+coltNum(qtd)+') — a org recusa (Avariada_Nao_Excede_Recebida).';
     renderEstoque(); return;
   }
-  const status=coltStatusDerivado(qtd, av, item.quantidadeNF);
+  let status=coltStatusDerivado(qtd, av, item.quantidadeNF);
+  /* 27/07: SEM produto vinculado, nenhum status que move saldo é aceito na org. Recebe como
+     "Recebido sem Vínculo" — o escritório vincula depois e a mercadoria entra no estoque
+     (RecebimentoEstoqueService.entradaTardiaItem). Antes do check de motivo, que não se aplica. */
+  if(!item.produtoId) status='Recebido sem Vínculo';
   if((status==='Quantidade Divergente'||status==='Avariado') && !coltSt.divMotivo){
     /* motivo é obrigatório na org (Motivo_Obrig_Divergencia) — em vez de tomar 400 do servidor,
        a gaveta abre já pedindo a escolha. Nenhum motivo vem pré-marcado: propor, não decidir. */
     coltSt.divAberta=true;
     coltSt.divErro='Este item vai gravar "'+status+'" e a org exige o motivo. Escolha um.';
-    renderEstoque(); return;
-  }
-  if(status==='Conferido OK' && !item.produtoId){
-    coltSt.itemErro='A org não aceita "Conferido OK" sem produto vinculado (Produto_Obrig_Conferido). Vincule o produto pela tela do escritório e confira de novo.';
     renderEstoque(); return;
   }
   const body={
@@ -8111,7 +8111,10 @@ async function coltConfirmarItem(){
     if(body.numerosSerie) item.numerosSerie=body.numerosSerie.slice();
     coltSalvarSnapshot();
     const boa=Math.max(0, qtd-av);
-    if(boa>0){
+    if(status==='Recebido sem Vínculo'){
+      toast('Recebido sem vínculo — o escritório vincula o produto depois e aí entra no estoque.');
+      coltGo('bipagem');
+    } else if(boa>0){
       coltSt.endSelId=null; coltSt.endInfo=null; coltSt.endVia=null; coltSt.endErro=null;
       coltGo('endereco');
     } else {
