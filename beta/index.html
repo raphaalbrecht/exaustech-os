@@ -6028,11 +6028,145 @@ function coltUuid(){
 /* POST próprio em vez de bePost: o 409 da trava de operador NÃO é erro, é estado de tela — o app
    precisa do CORPO da resposta (quem está com a nota) pra oferecer "assumir", e bePost joga fora
    o corpo e sobe só a mensagem. O 501 do recusar/porChave também vem com texto próprio. */
-async function coltPost(path, body){
-  const r = await fetch(BACKEND+path, {method:'POST', headers:{Authorization:'Bearer '+beTok(), 'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
-  if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); }
-  let j=null; try{ j=await r.json(); }catch(_){}
-  return {ok:r.ok, status:r.status, body:j||{}};
+async function coltPost(path, body, q){
+  try{
+    const r = await fetch(BACKEND+path, {method:'POST', headers:{Authorization:'Bearer '+beTok(), 'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
+    if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); }
+    let j=null; try{ j=await r.json(); }catch(_){}
+    /* 5xx COM q: servidor de pé mas engasgado é falha passageira — vira pendência em vez de erro na
+       cara do conferente. SEM q, continua devolvendo o status (quem chama decide). */
+    if(q && r.status>=500){ const e=new Error((j&&j.error)||('Erro '+r.status)); e.status=r.status; throw e; }
+    /* ACHADO 1 DA REVISÃO (grave): sem isto, uma pendência ANTIGA da mesma chave sobrevivia a uma
+       escrita nova bem-sucedida e, ao drenar, sobrescrevia o valor certo. Cenário real: Wi-Fi
+       oscilando sem o navigator.onLine mudar — digita 5 (cai, enfileira), corrige para 7 (sobe,
+       tela verde "salvo"), 60s depois o dreno manda o 5 de volta. Sucesso direto quer dizer que a
+       fila daquela chave está velha: ela morre aqui. */
+    if(q && q.dedup && r.ok){ const mortos=await coltLimparDedup(q.dedup); if(mortos) await coltAtualizarPend(); }
+    return {ok:r.ok, status:r.status, body:j||{}};
+  }catch(e){
+    if(q && netFail(e)){
+      /* o clientTxId JÁ VEM dentro do body e é gravado JUNTO com a pendência: a retentativa reenvia
+         o MESMO uuid. Se ele nascesse na hora de enviar, cada tentativa geraria um id novo e o
+         servidor perderia o par. */
+      await coltEnfileirar({kind:'coltPost', path:path, body:body||{}, label:(q&&q.label)||String(q), dedup:(q&&q.dedup)||null});
+      return {ok:true, status:0, _queued:true, body:{ok:true, _queued:true, clientTxId:(body&&body.clientTxId)||null}};
+    }
+    throw e;
+  }
+}
+
+/* ==================== CAMADA OFFLINE DO COLETOR (item 14, 27/07/2026) ====================
+   NÃO é uma segunda máquina: usa a fila que JÁ EXISTE no app (IndexedDB 'exaustech-off', store
+   'fila', offAdd/offAll/offDel/offCount/offDrain, drenagem no evento 'online' e a cada 60s).
+   O que é próprio daqui:
+   - kind 'coltPost', drenado por coltDrainPost — o dreno NÃO reenfileira;
+   - dedup: dois toques no mesmo campo não viram duas pendências. A escrita do coletor é de VALOR
+     ABSOLUTO (QuantidadeRecebida__c = 7, nunca +1), então a última vale e as anteriores só
+     inflariam o contador;
+   - 'iniciar' NÃO entra na fila: é ele que resolve a trava de operador (409). Enfileirar deixaria
+     dois conferentes na mesma nota sem ninguém saber;
+   - 'recusar' e 'porChave' também não: o servidor recusa gravar de propósito (501). */
+let COLT_PEND=0, COLT_MORTOS=0;
+
+/* apaga da fila as pendências de uma mesma chave (ex.: 'item:REC-1:3') e devolve quantas morreram.
+   A escrita do coletor é de VALOR ABSOLUTO, então a última intenção é a única que interessa. */
+async function coltLimparDedup(dedup){
+  if(!dedup) return 0;
+  let n=0;
+  try{
+    const todos=await offAll();
+    for(const j of todos){ if(j.kind==='coltPost' && j.dedup===dedup){ await offDel(j._id); n++; } }
+  }catch(e){}
+  return n;
+}
+
+/* ACHADO 2 DA REVISÃO (grave): a política herdada do offDrain para erro que NÃO é de rede era
+   apagar a pendência e mostrar um toast de 2,2s. Para dado de conferência isso é perda definitiva
+   de trabalho físico já feito. Aqui a pendência recusada não evapora: vai para um cemitério no
+   próprio aparelho e o contador da barra fica VERMELHO com "N recusada(s)" até alguém tratar.
+   PERGUNTA EM ABERTO (item h): cemitério, confirmação na tela, ou um registro de clientTxId no
+   servidor? Isto é o mínimo seguro, não a decisão final. */
+async function coltCemiterio(j, msg){
+  try{
+    const arr=(await offGet('colt_recusados'))||[];
+    arr.push({path:j.path||null, body:j.body||null, label:j.label||null, dedup:j.dedup||null,
+              erro:String(msg||''), quando:new Date().toISOString()});
+    while(arr.length>60) arr.shift();
+    await offPut('colt_recusados', arr);
+  }catch(e){}
+  /* o fechamento morreu na recusa: a nota volta a ser conferível, senão o operador ficaria travado
+     olhando uma nota que nunca vai fechar sozinha. */
+  if(coltSt && j && j.dedup===('fin:'+coltSt.recId)) coltSt.finPendenteFila=false;
+}
+
+/* o fechamento desta nota já está esperando sinal? A própria fila é a fonte da verdade — não há
+   flag extra para limpar depois. */
+async function coltFechamentoNaFila(recId){
+  if(!recId) return false;
+  try{
+    const todos=await offAll();
+    for(const j of todos){ if(j.kind==='coltPost' && j.dedup==='fin:'+recId) return true; }
+  }catch(e){}
+  return false;
+}
+
+async function coltEnfileirar(job){
+  if(job.dedup) await coltLimparDedup(job.dedup);
+  await offAdd(job);
+  await coltAtualizarPend();
+}
+
+/* dreno de UMA pendência do coletor. Fetch próprio (não coltPost) por dois motivos: aqui não pode
+   reenfileirar, e 401 no dreno não pode jogar a contagem do conferente no lixo. */
+async function coltDrainPost(j){
+  const r=await fetch(BACKEND+j.path, {method:'POST', headers:{Authorization:'Bearer '+beTok(), 'Content-Type':'application/json'}, body: JSON.stringify(j.body||{})});
+  let b=null; try{ b=await r.json(); }catch(_){}
+  if(r.ok){
+    /* ACHADO 6: a etiqueta âmbar "salvo no aparelho" tinha que sumir quando a pendência sobe. */
+    if(j.dedup && coltSt && coltSt.recId && j.dedup===('vol:'+coltSt.recId)){
+      coltSt.volFila=false;
+      try{ coltPintarVol(COLT_STATUS_EDITAVEL.indexOf((coltSt.rec&&coltSt.rec.status)||'')>=0); }catch(e){}
+    }
+    /* o fechamento subiu: a trava de "só leitura" do cabeçalho sai. */
+    if(j.dedup && coltSt && coltSt.recId && j.dedup===('fin:'+coltSt.recId)){
+      coltSt.finPendenteFila=false;
+      if(coltSt.rec) coltSt.rec._finPendente=false;
+    }
+    return b||{};
+  }
+  /* sessão expirada com fila cheia é falha PASSAGEIRA: a pendência espera o próximo login. */
+  if(r.status===401){ const e=new Error('Sessão expirada — a pendência continua guardada no aparelho'); e.status=503; throw e; }
+  const e=new Error((b&&b.error)||('Erro '+r.status)); e.status=r.status; throw e;
+}
+
+async function coltAtualizarPend(){
+  try{ COLT_PEND=await offCount(); }catch(e){ COLT_PEND=0; }
+  try{ const m=await offGet('colt_recusados'); COLT_MORTOS=(m&&m.length)||0; }catch(e){ COLT_MORTOS=0; }
+  coltPintarBarra();
+}
+/* repinta o selo ONLINE/OFFLINE e o contador SEM re-renderizar a tela (o conferente pode estar com
+   o dedo num campo). Antes o selo era estático: a rede caía e a tela continuava verde. */
+function coltPintarBarra(){
+  const on = navigator.onLine !== false;
+  const cor = on?CD.vd:CD.vm;
+  const d=document.getElementById('coltNetDot'), t=document.getElementById('coltNetTxt'), p=document.getElementById('coltPendTxt');
+  if(d){ d.style.background=cor; d.style.boxShadow='0 0 7px '+cor; }
+  if(t){ t.textContent=on?'ONLINE':'OFFLINE'; t.style.color=cor; }
+  if(p){
+    /* pendência recusada é mais grave que pendência esperando: vermelho, e não sai da barra. */
+    let txt='fila '+COLT_PEND, cor=(COLT_PEND>0?CD.am:CD.mu);
+    if(COLT_MORTOS>0){ txt+=' · '+COLT_MORTOS+' recusada'+(COLT_MORTOS>1?'s':''); cor=CD.vm; }
+    p.textContent=txt; p.style.color=cor; p.style.fontWeight=((COLT_PEND>0||COLT_MORTOS>0)?'800':'400');
+  }
+}
+window.addEventListener('online', ()=>{ coltAtualizarPend(); });
+window.addEventListener('offline', ()=>{ coltPintarBarra(); });
+
+/* snapshot do recebimento aberto (§6.2: "Recebimento aberto = payload completo em cache").
+   Regravo depois de CADA contagem: fechar e reabrir o app sem sinal não pode perder o que já foi
+   contado. */
+async function coltSalvarSnapshot(){
+  try{ if(coltSt && coltSt.recId && coltSt.rec) await offPut('colt_rec_'+coltSt.recId, JSON.parse(JSON.stringify(coltSt.rec))); }catch(e){}
 }
 
 function coltReset(){
@@ -6121,16 +6255,74 @@ function coltRelogio(){
 function coltBarraTopo(){
   const on = navigator.onLine !== false;
   const cor = on?CD.vd:CD.vm;
-  const n = (coltSt.fila||[]).length;
-  return coltEl('div','position:sticky;top:0;z-index:2;background:'+CD.bar+';border-bottom:1px solid '+CD.bd+';'
+  /* 27/07/2026 (item 14): 'fila N' passou a ser o que o briefing §6.2 pede — PENDÊNCIAS DE
+     SINCRONIZAÇÃO, o número que dá confiança de continuar trabalhando sem sinal. A contagem de
+     notas a conferir não se perdeu: está no subtítulo da própria tela da fila
+     ("N notas aguardando conferência"). */
+  setTimeout(coltAtualizarPend, 0);
+  const bar=coltEl('div','position:sticky;top:0;z-index:2;background:'+CD.bar+';border-bottom:1px solid '+CD.bd+';'
     +'padding:10px 14px;display:flex;align-items:center;gap:9px;font-size:12px;color:'+CD.mu,
       '<span style="font-weight:800;color:'+CD.tx+';letter-spacing:.2px">'+_esc(COLT_DISPOSITIVO)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px">'
-      +'<span style="width:7px;height:7px;border-radius:50%;background:'+cor+';box-shadow:0 0 7px '+cor+'"></span>'
-      +'<span style="color:'+cor+';font-weight:800;letter-spacing:.7px;font-size:11px">'+(on?'ONLINE':'OFFLINE')+'</span>'
+      +'<span id="coltNetDot" style="width:7px;height:7px;border-radius:50%;background:'+cor+';box-shadow:0 0 7px '+cor+'"></span>'
+      +'<span id="coltNetTxt" style="color:'+cor+';font-weight:800;letter-spacing:.7px;font-size:11px">'+(on?'ONLINE':'OFFLINE')+'</span>'
     +'</span>'
-    +'<span style="opacity:.45">·</span><span>fila '+n+'</span>'
+    +'<span style="opacity:.45">·</span>'
+    +'<span id="coltPendTxt" style="color:'+(COLT_PEND>0?CD.am:CD.mu)+';font-weight:'+(COLT_PEND>0?'800':'400')+'">fila '+COLT_PEND+'</span>'
     +'<span id="coltHora" style="margin-left:auto;color:'+CD.tx+';font-weight:700;font-variant-numeric:tabular-nums">'+coltHoraAgora()+'</span>');
+  /* o contador vermelho de recusadas é CLICÁVEL: aviso que não dá para agir vira ruído e é
+     ignorado em uma semana. */
+  const pend=bar.querySelector('#coltPendTxt');
+  if(pend){
+    pend.style.cursor='pointer';
+    pend.setAttribute('aria-label','ver pendências');
+    pend.onclick=()=>{ if(COLT_MORTOS>0) coltGo('recusadas'); };
+  }
+  return bar;
+}
+
+/* ---------- tela das pendências RECUSADAS pelo servidor (achado 2 da revisão) ----------
+   O dado não foi perdido: está no aparelho. Esta tela existe para o conferente saber QUAL nota
+   reconferir e para poder baixar o aviso depois de resolver. Limpar aqui ARQUIVA (colt_recusados_hist),
+   não apaga — regra da casa: adicionar sim, apagar não. */
+async function coltRecusadasArquivar(){
+  try{
+    const arr=(await offGet('colt_recusados'))||[];
+    if(arr.length){
+      const hist=(await offGet('colt_recusados_hist'))||[];
+      await offPut('colt_recusados_hist', hist.concat(arr).slice(-300));
+    }
+    await offPut('colt_recusados', []);
+  }catch(e){}
+}
+async function coltPintarRecusadas(){
+  const el=document.getElementById('coltRecLista'); if(!el) return;
+  let arr=[]; try{ arr=(await offGet('colt_recusados'))||[]; }catch(e){}
+  if(!arr.length){ el.innerHTML=coltVazio('Nenhuma pendência recusada. Tudo que foi contado neste aparelho subiu.'); return; }
+  el.innerHTML='';
+  arr.slice().reverse().forEach(r=>{
+    let quando='';
+    try{ quando=new Date(r.quando).toLocaleString('pt-BR'); }catch(e){ quando=String(r.quando||''); }
+    el.appendChild(coltEl('div','background:'+CD.card+';border:1px solid '+CD.vm+';border-radius:14px;padding:12px;margin-bottom:9px',
+        '<div style="font-size:13.5px;font-weight:800;color:'+CD.tx+'">'+_esc(r.label||'envio sem descrição')+'</div>'
+      +'<div style="font-size:12px;color:'+CD.vm+';margin-top:5px;line-height:1.45">'+_esc(r.erro||'o servidor recusou')+'</div>'
+      +(quando?('<div style="font-size:11px;color:'+CD.mu+';margin-top:5px">tentou em '+_esc(quando)+'</div>'):'')));
+  });
+}
+function coltRenderRecusadas(corpo, root){
+  coltTitulo(corpo, 'Recusadas pelo servidor',
+    'o servidor não aceitou estes envios. O que você contou <b>não se perdeu</b> — está guardado neste aparelho. Reconfira as notas abaixo com sinal.',
+    ()=>coltGo('fila'));
+  const lista=coltEl('div'); lista.id='coltRecLista'; corpo.appendChild(lista);
+  coltPintarRecusadas();
+  const b=coltEl('button', coltBotao('', CD.tx, CD.card2, CD.bd), 'Já reconferi — baixar os avisos');
+  b.onclick=async ()=>{
+    await coltRecusadasArquivar();
+    await coltPintarRecusadas();
+    await coltAtualizarPend();
+    toast('Avisos baixados. A lista continua guardada no aparelho, não foi apagada.');
+  };
+  corpo.appendChild(b);
 }
 function coltTitulo(corpo, titulo, subHtml, voltarFn){
   const h=coltEl('div','display:flex;align-items:flex-start;gap:12px;margin:2px 0 14px');
@@ -6380,15 +6572,39 @@ const COLT_STATUS_EDITAVEL=['Aguardando Recebimento Físico','Em Conferência'];
 async function coltAbrir(id){
   coltSt.recId=id; coltSt.rec=null; coltSt._recCarregado=false; coltSt.erroRec=null; coltSt.trava=null;
   coltSt.volLocal=null; coltSt.volErro=null; coltSt.volSalvo=false;
+  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false;
   coltGo('cabecalho');
+  /* ACHADO 3, 2ª volta: travar só o botão "iniciar" não bastava — o stepper de volumes do cabeçalho
+     continuava editável e enfileirava um 'vol:' ATRÁS do 'fin:'. Nota com fechamento na fila entra
+     como SÓ LEITURA. */
+  coltSt.finPendenteFila=await coltFechamentoNaFila(id);
   await coltCarregarRec();
 }
 async function coltCarregarRec(){
   try{
     const d=await beGet('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId));
-    coltSt.rec=d; coltSt._recCarregado=true; coltSt.erroRec=null; renderEstoque();
+    coltSt.rec=d; coltSt._recCarregado=true; coltSt.erroRec=null; coltSt.recDeCache=false;
+    /* §6.2: recebimento aberto = payload completo no aparelho. */
+    offPut('colt_rec_'+coltSt.recId, JSON.parse(JSON.stringify(d))).catch(function(){});
+    renderEstoque();
   }catch(e){
-    coltSt._recCarregado=true; coltSt.erroRec='Erro ao abrir a nota: '+e.message; renderEstoque();
+    /* sem rede: abre do aparelho em vez de dar erro. Só quando é falha DE REDE — erro do servidor
+       (400/403) continua aparecendo como erro, porque cache não conserta regra de negócio. */
+    if(netFail(e)){
+      let cache=null; try{ cache=await offGet('colt_rec_'+coltSt.recId); }catch(_){}
+      if(cache){
+        coltSt.rec=cache; coltSt._recCarregado=true; coltSt.erroRec=null; coltSt.recDeCache=true;
+        /* a cópia local sabe que o fechamento ficou pendente (gravado por coltFinalizar): app
+           reaberto sem sinal não pode esquecer isso e liberar a nota para recontagem. */
+        if(cache._finPendente) coltSt.finPendenteFila=true;
+        renderEstoque(); return;
+      }
+      coltSt._recCarregado=true; coltSt.recDeCache=false;
+      coltSt.erroRec='Sem sinal, e esta nota ainda não foi aberta neste aparelho — não há cópia local para mostrar. Abra a nota uma vez com sinal e ela fica guardada.';
+      renderEstoque(); return;
+    }
+    coltSt._recCarregado=true; coltSt.recDeCache=false;
+    coltSt.erroRec='Erro ao abrir a nota: '+e.message; renderEstoque();
   }
 }
 function coltMoedaBR(v){
@@ -6507,7 +6723,9 @@ function coltPintarVol(podeEditar){
   let estado='';
   if(coltSt.volErro) estado='<span style="color:'+CD.vm+'">'+_esc(coltSt.volErro)+'</span>';
   else if(coltSt.volSalvando) estado='<span style="color:'+CD.mu+'">salvando…</span>';
-  else if(coltSt.volSalvo) estado='<span style="color:'+CD.vd+'">salvo</span>';
+  else if(coltSt.volSalvo) estado = coltSt.volFila
+    ? '<span style="color:'+CD.am+'">salvo no aparelho — sobe quando a rede voltar</span>'
+    : '<span style="color:'+CD.vd+'">salvo</span>';
   else if(v==null) estado='<span style="color:'+CD.mu+'">ninguém contou volume ainda</span>';
 
   const bs='width:52px;height:52px;border-radius:14px;border:1px solid '+CD.bd+';background:'+CD.card2+';color:'+CD.tx
@@ -6557,15 +6775,29 @@ function coltVolSetar(n){
 async function coltVolSalvar(){
   const n=coltSt.volLocal;
   if(n==null) return;
+  /* ACHADO 5 DA REVISÃO: com um fetch pendurado, um segundo salvamento podia terminar ANTES do
+     primeiro e a limpeza de dedup do mais velho apagava a pendência do mais novo. Não dispara dois
+     ao mesmo tempo: reagenda. O valor da tela não se perde — sobe sempre o último. */
+  if(coltSt.volSalvando){
+    if(coltSt.volTimer) clearTimeout(coltSt.volTimer);
+    coltSt.volTimer=setTimeout(coltVolSalvar, 700);
+    return;
+  }
   coltSt.volSalvando=true; coltSt.volErro=null; coltPintarVol(true);
   try{
     const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/volumes',
-      {clientTxId:coltUuid(), qtdVolumes:n});
+      {clientTxId:coltUuid(), qtdVolumes:n},
+      /* contagem de volume é a única que acontece com o caminhão parado: é a que MAIS precisa
+         funcionar sem sinal na doca. dedup por recebimento — vale o último número. */
+      {label:'volumes da NF '+((coltSt.rec&&coltSt.rec.numeroNF)||coltSt.recId||''), dedup:'vol:'+coltSt.recId});
     coltSt.volSalvando=false;
     if(!r.ok){ coltSt.volErro=r.body.error||('Erro '+r.status); coltPintarVol(true); return; }
     coltSt.volSalvo=true;
-    if(coltSt.rec) coltSt.rec.qtdVolumes=r.body.qtdVolumes;
+    coltSt.volFila=!!r.body._queued;
+    /* pendência não traz qtdVolumes do servidor — até drenar, vale o número da tela. */
+    if(coltSt.rec) coltSt.rec.qtdVolumes = r.body._queued ? n : r.body.qtdVolumes;
     coltPintarVol(true);
+    coltSalvarSnapshot();
   }catch(e){
     coltSt.volSalvando=false; coltSt.volErro='Não salvou: '+e.message; coltPintarVol(true);
   }
@@ -6573,6 +6805,28 @@ async function coltVolSalvar(){
 
 async function coltIniciar(assumir){
   if(coltSt.iniciando) return;
+  /* ACHADO 3: fechamento na fila = nota fechada do ponto de vista deste aparelho. Vale com e sem
+     sinal: com sinal, a fila pode simplesmente ainda não ter drenado. */
+  if(await coltFechamentoNaFila(coltSt.recId)){
+    coltSt.finPendenteFila=true;
+    coltSt.erroRec = (navigator.onLine!==false)
+      ? 'O fechamento desta nota já está na fila deste aparelho e ainda não subiu. Espere alguns segundos e tente de novo — não confira de novo.'
+      : 'O fechamento desta nota já está na fila deste aparelho, esperando sinal. Não confira de novo — quando a rede voltar o fechamento sobe sozinho. Se precisar corrigir algo, corrija depois de sincronizar.';
+    renderEstoque(); return;
+  }
+  /* 27/07/2026 (item 14): iniciar NÃO entra na fila offline. É ESTE post que resolve a trava de
+     operador; enfileirar deixaria dois conferentes na mesma nota sem ninguém saber, e o 409 só
+     apareceria na drenagem, com a contagem já feita. EXCEÇÃO: nota que JÁ ESTÁ 'Em Conferência'
+     não precisa de post nenhum para continuar — o servidor já sabe, a trava já existe. */
+  if(navigator.onLine===false){
+    if(coltSt.rec && coltSt.rec.status==='Em Conferência'){
+      coltSt.trava=null; coltGo('bipagem');
+      toast('Sem sinal: continuando a conferência já aberta. A trava de operador não pôde ser checada agora.');
+      return;
+    }
+    coltSt.erroRec='Sem sinal para ABRIR uma conferência nova. É a rede que garante que dois conferentes não peguem a mesma nota. Contar e fechar funcionam offline; abrir, não.';
+    renderEstoque(); return;
+  }
   coltSt.iniciando=true; coltSt.erroRec=null; renderEstoque();
   try{
     const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/iniciar', {clientTxId:coltUuid(), assumir:!!assumir});
@@ -6586,7 +6840,11 @@ async function coltIniciar(assumir){
     coltGo('bipagem');
     coltCarregarRec();
   }catch(e){
-    coltSt.iniciando=false; coltSt.erroRec='Erro ao iniciar a conferência: '+e.message; renderEstoque();
+    coltSt.iniciando=false;
+    coltSt.erroRec = netFail(e)
+      ? 'A rede caiu na hora de abrir a conferência. Tente de novo com sinal — abrir é o único passo que exige rede.'
+      : ('Erro ao iniciar a conferência: '+e.message);
+    renderEstoque();
   }
 }
 
@@ -6975,6 +7233,8 @@ function coltReset(){
     endSelId:null, endInfo:null, endVia:null, endErro:null, endSalvando:false,
     /* Telas 5/6 — fechamento */
     finErro:null, finEnviando:false, finOk:null,
+    /* item 14: de onde vieram os dados e se a última escrita foi pra fila */
+    recDeCache:false, filaDeCache:false, volFila:false, finPendenteFila:false,
     /* estorno e confirmados (mudaram de casa: viviam na recp*, que fica sem chamador) */
     confirmados:[], _confirmadosCarregados:false, confirmadosQuery:'', janelaEstornoMin:30, estorno:null,
   };
@@ -6996,6 +7256,7 @@ function coltVoltarFila(){
   coltSt.divAberta=false; coltSt.divErro=null;
   coltSt.endSelId=null; coltSt.endInfo=null; coltSt.endErro=null; coltSt.endSalvando=false;
   coltSt.finErro=null; coltSt.finEnviando=false; coltSt.finOk=null;
+  coltSt.recDeCache=false; coltSt.volFila=false; coltSt.finPendenteFila=false;
   coltGo('fila'); coltCarregarFila();
 }
 
@@ -7007,9 +7268,21 @@ async function coltCarregarFila(){
     coltSt.fila = d.recebimentos||[];
     coltSt.filtradoPorLocal = d.filtradoPorLocal||null;
     coltSt.empresasNoLocal = (d.empresasNoLocal==null ? null : d.empresasNoLocal);
-    coltSt.filaCarregando=false; coltSt._filaCarregada=true; renderEstoque();
+    coltSt.filaCarregando=false; coltSt._filaCarregada=true; coltSt.filaDeCache=false;
+    offPut('colt_fila', JSON.parse(JSON.stringify(d))).catch(function(){});
+    renderEstoque();
   }catch(e){
     coltSt.filaCarregando=false; coltSt._filaCarregada=true;
+    if(netFail(e)){
+      let cache=null; try{ cache=await offGet('colt_fila'); }catch(_){}
+      if(cache){
+        coltSt.fila=cache.recebimentos||[]; coltSt.filtradoPorLocal=cache.filtradoPorLocal||null;
+        coltSt.empresasNoLocal=(cache.empresasNoLocal==null?null:cache.empresasNoLocal);
+        coltSt.filaDeCache=true; coltSt.erro=null; renderEstoque(); return;
+      }
+      coltSt.erro='Sem sinal e nenhuma fila guardada neste aparelho ainda. Com sinal uma vez, ela fica salva.';
+      renderEstoque(); return;
+    }
     coltSt.erro='Erro ao carregar a fila: '+e.message; renderEstoque();
   }
   /* os confirmados alimentam o "Confirmados há pouco" (janela de desfazer do conferente) e a
@@ -7024,6 +7297,16 @@ function coltRenderFluxo(wrap){
     +';overflow-y:auto;-webkit-overflow-scrolling:touch');
   root.id='coltRoot';
   root.appendChild(coltBarraTopo());
+  /* 27/07/2026 (item 14): quando os dados vieram do aparelho, a tela DIZ isso. Sem esta faixa o
+     conferente não tem como saber que está olhando uma cópia local. */
+  /* ACHADO 4 DA REVISÃO: o aviso da FILA só vale na tela da fila. Dentro da nota ele mentia
+     ("fila mostrada do aparelho") mesmo com a nota recém-baixada da rede, porque filaDeCache nunca
+     era limpo depois. Cada tela agora fala do dado que ELA está mostrando. */
+  const _avisoCache = (coltSt.step==='fila')
+    ? (coltSt.filaDeCache ? 'Sem rede — fila mostrada do aparelho. Pode haver nota nova que ainda não chegou aqui.' : null)
+    : (coltSt.recDeCache ? 'Sem rede — esta nota está sendo mostrada do aparelho. A contagem entra na fila e sobe quando o sinal voltar.' : null);
+  if(_avisoCache) root.appendChild(coltEl('div','background:'+CD.amBg+';border-bottom:1px solid '+CD.bd2+';color:'+CD.am
+    +';font-size:11.5px;padding:7px 14px;line-height:1.4', _avisoCache));
   const corpo=coltEl('div','padding:14px 14px 140px;max-width:560px;margin:0 auto');
   root.appendChild(corpo);
   if(coltSt.step==='fila') coltRenderFila(corpo, root);
@@ -7034,6 +7317,7 @@ function coltRenderFluxo(wrap){
   else if(coltSt.step==='resumo') coltRenderResumo(corpo, root);
   else if(coltSt.step==='fechamento') coltRenderFechamento(corpo, root);
   else if(coltSt.step==='confirmados') coltRenderConfirmados(corpo, root);
+  else if(coltSt.step==='recusadas') coltRenderRecusadas(corpo, root);
   coltRenderTrava(root);
   coltRenderRecusa(root);
   coltRenderDivergencia(root);
@@ -7232,12 +7516,13 @@ function coltRenderCabecalho(corpo, root){
   const st=coltCorStatus(c.status);
   const nomeGrande = (c.emitente && c.emitente.nome) || c.fornecedor || 'Sem emitente identificado';
   const itens=c.itens||[];
-  const podeEditar=COLT_STATUS_EDITAVEL.indexOf(c.status)>=0;
+  const podeEditar=!coltSt.finPendenteFila && COLT_STATUS_EDITAVEL.indexOf(c.status)>=0;
 
   coltTitulo(corpo, c.numeroNF ? ('NF '+c.numeroNF) : (c.name||'Nota'),
     _esc(c.name||'')+' · '+coltPill(c.status||'—', st[0], st[1]), coltVoltarFila);
 
   if(coltSt.erroRec) corpo.innerHTML+=coltErroBox(coltSt.erroRec);
+  if(coltSt.finPendenteFila) corpo.innerHTML+=coltErroBox('O fechamento desta nota está na fila deste aparelho e ainda não subiu. Até subir, a nota fica só de leitura — não conte de novo. Quando a rede voltar, o fechamento sobe sozinho e a nota libera.');
 
   let e1='<div style="font-size:16px;font-weight:800;color:'+CD.tx+';line-height:1.3">'+_esc(nomeGrande)+'</div>';
   const cnpj=coltCnpjBR(c.emitente && c.emitente.cnpj);
@@ -7730,9 +8015,13 @@ async function coltConfirmarItem(){
 
   coltSt.itemSalvando=true; renderEstoque();
   try{
-    const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/item/'+encodeURIComponent(coltSeqDoItem(item)), body);
+    const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/item/'+encodeURIComponent(coltSeqDoItem(item)), body,
+      /* dedup SEPARADO do endereço (que vai pela mesma rota, com outro campo): se fosse a mesma
+         chave, a pendência do endereço apagaria a da contagem e a quantidade nunca subiria. */
+      {label:'contagem de '+((item.produto||item.descricaoNF||'item')+''), dedup:'item:'+coltSt.recId+':'+coltSeqDoItem(item)});
     coltSt.itemSalvando=false;
     if(!r.ok){ coltSt.itemErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
+    if(r.body._queued) toast('Sem sinal — contagem guardada no aparelho. Sobe sozinha quando a rede voltar.');
     /* espelho local do que o servidor confirmou — a Tela 3 e o resumo leem daqui sem refetch
        (o detalhe veio numa tombada; recarregar a cada item mataria o uso no galpão sem sinal). */
     item.quantidadeRecebida=qtd; item.status=status;
@@ -7741,6 +8030,7 @@ async function coltConfirmarItem(){
     item.observacao=body.observacao;
     if(body.fatorConversao!=null) item.fatorAplicado=body.fatorConversao;
     if(body.numerosSerie) item.numerosSerie=body.numerosSerie.slice();
+    coltSalvarSnapshot();
     const boa=Math.max(0, qtd-av);
     if(boa>0){
       coltSt.endSelId=null; coltSt.endInfo=null; coltSt.endVia=null; coltSt.endErro=null;
@@ -7980,12 +8270,14 @@ async function coltConfirmarEndereco(){
   coltSt.endSalvando=true; coltSt.endErro=null; renderEstoque();
   try{
     const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/item/'+encodeURIComponent(coltSeqDoItem(item)),
-      {clientTxId:coltUuid(), enderecoEstoqueId:coltSt.endSelId});
+      {clientTxId:coltUuid(), enderecoEstoqueId:coltSt.endSelId},
+      {label:'endereço de '+((item.produto||item.descricaoNF||'item')+''), dedup:'end:'+coltSt.recId+':'+coltSeqDoItem(item)});
     coltSt.endSalvando=false;
     if(!r.ok){ coltSt.endErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
     item.enderecoEstoqueId=coltSt.endSelId;
     item.enderecoEstoqueCodigo=(coltSt.endInfo&&(coltSt.endInfo.codigo||coltSt.endInfo.nome))||item.enderecoEstoqueCodigo||null;
-    toast('Endereço confirmado.');
+    coltSalvarSnapshot();
+    toast(r.body._queued ? 'Endereço guardado no aparelho — sobe quando a rede voltar.' : 'Endereço confirmado.');
     coltGo('bipagem');
   }catch(e){
     coltSt.endSalvando=false; coltSt.endErro='Erro ao gravar o endereço: '+e.message; renderEstoque();
@@ -8075,15 +8367,19 @@ function coltRenderFechamento(corpo, root){
 
   /* ---- tela de sucesso: substitui o formulário depois do POST dar certo ---- */
   if(coltSt.finOk){
-    coltTitulo(corpo, 'Recebimento fechado', _esc(c.name||''), coltVoltarFila);
-    corpo.innerHTML+='<div style="background:'+CD.vdBg+';border:1px solid '+CD.vd+';border-radius:16px;padding:22px 16px;text-align:center;margin-bottom:12px">'
-      +'<div style="font-size:34px;color:'+CD.vd+';line-height:1">&#10003;</div>'
+    /* fechamento na fila NÃO pode mostrar o mesmo ✓ verde de fechamento gravado: o conferente
+       precisa saber que ainda vai subir (e que não é pra contar de novo). */
+    const nafila=!!coltSt.finOk.fila;
+    coltTitulo(corpo, nafila?'Fechado no aparelho':'Recebimento fechado', _esc(c.name||''), coltVoltarFila);
+    corpo.innerHTML+='<div style="background:'+(nafila?CD.amBg:CD.vdBg)+';border:1px solid '+(nafila?CD.am:CD.vd)+';border-radius:16px;padding:22px 16px;text-align:center;margin-bottom:12px">'
+      +'<div style="font-size:34px;color:'+(nafila?CD.am:CD.vd)+';line-height:1">'+(nafila?'&#8987;':'&#10003;')+'</div>'
       +'<div style="font-size:16px;font-weight:800;color:'+CD.tx+';margin-top:8px">'
-        +(coltSt.finOk.jaFinalizado?'Este recebimento já estava fechado.':'Recebimento fechado.')+'</div>'
+        +(nafila?'Conferência fechada no aparelho.':(coltSt.finOk.jaFinalizado?'Este recebimento já estava fechado.':'Recebimento fechado.'))+'</div>'
       /* o status final quem grava é o RecebimentoEstoqueService; só mostro o que o servidor
          DISSE (o finalizar normal não devolve status — então a tela não chuta um). */
-      +(coltSt.finOk.status?('<div style="font-size:13px;color:'+CD.mu+';margin-top:6px">Status: '+_esc(coltSt.finOk.status)+'</div>')
-        :'<div style="font-size:12.5px;color:'+CD.mu+';margin-top:6px;line-height:1.5">O status gravado aparece na fila e no Salesforce.</div>')
+      +(nafila?'<div style="font-size:12.5px;color:'+CD.mu+';margin-top:6px;line-height:1.5">Sem rede agora. O fechamento está na fila do aparelho e sobe sozinho quando o sinal voltar. <b>Não confira de novo.</b></div>'
+        : (coltSt.finOk.status?('<div style="font-size:13px;color:'+CD.mu+';margin-top:6px">Status: '+_esc(coltSt.finOk.status)+'</div>')
+        :'<div style="font-size:12.5px;color:'+CD.mu+';margin-top:6px;line-height:1.5">O status gravado aparece na fila e no Salesforce.</div>'))
     +'</div>';
     const f=coltRodape(root,'');
     const b=coltEl('button', coltBotao('', '#fff', CD.az, CD.az), 'Voltar à fila');
@@ -8151,10 +8447,19 @@ async function coltFinalizar(){
      Registrado como pergunta em aberto no relatório desta entrega. */
   try{
     const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/finalizar',
-      {clientTxId:coltUuid(), alocacoes:aloc});
+      {clientTxId:coltUuid(), alocacoes:aloc},
+      /* §6.2: "Fechar a conferência offline é permitido; a finalização entra na fila". O servidor
+         não tem registro de clientTxId, mas 'finalizar' responde 200 {jaFinalizado:true} pelo
+         ESTADO, e a fila drena em série, uma pendência por vez — repetir não duplica. */
+      {label:'fechamento da NF '+((coltSt.rec&&coltSt.rec.numeroNF)||coltSt.recId||''), dedup:'fin:'+coltSt.recId});
     coltSt.finEnviando=false;
     if(!r.ok){ coltSt.finErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
-    coltSt.finOk={jaFinalizado:!!r.body.jaFinalizado, status:r.body.status||null};
+    coltSt.finOk={jaFinalizado:!!r.body.jaFinalizado, status:r.body.status||null, fila:!!r.body._queued};
+    /* ACHADO 3 DA REVISÃO (grave): a cópia local continuava 'Em Conferência' depois de um
+       fechamento enfileirado, então a exceção offline do coltIniciar deixava REABRIR e recontar a
+       nota. A contagem nova drenava DEPOIS do fechamento, o servidor recusava, e pela política
+       antiga o trabalho ia para o lixo. */
+    if(r.body._queued){ coltSt.finPendenteFila=true; if(coltSt.rec){ coltSt.rec._finPendente=true; await coltSalvarSnapshot(); } }
     renderEstoque();
   }catch(e){
     coltSt.finEnviando=false; coltSt.finErro='Erro ao fechar o recebimento: '+e.message; renderEstoque();
@@ -11953,6 +12258,7 @@ async function offDrain(){
         else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
         else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true);
+        else if(j.kind==='coltPost') await coltDrainPost(j);
         await offDel(j._id); n++;
       }catch(e){
         if(netFail(e)){
@@ -11960,12 +12266,21 @@ async function offDrain(){
           if(j.tentativas>=OFF_CAP_TENTATIVAS){ travados++; continue; } /* já tentou muito — pula, não trava os que vêm depois */
           break; /* continua sem rede/erro passageiro: para por aqui e tenta de novo na próxima rodada */
         }
-        await offDel(j._id); toast('⚠️ Não sincronizado (descartado): '+(j.label||j.kind)+' — '+e.message);
+        /* ACHADO 2: dado de conferência NÃO pode ser descartado em silêncio. Vai para o cemitério
+           do aparelho e o contador da barra fica vermelho até alguém tratar. */
+        if(j.kind==='coltPost'){
+          await coltCemiterio(j, e.message);
+          await offDel(j._id);
+          toast('⚠️ O servidor RECUSOU: '+(j.label||'')+'. Guardado no aparelho — confira essa nota de novo.');
+          try{ await coltAtualizarPend(); }catch(_e){}
+        }else{
+          await offDel(j._id); toast('⚠️ Não sincronizado (descartado): '+(j.label||j.kind)+' — '+e.message);
+        }
       }
     }
     if(n) toast('✅ '+n+' pendência'+(n>1?'s':'')+' sincronizada'+(n>1?'s':''));
     if(travados) toast('⚠️ '+travados+' pendência'+(travados>1?'s':'')+' falhando há muitas tentativas — verifique conexão/fale com o suporte');
-  }finally{ offDrain._run=false; offBadge(); }
+  }finally{ offDrain._run=false; offBadge(); try{ coltAtualizarPend(); }catch(e){} }
 }
 window.addEventListener('online', ()=>{ offBadge(); offDrain(); });
 window.addEventListener('offline', ()=>offBadge());
