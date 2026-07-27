@@ -6376,7 +6376,12 @@ function coltTitulo(corpo, titulo, subHtml, voltarFn){
   const b=coltEl('button','flex:0 0 auto;width:42px;height:42px;border-radius:13px;background:'+CD.card2+';border:1px solid '+CD.bd
     +';color:'+CD.tx+';font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0','‹');
   b.setAttribute('aria-label','Voltar');
-  b.onclick=voltarFn;
+  /* 27/07: onclick direto no botão MORRE quando a tela faz corpo.innerHTML+=... depois (o re-parse
+     apaga os listeners) — era por isso que a seta de voltar não funcionava no cabeçalho e no item.
+     O handler agora vive em coltSt._voltarFn e um listener DELEGADO no #coltRoot dispara pelo
+     data-attr; delegação sobrevive ao innerHTML+=. */
+  b.setAttribute('data-colt-voltar','1');
+  if(coltSt) coltSt._voltarFn=voltarFn;
   const t=coltEl('div','min-width:0;padding-top:1px',
       '<div style="font-size:21px;font-weight:800;letter-spacing:-.3px;color:'+CD.tx+';line-height:1.2">'+_esc(titulo)+'</div>'
     +(subHtml?'<div style="font-size:12.5px;color:'+CD.mu+';margin-top:4px;line-height:1.4">'+subHtml+'</div>':''));
@@ -7363,6 +7368,11 @@ function coltRenderFluxo(wrap){
      funcao, e qualquer document.getElementById('colt...') feito durante a montagem devolvia null
      -> TypeError -> tela em branco ao entrar em Entradas pendentes. */
   wrap.appendChild(root);
+  /* listener DELEGADO de voltar: sobrevive ao corpo.innerHTML+= das telas (que apaga onclick direto). */
+  root.addEventListener('click', function(ev){
+    const _t=ev.target && ev.target.closest && ev.target.closest('[data-colt-voltar]');
+    if(_t && coltSt && typeof coltSt._voltarFn==='function') coltSt._voltarFn();
+  });
   root.appendChild(coltBarraTopo());
   /* 27/07/2026 (item 14): quando os dados vieram do aparelho, a tela DIZ isso. Sem esta faixa o
      conferente não tem como saber que está olhando uma cópia local. */
