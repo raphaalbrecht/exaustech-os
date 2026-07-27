@@ -7967,20 +7967,15 @@ function coltRenderItem(corpo, root){
 
   /* ---- observação como BOTÃO (decisão §4.3 — o campo aberto do mockup está desatualizado) ---- */
   const obsBox=coltEl('div','margin-bottom:12px'); obsBox.id='coltObsBox'; corpo.appendChild(obsBox);
-  /* ---- Foto e Divergência ---- */
-  const acao=coltEl('div','display:flex;gap:10px;margin-bottom:12px');
-  const abCss='flex:1;min-height:50px;border-radius:13px;border:1px solid '+CD.bd+';background:'+CD.card
-    +';color:'+CD.tx+';font-size:14px;font-weight:800;cursor:pointer';
-  acao.innerHTML='<button id="coltBtFoto" style="'+abCss+'">Foto</button>'
-    +'<button id="coltBtDiv" style="'+abCss+';color:'+CD.am+';border-color:'+CD.am+'">Divergência'
-    +((coltSt.divMotivo||coltSt.divAvariada>0)?' •':'')+'</button>';
+  /* ---- Registrar Divergência: mesmo visual tracejado do "adicionar observação" (pedido do Raphael
+     27/07). A foto era de AVARIA (o próprio aviso dizia "se a avaria precisa de prova"), então saiu
+     daqui e foi pra dentro da gaveta de divergência. ---- */
+  const _temDiv=(coltSt.divMotivo||coltSt.divAvariada>0);
+  const acao=coltEl('div','margin-bottom:12px');
+  acao.innerHTML='<button id="coltBtDiv" style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;'
+    +'border:1.5px dashed '+(_temDiv?CD.am:CD.bd)+';background:transparent;color:'+(_temDiv?CD.am:CD.mu)
+    +';font-size:13.5px;font-weight:700;cursor:pointer">Registrar Divergência'+(_temDiv?' ✓':'')+'</button>';
   corpo.appendChild(acao);
-  if(coltSt.itemFotoAviso){
-    corpo.innerHTML+='<div style="font-size:12px;color:'+CD.mu+';background:'+CD.card+';border:1px solid '+CD.bd
-      +';border-radius:12px;padding:10px 12px;margin-bottom:12px;line-height:1.5">Foto do item pelo coletor ainda não está ligada: '
-      +'o servidor recusa foto em base64 porque FotoUrl__c espera um link de Drive e essa camada não existe nesta rota. '
-      +'Se a avaria precisa de prova agora, fotografe pelo aparelho e anexe pela tela do escritório.</div>';
-  }
   if(coltSt.itemErro) corpo.innerHTML+=coltErroBox(coltSt.itemErro);
 
   /* ---- rodapé ---- */
@@ -8018,7 +8013,6 @@ function coltRenderItem(corpo, root){
     for(let si=0;si<nSeries;si++){ if(!coltSt.itemSeries[si]) coltSt.itemSeries[si]=((coltSt.rec&&coltSt.rec.name)||'REC')+'-'+String(si+1).padStart(2,'0'); }
     renderEstoque();
   };
-  document.getElementById('coltBtFoto').onclick=()=>{ coltSt.itemFotoAviso=!coltSt.itemFotoAviso; renderEstoque(); };
   document.getElementById('coltBtDiv').onclick=()=>{ coltSt.divAberta=true; coltSt.divErro=null; renderEstoque(); };
 }
 function coltPintarObs(){
@@ -8151,6 +8145,11 @@ function coltRenderDivergencia(root){
       +(uni?(' '+_esc(uni)):'')+' acima da nota. Sobra avisa e nunca bloqueia — confirme normalmente com o motivo "Quantidade a mais".</div>';
   }
   h+='<div style="font-size:11.5px;color:'+CD.mu2+';margin-top:12px;line-height:1.5">Não chegou nada? Feche esta gaveta e use "zerar" — zero grava "Item Não Chegou" (falta total).</div>';
+  /* Foto da avaria (movida da Tela 4, 27/07): a prova de avaria pertence à divergência. A rota ainda
+     recusa fotoBase64 (sem perna do Drive), então o botão é honesto e diz que não está ligado. */
+  h+='<div style="font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:'+CD.mu2+';margin:16px 0 6px">Foto da avaria</div>';
+  h+='<button id="coltDivFoto" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1.5px dashed '+CD.bd+';background:transparent;color:'+CD.mu+';font-size:13px;font-weight:700;cursor:pointer">📷 Tirar foto da avaria</button>';
+  if(coltSt.divFotoAviso){ h+='<div style="font-size:12px;color:'+CD.mu+';background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:12px;padding:10px 12px;margin-top:8px;line-height:1.5">Foto pelo coletor ainda não está ligada: o servidor recusa foto em base64 porque FotoUrl__c espera um link de Drive e essa camada não existe nesta rota. Se a avaria precisa de prova agora, fotografe pelo aparelho e anexe pela tela do escritório.</div>'; }
   if(coltSt.divErro) h+='<div style="font-size:12.5px;color:'+CD.vm+';margin-top:10px;line-height:1.55">'+_esc(coltSt.divErro)+'</div>';
   const md=coltEl('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-bottom:0;border-radius:18px 18px 0 0;padding:18px;width:100%;max-width:520px;box-sizing:border-box;max-height:82vh;overflow-y:auto', h);
   const b=coltEl('button', coltBotao('', '#fff', CD.az, CD.az)+';margin-top:14px', 'Aplicar');
@@ -8168,6 +8167,7 @@ function coltRenderDivergencia(root){
   md.querySelectorAll('[data-colt-motivo]').forEach(btn=>{
     btn.onclick=()=>{ coltSt.divMotivo=btn.getAttribute('data-colt-motivo'); coltSt.divErro=null; renderEstoque(); };
   });
+  const _bf=md.querySelector('#coltDivFoto'); if(_bf) _bf.onclick=()=>{ coltSt.divFotoAviso=!coltSt.divFotoAviso; renderEstoque(); };
 }
 
 /* ============================ TELA 4c — ENDEREÇAR ============================ */
