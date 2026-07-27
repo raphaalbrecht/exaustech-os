@@ -6524,7 +6524,7 @@ function coltCardFila(r){
   /* 27/07: a razão social do destinatário (r.empresaFiscal, "Master Service…") saiu do card —
      não é informação relevante pra quem confere. E a NF saiu da linha meta miúda pra ganhar
      destaque próprio abaixo do fornecedor (render mais abaixo). Pedido do Raphael por foto. */
-  if(r.dataEmissao) sub.push(fmtDataBR(r.dataEmissao));
+  if(r.dataEmissao) sub.push('Emitida em: '+fmtDataBR(r.dataEmissao));  /* 27/07: rótulo pedido pelo Raphael — deixa claro que é a data de EMISSÃO da NF */
   const chips=[];
   if(r.qtdVolumes!=null) chips.push(coltPill(r.qtdVolumes+(r.qtdVolumes===1?' volume':' volumes'), CD.mu, 'rgba(147,164,186,.12)'));
   if(r.operador) chips.push(coltPill('🔒 '+r.operador, CD.am, CD.amBg));
