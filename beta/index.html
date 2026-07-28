@@ -3808,6 +3808,9 @@ function renderEstoque(){
   /* "Entradas pendentes" é tile VIRTUAL (não vem de ESTOQ_TILES/sepListAll — usa recpPendentesCount,
      atualizado a cada hydrate por recpAtualizarPendentesCount) e abre direto o fluxo recp*. */
   grid.appendChild(estoqTileEl('Entradas pendentes',estoqIcoSvg('truck','#3E7EB0'),'#3E7EB0',recpPendentesCount,false,()=>{ recpReset(); estoqView.origem='home'; estoqGo('recebimentos'); recpCarregarLista(); }));
+  /* "Pendente Estocar" (28/07): item recebido sem vínculo que ganhou produto e espera o
+     estoquista bipar o endereço. Abre a fila do coletor no passo peFila. */
+  grid.appendChild(estoqTileEl('Pendente Estocar',estoqIcoSvg('box','#22B463'),'#22B463',pendenteEstocarCount,false,()=>{ if(!coltSt) coltReset(); coltSt.step='peFila'; coltAtivo=true; estoqView.origem='home'; estoqGo('recebimentos'); coltCarregarPe(); }));
   const tCanc=ESTOQ_TILES.find(x=>x.key==='cancelamento');
   const nCanc=sepsDia.filter(tCanc.f).length;
   if(nCanc) grid.appendChild(estoqTileEl(tCanc.label,tCanc.icon,tCanc.cor,nCanc,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'cancelamento'); }));
@@ -7435,21 +7438,6 @@ function coltRenderFila(corpo, root){
     +'border-radius:50%;border:0;background:'+CD.bd+';color:'+CD.tx+';font-size:14px;line-height:1;cursor:pointer;display:none;padding:0">✕</button>';
   corpo.appendChild(bx);
 
-  /* atalho do estoquista: fila de itens aguardando endereço (Pendente Estocar, 28/07). Carrega
-     junto com a fila de conferência pra já mostrar a contagem no cartão. */
-  if(!coltSt._peCarregado && !coltSt.peCarregando) setTimeout(coltCarregarPe, 0);
-  { const pen=(coltSt.peItens||[]).length;
-    const pe=coltEl('div','background:'+CD.card+';border:1px solid '+(pen?CD.az:CD.bd)+';border-radius:14px;padding:12px 14px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:12px');
-    pe.innerHTML='<div style="flex:0 0 auto;font-size:20px;line-height:1">\uD83D\uDCE6</div>'
-      +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:14px;font-weight:800;color:'+CD.tx+'">Pendente Estocar</div>'
-        +'<div style="font-size:12px;color:'+CD.mu+';margin-top:2px">'+(pen?(pen===1?'1 item aguardando endereço':pen+' itens aguardando endereço'):(coltSt._peCarregado?'nenhum item aguardando':'…'))+'</div>'
-      +'</div>'
-      +(pen?'<div style="flex:0 0 auto;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:'+CD.az+';color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">'+pen+'</div>':'')
-      +'<div style="flex:0 0 auto;color:'+CD.mu2+';font-size:20px;line-height:1">\u203A</div>';
-    pe.onclick=()=>{ coltGo('peFila'); if(!coltSt._peCarregado && !coltSt.peCarregando) coltCarregarPe(); };
-    corpo.appendChild(pe);
-  }
   const lista=coltEl('div'); lista.id='coltFilaLista'; corpo.appendChild(lista);
   const chave=coltEl('div'); chave.id='coltChaveBox'; corpo.appendChild(chave);
 
@@ -8402,7 +8390,7 @@ async function coltCarregarPe(){
   if(coltSt.step==='peFila') renderEstoque();
   try{
     const d=await beGet('/coletor/v1/pendente-estocar');
-    coltSt.peItens=d.itens||[];
+    coltSt.peItens=d.itens||[]; pendenteEstocarCount=coltSt.peItens.length;
     coltSt.peCarregando=false; coltSt._peCarregado=true;
     if(coltSt.step==='peFila'||coltSt.step==='fila') renderEstoque();
   }catch(e){
@@ -8545,7 +8533,7 @@ async function coltEstocarConfirmar(){
     coltSt.peSalvando=false;
     if(!r.ok){ coltSt.peEndErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
     /* tira o item da fila local e volta — o Apex é idempotente, então mesmo um reenvio offline não duplica. */
-    coltSt.peItens=(coltSt.peItens||[]).filter(x=>x.itemId!==it.itemId);
+    coltSt.peItens=(coltSt.peItens||[]).filter(x=>x.itemId!==it.itemId); pendenteEstocarCount=coltSt.peItens.length;
     coltSt.peSel=null; coltSt.peEndSelId=null; coltSt.peEndInfo=null; coltSt.peEndVia=null;
     toast(r.body._queued ? 'Sem sinal — estocagem guardada no aparelho. Sobe sozinha quando a rede voltar.' : 'Item estocado no endereço.');
     coltGo('peFila');
@@ -8804,6 +8792,13 @@ let recpPendentesCount=0;
 async function recpAtualizarPendentesCount(){
   try{ const d=await beGet('/estoque/recebimentos'); recpPendentesCount=(d.recebimentos||[]).length; }
   catch(e){ /* falha silenciosa, mesmo padrão do acmpAtualizarAlertas */ }
+}
+/* contador global de Pendente Estocar (28/07) — itens que ganharam produto e esperam o
+   estoquista bipar o endereço. Mesmo padrão do recpPendentesCount: a cada hydrate. */
+let pendenteEstocarCount=0;
+async function pendenteEstocarAtualizarCount(){
+  try{ const d=await beGet('/coletor/v1/pendente-estocar'); pendenteEstocarCount=(d.itens||[]).length; }
+  catch(e){ /* falha silenciosa */ }
 }
 async function recpCarregarLista(){
   recpSt.erro=null; /* bug achado 10/07: erro de uma tela anterior (ex: abrir recebimento e falhar)
@@ -12891,6 +12886,7 @@ async function beHydrate(quiet){
     checkUrgentAlerts();
     acmpAtualizarAlertas().catch(()=>{}); /* pedidos de compra precisando de atenção — não bloqueia o hydrate principal */
     recpAtualizarPendentesCount().catch(()=>{}); /* entradas pendentes p/ home enxuta — não bloqueia o hydrate principal */
+    pendenteEstocarAtualizarCount().catch(()=>{}); /* pendente estocar p/ home */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
 }
