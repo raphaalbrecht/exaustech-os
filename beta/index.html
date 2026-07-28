@@ -3788,47 +3788,47 @@ function renderEstoqDays(){
   });
   const lbl=document.getElementById('estoqDayLabel'); if(lbl) lbl.textContent=estoqDia?(DAYLABEL[estoqDia]||''):'Todos os dias';
 }
-/* ===== TEMA ESCURO das páginas internas (28/07): patch de inline literals claros ===== */
-/* CSS não vence inline. Este patch, escopado no #estoqueList, remapeia SÓ os literais de "chrome"
-   claro (fundos brancos, bordas cinza, textos navy/cinza, sombras) para o escuro do coletor —
-   PRESERVANDO as cores semânticas (vermelho urgente, âmbar, verde, teal do ícone). Roda depois de
-   cada render de página interna; async que re-renderiza via renderEstoque é repatcheado. */
-const _ESTOQ_DARK_REMAP=[
-  [/background:#fff(?![0-9a-fA-F])/g,'background:#141F31'],
-  [/background:#ffffff/gi,'background:#141F31'],
-  [/background:#fbfcfd/gi,'background:#18253A'],
-  [/background:#f7f9fb/gi,'background:#18253A'],
-  [/background:#FAFBFC/gi,'background:#18253A'],
-  [/background:#f2f4f7/gi,'background:#18253A'],
-  [/background:#F0F2F5/gi,'background:#18253A'],
-  [/#3E7EB01a/g,'rgba(59,130,246,.12)'],
-  [/#E9F1F8/gi,'rgba(59,130,246,.12)'],
-  [/#ebf7ed/gi,'rgba(34,180,99,.14)'],
-  [/#f2f9f4/gi,'rgba(34,180,99,.14)'],
-  [/#fef5e8/gi,'rgba(224,138,43,.14)'],
-  [/#fef1f1/gi,'rgba(239,91,68,.14)'],
-  [/#e5e8ec/gi,'#25334A'],[/#eceff3/gi,'#25334A'],[/#eef0f3/gi,'#25334A'],
-  [/#D7DEE6/gi,'#25334A'],[/#e1e6eb/gi,'#25334A'],[/#eef2f6/gi,'#25334A'],
-  [/#F7F9FA/gi,'#18253A'],[/#F4F7F9/gi,'#18253A'],[/#F4F7FA/gi,'#18253A'],
-  [/#F8F9FA/gi,'#18253A'],[/#F2F3F4/gi,'#18253A'],[/#f2f2f2/gi,'#18253A'],[/#f7f8f9/gi,'#18253A'],
-  [/#E2E5E9/gi,'#25334A'],[/#EEF0F2/gi,'#25334A'],[/#d8dde3/gi,'#25334A'],
-  [/color:var\(--weaker\)/g,'color:#6D7F98'],[/color:var\(--weak\)/g,'color:#93A4BA'],
-  [/color:#686868/gi,'color:#93A4BA'],[/color:#C4451B/gi,'color:#EF5B44'],[/color:#8a6d1f/gi,'color:#E08A2B'],
-  [/color:#0B2239/gi,'color:#EAF1F9'],[/color:#3A4552/gi,'color:#EAF1F9'],[/color:#2b3a4a/gi,'color:#EAF1F9'],
-  [/color:#4A5560/gi,'color:#93A4BA'],[/color:#5F6B77/gi,'color:#93A4BA'],[/color:#75818D/gi,'color:#93A4BA'],
-  [/color:#8a94a3/gi,'color:#93A4BA'],[/color:#5b6b7c/gi,'color:#93A4BA'],
-  [/color:#999(?![0-9a-fA-F])/gi,'color:#6D7F98'],
-  [/color:#ba0517/gi,'color:#EF5B44'],[/color:#8c4b02/gi,'color:#E08A2B'],
-  [/color:#C25E0A/gi,'color:#E08A2B'],[/color:#2e844a/gi,'color:#22B463'],[/color:#0B5CAB/gi,'color:#3B82F6'],
-  [/box-shadow:[^;"']*/g,'box-shadow:none'],
-];
+/* ===== TEMA ESCURO das páginas internas (28/07) — patch via CSSOM ===== */
+/* O navegador NORMALIZA style pra rgb() — cards com .style.cssText='background:#fff' viram
+   rgb(255,255,255) no atributo, então casar hex falhava (texto claro sobre card branco). Este patch
+   lê as PROPRIEDADES do CSSOM (já em rgb) e mapeia valor-a-valor. Só mexe em backgroundColor,
+   color e borderColor — nunca em texto branco (rgb(255,255,255) não está no mapa de COR de texto),
+   e preserva cores semânticas (não estão nos mapas). Escopado no #estoqueList. */
+const _EBG={
+  'rgb(255, 255, 255)':'#141F31',
+  'rgb(251, 252, 253)':'#18253A','rgb(247, 249, 251)':'#18253A','rgb(250, 251, 252)':'#18253A',
+  'rgb(242, 244, 247)':'#18253A','rgb(240, 242, 245)':'#18253A','rgb(247, 249, 250)':'#18253A',
+  'rgb(244, 247, 249)':'#18253A','rgb(244, 247, 250)':'#18253A','rgb(248, 249, 250)':'#18253A',
+  'rgb(242, 243, 244)':'#18253A','rgb(242, 242, 242)':'#18253A','rgb(247, 248, 249)':'#18253A',
+  'rgb(233, 241, 248)':'rgba(59,130,246,.12)',
+  'rgb(235, 247, 237)':'rgba(34,180,99,.14)','rgb(242, 249, 244)':'rgba(34,180,99,.14)',
+  'rgb(254, 245, 232)':'rgba(224,138,43,.14)','rgb(254, 241, 241)':'rgba(239,91,68,.14)'
+};
+const _EBD={
+  'rgb(229, 232, 236)':'#25334A','rgb(236, 239, 243)':'#25334A','rgb(238, 240, 243)':'#25334A',
+  'rgb(215, 222, 230)':'#25334A','rgb(225, 230, 235)':'#25334A','rgb(238, 242, 246)':'#25334A',
+  'rgb(226, 229, 233)':'#25334A','rgb(238, 240, 242)':'#25334A','rgb(216, 221, 227)':'#25334A'
+};
+const _ETX={
+  'rgb(11, 34, 57)':'#EAF1F9','rgb(58, 69, 82)':'#EAF1F9',
+  'rgb(74, 85, 96)':'#93A4BA','rgb(95, 107, 119)':'#93A4BA','rgb(117, 129, 141)':'#6D7F98',
+  'rgb(138, 148, 163)':'#93A4BA','rgb(91, 107, 124)':'#93A4BA','rgb(153, 153, 153)':'#6D7F98',
+  'rgb(104, 104, 104)':'#93A4BA',
+  'rgb(186, 5, 23)':'#EF5B44','rgb(140, 75, 2)':'#E08A2B','rgb(194, 94, 10)':'#E08A2B',
+  'rgb(46, 132, 74)':'#22B463','rgb(11, 92, 171)':'#3B82F6','rgb(196, 69, 27)':'#EF5B44',
+  'rgb(138, 109, 31)':'#E08A2B'
+};
 function estoqDarkPatch(container){
   if(!container) return;
   try{
     container.querySelectorAll('[style]').forEach(el=>{
-      let s=el.getAttribute('style'); if(!s) return; const o=s;
-      for(let i=0;i<_ESTOQ_DARK_REMAP.length;i++){ s=s.replace(_ESTOQ_DARK_REMAP[i][0], _ESTOQ_DARK_REMAP[i][1]); }
-      if(s!==o) el.setAttribute('style', s);
+      const s=el.style;
+      if(s.backgroundColor && _EBG[s.backgroundColor]) s.backgroundColor=_EBG[s.backgroundColor];
+      if(s.color && _ETX[s.color]) s.color=_ETX[s.color];
+      if(s.borderColor && _EBD[s.borderColor]) s.borderColor=_EBD[s.borderColor];
+      if(s.borderTopColor && _EBD[s.borderTopColor]) s.borderTopColor=_EBD[s.borderTopColor];
+      if(s.borderBottomColor && _EBD[s.borderBottomColor]) s.borderBottomColor=_EBD[s.borderBottomColor];
+      if(s.boxShadow && s.boxShadow!=='none') s.boxShadow='none';
     });
   }catch(e){}
 }
