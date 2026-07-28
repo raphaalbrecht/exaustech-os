@@ -7400,6 +7400,8 @@ function coltRenderFluxo(wrap){
   else if(coltSt.step==='fechamento') coltRenderFechamento(corpo, root);
   else if(coltSt.step==='confirmados') coltRenderConfirmados(corpo, root);
   else if(coltSt.step==='recusadas') coltRenderRecusadas(corpo, root);
+  else if(coltSt.step==='peFila') coltRenderPeFila(corpo, root);
+  else if(coltSt.step==='peEndereco') coltRenderPeEndereco(corpo, root);
   coltRenderTrava(root);
   coltRenderRecusaAlerta(root);
   coltRenderRecusa(root);
@@ -7433,6 +7435,21 @@ function coltRenderFila(corpo, root){
     +'border-radius:50%;border:0;background:'+CD.bd+';color:'+CD.tx+';font-size:14px;line-height:1;cursor:pointer;display:none;padding:0">✕</button>';
   corpo.appendChild(bx);
 
+  /* atalho do estoquista: fila de itens aguardando endereço (Pendente Estocar, 28/07). Carrega
+     junto com a fila de conferência pra já mostrar a contagem no cartão. */
+  if(!coltSt._peCarregado && !coltSt.peCarregando) setTimeout(coltCarregarPe, 0);
+  { const pen=(coltSt.peItens||[]).length;
+    const pe=coltEl('div','background:'+CD.card+';border:1px solid '+(pen?CD.az:CD.bd)+';border-radius:14px;padding:12px 14px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:12px');
+    pe.innerHTML='<div style="flex:0 0 auto;font-size:20px;line-height:1">\uD83D\uDCE6</div>'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:14px;font-weight:800;color:'+CD.tx+'">Pendente Estocar</div>'
+        +'<div style="font-size:12px;color:'+CD.mu+';margin-top:2px">'+(pen?(pen===1?'1 item aguardando endereço':pen+' itens aguardando endereço'):(coltSt._peCarregado?'nenhum item aguardando':'…'))+'</div>'
+      +'</div>'
+      +(pen?'<div style="flex:0 0 auto;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:'+CD.az+';color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">'+pen+'</div>':'')
+      +'<div style="flex:0 0 auto;color:'+CD.mu2+';font-size:20px;line-height:1">\u203A</div>';
+    pe.onclick=()=>{ coltGo('peFila'); if(!coltSt._peCarregado && !coltSt.peCarregando) coltCarregarPe(); };
+    corpo.appendChild(pe);
+  }
   const lista=coltEl('div'); lista.id='coltFilaLista'; corpo.appendChild(lista);
   const chave=coltEl('div'); chave.id='coltChaveBox'; corpo.appendChild(chave);
 
@@ -8369,6 +8386,171 @@ async function coltConfirmarEndereco(){
     coltGo('bipagem');
   }catch(e){
     coltSt.endSalvando=false; coltSt.endErro='Erro ao gravar o endereço: '+e.message; renderEstoque();
+  }
+}
+
+
+/* ============================ PENDENTE ESTOCAR (endereçamento tardio, 28/07/2026) ============================
+   Item recebido SEM vínculo → escritório vinculou o produto DEPOIS da nota finalizada → o trigger
+   ItemRecebimentoTrigger o pôs em 'Pendente Estocar'. Aqui o estoquista vê a fila desses itens,
+   escolhe um, bipa o endereço e a entrada endereçada acontece no Apex (entradaEstocarItem via
+   RecebimentoEstocarRest). Fluxo próprio, estado próprio (coltSt.pe*), pra não se misturar com a
+   conferência. Offline: coltPost já enfileira; idempotente no Apex (guard por status). */
+
+async function coltCarregarPe(){
+  coltSt.peErro=null; coltSt.peCarregando=true;
+  if(coltSt.step==='peFila') renderEstoque();
+  try{
+    const d=await beGet('/coletor/v1/pendente-estocar');
+    coltSt.peItens=d.itens||[];
+    coltSt.peCarregando=false; coltSt._peCarregado=true;
+    if(coltSt.step==='peFila'||coltSt.step==='fila') renderEstoque();
+  }catch(e){
+    coltSt.peCarregando=false; coltSt._peCarregado=true;
+    coltSt.peErro='Erro ao carregar a fila de estocagem: '+e.message;
+    if(coltSt.step==='peFila') renderEstoque();
+  }
+}
+
+function coltRenderPeFila(corpo, root){
+  const itens=coltSt.peItens||[];
+  const n=itens.length;
+  coltTitulo(corpo, 'Pendente Estocar',
+    n ? (n===1?'1 item aguardando endereço':n+' itens aguardando endereço') : 'Itens aguardando endereço',
+    ()=>coltGo('fila'));
+
+  if(coltSt.peErro){ corpo.innerHTML+=coltErroBox(coltSt.peErro); }
+
+  if(coltSt.peCarregando && !n){
+    corpo.innerHTML+=coltCarregando('Carregando itens…');
+  } else if(!n){
+    corpo.innerHTML+=coltVazio('Nada para estocar agora. Quando o escritório vincular o produto de um item recebido sem vínculo, ele aparece aqui para você bipar o endereço.');
+  } else {
+    const lista=coltEl('div');
+    itens.forEach(it=>{
+      const nome=it.produto||it.descricaoNF||'(sem descrição)';
+      const qtd=it.quantidadeRecebida!=null ? (coltNum(it.quantidadeRecebida)+(it.unidadeNF?(' '+it.unidadeNF):'')) : '';
+      const nf=it.numeroNF?('NF '+it.numeroNF):(it.recebimentoName||'');
+      const forn=it.fornecedor||it.emitente||'';
+      const card=coltEl('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-radius:16px;padding:13px 14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px');
+      card.innerHTML='<div style="flex:1;min-width:0">'
+          +'<div style="font-size:15px;font-weight:800;color:'+CD.tx+';line-height:1.3;word-break:break-word">'+_esc(nome)+'</div>'
+          +(qtd?'<div style="font-size:13px;font-weight:700;color:'+CD.az+';margin-top:3px">'+_esc(qtd)+'</div>':'')
+          +'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px">'+_esc([nf,forn].filter(Boolean).join(' · '))+'</div>'
+        +'</div>'
+        +'<div style="flex:0 0 auto;color:'+CD.mu2+';font-size:22px;line-height:1">›</div>';
+      card.onclick=()=>{ coltSt.peSel=it; coltSt.peEndSelId=null; coltSt.peEndInfo=null; coltSt.peEndVia=null; coltSt.peEndErro=null; coltGo('peEndereco'); };
+      lista.appendChild(card);
+    });
+    corpo.appendChild(lista);
+  }
+
+  const f=coltRodape(root,'');
+  const b=coltEl('button', coltBotao('', CD.tx, CD.card2, CD.bd), '↻ Atualizar a fila');
+  b.onclick=()=>{ coltSt._peCarregado=false; coltCarregarPe(); };
+  f.appendChild(b);
+}
+
+function coltRenderPeEndereco(corpo, root){
+  const it=coltSt.peSel;
+  if(!it){
+    coltTitulo(corpo,'Estocar','', ()=>coltGo('peFila'));
+    corpo.innerHTML+=coltErroBox('O item desta etapa não está mais selecionado. Volte à fila.');
+    return;
+  }
+  const nome=it.produto||it.descricaoNF||'(sem descrição)';
+  const qtd=it.quantidadeRecebida!=null ? (coltNum(it.quantidadeRecebida)+(it.unidadeNF?(' '+it.unidadeNF):'')) : '';
+  coltTitulo(corpo, 'Estocar',
+    _esc([it.numeroNF?('NF '+it.numeroNF):'', qtd].filter(Boolean).join(' · ')),
+    ()=>coltGo('peFila'));
+
+  /* ---- cartão do item ---- */
+  corpo.innerHTML+='<div style="background:'+CD.vdBg+';border:1px solid '+CD.vd+';border-radius:16px;padding:13px 14px;margin-bottom:12px">'
+    +'<div style="font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:'+CD.mu2+';margin-bottom:6px">Item a guardar</div>'
+    +'<div style="font-size:15px;font-weight:800;color:'+CD.tx+';line-height:1.3;word-break:break-word">'+_esc(nome)+'</div>'
+    +(qtd?'<div style="font-size:14px;font-weight:700;color:'+CD.vd+';margin-top:4px">'+_esc(qtd)+'</div>':'')
+    +(it.fornecedor||it.emitente?'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px">'+_esc(it.fornecedor||it.emitente)+'</div>':'')
+  +'</div>';
+
+  /* ---- caixa tracejada: bipe o endereço (mesmo padrão do endereçamento da conferência) ---- */
+  const sb=coltEl('div','border:2px dashed '+CD.az+';background:'+CD.azBg+';border-radius:18px;padding:16px 14px 14px;text-align:center;margin-bottom:12px');
+  sb.innerHTML='<div style="margin-bottom:8px">'+coltGlifoQr()+'</div>'
+    +'<div style="font-size:17px;font-weight:800;color:'+CD.tx+'">Bipe o endereço</div>'
+    +'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px;line-height:1.45">QR do porta-palete ou aproxime a tag NFC</div>'
+    +'<div style="margin-top:11px">'
+      +'<input id="coltPeBipe" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ou digite o código (ex.: PF-03-B)" '
+      +'style="width:100%;box-sizing:border-box;padding:12px 13px;border-radius:13px;border:1.5px solid '+CD.am
+      +';background:rgba(224,138,43,.08);color:'+CD.tx+';font-size:15px;font-weight:700;text-align:center;outline:none;-webkit-appearance:none">'
+    +'</div>'
+    +(coltSt.peEndErro?'<div style="font-size:12.5px;color:'+CD.vm+';margin-top:10px;line-height:1.5;text-align:left">'+_esc(coltSt.peEndErro)+'</div>':'');
+  corpo.appendChild(sb);
+
+  /* ---- endereço escolhido ---- */
+  if(coltSt.peEndSelId){
+    const info=coltSt.peEndInfo||{};
+    let ex='<div style="font-size:19px;font-weight:800;color:'+CD.tx+';font-variant-numeric:tabular-nums">'+_esc(info.codigo||info.nome||'')+'</div>'
+      +((info.nome&&info.nome!==info.codigo)?'<div style="font-size:12px;color:'+CD.mu+';margin-top:2px">'+_esc(info.nome)+'</div>':'')
+      +'<div style="margin-top:6px">';
+    ex+=coltLinha('Área', info.area);
+    ex+=coltLinha('Rua', info.rua);
+    ex+='</div>';
+    corpo.innerHTML+=coltCard('Endereço escolhido', ex,
+      coltPill(coltSt.peEndVia==='etiqueta'?'etiqueta NFC/QR':'código', CD.az, CD.azBg));
+  }
+
+  /* ---- rodapé: botão grande de estocar ---- */
+  const f=coltRodape(root,'');
+  const b1=coltEl('button', coltBotao('', '#fff', CD.vd, CD.vd), coltSt.peSalvando?'Estocando…':'Estocar aqui');
+  b1.onclick=()=>coltEstocarConfirmar();
+  f.appendChild(b1);
+
+  setTimeout(()=>{
+    const inp=document.getElementById('coltPeBipe');
+    if(inp){
+      inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; coltBiparPeEndereco(v); } });
+      inp.focus();
+    }
+  }, 80);
+}
+
+async function coltBiparPeEndereco(valor){
+  const v=String(valor==null?'':valor).trim();
+  if(!v) return;
+  coltSt.peEndErro=null;
+  try{
+    const d=await beGet('/coletor/v1/endereco?codigo='+encodeURIComponent(v));
+    const e=d&&d.endereco;
+    if(!e){ coltSt.peEndErro='O servidor reconheceu a etiqueta mas não devolveu o endereço dela.'; renderEstoque(); return; }
+    if(navigator.vibrate) try{ navigator.vibrate(35); }catch(_){ }
+    coltSt.peEndSelId=e.id; coltSt.peEndInfo=e; coltSt.peEndVia=d.via||'codigo';
+    renderEstoque();
+  }catch(err){
+    if(navigator.vibrate) try{ navigator.vibrate([60,50,60]); }catch(_){ }
+    coltSt.peEndErro=err.message; renderEstoque();
+  }
+}
+
+async function coltEstocarConfirmar(){
+  if(coltSt.peSalvando) return;
+  const it=coltSt.peSel; if(!it) return;
+  if(!coltSt.peEndSelId){
+    coltSt.peEndErro='Bipe ou digite o endereço antes de estocar.';
+    renderEstoque(); return;
+  }
+  coltSt.peSalvando=true; coltSt.peEndErro=null; renderEstoque();
+  try{
+    const r=await coltPost('/coletor/v1/item/'+encodeURIComponent(it.itemId)+'/estocar',
+      {clientTxId:coltUuid(), enderecoId:coltSt.peEndSelId},
+      {label:'estocar '+((it.produto||it.descricaoNF||'item')+''), dedup:'estocar:'+it.itemId});
+    coltSt.peSalvando=false;
+    if(!r.ok){ coltSt.peEndErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
+    /* tira o item da fila local e volta — o Apex é idempotente, então mesmo um reenvio offline não duplica. */
+    coltSt.peItens=(coltSt.peItens||[]).filter(x=>x.itemId!==it.itemId);
+    coltSt.peSel=null; coltSt.peEndSelId=null; coltSt.peEndInfo=null; coltSt.peEndVia=null;
+    toast(r.body._queued ? 'Sem sinal — estocagem guardada no aparelho. Sobe sozinha quando a rede voltar.' : 'Item estocado no endereço.');
+    coltGo('peFila');
+  }catch(e){
+    coltSt.peSalvando=false; coltSt.peEndErro='Erro ao estocar: '+e.message; renderEstoque();
   }
 }
 
