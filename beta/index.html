@@ -53,6 +53,34 @@
   .screen{display:none;animation:fade .18s ease}
   #estoqBusca::placeholder{color:#6D7F98}
   #estoqBusca:focus{outline:none;border-color:#3B82F6}
+  /* ===== TEMA ESCURO das páginas internas do Estoque (28/07) — escopado em #scr-estoque.
+     Temiza os componentes de CLASSE de uma vez; os inline vão nos construtores JS. ===== */
+  #scr-estoque{color:#EAF1F9}
+  #scr-estoque .rel-hd{color:#93A4BA}
+  #scr-estoque .sec-title2{color:#EAF1F9}
+  #scr-estoque .subnote{color:#93A4BA}
+  #scr-estoque .subcard{background:#141F31;border-color:#25334A}
+  #scr-estoque .subhead{background:#101B2B;border-color:#25334A}
+  #scr-estoque .subhead .st{color:#EAF1F9}
+  #scr-estoque .subhead .ss{color:#93A4BA}
+  #scr-estoque .rel-row{background:#141F31;border-color:#25334A;box-shadow:none}
+  #scr-estoque .eq-name{color:#EAF1F9}
+  #scr-estoque .eq-sub{color:#93A4BA}
+  #scr-estoque .rel-arrow{color:#6D7F98}
+  #scr-estoque .lz-neu{color:#93A4BA;background:#18253A;border-color:#25334A}
+  #scr-estoque .lz-info{color:#3B82F6;background:rgba(59,130,246,.12);border-color:#334561}
+  #scr-estoque .lz-warn{color:#E08A2B;background:rgba(224,138,43,.14);border-color:#334561}
+  #scr-estoque .lz-succ{color:#22B463;background:rgba(34,180,99,.14);border-color:#334561}
+  #scr-estoque .lz-err{color:#EF5B44;background:rgba(239,91,68,.14);border-color:#334561}
+  #scr-estoque .ld-spin{border-color:#25334A;border-top-color:#3B82F6}
+  #scr-estoque .btn-neutral{background:#18253A;border-color:#25334A;color:#EAF1F9}
+  #scr-estoque input:not([type=checkbox]):not([type=radio]):not([type=file]),
+  #scr-estoque select,#scr-estoque textarea{background:#18253A;border:1px solid #25334A;color:#EAF1F9}
+  #scr-estoque input::placeholder,#scr-estoque textarea::placeholder{color:#6D7F98}
+  #scr-estoque .field-err{color:#EF5B44}
+  #scr-estoque .endr-gaveta{background:#141F31;color:#EAF1F9}
+  #scr-estoque .endr-gaveta .subnote{color:#93A4BA}
+  #scr-estoque .endr-gv-card{background:#18253A;border-color:#25334A}
   .screen.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
   /* ---- ícones SVG (estilo SLDS) ---- */
@@ -3442,6 +3470,7 @@ function estoqBuscaRenderResultados(lista,q){
     res.appendChild(box);
   }
   if(prods.length) res.appendChild(estoqBuscaProdutosBox(prods));
+  estoqDarkPatch(res); /* resultados na home não passam pelo patch de render — escurece os boxes aqui */
 }
 function estoqBuscaInput(){
   const inp=document.getElementById('estoqBusca'); if(!inp) return;
@@ -3759,6 +3788,50 @@ function renderEstoqDays(){
   });
   const lbl=document.getElementById('estoqDayLabel'); if(lbl) lbl.textContent=estoqDia?(DAYLABEL[estoqDia]||''):'Todos os dias';
 }
+/* ===== TEMA ESCURO das páginas internas (28/07): patch de inline literals claros ===== */
+/* CSS não vence inline. Este patch, escopado no #estoqueList, remapeia SÓ os literais de "chrome"
+   claro (fundos brancos, bordas cinza, textos navy/cinza, sombras) para o escuro do coletor —
+   PRESERVANDO as cores semânticas (vermelho urgente, âmbar, verde, teal do ícone). Roda depois de
+   cada render de página interna; async que re-renderiza via renderEstoque é repatcheado. */
+const _ESTOQ_DARK_REMAP=[
+  [/background:#fff(?![0-9a-fA-F])/g,'background:#141F31'],
+  [/background:#ffffff/gi,'background:#141F31'],
+  [/background:#fbfcfd/gi,'background:#18253A'],
+  [/background:#f7f9fb/gi,'background:#18253A'],
+  [/background:#FAFBFC/gi,'background:#18253A'],
+  [/background:#f2f4f7/gi,'background:#18253A'],
+  [/background:#F0F2F5/gi,'background:#18253A'],
+  [/#3E7EB01a/g,'rgba(59,130,246,.12)'],
+  [/#E9F1F8/gi,'rgba(59,130,246,.12)'],
+  [/#ebf7ed/gi,'rgba(34,180,99,.14)'],
+  [/#f2f9f4/gi,'rgba(34,180,99,.14)'],
+  [/#fef5e8/gi,'rgba(224,138,43,.14)'],
+  [/#fef1f1/gi,'rgba(239,91,68,.14)'],
+  [/#e5e8ec/gi,'#25334A'],[/#eceff3/gi,'#25334A'],[/#eef0f3/gi,'#25334A'],
+  [/#D7DEE6/gi,'#25334A'],[/#e1e6eb/gi,'#25334A'],[/#eef2f6/gi,'#25334A'],
+  [/#F7F9FA/gi,'#18253A'],[/#F4F7F9/gi,'#18253A'],[/#F4F7FA/gi,'#18253A'],
+  [/#F8F9FA/gi,'#18253A'],[/#F2F3F4/gi,'#18253A'],[/#f2f2f2/gi,'#18253A'],[/#f7f8f9/gi,'#18253A'],
+  [/#E2E5E9/gi,'#25334A'],[/#EEF0F2/gi,'#25334A'],[/#d8dde3/gi,'#25334A'],
+  [/color:var\(--weaker\)/g,'color:#6D7F98'],[/color:var\(--weak\)/g,'color:#93A4BA'],
+  [/color:#686868/gi,'color:#93A4BA'],[/color:#C4451B/gi,'color:#EF5B44'],[/color:#8a6d1f/gi,'color:#E08A2B'],
+  [/color:#0B2239/gi,'color:#EAF1F9'],[/color:#3A4552/gi,'color:#EAF1F9'],[/color:#2b3a4a/gi,'color:#EAF1F9'],
+  [/color:#4A5560/gi,'color:#93A4BA'],[/color:#5F6B77/gi,'color:#93A4BA'],[/color:#75818D/gi,'color:#93A4BA'],
+  [/color:#8a94a3/gi,'color:#93A4BA'],[/color:#5b6b7c/gi,'color:#93A4BA'],
+  [/color:#999(?![0-9a-fA-F])/gi,'color:#6D7F98'],
+  [/color:#ba0517/gi,'color:#EF5B44'],[/color:#8c4b02/gi,'color:#E08A2B'],
+  [/color:#C25E0A/gi,'color:#E08A2B'],[/color:#2e844a/gi,'color:#22B463'],[/color:#0B5CAB/gi,'color:#3B82F6'],
+  [/box-shadow:[^;"']*/g,'box-shadow:none'],
+];
+function estoqDarkPatch(container){
+  if(!container) return;
+  try{
+    container.querySelectorAll('[style]').forEach(el=>{
+      let s=el.getAttribute('style'); if(!s) return; const o=s;
+      for(let i=0;i<_ESTOQ_DARK_REMAP.length;i++){ s=s.replace(_ESTOQ_DARK_REMAP[i][0], _ESTOQ_DARK_REMAP[i][1]); }
+      if(s!==o) el.setAttribute('style', s);
+    });
+  }catch(e){}
+}
 function renderEstoque(){
   const buscaWrap=document.getElementById('estoqBuscaWrap');
   const naHome=(estoqView.mode==='dash');
@@ -3766,10 +3839,10 @@ function renderEstoque(){
   /* tema escuro só na HOME do Estoque (28/07): a própria section vira canvas escuro (header e barra
      de abas continuam claros); sub-telas e o coletor revertem pro claro/próprio. */
   const _secEst=document.getElementById('scr-estoque');
-  if(_secEst){ _secEst.style.background=naHome?CD.bg:''; _secEst.style.minHeight=naHome?'100%':''; }
+  if(_secEst){ _secEst.style.background=CD.bg; _secEst.style.minHeight='100%'; }
   const _sbEst=document.getElementById('estoqStatusBar');
   if(_sbEst){
-    if(naHome){
+    if(estoqView.mode!=='recebimentos'){
       const _on=navigator.onLine!==false, _c=_on?CD.vd:CD.vm;
       _sbEst.style.cssText='display:flex;align-items:center;gap:9px;background:'+CD.bar+';border-bottom:1px solid '+CD.bd+';padding:9px 15px;font-size:11.5px;color:'+CD.mu;
       _sbEst.innerHTML='<span style="font-weight:800;color:'+CD.tx+';letter-spacing:.3px">ESTOQUE</span>'
@@ -3788,20 +3861,20 @@ function renderEstoque(){
      existindo (estoqDia nunca é setado por ninguém agora, então sepListDia()===sepListAll() sempre
      — nenhuma tela perde dado, só para de filtrar). */
   const wrap=document.getElementById('estoqueList'); wrap.innerHTML='';
-  if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); return; }
-  if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); return; }
-  if(estoqView.mode==='list'){ estoqueListPage(wrap); return; }
-  if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); return; }
+  if(estoqView.mode==='sep' && estoqView.sep){ estoqueSepPage(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='pend' && estoqView.sep){ estoquePendPage(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='list'){ estoqueListPage(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='enderecos'){ renderEndrWizard(wrap); estoqDarkPatch(wrap); return; }
   /* 27/07/2026: o coletor escuro virou a tela TITULAR das entradas pendentes no /beta/ (decisao
      de 27/07: SUBSTITUIR a tela atual). renderRecpFluxo e todo o recp* continuam no arquivo,
      sem chamador — nada foi apagado. */
   if(estoqView.mode==='recebimentos'){ coltAtivo=true; if(!coltSt) coltReset(); coltRenderFluxo(wrap); return; }
-  if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); return; }
-  if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); return; }
-  if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); return; }
-  if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); return; }
-  if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); return; }
-  if(estoqView.mode==='fotoprod'){ renderFprod(wrap); return; }
+  if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='fotoprod'){ renderFprod(wrap); estoqDarkPatch(wrap); return; }
   // ===== HOME DO ESTOQUISTA — tema escuro V3 (28/07, aprovado pelo Raphael). Reaproveita 100% das
   //       fontes de dados e destinos da home clara; muda só a cara e a organização (Pendências /
   //       Retorno em destaque / Filas), na identidade do coletor. =====
