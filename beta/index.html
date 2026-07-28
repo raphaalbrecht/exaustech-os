@@ -51,6 +51,8 @@
   .iconbtn{background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
   main{flex:1;overflow-y:auto}
   .screen{display:none;animation:fade .18s ease}
+  #estoqBusca::placeholder{color:#6D7F98}
+  #estoqBusca:focus{outline:none;border-color:#3B82F6}
   .screen.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
   /* ---- ícones SVG (estilo SLDS) ---- */
@@ -1091,20 +1093,21 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 
     <!-- ESTOQUE (painel do estoquista) -->
     <section class="screen" id="scr-estoque">
-      <div id="estoqBuscaWrap" style="padding:2px 2px 10px">
+      <div id="estoqStatusBar" style="display:none"></div>
+      <div id="estoqBuscaWrap" style="padding:12px 15px 8px">
         <div style="display:flex;gap:8px">
           <div style="position:relative;flex:1;min-width:0;display:flex">
             <input type="text" id="estoqBusca" placeholder="🔎 Bipar etiqueta / buscar produto, OS ou cliente…"
               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-              style="width:100%;min-width:0;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;padding:0 44px 0 14px;font-size:15.5px;box-sizing:border-box;background:#fff"
+              style="width:100%;min-width:0;height:50px;border:1.5px solid #25334A;border-radius:14px;padding:0 44px 0 14px;font-size:15px;box-sizing:border-box;background:#141F31;color:#EAF1F9"
               oninput="estoqBuscaInput()" onkeydown="estoqBuscaKey(event)">
             <button type="button" id="estoqBuscaX" onclick="estoqBuscaLimparX()" title="Limpar busca" aria-label="Limpar busca"
-              style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:#EDF1F5;color:#5B6B7C;font-size:16px;font-weight:600;line-height:34px;padding:0;cursor:pointer">✕</button>
+              style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:#25334A;color:#93A4BA;font-size:16px;font-weight:600;line-height:34px;padding:0;cursor:pointer">✕</button>
           </div>
           <button type="button" id="estoqBtnCam" onclick="estoqScanCamAbrir()" title="Bipar com a câmera"
-            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0">📷</button>
+            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #25334A;border-radius:14px;background:#18253A;font-size:20px;padding:0">📷</button>
           <button type="button" id="estoqBtnNfc" onclick="estoqNfcToggle()" title="Ativar leitura NFC"
-            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #D7DEE6;border-radius:12px;background:#fff;font-size:20px;padding:0;display:none">📶</button>
+            style="flex:0 0 50px;width:50px;height:50px;border:1.5px solid #25334A;border-radius:14px;background:#18253A;font-size:20px;padding:0;display:none">📶</button>
         </div>
         <div id="estoqBuscaResults"></div>
       </div>
@@ -3429,7 +3432,7 @@ function estoqBuscaRenderResultados(lista,q){
   if(!q){ return; }
   const prods=estoqBuscaProdutosDoCache(q);
   if(!lista.length && !prods.length){
-    res.innerHTML='<div class="subnote" style="padding:8px 2px">'
+    res.innerHTML='<div class="subnote" style="padding:8px 2px;color:#93A4BA">'
       +(estoqBuscaProdBuscando?'Buscando produtos…':'Nada encontrado pra "'+_esc(q)+'".')+'</div>';
     return;
   }
@@ -3733,14 +3736,14 @@ async function estoqNfcToggle(){
       }
       if(texto) estoqProcessarCodigoLido(texto.trim());
     };
-    if(btn){ btn.style.background='#e8f4ff'; btn.style.borderColor='#0B5CAB'; btn.title='NFC ativo — toque pra desligar'; }
+    if(btn){ btn.style.background='rgba(59,130,246,.18)'; btn.style.borderColor='#3B82F6'; btn.title='NFC ativo — toque pra desligar'; }
     toast('📶 NFC ativo — aproxime a tag');
   }catch(e){ toast('⚠️ Não consegui ativar o NFC: '+e.message); estoqNfcController=null; }
   finally{ estoqNfcAtivando=false; }
 }
 function estoqNfcDesativar(){
   if(estoqNfcController){ try{ estoqNfcController.abort(); }catch(e){} estoqNfcController=null; }
-  const btn=document.getElementById('estoqBtnNfc'); if(btn){ btn.style.background='#fff'; btn.style.borderColor='#D7DEE6'; btn.title='Ativar leitura NFC'; }
+  const btn=document.getElementById('estoqBtnNfc'); if(btn){ btn.style.background='#18253A'; btn.style.borderColor='#25334A'; btn.title='Ativar leitura NFC'; }
 }
 /* carrossel de dias do Estoque — mesma estrutura visual da Agenda (DAYS/DAYLABEL compartilhados) */
 function renderEstoqDays(){
@@ -3760,6 +3763,20 @@ function renderEstoque(){
   const buscaWrap=document.getElementById('estoqBuscaWrap');
   const naHome=(estoqView.mode==='dash');
   if(buscaWrap) buscaWrap.style.display=naHome?'block':'none';
+  /* tema escuro só na HOME do Estoque (28/07): a própria section vira canvas escuro (header e barra
+     de abas continuam claros); sub-telas e o coletor revertem pro claro/próprio. */
+  const _secEst=document.getElementById('scr-estoque');
+  if(_secEst){ _secEst.style.background=naHome?CD.bg:''; _secEst.style.minHeight=naHome?'100%':''; }
+  const _sbEst=document.getElementById('estoqStatusBar');
+  if(_sbEst){
+    if(naHome){
+      const _on=navigator.onLine!==false, _c=_on?CD.vd:CD.vm;
+      _sbEst.style.cssText='display:flex;align-items:center;gap:9px;background:'+CD.bar+';border-bottom:1px solid '+CD.bd+';padding:9px 15px;font-size:11.5px;color:'+CD.mu;
+      _sbEst.innerHTML='<span style="font-weight:800;color:'+CD.tx+';letter-spacing:.3px">ESTOQUE</span>'
+        +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:'+_c+';box-shadow:0 0 7px '+_c+'"></span><span style="color:'+_c+';font-weight:800;letter-spacing:.6px;font-size:10.5px">'+(_on?'ONLINE':'OFFLINE')+'</span></span>'
+        +'<span style="margin-left:auto;color:'+CD.tx+';font-weight:700;font-variant-numeric:tabular-nums">'+(typeof coltHoraAgora==='function'?coltHoraAgora():'')+'</span>';
+    } else { _sbEst.style.display='none'; }
+  }
   if(!naHome){ estoqBuscaLimpar(); estoqScanCamFechar(); }
   else {
     const btnNfc=document.getElementById('estoqBtnNfc'); if(btnNfc) btnNfc.style.display=estoqNfcSuportado()?'block':'none';
@@ -3785,62 +3802,79 @@ function renderEstoque(){
   if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); return; }
   if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); return; }
   if(estoqView.mode==='fotoprod'){ renderFprod(wrap); return; }
-  /* ===== HOME DO ESTOQUISTA (Home enxuta + "Versão A", 17/07/2026 — desenho aprovado pelo
-     Raphael entre 3 mockups): só as pendências que pedem atenção agora, seguidas dos 3 botões-hub
-     Enviar/Receber/Armazém com destaque decrescente (Enviar cheio de cor, Receber contornado,
-     Armazém discreto/pequeno). Os 5 cards antigos (endereço/consulta/recebimento/estrutura/
-     acompanhamento) MOVERAM pra dentro dos hubs — ver estoqueReceberHub/estoqueArmazemHub. ===== */
+  // ===== HOME DO ESTOQUISTA — tema escuro V3 (28/07, aprovado pelo Raphael). Reaproveita 100% das
+  //       fontes de dados e destinos da home clara; muda só a cara e a organização (Pendências /
+  //       Retorno em destaque / Filas), na identidade do coletor. =====
   const seps=sepListAll(), sepsDia=sepListDia();
-  const h1=document.createElement('div'); h1.className='rel-hd'; h1.textContent='Separação de materiais'; wrap.appendChild(h1);
-  const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 6px';
-  const tUrgente=ESTOQ_TILES.find(x=>x.key==='urgente');
-  const nUrgente=seps.filter(tUrgente.f).length;
-  if(nUrgente) grid.appendChild(estoqTileEl(tUrgente.label,tUrgente.icon,tUrgente.cor,nUrgente,true,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'urgente'); }));
-  ['separar','emsep'].forEach(k=>{
-    const t=ESTOQ_TILES.find(x=>x.key===k);
-    const n=sepsDia.filter(t.f).length;
-    /* ícone de linha (17/07/2026, pedido do Raphael: "evite ícones com muito detalhe gráfico") —
-       só 'separar' trocou por enquanto (o exemplo dele foi a caixa/caminhão); os demais tiles
-       continuam com o emoji de sempre, mudança cirúrgica. */
-    const ic=(k==='separar')?estoqIcoSvg('box',t.cor):t.icon;
-    grid.appendChild(estoqTileEl(t.label,ic,t.cor,n,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,t.key); }));
-  });
-  /* "Entradas pendentes" é tile VIRTUAL (não vem de ESTOQ_TILES/sepListAll — usa recpPendentesCount,
-     atualizado a cada hydrate por recpAtualizarPendentesCount) e abre direto o fluxo recp*. */
-  grid.appendChild(estoqTileEl('Entradas pendentes',estoqIcoSvg('truck','#3E7EB0'),'#3E7EB0',recpPendentesCount,false,()=>{ recpReset(); estoqView.origem='home'; estoqGo('recebimentos'); recpCarregarLista(); }));
-  /* "Pendente Estocar" (28/07): item recebido sem vínculo que ganhou produto e espera o
-     estoquista bipar o endereço. Abre a fila do coletor no passo peFila. */
-  grid.appendChild(estoqTileEl('Pendente Estocar',estoqIcoSvg('box','#22B463'),'#22B463',pendenteEstocarCount,false,()=>{ if(!coltSt) coltReset(); coltSt.step='peFila'; coltAtivo=true; estoqView.origem='home'; estoqGo('recebimentos'); coltCarregarPe(); }));
-  const tCanc=ESTOQ_TILES.find(x=>x.key==='cancelamento');
-  const nCanc=sepsDia.filter(tCanc.f).length;
-  if(nCanc) grid.appendChild(estoqTileEl(tCanc.label,tCanc.icon,tCanc.cor,nCanc,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'cancelamento'); }));
-  const tRetC=ESTOQ_TILES.find(x=>x.key==='retornosconf');
-  const nRetC=sepsDia.filter(tRetC.f).length;
-  if(nRetC) grid.appendChild(estoqTileEl(tRetC.label,tRetC.icon,tRetC.cor,nRetC,false,()=>{ estoqView.origem='home'; estoqGo('list',null,null,'retornosconf'); }));
-  wrap.appendChild(grid);
-  /* Enviar/Receber mesclados em split 50/50 (17/07/2026, pedido do Raphael — "Versão C" dos
-     mockups pro par Enviar/Receber, combinada com as tiles grandes da "Versão A" acima); Armazém
-     continua discreto/pequeno embaixo, como já era. */
-  const btnWrap=document.createElement('div'); btnWrap.style.cssText='display:flex;flex-direction:column;gap:8px;margin-top:14px';
-  const splitWrap=document.createElement('div'); splitWrap.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
-  const btnEnviar=document.createElement('div');
-  btnEnviar.style.cssText='background:#3E7EB0;color:#fff;border-radius:12px;padding:18px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px';
-  btnEnviar.innerHTML=`${estoqIcoSvg('send','#fff',22)}<span style="font-weight:700;font-size:14.5px">Enviar</span>`;
-  btnEnviar.onclick=()=>{ estoqGo('enviar'); };
-  splitWrap.appendChild(btnEnviar);
-  const btnReceber=document.createElement('div');
-  const nAlertasHome=acmpAlertas.length;
-  btnReceber.style.cssText='background:#2e844a;color:#fff;border-radius:12px;padding:18px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px';
-  btnReceber.innerHTML=`${estoqIcoSvg('receive','#fff',22)}<span style="font-weight:700;font-size:14.5px">Receber${nAlertasHome?(' <span class="lz lz-warn" style="margin-left:2px">'+nAlertasHome+'</span>'):''}</span>`;
-  btnReceber.onclick=()=>{ estoqGo('receber'); };
-  splitWrap.appendChild(btnReceber);
-  btnWrap.appendChild(splitWrap);
-  const btnArmazem=document.createElement('div');
-  btnArmazem.style.cssText='background:#fff;border:1px solid #e5e8ec;color:#4A5560;border-radius:12px;padding:10px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px';
-  btnArmazem.innerHTML=`${estoqIcoSvg('warehouse','#4A5560',16)}<span style="flex:1;font-weight:600">Armazém</span><span style="font-size:16px">›</span>`;
-  btnArmazem.onclick=()=>{ estoqGo('armazem'); };
-  btnWrap.appendChild(btnArmazem);
-  wrap.appendChild(btnWrap);
+  const _el=(tag,css,html)=>{ const e=document.createElement(tag); if(css)e.style.cssText=css; if(html!=null)e.innerHTML=html; return e; };
+  const _seclab=(txt)=> _el('div','font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:'+CD.mu+';margin:16px 2px 9px;display:flex;align-items:center;gap:8px',
+     _esc(txt)+'<span style="flex:1;height:1px;background:'+CD.bd+';opacity:.6"></span>');
+  const root=_el('div','padding:12px 15px 22px');
+
+  /* ---- Pendências: exceções vermelhas (condicionais, somem em 0) ---- */
+  const _tUrg=ESTOQ_TILES.find(x=>x.key==='urgente'); const _nUrg=seps.filter(_tUrg.f).length;
+  const _tCanc=ESTOQ_TILES.find(x=>x.key==='cancelamento'); const _nCanc=sepsDia.filter(_tCanc.f).length;
+  const _pend=[];
+  if(_nUrg) _pend.push(['🚨','Separação urgente','precisa sair hoje',_nUrg,()=>{estoqView.origem='home';estoqGo('list',null,null,'urgente');}]);
+  if(_nCanc) _pend.push(['🛑','Pós-cancelamento','ciência / devolução / baixa',_nCanc,()=>{estoqView.origem='home';estoqGo('list',null,null,'cancelamento');}]);
+  if(_pend.length){
+    root.appendChild(_seclab('Pendências'));
+    _pend.forEach(p=>{
+      const r=_el('div','background:'+CD.vmBg+';border:1px solid rgba(239,91,68,.35);border-radius:14px;padding:12px 13px;display:flex;align-items:center;gap:11px;margin-bottom:8px;cursor:pointer',
+        '<div style="width:34px;height:34px;border-radius:10px;background:rgba(239,91,68,.18);color:'+CD.vm+';display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto">'+p[0]+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;color:'+CD.tx+'">'+_esc(p[1])+'</div><div style="font-size:11px;color:#f0a99e;margin-top:2px">'+_esc(p[2])+'</div></div>'
+        +'<div style="font-size:20px;font-weight:800;color:'+CD.vm+';font-variant-numeric:tabular-nums">'+p[3]+'</div><span style="color:'+CD.vm+';font-size:17px">›</span>');
+      r.onclick=p[4]; root.appendChild(r);
+    });
+  } else {
+    root.appendChild(_el('div','background:'+CD.vdBg+';border:1px solid rgba(34,180,99,.30);border-radius:13px;padding:11px 14px;display:flex;align-items:center;gap:9px;font-size:12.5px;color:'+CD.vd+';font-weight:700;margin-top:4px',
+      '✓ Tudo em dia — nenhuma pendência urgente'));
+  }
+
+  /* ---- Retorno · Conferência: rotina com destaque próprio, sempre visível (pedido do Raphael) ---- */
+  const _tRet=ESTOQ_TILES.find(x=>x.key==='retornosconf'); const _nRet=sepsDia.filter(_tRet.f).length;
+  root.appendChild(_seclab('Retorno · Conferência'));
+  const _retc=_el('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-left:3px solid '+CD.am+';border-radius:16px;padding:14px 15px;display:flex;align-items:center;gap:13px;cursor:pointer',
+    '<div style="width:44px;height:44px;border-radius:12px;background:'+CD.amBg+';color:'+CD.am+';display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto">↩️</div>'
+    +'<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:'+CD.tx+'">Retornos a conferir</div><div style="font-size:11.5px;color:'+CD.mu+';margin-top:3px;line-height:1.35">material que volta do campo — conferir e dar entrada/baixa no estoque</div></div>'
+    +'<div style="font-size:28px;font-weight:800;color:'+(_nRet>0?CD.am:CD.mu2)+';font-variant-numeric:tabular-nums">'+_nRet+'</div><span style="color:'+CD.mu2+';font-size:18px">›</span>');
+  _retc.onclick=()=>{ estoqView.origem='home'; estoqGo('list',null,null,'retornosconf'); };
+  root.appendChild(_retc);
+
+  /* ---- Filas: mini-stats 2x2 (saída azul = família Enviar; entrada verde = família Receber) ---- */
+  root.appendChild(_seclab('Filas'));
+  const _grid=_el('div','display:grid;grid-template-columns:1fr 1fr;gap:8px');
+  const _tSep=ESTOQ_TILES.find(x=>x.key==='separar'); const _tEms=ESTOQ_TILES.find(x=>x.key==='emsep');
+  const _ms=(spec,cor,corBg,n,lab,go)=>{
+    const z=(n===0); const ic=z?CD.mu2:cor;
+    const icoHtml = spec.svg ? estoqIcoSvg(spec.svg, ic, 16) : '<span style="font-size:15px'+(z?';opacity:.6':'')+'">'+spec.emoji+'</span>';
+    const c=_el('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-radius:13px;padding:11px 12px;display:flex;align-items:center;gap:10px;cursor:pointer',
+      '<div style="width:32px;height:32px;border-radius:9px;background:'+(z?CD.card2:corBg)+';color:'+ic+';display:flex;align-items:center;justify-content:center;flex:0 0 auto">'+icoHtml+'</div>'
+      +'<div style="min-width:0"><div style="font-size:20px;font-weight:800;color:'+(z?CD.mu2:CD.tx)+';line-height:1;font-variant-numeric:tabular-nums">'+n+'</div><div style="font-size:11px;color:'+CD.mu+';margin-top:2px;line-height:1.15">'+_esc(lab)+'</div></div>');
+    c.onclick=go; return c;
+  };
+  _grid.appendChild(_ms({svg:'box'},CD.az,CD.azBg, sepsDia.filter(_tSep.f).length,'A separar',()=>{estoqView.origem='home';estoqGo('list',null,null,'separar');}));
+  _grid.appendChild(_ms({emoji:'⏳'},CD.az,CD.azBg, sepsDia.filter(_tEms.f).length,'Em separação',()=>{estoqView.origem='home';estoqGo('list',null,null,'emsep');}));
+  _grid.appendChild(_ms({svg:'truck'},CD.vd,CD.vdBg, recpPendentesCount,'Entradas pend.',()=>{recpReset();estoqView.origem='home';estoqGo('recebimentos');recpCarregarLista();}));
+  _grid.appendChild(_ms({svg:'box'},CD.vd,CD.vdBg, pendenteEstocarCount,'Pendente Estocar',()=>{if(!coltSt)coltReset();coltSt.step='peFila';coltAtivo=true;estoqView.origem='home';estoqGo('recebimentos');coltCarregarPe();}));
+  root.appendChild(_grid);
+
+  /* ---- Ações: Enviar / Receber (50/50) + Armazém quieto ---- */
+  const _acts=_el('div','display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px');
+  const _nAl=acmpAlertas.length;
+  const _bEnv=_el('div','background:'+CD.az+';color:#fff;border-radius:14px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:800;font-size:15px;cursor:pointer',
+    estoqIcoSvg('send','#fff',22)+'<span>Enviar</span>');
+  _bEnv.onclick=()=>estoqGo('enviar');
+  const _bRec=_el('div','position:relative;background:'+CD.vd+';color:#fff;border-radius:14px;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-weight:800;font-size:15px;cursor:pointer',
+    estoqIcoSvg('receive','#fff',22)+'<span>Receber</span>'+(_nAl?'<span style="position:absolute;top:9px;right:11px;background:'+CD.vm+';color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 5px">'+_nAl+'</span>':''));
+  _bRec.onclick=()=>estoqGo('receber');
+  _acts.appendChild(_bEnv); _acts.appendChild(_bRec); root.appendChild(_acts);
+  const _arm=_el('div','margin-top:9px;background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:13px;height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;color:'+CD.tx+';font-weight:700;font-size:14px;cursor:pointer',
+    estoqIcoSvg('warehouse',CD.mu,16)+'<span style="flex:1">Armazém</span><span style="color:'+CD.mu2+';font-size:16px">›</span>');
+  _arm.onclick=()=>estoqGo('armazem');
+  root.appendChild(_arm);
+
+  wrap.appendChild(root);
 }
 /* ===== HUB "Enviar" (17/07/2026): agrupa os tiles de ESTOQ_TILES por fase do fluxo de separação
    — galpão → campo → volta. Mesmo tile visual da home (estoqTileEl), mesma lógica de contagem
