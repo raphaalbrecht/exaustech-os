@@ -7569,7 +7569,7 @@ function coltRenderFila(corpo, root){
         +';border-radius:14px;padding:11px 12px;margin-bottom:8px');
       row.innerHTML='<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:700;color:'+CD.tx+'">'+_esc(r.fornecedor||r.name||'')+'</div>'
-        +'<div style="font-size:11.5px;color:'+CD.mu+';margin-top:2px">NF '+_esc(r.numeroNF||'—')+'</div></div>';
+        +'<div style="font-size:11.5px;color:'+CD.mu+';margin-top:2px">NF '+_esc(r.numeroNF||'—')+(r.name?' <span style="color:'+CD.mu2+'">· '+_esc(r.name)+'</span>':'')+'</div></div>';
       const b=coltEl('button','flex:0 0 auto;padding:9px 12px;border-radius:11px;border:1px solid '+CD.bd
         +';background:'+CD.card2+';color:'+CD.tx+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap',
         'Desfazer ('+coltMinutosRestantes(r.estornavelAte)+'min)');
