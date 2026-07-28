@@ -6430,6 +6430,7 @@ const COLT_COR_STATUS={
   'Em Conferência':[CD.am, CD.amBg],
   'Recebido Total':[CD.vd, CD.vdBg],
   'Recebido com Divergência':[CD.am, CD.amBg],
+  'Recebido - Pendente Estocagem':[CD.az, CD.azBg],
   'Recusado':[CD.vm, CD.vmBg],
 };
 function coltCorStatus(s){ return COLT_COR_STATUS[s] || [CD.mu, 'rgba(147,164,186,.12)']; }
@@ -8074,8 +8075,11 @@ async function coltConfirmarItem(){
   let status=coltStatusDerivado(qtd, av, item.quantidadeNF);
   /* 27/07: SEM produto vinculado, nenhum status que move saldo é aceito na org. Recebe como
      "Recebido sem Vínculo" — o escritório vincula depois e a mercadoria entra no estoque
-     (RecebimentoEstoqueService.entradaTardiaItem). Antes do check de motivo, que não se aplica. */
-  if(!item.produtoId) status='Recebido sem Vínculo';
+     (RecebimentoEstoqueService.entradaEstocarItem). Antes do check de motivo, que não se aplica.
+     28/07 (revisão Fable): só sobrepõe quando há quantidade BOA a estocar (qtd-av>0). Com qtd 0
+     ("Item Não Chegou") ou 100% avaria, o status derivado não exige produto e é mantido — senão a
+     nota travava em "Pendente Estocagem" com nada pra estocar (entradaEstocar recusa qtdBoa<=0). */
+  if(!item.produtoId && (qtd-av)>0) status='Recebido sem Vínculo';
   if((status==='Quantidade Divergente'||status==='Avariado') && !coltSt.divMotivo){
     /* motivo é obrigatório na org (Motivo_Obrig_Divergencia) — em vez de tomar 400 do servidor,
        a gaveta abre já pedindo a escolha. Nenhum motivo vem pré-marcado: propor, não decidir. */
@@ -8622,6 +8626,10 @@ function coltRenderFechamento(corpo, root){
   const nPend=itens.filter(coltPendente).length;
   const nDiv=itens.length-nOk-nPend;
   const temDivergencia=(nPend>0||nDiv>0);
+  /* 28/07 (opção 3): item recebido SEM vínculo não é divergência de verdade — vira o status
+     próprio 'Recebido - Pendente Estocagem'. Separo do nDiv pra o previsto bater com o Apex. */
+  const nSemVinc=itens.filter(i=>i&&i.status==='Recebido sem Vínculo').length;
+  const nDivReal=nDiv-nSemVinc;
 
   /* ---- tela de sucesso: substitui o formulário depois do POST dar certo ---- */
   if(coltSt.finOk){
@@ -8652,10 +8660,11 @@ function coltRenderFechamento(corpo, root){
 
   let r1='';
   r1+=coltLinha('Itens conferidos OK', String(nOk));
-  r1+=coltLinha('Divergências', String(nDiv));
+  r1+=coltLinha('Divergências', String(nDivReal));
+  r1+=coltLinha('Sem vínculo (→ Pendente Estocagem)', nSemVinc>0?String(nSemVinc):null);
   r1+=coltLinha('Pendentes (viram divergência)', nPend>0?String(nPend):null);
   /* o previsto, dito como previsto: quem decide o status final é o Apex no confirmar. */
-  r1+=coltLinha('Status previsto', temDivergencia?'Recebido com Divergência':'Recebido Total');
+  r1+=coltLinha('Status previsto', (nDivReal>0||nPend>0)?'Recebido com Divergência':(nSemVinc>0?'Recebido - Pendente Estocagem':'Recebido Total'));
   r1+='<div style="font-size:11.5px;color:'+CD.mu2+';padding:8px 0;line-height:1.5">Quem grava o status final é o servidor (RecebimentoEstoqueService) — a tela mostra o previsto, não decide por ele. Item sem endereço fica em Trânsito; item pendente não movimenta estoque.</div>';
   corpo.innerHTML+=coltCard('O que vai acontecer', r1);
 
