@@ -52,16 +52,25 @@
      ao atual" — 12px→24px e 11px→22px (dobro exato de cada um, não um valor novo calibrado). */
   /* pedido do Raphael (13/07, mesmo dia): 24px "ficou muito grande" — reduz 2px. Nome de conta
      longo (ex. "JAPPA DA QUITANDA - UNIDADE BARRA SHOPPING TESTE") estourava a largura da 1ª linha
-     do card e ficava embaixo do bloco de pílulas (que sobe via margin-top negativo em #riscoInline/
-     #summaryInline pra ficar visualmente ao lado do nome) — corrigido junto, ver comentário lá. */
-  .conta-destaque{font-size:22px;line-height:1.1;font-weight:700;color:var(--brand);margin:0 0 -6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:0 0 auto;max-width:100%}
-  .conta-destaque .data{font-size:22px;font-weight:600;color:var(--weak)}
+     do card. 30/07/2026: o mecanismo de "subir via margin-top negativo" que existia aqui (pra
+     simular alinhamento lado a lado com o bloco de pílulas) foi removido de vez no redesign em 2
+     níveis (.resumo-n1/.resumo-n2, ver comentário no HTML) — conta+data e o bloco à direita agora
+     são flex siblings de verdade dentro de .resumo-n1, sem hack de posicionamento. */
+  /* 30/07/2026: pedido do Raphael, redesign em 2 níveis — "reduzir à metade o tamanho da fonte ou
+     até menos". 22px fazia sentido quando Conta/Data eram o único destaque da barra (rodadas de
+     10-13/07); agora que moram ao lado de pílulas compactas (.stat .n = 15px) no mesmo nível 1,
+     22px ficava desproporcional. Corte de mais da metade (22px→11/10px) alinha o peso visual ao
+     resto do nível 1 sem perder o negrito/cor que ainda marca "isto é o título do card". */
+  .conta-destaque{font-size:11px;line-height:1.25;font-weight:700;color:var(--brand);margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:0 0 auto;max-width:100%}
+  .conta-destaque .data{font-size:10px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07, rodada 26): número do registro no Salesforce (Auditoria_tecnica__c.
      Name, autonumber "AUDTEC {000000}" — já vinha no GET lote como auditoria.nome, sem uso até
      agora) — empilha logo abaixo da data. Fonte dobrada (12px→24px) na rodada 26; reduzida de volta
      (24px→13px) depois — competia demais com conta/data no mesmo tamanho, virou identificador
      discreto de novo. */
-  .conta-destaque .audtec-sub{font-size:13px;font-weight:600;color:var(--weak)}
+  /* 30/07/2026: 13px passou a ser MAIOR que o próprio nome da conta (11px, ver acima) depois do
+     corte de fonte do redesign em 2 níveis — reduzido pra 9px, um degrau abaixo da data (10px). */
+  .conta-destaque .audtec-sub{font-size:9px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
      (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
   .conta-destaque .arquivo-sub{font-size:10px;font-weight:400;color:var(--weaker);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -95,6 +104,30 @@
   .card.loadbar{padding:5px 16px}
   .loadbar label{display:block;font-size:11.5px;color:var(--weak);margin-bottom:4px}
   .loadbar input,.loadbar select{border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:13px;width:220px}
+
+  /* 30/07/2026: redesign em 2 níveis da barra de resumo (Proposta A do subagente Fable, escolhida
+     pelo Raphael) — ver comentário completo no HTML (#resumoN1/#resumoN2). flex:1 1 100% em cada
+     nível força quebra de linha dentro do .loadbar (que é flex-wrap sem flex-direction:column),
+     truque padrão pra simular 2 "linhas" dentro de um container flex sem precisar de grid/coluna. */
+  .resumo-n1{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;flex:1 1 100%}
+  /* bloco à direita do nível 1 (confirmados + selo + pílula PDF + risco da loja) — margin-left:auto
+     empurra pra borda direita do card, mesmo truque que #riscoInline usava antes via CSS externo. */
+  .n1-right{display:flex;align-items:stretch;gap:10px;flex:0 0 auto;margin-left:auto;flex-wrap:wrap}
+  /* "Risco da loja" vira uma célula com fio separador à esquerda, ecoando o hairline entre seções
+     do .risco-card (.risco-sec+.risco-sec) — mesma linguagem visual, sem precisar reusar a moldura
+     inteira do .risco-card pra um conteúdo tão raso (só rótulo + 1 badge). */
+  .n1-cell{padding:2px 0 2px 16px;border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;gap:4px}
+  /* nível 2: filtros (sem match/fora de escopo/abas de tratamento/gráfico) + reset — separado do
+     nível 1 por uma hairline que só existe quando há conteúdo (.resumo-n2:empty some sozinho
+     quando nenhum lote está carregado, sem precisar de toggle de display via JS). */
+  .resumo-n2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 100%;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+  .resumo-n2:empty{margin-top:0;padding-top:0;border-top:none}
+  /* 30/07/2026: substitui a antiga pílula "N TOTAL ITENS" como reset geral de filtros — só aparece
+     quando algum filtro está de fato ativo (ver ativoTodas em renderTudo()), borda tracejada pra não
+     parecer mais um filtro ativável (ela É a saída, não uma opção a mais). limparFiltros() continua
+     a mesma função de sempre, só muda o gatilho visual. */
+  .limpar-filtros{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--brand);border:1px dashed var(--brand);border-radius:999px;padding:5px 12px;cursor:pointer;user-select:none;margin-left:auto;white-space:nowrap}
+  .limpar-filtros:hover{background:var(--brand-l)}
 
   /* 17/07/2026: pílula "PDF do laudo" no resumo — só existe no modo enxuto (.grid-2). Acesso
      SECUNDÁRIO de propósito: fundo branco + borda cinza (--border2), não azul — na gramática desta
@@ -955,10 +988,6 @@
   <div id="msgArea"></div>
 
   <div class="card loadbar">
-    <!-- pedido do Raphael (10/07, rodada 11): "entra pra dentro do retângulo branco" — o destaque
-         de conta+data (fonte azul grande) sai de fora do card e vira a 1ª linha do próprio card
-         branco (largura cheia, antes do resto do conteúdo do loadbar). -->
-    <div class="conta-destaque" id="contaDestaque" style="display:none;width:100%"></div>
     <!-- 15/07/2026 (pedido do Raphael): "Acessar por Id" (colar Ids do Salesforce na mão) removido
          de vez — vira busca por Conta + Auditoria Técnica (ver buBuscarConta/buSelecionarConta/
          buAbrirAuditoria abaixo). #inAuditoria/#inLote CONTINUAM existindo — o resto do arquivo
@@ -978,48 +1007,26 @@
       <div id="buContaLista" class="na-conta-lista" style="display:none"></div>
       <div id="buAuditoriasLista" class="bu-aud-lista" style="display:none"></div>
     </div>
-    <!-- pedido do Raphael (10/07, rodada 3): pílulas de Risco (R0-R5) sobem pra cá, no mesmo card —
-         eliminam a fileira própria que tinham antes (.filtros-sub), que sobrava vazia à direita
-         depois que a página passou a ocupar a largura toda.
-         Rodada 14: "o gráfico está perdido... deveria ir para o lado direito ao lado da primeira
-         caixinha (Total)" — margin:0 auto centralizava o gráfico sozinho (2 margens auto contra a
-         1 do summaryInline dividiam o espaço livre 2/3 x 1/3, jogando o gráfico pro meio do card,
-         longe do resumo). Fix: só o riscoInline empurra pra direita (margin-left:auto); o
-         summaryInline perde o margin-left:auto e passa a colar direto nele via gap do .loadbar —
-         os dois viram um bloco único encostado na borda direita, gráfico logo antes de "Total". -->
-    <!-- Rodada 18 (11/07): "igualar o espaço acima e abaixo do retângulo" — riscoInline/summaryInline
-         são o item mais alto da 2ª linha do .loadbar (que quebra em 2 linhas via flex-wrap: 1ª linha
-         é o conta-destaque, 2ª linha é este grupo + btnToggleIds). margin-top negativo puxa o grupo
-         pra cima — valor calibrado medindo ao vivo (getBoundingClientRect), não um chute; se o
-         conteúdo do card mudar de altura no futuro, reconferir.
-         13/07 (rodada 2): pedido "centralizar as pílulas pelo meio da altura do retângulo grande"
-         — .loadbar passa de align-items:flex-end pra center (ver CSS) e o valor deste margin-top
-         é recalibrado de -22px pra -70px pra compensar a Conta/Data terem dobrado de fonte (bloco
-         bem mais alto agora). Medido ao vivo: mid do grupo de pílulas (118.8) praticamente igual
-         ao mid do próprio .card.loadbar (119) — sobrepõe verticalmente o bloco da Conta (que é só
-         texto curto à esquerda, sem colidir visualmente com as pílulas à direita). Se a fonte da
-         Conta mudar de novo, reconferir este valor. -->
-    <!-- 12/07/2026 (rodada 6): align-items vira "stretch" (era "center") — o card novo "Risco da
-         loja" é bem mais raso de conteúdo que o gráfico de risco por item (só rótulo + 1 badge),
-         então "center" deixava ele flutuando baixinho, desalinhado. "stretch" + justify-content:
-         center dentro do .risco-card (ver CSS) resolve: ele cresce até a altura do vizinho mais
-         alto e centraliza o conteúdo dentro disso.
-         [rodada 7: superado em parte — os 2 cards fundiram num só (seções .risco-sec); o
-         alinhamento interno agora é do align-self:stretch da própria seção, ver CSS.] -->
-    <!-- 12/07/2026 (rodada 7): gap unificado em 10px nos dois grupos (era 8/14) — mesmo ritmo do
-         gap do próprio .loadbar, a fileira inteira respira igual de ponta a ponta. -->
-    <!-- 13/07 (rodada 3, mesmo dia): print real com conta "JAPPA DA QUITANDA - UNIDADE BARRA
-         SHOPPING TESTE" — nome comprido esbarrava no gráfico de risco (achado: -70px empurrava as
-         pílulas pra cima o suficiente pra invadir a altura do NOME, que é só 1 linha mas fica bem
-         próxima da borda superior do card). Pedido do Raphael: "baixar um pouco os blocos de texto".
-         Recalibrado ao vivo com o nome comprido de verdade (reproduzido via innerText no console) +
-         Conta em 22px (corte de 2px do mesmo pedido): -70px→-35px zera a sobreposição (gap medido
-         ~7.9px entre o fim do nome e o topo do gráfico). Efeito colateral aceito: nas contas com
-         nome curto (maioria), as pílulas ficam um pouco abaixo do centro vertical do card em vez de
-         perfeitamente no meio (rodada 2 tinha isso) — troca proposital: prioriza nunca mais sobrepor
-         um nome comprido em vez de centralização perfeita no caso comum. -->
-    <div id="riscoInline" style="margin-left:auto;margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
-    <div id="summaryInline" style="margin-top:-35px;display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"></div>
+    <!-- 30/07/2026: redesign em 2 níveis empilhados (Proposta A de um subagente Fable, escolhida pelo
+         Raphael — "estou achando as informações muito espalhadas horizontalmente quando poderia
+         haver um segundo nível para empilhamento"). Substitui de vez o esquema antigo de 1 linha só
+         com margin-top negativo simulando alinhamento lado a lado com a Conta/Data (histórico do
+         "hack" removido daqui — ver git log se precisar).
+         Nível 1 (.resumo-n1) = identidade + "como está indo": conta+data (#contaDestaque) à esquerda,
+         confirmados X/Y + Risco da loja (#n1Right) à direita — nunca compete com filtro nenhum.
+         Nível 2 (#resumoN2) = ferramentas de filtragem (sem match/fora de escopo/abas Em aberto e
+         Tratadas/gráfico de distribuição de risco) + o reset "× limpar filtros", que substitui a
+         antiga pílula "N TOTAL ITENS" (o N passou a viver dentro de "confirmados X/N" no nível 1) —
+         limparFiltros() continua a mesma função, só muda o gatilho visual. Ver
+         DECISAO_redesign-barra-resumo-2-niveis.md. Ambos os níveis são montados 100% via JS em
+         renderTudo() (ver #n1Right/#resumoN2 lá); a hairline entre os 2 níveis nasce junto com o
+         conteúdo do nível 2 (.resumo-n2:empty some sozinha quando não há lote carregado, sem
+         precisar de toggle de display manual). -->
+    <div class="resumo-n1" id="resumoN1">
+      <div class="conta-destaque" id="contaDestaque" style="display:none"></div>
+      <div class="n1-right" id="n1Right"></div>
+    </div>
+    <div class="resumo-n2" id="resumoN2"></div>
   </div>
   <!-- pedido do Raphael (10/07, rodada 4): estado vazio de primeira visita — sem isso a página
        ficava só com a barra em branco embaixo.
@@ -2080,12 +2087,19 @@ function renderTudo(){
       contaDestaque.style.display = 'none';
     }
   }
-  // pedido do Raphael (10/07): as pílulas de resumo (itens/confirmados/sem match/arquivo) saem
-  // do corpo da página e vão pro canto direito do MESMO retângulo branco onde ficam os campos
-  // Auditoria(Id)/Lote(Id) + botão Carregar lote — os 2 campos de busca continuam onde estavam,
-  // só o resumo migra pra dentro do card via #summaryInline (fora do innerHTML de #conteudo).
-  const summaryWrap = document.getElementById('summaryInline');
-  if (summaryWrap) {
+  // pedido do Raphael (10/07): as pílulas de resumo saem do corpo da página e vão pro canto direito
+  // do MESMO retângulo branco onde ficam os campos Auditoria(Id)/Lote(Id) + botão Carregar lote.
+  // 30/07/2026: redesign em 2 níveis (Proposta A do subagente Fable, escolhida pelo Raphael) —
+  // #n1Right (nível 1: confirmados X/Y + selo + pílula PDF + Risco da loja) e #resumoN2 (nível 2:
+  // sem match/fora de escopo/abas de tratamento/gráfico de risco/reset "limpar filtros"). Antes
+  // disso os dois blocos viviam em #riscoInline/#summaryInline, lado a lado da Conta via hack de
+  // margin-top negativo — ver comentário no HTML. A pílula "N TOTAL ITENS" (reset geral de
+  // filtros) deixou de existir: o N já vive dentro de "confirmados X/N" no nível 1, e o reset virou
+  // o chip "limpar filtros" no fim do nível 2, que só aparece quando algum filtro está ativo
+  // (limparFiltros() continua a mesma função de sempre, só muda o gatilho visual).
+  const n1Right = document.getElementById('n1Right');
+  const resumoN2 = document.getElementById('resumoN2');
+  if (n1Right && resumoN2) {
     // pedido do Raphael (10/07, rodada 2): "confirmados" era só um número solto, sem noção de
     // progresso nem de "terminou" — vira X/Y com barrinha, e quando bate 100% a pílula inteira
     // fica verde + aparece um selo "Revisão completa" (o Status_do_Lote__c='Concluído' que o
@@ -2094,11 +2108,8 @@ function renderTudo(){
     const confirmados = l.itensConfirmados || 0;
     const completo = loteCompleto; // mesmo cálculo, hoisted no topo de renderTudo() — ver comentário lá
     const pct = total > 0 ? Math.min(100, Math.round((confirmados / total) * 100)) : 0;
-    // pedido do Raphael (10/07, rodada 6): as 3 pílulas com número (total/confirmados/sem match)
-    // viram clicáveis — aplicam o filtro respectivo na lista à esquerda e o fundo destaca (classe
-    // stat-ativo); clicar de novo limpa. "arquivo" não vira filtro (não é uma contagem).
-    // 13/07/2026 (rodada 27): "total itens" só acende quando NENHUM filtro está ativo, incluindo
-    // filtrosRisco — senão ficaria "ativa" mesmo com uma seleção de risco filtrando a lista.
+    // "nenhum filtro ativo" (inclui filtrosRisco) — antes acendia a pílula "total itens"; agora
+    // decide se o chip "limpar filtros" aparece no fim do nível 2.
     const ativoTodas = ST.filtro === 'todas' && !ST.filtrosRisco.size;
     const ativoConfirmado = ST.filtro === 'confirmado';
     const ativoSemMatch = ST.filtro === 'Sem match';
@@ -2117,71 +2128,46 @@ function renderTudo(){
     const tratadaCount = contagem('tratada');
     const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
     const onTratada = ST.filtro === 'tratada';
-    summaryWrap.innerHTML =
-      // pedido do Raphael (13/07, 2ª rodada): arquivo saiu de vez da barra de pílulas — foi pra
-      // dentro de #contaDestaque, embaixo da data da vistoria (ver bloco acima). A barra volta a
-      // abrir com "total itens".
-      '<div class="stat clicavel' + (ativoTodas ? ' stat-ativo' : '') + '" onclick="limparFiltros()"><div class="n">' + (l.totalItens ?? '—') + '</div><div class="l">total itens</div></div>'
-      + '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
+
+    // ---- NÍVEL 1 (bloco à direita da Conta/Data): confirmados + selo + pílula PDF + Risco da loja ----
+    n1Right.innerHTML =
+      '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
-      + '</div>'
-      + '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
-      + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
-      + '<div class="trat-tabs">'
-        + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
-          + '<span class="big">' + abertaCount + (emTratativaCount
-            ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
-            : '') + '</span>'
-          + '<span class="l">Em aberto</span>'
-        + '</button>'
-        + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
-          + '<span class="big">' + tratadaCount + '</span>'
-          + '<span class="l">Tratadas</span>'
-        + '</button>'
       + '</div>'
       + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '')
       // 17/07/2026: pílula "PDF do laudo" — só existe no modo enxuto (lote 100% confirmado). Abre
       // o drawer (ver .pdf-drawer-* no CSS e abrirDrawerPdf() mais abaixo) já na página da NC
       // selecionada, se houver uma. pdfPillAnimar (calculado no topo de renderTudo) só é true na
       // transição real de incompleto→completo, nunca em re-renders subsequentes do mesmo lote.
-      // nota: sem contagem de páginas na pílula — o backend não expõe o total de páginas do PDF
-      // hoje (só a página de cada item via Pagina_no_PDF__c), não vamos inventar um dado que não
-      // existe só pra preencher o "· N págs." do brief visual.
-      + (completo ? '<button type="button" class="pdf-pill' + (pdfPillAnimar ? ' pdf-pill-enter' : '') + '" onclick="abrirDrawerPdf(ST.selecionadaId)">PDF do laudo</button>' : '');
-  }
+      + (completo ? '<button type="button" class="pdf-pill' + (pdfPillAnimar ? ' pdf-pill-enter' : '') + '" onclick="abrirDrawerPdf(ST.selecionadaId)">PDF do laudo</button>' : '')
+      // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
+      // diferente do histograma por item, que agora mora no nível 2: é a classificação geral
+      // gravada na Auditoria na hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
+      // 30/07/2026: sai do .risco-card compartilhado com o histograma (que virou nível 2) e vira
+      // uma .n1-cell própria aqui no nível 1 — companhia de "confirmados", não de "filtros".
+      + (a && a.riscoLoja ? '<div class="n1-cell"><span class="risco-card-label">Risco da loja</span>'
+          + '<span class="badge" style="background:' + corRiscoLojaTexto(a.riscoLoja).bg + ';color:' + corRiscoLojaTexto(a.riscoLoja).tx + ';font-size:13px;font-weight:700;padding:5px 12px;align-self:flex-start">' + escapeHtml(a.riscoLoja) + '</span></div>' : '');
 
-  // pedido do Raphael (11/07): bloco de comparativo removido da tela — ver comentário em carregar().
-
-  // pedido do Raphael (11/07): a linha inteira de pílulas de filtro (Todas/Forte/Fraco/Sem
-  // match/Com foto/Com nota/Recorrentes) foi removida — "Todas" e "Sem match" já existem como
-  // pílula clicável no resumo (#summaryInline) e as abas Em aberto/Tratadas cobrem o filtro
-  // operacional principal. Forte/Fraco/Com foto/Com nota/Recorrentes ficam sem atalho de filtro
-  // por enquanto (histórico: Rodada 16, 10/07, tinha acabado de reagrupar esse cluster pra dentro
-  // da coluna — ver git log se precisar recuperar algum desses filtros no futuro).
-
-  // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
-  // reprovada — "preciso de um gráfico claro... com a respectiva numeração quantitativa claramente
-  // alinhada com a sua barra". O problema era a legenda separada: exigia casar cor da barra com
-  // cor do quadradinho. Agora cada nível é uma coluna autocontida (número em cima, barra
-  // proporcional no meio, rótulo "Rn" embaixo — os 3 no mesmo eixo vertical), legenda não existe
-  // mais. Altura da barra em px (teto 26px) em vez de % pro contêiner não precisar de altura fixa.
-  // 13/07/2026 (rodada 32): pedido do Raphael — precisa ficar claro pro CLIENTE quando um risco
-  // alto é "nosso" (Exaustech) x quando é achado fora do escopo do serviço prestado (ex. problema
-  // estrutural do prédio, não atribuição da Exaustech consertar). 3 propostas de UI vieram de um
-  // subagente Fable (segmented de 3 pílulas / barras empilhadas / dropdown); Raphael escolheu o
-  // segmented (Proposta A) com o card mudando de cara em cada visão — sinal forte pra nunca deixar
-  // esquecer que "Exaustech"/"Fora de escopo" são um RECORTE, não a leitura padrão. maxRisco e a
-  // cor das barras dependem de ST.visaoRisco (ver setVisaoRisco/toggleRisco), mas niveisRisco NÃO
-  // — 13/07/2026 (rodada 34): pedido do Raphael, o conjunto de colunas (R0..R5 presentes) é
-  // calculado SEMPRE contra a visão 'todos', fixo, pra área do gráfico nunca mudar de LARGURA ao
-  // trocar de pílula (antes cada visão filtrava seu próprio conjunto de níveis>0, então uma visão
-  // recortada com menos níveis presentes tinha menos colunas => card mais estreito/mais largo
-  // conforme a pílula, chegando a invadir visualmente a seção "Risco da loja" ao lado).
-  const visaoRisco = ST.visaoRisco;
-  const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagemRiscoVisao(n, 'todos') > 0);
-  const riscoWrap = document.getElementById('riscoInline');
-  if (riscoWrap) {
+    // ---- NÍVEL 2: sem match / fora de escopo / abas de tratamento / gráfico de risco / reset ----
+    // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
+    // reprovada — "preciso de um gráfico claro... com a respectiva numeração quantitativa claramente
+    // alinhada com a sua barra". O problema era a legenda separada: exigia casar cor da barra com
+    // cor do quadradinho. Agora cada nível é uma coluna autocontida (número em cima, barra
+    // proporcional no meio, rótulo "Rn" embaixo — os 3 no mesmo eixo vertical), legenda não existe
+    // mais. Altura da barra em px (teto 26px) em vez de % pro contêiner não precisar de altura fixa.
+    // 13/07/2026 (rodada 32): pedido do Raphael — precisa ficar claro pro CLIENTE quando um risco
+    // alto é "nosso" (Exaustech) x quando é achado fora do escopo do serviço prestado (ex. problema
+    // estrutural do prédio, não atribuição da Exaustech consertar). 3 propostas de UI vieram de um
+    // subagente Fable (segmented de 3 pílulas / barras empilhadas / dropdown); Raphael escolheu o
+    // segmented (Proposta A daquela rodada) com o card mudando de cara em cada visão — sinal forte
+    // pra nunca deixar esquecer que "Exaustech"/"Fora de escopo" são um RECORTE, não a leitura
+    // padrão. maxRisco e a cor das barras dependem de ST.visaoRisco (ver setVisaoRisco/toggleRisco),
+    // mas niveisRisco NÃO — 13/07/2026 (rodada 34): o conjunto de colunas (R0..R5 presentes) é
+    // calculado SEMPRE contra a visão 'todos', fixo, pra área do gráfico nunca mudar de LARGURA ao
+    // trocar de pílula.
+    const visaoRisco = ST.visaoRisco;
+    const niveisRisco = [0, 1, 2, 3, 4, 5].filter((n) => contagemRiscoVisao(n, 'todos') > 0);
     const maxRisco = Math.max(1, ...niveisRisco.map((n) => contagemRiscoVisao(n, visaoRisco)));
     const rampa = visaoRisco === 'fora' ? RISCO_RAMPA_FORA : RISCO_RAMPA_SF;
     // legenda mostra a rampa inteira (R0→R5) da visão ativa — ela explica a escala de cor em si
@@ -2197,23 +2183,19 @@ function renderTudo(){
     // contador "N de M itens" — reforço extra (além da cor do card e do rótulo) de que a visão
     // ativa é um RECORTE, não a leitura padrão "toda a vistoria". 13/07/2026 (rodada 33): pedido
     // do Raphael — o card mudava de ALTURA conforme a pílula (a linha do contador só existia nas
-    // visões recortadas), empurrando "Risco da loja" pra ficar espremido na visão "Toda" (mais
-    // baixa) e arejado nas outras. Fix: o <div> do contador SEMPRE existe (reserva o espaço da
-    // linha), só o texto/visibilidade mudam — .risco-contador-oculto (visibility:hidden, não
-    // display:none) mantém a altura igual nas 3 visões sem período de layout shift.
+    // visões recortadas). Fix: o <div> do contador SEMPRE existe (reserva o espaço da linha), só o
+    // texto/visibilidade mudam — .risco-contador-oculto (visibility:hidden, não display:none)
+    // mantém a altura igual nas 3 visões sem período de layout shift.
     const totalGeral = ST.linhas.filter(l => l.risco != null).length;
     const totalVisao = niveisRisco.reduce((s, n) => s + contagemRiscoVisao(n, visaoRisco), 0);
     const contador = '<div class="risco-contador' + (visaoRisco === 'todos' ? ' risco-contador-oculto' : '') + '">' + totalVisao + ' de ' + totalGeral + ' itens</div>';
-    // 12/07/2026 (rodada 5): pedido do Raphael — "outro retângulo" pro Risco DA LOJA (eixo
-    // diferente do histograma por item acima: é a classificação geral gravada na Auditoria na
-    // hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
-    // 12/07/2026 (rodada 7, polimento): os 2 retângulos irmãos viram 2 SEÇÕES do mesmo
-    // .risco-card, separadas por hairline (.risco-sec no CSS) — risco é UM assunto, ganha UMA
-    // moldura. Cada seção só existe se tiver dado; os onclick das colunas não mudam.
-    const secoesRisco = [];
+    // 30/07/2026: "Risco da loja" saiu do .risco-card (mudou-se pro nível 1, ver n1Right acima) —
+    // o card agora tem 1 seção só (o histograma), mas mantém a moldura .risco-card/.risco-sec pra
+    // não precisar de CSS novo e continuar reconhecível como "o card de risco".
+    let graficoHtml = '';
     if (niveisRisco.length || visaoRisco !== 'todos') {
       const secClasse = visaoRisco === 'exa' ? 'risco-sec visao-exa' : visaoRisco === 'fora' ? 'risco-sec visao-fora' : 'risco-sec';
-      secoesRisco.push('<div class="' + secClasse + '"><div class="risco-sec-head"><span class="risco-card-label">' + labelTxt + '</span>' + segmented + '</div><div class="risco-chart">' + niveisRisco.map((n) => {
+      graficoHtml = '<div class="risco-card"><div class="' + secClasse + '"><div class="risco-sec-head"><span class="risco-card-label">' + labelTxt + '</span>' + segmented + '</div><div class="risco-chart">' + niveisRisco.map((n) => {
         const cor = rampa[n];
         const cnt = contagemRiscoVisao(n, visaoRisco);
         // pedido do Raphael (13/07): teto do gráfico cai de 26px pra 18px (corte de 25%) e depois
@@ -2230,15 +2212,39 @@ function renderTudo(){
           + '<span class="risco-bar" style="height:' + alturaPx + 'px;background:' + cor + '"></span>'
           + '<span class="risco-lbl">R' + n + '</span>'
           + '</div>';
-      }).join('') + '</div>' + legenda + contador + '</div>');
+      }).join('') + '</div>' + legenda + contador + '</div></div>';
     }
-    if (a && a.riscoLoja) {
-      const cor = corRiscoLojaTexto(a.riscoLoja);
-      secoesRisco.push('<div class="risco-sec"><span class="risco-card-label">Risco da loja</span>'
-        + '<span class="badge" style="background:' + cor.bg + ';color:' + cor.tx + ';font-size:13px;font-weight:700;padding:5px 12px">' + escapeHtml(a.riscoLoja) + '</span></div>');
-    }
-    riscoWrap.innerHTML = secoesRisco.length ? '<div class="risco-card">' + secoesRisco.join('') + '</div>' : '';
+
+    resumoN2.innerHTML =
+      '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
+      + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
+      + '<div class="trat-tabs">'
+        + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
+          + '<span class="big">' + abertaCount + (emTratativaCount
+            ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
+            : '') + '</span>'
+          + '<span class="l">Em aberto</span>'
+        + '</button>'
+        + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
+          + '<span class="big">' + tratadaCount + '</span>'
+          + '<span class="l">Tratadas</span>'
+        + '</button>'
+      + '</div>'
+      + graficoHtml
+      // 30/07/2026: substitui a antiga pílula "N TOTAL ITENS" como gatilho de limparFiltros() — só
+      // aparece quando há algo pra limpar (mesmo cálculo de ativoTodas usado antes pra acender a
+      // pílula), fica sempre por último (margin-left:auto no CSS empurra pra ponta direita).
+      + (!ativoTodas ? '<div class="limpar-filtros" onclick="limparFiltros()">&times; limpar filtros</div>' : '');
   }
+
+  // pedido do Raphael (11/07): bloco de comparativo removido da tela — ver comentário em carregar().
+
+  // pedido do Raphael (11/07): a linha inteira de pílulas de filtro (Todas/Forte/Fraco/Sem
+  // match/Com foto/Com nota/Recorrentes) foi removida — "Todas" e "Sem match" já existem como
+  // pílula clicável no resumo (nível 2, #resumoN2) e as abas Em aberto/Tratadas cobrem o filtro
+  // operacional principal. Forte/Fraco/Com foto/Com nota/Recorrentes ficam sem atalho de filtro
+  // por enquanto (histórico: Rodada 16, 10/07, tinha acabado de reagrupar esse cluster pra dentro
+  // da coluna — ver git log se precisar recuperar algum desses filtros no futuro).
 
   // pedido do Raphael (10/07, rodada 2): "limitar a altura das 3 colunas e criar scroll nelas" —
   // as 2 colunas da direita (antes um único bloco .detalhe com grid interno + card de histórico
@@ -2248,9 +2254,10 @@ function renderTudo(){
   // sincronizarAlturaLista()/ResizeObserver — que existia só pra IMITAR via JS um alinhamento que
   // o CSS grid já garante de graça quando as colunas são irmãs do mesmo container.
   // pedido do Raphael (13/07): as abas "Em aberto"/"Tratadas" (Proposta 2) saíram daqui e foram
-  // pra dentro da barra de resumo (#summaryInline, junto de total/confirmados/sem match/arquivo)
-  // — ver bloco summaryWrap acima. Continuam agregando nao_tratada+em_tratativa em "Em aberto"
-  // e usando setFiltro('trat_aberta'/'em_tratativa'/'tratada'), só mudou de casa no DOM.
+  // pra dentro da barra de resumo (nível 2, #resumoN2, junto de sem match/fora de escopo/gráfico
+  // de risco desde o redesign de 30/07) — ver bloco acima. Continuam agregando nao_tratada+
+  // em_tratativa em "Em aberto" e usando setFiltro('trat_aberta'/'em_tratativa'/'tratada'), só
+  // mudou de casa no DOM.
 
   h += '<div class="grid' + (ST.selecionadaId ? (loteCompleto ? ' grid-2' : ' grid-3') : '') + '">';
   h += '<div class="col-list">'
