@@ -971,7 +971,7 @@
       <input id="inLote">
       <button id="btnCarregar" onclick="carregar()">Carregar lote</button>
     </div>
-    <div class="bu-busca-wrap" style="position:relative">
+    <div class="bu-busca-wrap" id="buBuscaWrap" style="position:relative">
       <label>Buscar auditoria</label>
       <input id="buConta" placeholder="Digite o nome do shopping/cliente…" autocomplete="off"
         oninput="buBuscarConta(this.value)" onfocus="buReabrirListaSeHouver()">
@@ -1791,6 +1791,13 @@ async function carregar(){
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
     document.getElementById('estadoVazio').style.display = 'none';
+    // 30/07/2026 (achado do Raphael): "Buscar auditoria" (buBuscaWrap) serve só pra ACHAR uma
+    // Auditoria Técnica antes de abrir uma — depois de carregada, ela não faz mais sentido flutuando
+    // dentro da tela de revisão (some junto com #estadoVazio, mesma lógica). Fecha as listas
+    // suspensas junto, senão uma delas pode ficar aberta atrás do card já carregado.
+    document.getElementById('buBuscaWrap').style.display = 'none';
+    document.getElementById('buContaLista').style.display = 'none';
+    document.getElementById('buAuditoriasLista').style.display = 'none';
     renderTudo();
     // pedido do Raphael (11/07): remover o bloco "Comparativo com o relatório de..." da tela —
     // chamada desligada aqui (carregarComparativo/renderComparativo continuam definidas, só não
