@@ -121,8 +121,12 @@
   .n1-right{display:flex;align-items:stretch;gap:10px;flex:0 0 auto;margin-left:auto;flex-wrap:wrap}
   /* "Risco da loja" vira uma célula com fio separador à esquerda, ecoando o hairline entre seções
      do .risco-card (.risco-sec+.risco-sec) — mesma linguagem visual, sem precisar reusar a moldura
-     inteira do .risco-card pra um conteúdo tão raso (só rótulo + 1 badge). */
-  .n1-cell{padding:2px 0 2px 16px;border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;gap:4px}
+     inteira do .risco-card pra um conteúdo tão raso (só rótulo + 1 badge).
+     30/07/2026: Raphael comparou com o "confirmados" ao lado (que enche a caixa com número+barra) e
+     achou este lado vazio demais — pediu mais altura pra "se aproximar da linha horizontal" do
+     vizinho, sem mexer na posição do fio separador. Sobe o padding vertical (2px→8px) e o gap entre
+     rótulo/badge (4px→6px); padding-left (16px, o que define onde o border-left nasce) fica intacto. */
+  .n1-cell{padding:8px 0 8px 16px;border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;gap:6px}
   /* nível 2: filtros (sem match/fora de escopo/abas de tratamento/gráfico) + reset — separado do
      nível 1 por uma hairline que só existe quando há conteúdo (.resumo-n2:empty some sozinho
      quando nenhum lote está carregado, sem precisar de toggle de display via JS). */
@@ -2152,8 +2156,10 @@ function renderTudo(){
       // gravada na Auditoria na hora do cadastro, ver a.riscoLoja/Classificacao_de_risco__c).
       // 30/07/2026: sai do .risco-card compartilhado com o histograma (que virou nível 2) e vira
       // uma .n1-cell própria aqui no nível 1 — companhia de "confirmados", não de "filtros".
-      + (a && a.riscoLoja ? '<div class="n1-cell"><span class="risco-card-label">Risco da loja</span>'
-          + '<span class="badge" style="background:' + corRiscoLojaTexto(a.riscoLoja).bg + ';color:' + corRiscoLojaTexto(a.riscoLoja).tx + ';font-size:13px;font-weight:700;padding:5px 12px;align-self:flex-start">' + escapeHtml(a.riscoLoja) + '</span></div>' : '');
+      // 30/07/2026: label sobe 8px→9px e o badge cresce (13px→15px, padding 5px 12px→7px 15px) pra
+      // ocupar a altura extra do .n1-cell sem mexer no fio separador (padding-left inalterado).
+      + (a && a.riscoLoja ? '<div class="n1-cell"><span class="risco-card-label" style="font-size:9px">Risco da loja</span>'
+          + '<span class="badge" style="background:' + corRiscoLojaTexto(a.riscoLoja).bg + ';color:' + corRiscoLojaTexto(a.riscoLoja).tx + ';font-size:15px;font-weight:700;padding:7px 15px;align-self:flex-start">' + escapeHtml(a.riscoLoja) + '</span></div>' : '');
 
     // ---- NÍVEL 2: sem match / fora de escopo / abas de tratamento / gráfico de risco / reset ----
     // pedido do Raphael (10/07, rodada 12c): a 12b (barras + legenda de quadradinhos embaixo) foi
