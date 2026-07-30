@@ -60,17 +60,23 @@
      até menos". 22px fazia sentido quando Conta/Data eram o único destaque da barra (rodadas de
      10-13/07); agora que moram ao lado de pílulas compactas (.stat .n = 15px) no mesmo nível 1,
      22px ficava desproporcional. Corte de mais da metade (22px→11/10px) alinha o peso visual ao
-     resto do nível 1 sem perder o negrito/cor que ainda marca "isto é o título do card". */
-  .conta-destaque{font-size:11px;line-height:1.25;font-weight:700;color:var(--brand);margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:0 0 auto;max-width:100%}
-  .conta-destaque .data{font-size:10px;font-weight:600;color:var(--weak)}
+     resto do nível 1 sem perder o negrito/cor que ainda marca "isto é o título do card".
+     30/07/2026 (mesmo dia, depois de ver ao vivo): 11/10px passou longe demais — Raphael pediu
+     "mais destaque a conta, data e vistoria" (nome do arquivo continua pequeno embaixo, sem
+     mudança). Subiu pra 16/13px — mais presente que o corte anterior, sem voltar ao 22px que
+     brigava com as pílulas ao lado. */
+  .conta-destaque{font-size:16px;line-height:1.25;font-weight:700;color:var(--brand);margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:0 0 auto;max-width:100%}
+  .conta-destaque .data{font-size:13px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07, rodada 26): número do registro no Salesforce (Auditoria_tecnica__c.
      Name, autonumber "AUDTEC {000000}" — já vinha no GET lote como auditoria.nome, sem uso até
      agora) — empilha logo abaixo da data. Fonte dobrada (12px→24px) na rodada 26; reduzida de volta
      (24px→13px) depois — competia demais com conta/data no mesmo tamanho, virou identificador
      discreto de novo. */
   /* 30/07/2026: 13px passou a ser MAIOR que o próprio nome da conta (11px, ver acima) depois do
-     corte de fonte do redesign em 2 níveis — reduzido pra 9px, um degrau abaixo da data (10px). */
-  .conta-destaque .audtec-sub{font-size:9px;font-weight:600;color:var(--weak)}
+     corte de fonte do redesign em 2 níveis — reduzido pra 9px, um degrau abaixo da data (10px).
+     30/07/2026 (mesmo dia): subiu de novo pra 12px junto com o pedido de "mais destaque a conta,
+     data e vistoria" — mantém um degrau abaixo da data (13px), acima do arquivo (10px, intocado). */
+  .conta-destaque .audtec-sub{font-size:12px;font-weight:600;color:var(--weak)}
   /* pedido do Raphael (13/07): nome do arquivo empilhado embaixo da data — degrau abaixo dela
      (11px), texto simples sem negrito, cortado com ellipsis se não couber na largura do card. */
   .conta-destaque .arquivo-sub{font-size:10px;font-weight:400;color:var(--weaker);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
