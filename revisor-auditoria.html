@@ -1555,11 +1555,17 @@ function naMostrarDuplicata(motivo, existente){
     ? 'Este mesmo arquivo já foi importado antes:'
     : 'Já existe uma auditoria desta conta com vistoria nesta mesma data:';
   const podeSobrescrever = !!existente.auditoriaId;
+  // 31/07/2026 (pedido do Raphael, mesmo padrão do "Cancelar" já aplicado em naMostrarErroImportacao):
+  // este é um diálogo DIFERENTE (duplicata, disparado pelo 409 do POST /exp/auditorias, antes de
+  // qualquer chamada ao Gemini) — precisa do próprio Cancelar, não herda o da função de erro de import.
   el.innerHTML = '<div class="msg err" style="margin-top:10px">'
     + '<div style="margin-bottom:8px">' + titulo + '<br>' + contexto + '</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + (podeSobrescrever ? '<button type="button" class="btn" onclick="naSobrescreverExistente()">Substituir o anterior por este</button>' : '')
-      + '<button type="button" class="btn sec" onclick="naForcarImportar()">Criar outro</button>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        + (podeSobrescrever ? '<button type="button" class="btn" onclick="naSobrescreverExistente()">Substituir o anterior por este</button>' : '')
+        + '<button type="button" class="btn sec" onclick="naForcarImportar()">Criar outro</button>'
+      + '</div>'
+      + '<button type="button" class="btn sec" onclick="toggleNovaAuditoria()">Cancelar</button>'
     + '</div>'
   + '</div>';
 }
