@@ -33,6 +33,12 @@
      página (ocupava altura mesmo fechado); agora é só um gatilho no cabeçalho. */
   .chip-btn{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer}
   .chip-btn:hover{background:rgba(255,255,255,.3)}
+  /* 30/07/2026 (pedido do Raphael): "preciso ter uma forma de sair de uma auditoria e voltar pra
+     home... um botão de destaque". Fundo sólido branco (em vez do vidro translúcido do chip-btn
+     comum) pra contrastar mais no header azul-escuro — só aparece quando um lote está carregado
+     (ver voltarParaHome()/carregar()), nunca ao lado do "+ Nova auditoria" na home em si. */
+  .chip-btn-home{background:#fff;border:none;color:var(--brand-dk);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:5px}
+  .chip-btn-home:hover{background:#E9F1F8}
   /* pedido do Raphael (10/07, rodada 3): conta+data sobem do corpo pro header azul, ao lado do
      título — separador sutil (borda esquerda translúcida) só pra diferenciar do título, sem virar
      um bloco chamativo. */
@@ -960,6 +966,7 @@
 <header>
   <h1>Exaustech · Revisor de Auditoria</h1>
   <div class="spacer"></div>
+  <button class="chip-btn-home" id="btnHome" onclick="voltarParaHome()" title="Sair desta auditoria e voltar pro histórico">← Home</button>
   <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
   <div class="chip" id="userchip">carregando sessão…</div>
 </header>
@@ -1890,6 +1897,28 @@ function rhomeMatchFiltro(r, filtro){
   if (filtro === 'trat') return (r.tratativasAbertas || 0) > 0;
   return true;
 }
+// 30/07/2026 (pedido do Raphael): "preciso ter uma forma de sair de uma auditoria e voltar pra home
+// do dashboard. um botão de destaque". Espelha o oposto de carregar(): zera o estado do lote atual,
+// devolve a tela pro estado vazio (que agora é a home rica) e atualiza os dados da home (o lote que
+// acabou de ser revisado pode ter mudado de status — ex. virou 100% confirmado). Não mexe em
+// revisor_last (localStorage) — o link "continue a última revisão" continua funcionando normal.
+function voltarParaHome(){
+  ST.auditoriaId = null; ST.loteId = null; ST.lote = null; ST.auditoria = null; ST.linhas = [];
+  ST.selecionadaId = null; ST.filtro = 'todas'; ST.busca = ''; ST.filtrosRisco = new Set();
+  ST.visaoRisco = 'todos'; ST.comparativo = null; ED = null;
+  document.getElementById('inAuditoria').value = '';
+  document.getElementById('inLote').value = '';
+  document.getElementById('conteudo').innerHTML = '';
+  const contaDestaque = document.getElementById('contaDestaque');
+  if (contaDestaque) { contaDestaque.style.display = 'none'; contaDestaque.innerHTML = ''; }
+  document.getElementById('n1Right').innerHTML = '';
+  document.getElementById('resumoN2').innerHTML = '';
+  document.getElementById('buBuscaWrap').style.display = '';
+  document.getElementById('btnHome').style.display = 'none';
+  msg('');
+  document.getElementById('estadoVazio').style.display = 'flex';
+  carregarHome(); // reflete qualquer mudança de status desde a última vez que a home foi mostrada
+}
 function rhomeAbrir(auditoriaId, loteId){
   if (!loteId) return; // auditoria sem PDF importado ainda — nada pra abrir
   document.getElementById('inAuditoria').value = auditoriaId;
@@ -2025,6 +2054,7 @@ async function carregar(){
     document.getElementById('buBuscaWrap').style.display = 'none';
     document.getElementById('buContaLista').style.display = 'none';
     document.getElementById('buAuditoriasLista').style.display = 'none';
+    document.getElementById('btnHome').style.display = 'inline-flex'; // 30/07/2026: botão "← Home" só existe com lote carregado
     renderTudo();
     // pedido do Raphael (11/07): remover o bloco "Comparativo com o relatório de..." da tela —
     // chamada desligada aqui (carregarComparativo/renderComparativo continuam definidas, só não
