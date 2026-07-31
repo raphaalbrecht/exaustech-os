@@ -1418,7 +1418,7 @@ function buAbrirAuditoria(auditoriaId, loteId){
 // só faltava a tela — antes só dava pra criar via curl/Postman) ----
 // 15/07/2026: historicoRiscos = auditorias anteriores impressas na capa do FTR (lidas na pré-análise),
 // conferidas contra o Salesforce em naChecarHistoricoRisco() quando a Conta é selecionada.
-let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[], auditoriaCriadaId:null, tentativasImportacao:0 };
+let NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[], auditoriaCriadaId:null, tentativasImportacao:0, auditoriaJaExistia:false };
 
 function toggleNovaAuditoria(){
   const overlay = document.getElementById('novaAudOverlay');
@@ -1427,7 +1427,7 @@ function toggleNovaAuditoria(){
   if (!abrindo) {
     // fechar reseta o mini-fluxo, pra não deixar campos "presos" de uma tentativa anterior
     if (NA.previewUrl) URL.revokeObjectURL(NA.previewUrl); // 15/07/2026: libera a memória do blob local da prévia
-    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[], auditoriaCriadaId:null, tentativasImportacao:0 };
+    NA = { contaId:null, contaNome:'', buscaTimer:null, arquivo:null, hashArquivo:null, forcarImport:false, duplicataExistente:null, previewUrl:null, historicoRiscos:[], auditoriaCriadaId:null, tentativasImportacao:0, auditoriaJaExistia:false };
     document.getElementById('naArquivo').value = '';
     document.getElementById('naConta').value = '';
     document.getElementById('naData').value = '';
@@ -1575,6 +1575,12 @@ function naMostrarDuplicata(motivo, existente){
 async function naSobrescreverExistente(){
   const existente = NA.duplicataExistente;
   if (!existente || !existente.auditoriaId || !NA.arquivo) return;
+  // 31/07/2026: sem isto, uma falha do Gemini aqui caía em naMsg() simples (sem "Tentar de novo" /
+  // "Tentar via imagem") — NA.auditoriaCriadaId é o que naTentarNovamenteImportacao/naTentarViaImagem
+  // usam pra saber em cima de qual auditoria reenviar o PDF, então precisa apontar pra existente.auditoriaId.
+  NA.auditoriaCriadaId = existente.auditoriaId;
+  NA.tentativasImportacao = 0;
+  NA.auditoriaJaExistia = true; // usado por naMostrarErroImportacao pra escolher o texto certo
   naMsg('');
   const btn = document.getElementById('btnCriarAuditoria');
   if (btn) { btn.disabled = true; btn.textContent = 'Sobrescrevendo…'; }
@@ -1589,7 +1595,7 @@ async function naSobrescreverExistente(){
       method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
     });
     const j2 = await r2.json();
-    if (!r2.ok || j2.ok === false) { naMsg('Erro ao sobrescrever: ' + (j2.mensagem || j2.error || r2.status), 'err'); return; }
+    if (!r2.ok || j2.ok === false) { naMostrarErroImportacao(j2); return; }
     ok = true;
     document.getElementById('inAuditoria').value = existente.auditoriaId;
     document.getElementById('inLote').value = j2.loteId;
@@ -1620,11 +1626,20 @@ const MOTIVOS_IMPORT_COM_RETRY = ['pdf_digitalizado', 'ia_indisponivel'];
 // Mostra o erro de importação com botão "Tentar de novo" quando fizer sentido (ver
 // MOTIVOS_IMPORT_COM_RETRY). Reaproveitada tanto pela 1ª chamada (naCriarEImportar) quanto pelo
 // próprio retry (naTentarNovamenteImportacao), pra empilhar "tentar de novo" quantas vezes precisar.
+// 31/07/2026 (2ª rodada — bug apontado pelo Raphael: "mas ele nem tentou com Gemini?"): o caminho
+// de SOBRESCREVER uma auditoria já existente (naSobrescreverExistente) chamava naMsg() direto,
+// sem passar por aqui — então nunca ganhava os botões de retry, mesmo o Gemini tendo sido chamado
+// e falhado do mesmo jeito. NA.auditoriaJaExistia troca só o texto (não foi criada agora, já
+// existia) — os botões de retry são os mesmos nos dois casos, lidos do estado em NA em vez de
+// passados por parâmetro, já que os 4 chamadores (criar/sobrescrever/2 retries) compartilham o
+// mesmo NA e cada um já deixa NA.auditoriaJaExistia correto antes de chegar aqui.
 function naMostrarErroImportacao(j2){
   const el = document.getElementById('naMsg');
   if (!el) return;
   const podeRetry = MOTIVOS_IMPORT_COM_RETRY.includes(j2.motivo);
-  const mensagem = 'Auditoria ' + escapeHtml(NA.auditoriaCriadaId || '') + ' criada, mas houve erro ao importar o PDF: ' + escapeHtml(j2.mensagem || j2.error || 'erro desconhecido');
+  const mensagem = !NA.auditoriaJaExistia
+    ? ('Auditoria ' + escapeHtml(NA.auditoriaCriadaId || '') + ' criada, mas houve erro ao importar o PDF: ' + escapeHtml(j2.mensagem || j2.error || 'erro desconhecido'))
+    : ('Erro ao importar o PDF nesta auditoria: ' + escapeHtml(j2.mensagem || j2.error || 'erro desconhecido'));
   let botoesHtml = '';
   if (podeRetry) {
     botoesHtml += '<button type="button" class="btn" onclick="naTentarNovamenteImportacao()">Tentar de novo</button>';
@@ -1979,7 +1994,7 @@ async function naCriarEImportar(){
     const auditoriaId = j.id;
     // 31/07/2026 (pedido do Raphael): guarda o Id pra permitir "Tentar de novo"/"Tentar via
     // imagem" sem recriar a Auditoria_tecnica__c a cada tentativa (ver naTentarNovamenteImportacao).
-    NA.auditoriaCriadaId = auditoriaId; NA.tentativasImportacao = 0;
+    NA.auditoriaCriadaId = auditoriaId; NA.tentativasImportacao = 0; NA.auditoriaJaExistia = false;
     btn.textContent = 'Importando PDF… (relatórios grandes podem levar alguns minutos)';
     naMsg('Auditoria ' + escapeHtml(j.name || j.id) + ' criada. Importando PDF…', 'info');
     // 160s até 100% (não mais um teto de 92% "travado") — cobre o pior caso medido pelo Fable
