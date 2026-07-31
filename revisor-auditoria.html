@@ -584,6 +584,72 @@
   .col{padding:18px;height:100%;min-height:0;overflow-y:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;background:var(--card)}
   .col.left{background:var(--bg)}
   .placeholder-col{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--weaker);font-size:13px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+  /* 30/07/2026: home/dashboard do revisor (pedido do Raphael — "quando abrimos a home... temos que
+     ter uma home, uma espécie de dashboard com histórico das últimas Auditorias"). Mockup de
+     referência: 3 propostas de um subagente Fable, Proposta C ("linha do tempo por semana")
+     escolhida, depois evoluída com faixa de risco 4/5 cross-conta + header rico + filtros globais
+     (ver GET /exp/auditorias/dashboard no backend). Vive DENTRO de #estadoVazio — não é uma tela
+     nova, é o que preenche o mesmo placeholder de sempre quando não há lote carregado (mantém
+     intacta a regra "a página SEMPRE abre vazia, nunca pré-carrega lote sozinha" — nenhum clique
+     aqui carrega nada sem ação explícita do revisor). #estadoVazio.rhome-ativo sobrescreve o
+     centralizar do .placeholder-col (que fazia sentido pro texto curto de antes, não pro dashboard
+     inteiro) — só entra quando o fetch do dashboard tem sucesso; se falhar (endpoint ainda não
+     deployado, sem sessão, etc.), o texto simples de sempre (#rhomeFallback) continua valendo. */
+  #estadoVazio.rhome-ativo{display:block !important;text-align:left;overflow-y:auto;padding:16px}
+  .rhome-hero{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:stretch}
+  .rhome-cta{flex:0 0 auto;min-width:170px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;background:var(--brand-dk);border-radius:12px;padding:14px 16px;cursor:pointer;color:#fff;border:none;text-align:left;transition:filter .1s;font-family:inherit}
+  .rhome-cta:hover{filter:brightness(1.18)}
+  .rhome-cta .plus{width:34px;height:34px;border-radius:9px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:300;flex-shrink:0}
+  .rhome-cta .t{font-size:13.5px;font-weight:800;line-height:1.2}
+  .rhome-cta .s{font-size:11px;opacity:.7;line-height:1.3}
+  .rhome-dash{flex:1;min-width:280px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:4px}
+  .rhome-m{padding:6px 10px;border-radius:9px;border:1px solid transparent;display:flex;flex-direction:column;justify-content:center;gap:2px}
+  .rhome-m .v{font-size:19px;font-weight:800;color:var(--brand-dk);line-height:1;white-space:nowrap}
+  .rhome-m .v small{font-size:10.5px;font-weight:600;color:var(--weaker)}
+  .rhome-m .l{font-size:10px;color:var(--weaker);line-height:1.25}
+  .rhome-m.err .v{color:var(--err)}
+  .rhome-m.warn .v{color:var(--warn)}
+  .rhome-m.click{cursor:pointer}
+  .rhome-m.click:hover{background:var(--brand-l)}
+  .rhome-band{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 0 8px;margin-bottom:14px}
+  .rhome-band .hd{display:flex;align-items:baseline;gap:8px;padding:0 16px 8px;flex-wrap:wrap}
+  .rhome-band .hd h2{font-size:12px;font-weight:800;color:var(--brand-dk);letter-spacing:.2px;margin:0}
+  .rhome-band .hd .cnt{font-size:11px;font-weight:700;color:var(--err);background:var(--err-bg);border:1px solid var(--err-bd);border-radius:9px;padding:1px 8px}
+  .rhome-band .hd .note{font-size:11px;color:var(--weaker);margin-left:auto}
+  .rhome-scroll{display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,1fr);grid-auto-columns:minmax(300px,330px);gap:6px;overflow-x:auto;padding:0 16px 6px}
+  .rhome-nc{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:7px 11px;cursor:pointer;min-width:0}
+  .rhome-nc:hover{border-color:var(--brand)}
+  .rhome-nc .rk{flex:0 0 38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;line-height:1}
+  .rhome-nc .tx{min-width:0}
+  .rhome-nc .loja{font-size:10.5px;font-weight:800;color:var(--brand-dk);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rhome-nc .desc{font-size:11px;color:var(--txt);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .rhome-fbar{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .rhome-fbar .flbl{font-size:11px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.4px;margin-right:2px}
+  .rhome-fpill{font-size:11.5px;font-weight:700;border-radius:99px;padding:5px 12px;cursor:pointer;background:var(--card);border:1px solid var(--border2);color:var(--weak);font-family:inherit}
+  .rhome-fpill:hover{border-color:var(--brand);color:var(--brand-d)}
+  .rhome-fpill.on{background:var(--brand-dk);border-color:var(--brand-dk);color:#fff}
+  .rhome-fbar .fres{font-size:11px;color:var(--weaker);margin-left:auto}
+  .rhome-week{margin-bottom:16px}
+  .rhome-week h2{font-size:12px;font-weight:700;color:var(--brand-dk);margin:0 0 7px 2px}
+  .rhome-week h2 .n{font-size:11px;font-weight:600;color:var(--weaker);margin-left:6px}
+  .rhome-row{display:grid;grid-template-columns:minmax(190px,1.3fr) 90px minmax(120px,1fr) 1fr 20px;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 16px;margin-bottom:6px;cursor:pointer}
+  .rhome-row:hover{border-color:var(--brand)}
+  .rhome-row .acc{font-weight:700;font-size:13px;color:var(--brand-dk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rhome-row .code{font-size:11px;color:var(--weaker);margin-top:2px}
+  .rhome-row .date{font-size:12px;color:var(--weak);white-space:nowrap}
+  .rhome-row .date b{display:block;font-size:13px;color:var(--txt)}
+  .rhome-pwrap{display:flex;align-items:center;gap:8px}
+  .rhome-pbar{flex:1;height:6px;border-radius:3px;background:var(--neu-bg);overflow:hidden}
+  .rhome-pbar i{display:block;height:100%;background:var(--brand);border-radius:3px}
+  .rhome-row.done .rhome-pbar i{background:var(--succ)}
+  .rhome-pnum{font-size:11.5px;color:var(--weak);white-space:nowrap;min-width:52px}
+  .rhome-sig{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+  .rhome-pill{font-size:11px;font-weight:700;border-radius:9px;padding:2px 8px;white-space:nowrap;border:1px solid transparent}
+  .rhome-pill.doing{background:var(--brand-l);color:var(--brand-d);border-color:#CBDDEC}
+  .rhome-pill.done{background:var(--succ-bg);color:var(--succ);border-color:var(--succ-bd)}
+  .rhome-pill.risk{background:var(--err-bg);color:var(--err-tx);border-color:var(--err-bd)}
+  .rhome-chev{color:var(--border2);font-size:16px;text-align:right}
+  .rhome-empty{background:var(--card);border:1px dashed var(--border2);border-radius:10px;padding:20px 16px;text-align:center;font-size:12px;color:var(--weaker)}
   /* sugestão Fable 10/07: títulos de seção (h3) tinham quase o mesmo peso do corpo de texto —
      uppercase + letter-spacing dá um rótulo de seção mais claro sem mudar layout/estrutura */
   .col h3{font-size:11px;color:var(--weak);margin:0 0 10px;display:flex;align-items:center;gap:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
@@ -1045,7 +1111,10 @@
        um último lote salvo neste navegador (revisor_last) — vira um link de acesso rápido que só
        carrega ao ser CLICADO, nunca sozinho. -->
   <div id="estadoVazio" class="placeholder-col" style="display:none;margin-top:14px;flex:1 1 auto">
-    Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="document.getElementById('buConta').focus();return false" style="color:var(--brand);font-weight:600">busque por conta</a> uma auditoria já existente.<span id="linkUltimoLote"></span>
+    <div id="rhomeFallback">
+      Nenhuma auditoria carregada ainda. Clique em <strong style="margin:0 4px">+ Nova auditoria</strong> pra importar um PDF, ou <a href="#" onclick="document.getElementById('buConta').focus();return false" style="color:var(--brand);font-weight:600">busque por conta</a> uma auditoria já existente.<span id="linkUltimoLote"></span>
+    </div>
+    <div id="rhomeConteudo" style="display:none"></div>
   </div>
 
   <div id="conteudo"></div>
@@ -1772,7 +1841,148 @@ function initSessao(){
       + (temRascunho ? ' <strong>(há um rascunho de edição não salvo nela)</strong>' : '') + '.';
   }
   document.getElementById('estadoVazio').style.display = 'flex';
+  carregarHome(); // 30/07/2026: home/dashboard — best-effort, nunca bloqueia a tela (ver comentário em carregarHome)
   return true;
+}
+
+// 30/07/2026 (pedido do Raphael, via subagente Fable — ver DECISAO_home-dashboard-revisor.md):
+// preenche #rhomeConteudo com o histórico de auditorias recentes + central de risco alto + métricas
+// do mês. Best-effort de propósito: se o endpoint ainda não foi deployado, ou a sessão não tiver
+// token, ou a Salesforce estiver fora do ar, o #rhomeFallback (texto simples de sempre) continua
+// visível — nenhum erro aparece pro revisor, a tela nunca fica pior do que já era.
+let RHOME = { dados: null, filtro: 'todas' };
+async function carregarHome(){
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/dashboard?dias=60', { headers: { Authorization: 'Bearer ' + beTok() } });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !Array.isArray(d.recentes)) return;
+    RHOME.dados = d; RHOME.filtro = 'todas';
+    rhomeRender();
+    document.getElementById('rhomeFallback').style.display = 'none';
+    document.getElementById('rhomeConteudo').style.display = 'block';
+    document.getElementById('estadoVazio').classList.add('rhome-ativo');
+  } catch (e) { console.warn('[home] dashboard indisponível, mantendo estado vazio simples:', e.message); }
+}
+function rhomeFmtData(iso){
+  if (!iso) return '—';
+  const [ano, mes, dia] = iso.slice(0, 10).split('-');
+  return dia + '/' + mes;
+}
+function rhomeInicioSemana(iso){
+  const dt = new Date(iso.slice(0, 10) + 'T00:00:00');
+  const diaSemana = (dt.getDay() + 6) % 7; // 0 = segunda
+  dt.setDate(dt.getDate() - diaSemana);
+  return dt;
+}
+function rhomeTituloSemana(inicio, inicioHoje){
+  const diffSemanas = Math.round((inicioHoje - inicio) / (7 * 24 * 60 * 60 * 1000));
+  const fim = new Date(inicio); fim.setDate(fim.getDate() + 6);
+  const fmt = (dt) => String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+  if (diffSemanas === 0) return 'Esta semana · ' + fmt(inicio) + '–' + fmt(fim);
+  if (diffSemanas === 1) return 'Semana passada · ' + fmt(inicio) + '–' + fmt(fim);
+  return fmt(inicio) + '–' + fmt(fim);
+}
+function rhomeMatchFiltro(r, filtro){
+  if (filtro === 'todas') return true;
+  if (filtro === 'risco45') return !!r.temRiscoAlto;
+  if (filtro === 'doing') return r.statusLote && r.statusLote !== 'Concluído';
+  if (filtro === 'trat') return (r.tratativasAbertas || 0) > 0;
+  return true;
+}
+function rhomeAbrir(auditoriaId, loteId){
+  if (!loteId) return; // auditoria sem PDF importado ainda — nada pra abrir
+  document.getElementById('inAuditoria').value = auditoriaId;
+  document.getElementById('inLote').value = loteId;
+  carregar();
+}
+function rhomeSetFiltro(f){
+  RHOME.filtro = f;
+  rhomeRender();
+}
+function rhomeRender(){
+  const d = RHOME.dados;
+  if (!d) return;
+  const m = d.resumoMes;
+  const FILTRO_NOMES = { todas: 'Todas', risco45: 'Risco 4 e 5', doing: 'Em revisão', trat: 'Com tratativas em aberto' };
+
+  // ---- hero: CTA + dashboard de 6 métricas ----
+  const hero =
+    '<div class="rhome-hero">' +
+      '<button type="button" class="rhome-cta" onclick="toggleNovaAuditoria()" title="Envie o PDF da vistoria — a IA pré-preenche as linhas">' +
+        '<span class="plus">+</span><span><span class="t">Nova auditoria</span><span class="s" style="display:block">Envie o PDF da vistoria</span></span>' +
+      '</button>' +
+      '<div class="rhome-dash">' +
+        '<div class="rhome-m"><div class="v">' + m.totalAuditorias + '</div><div class="l">auditorias (últimos ' + d.janelaDias + ' dias)</div></div>' +
+        '<div class="rhome-m"><div class="v">' + m.emRevisao + '</div><div class="l">em revisão agora</div></div>' +
+        '<div class="rhome-m"><div class="v">' + m.concluidas + '</div><div class="l">concluídas</div></div>' +
+        '<div class="rhome-m err click" onclick="rhomeSetFiltro(\'risco45\')" title="Filtrar a lista pelas auditorias com risco 4 e 5"><div class="v">' + m.ncsRisco45Abertas + '</div><div class="l">NCs risco 4–5 em aberto</div></div>' +
+        '<div class="rhome-m warn click" onclick="rhomeSetFiltro(\'trat\')" title="Filtrar a lista pelas auditorias com tratativas em aberto"><div class="v">' + m.tratativasAbertas + '</div><div class="l">tratativas em aberto' + (m.tratativasAbertasLojas ? ' (' + m.tratativasAbertasLojas + ' loja' + (m.tratativasAbertasLojas === 1 ? '' : 's') + ')' : '') + '</div></div>' +
+        '<div class="rhome-m"><div class="v">' + (m.tempoMedioRevisaoDias != null ? m.tempoMedioRevisaoDias : '—') + (m.tempoMedioRevisaoDias != null ? '<small> dias</small>' : '') + '</div><div class="l">tempo médio de revisão</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // ---- central de risco alto (sempre risco 4/5, cross-conta — não é filtrada) ----
+  let banda = '';
+  if (d.riscoAlto.length) {
+    banda =
+      '<div class="rhome-band"><div class="hd"><h2>⚠ Risco alto em aberto</h2><span class="cnt">' + d.riscoAlto.length + ' NC' + (d.riscoAlto.length === 1 ? '' : 's') + '</span><span class="note">todas as contas · role para o lado ›</span></div>' +
+      '<div class="rhome-scroll">' + d.riscoAlto.map((n) => {
+        const c = riscoCor(n.risco);
+        return '<div class="rhome-nc" onclick="rhomeAbrir(\'' + n.auditoriaId + '\', ' + (n.loteId ? "'" + n.loteId + "'" : 'null') + ')">' +
+          '<div class="rk" style="background:' + c.bg + ';color:' + c.tx + '">' + n.risco + '</div>' +
+          '<div class="tx"><div class="loja">' + escapeHtml(n.conta || '—') + '</div><div class="desc">' + escapeHtml(n.texto) + '</div></div>' +
+        '</div>';
+      }).join('') + '</div></div>';
+  }
+
+  // ---- filtros globais ----
+  const filtros =
+    '<div class="rhome-fbar"><span class="flbl">Filtrar</span>' +
+    ['todas', 'risco45', 'doing', 'trat'].map((f) =>
+      '<span class="rhome-fpill' + (RHOME.filtro === f ? ' on' : '') + '" onclick="rhomeSetFiltro(\'' + f + '\')">' + FILTRO_NOMES[f] + '</span>'
+    ).join('') +
+    (RHOME.filtro !== 'todas' ? '<span class="fres">filtro: ' + FILTRO_NOMES[RHOME.filtro] + '</span>' : '') +
+    '</div>';
+
+  // ---- linha do tempo por semana ----
+  const filtradas = d.recentes.filter((r) => rhomeMatchFiltro(r, RHOME.filtro));
+  let semanas = '';
+  if (!filtradas.length) {
+    semanas = '<div class="rhome-empty">Nenhuma auditoria neste recorte. <a href="#" onclick="rhomeSetFiltro(\'todas\');return false" style="color:var(--brand);font-weight:600">Ver todas</a></div>';
+  } else {
+    const hoje = new Date(); const inicioHoje = rhomeInicioSemana(hoje.toISOString());
+    const grupos = {};
+    const ordem = [];
+    for (const r of filtradas) {
+      if (!r.dataInspecao) continue;
+      const inicio = rhomeInicioSemana(r.dataInspecao);
+      const chave = inicio.toISOString().slice(0, 10);
+      if (!grupos[chave]) { grupos[chave] = { inicio, itens: [] }; ordem.push(chave); }
+      grupos[chave].itens.push(r);
+    }
+    semanas = ordem.map((chave) => {
+      const g = grupos[chave];
+      return '<div class="rhome-week"><h2>' + rhomeTituloSemana(g.inicio, inicioHoje) + '<span class="n">' + g.itens.length + ' auditoria' + (g.itens.length === 1 ? '' : 's') + '</span></h2>' +
+        g.itens.map((r) => {
+          const completo = r.statusLote === 'Concluído';
+          const pct = (r.totalItens != null && r.totalItens > 0) ? Math.min(100, Math.round((r.itensConfirmados || 0) / r.totalItens * 100)) : 0;
+          return '<div class="rhome-row' + (completo ? ' done' : '') + '" onclick="rhomeAbrir(\'' + r.auditoriaId + '\', ' + (r.loteId ? "'" + r.loteId + "'" : 'null') + ')">' +
+            '<div><div class="acc">' + escapeHtml(r.conta || '—') + '</div><div class="code">' + escapeHtml(r.nome || '') + (r.tratativasAbertas ? ' · ' + r.tratativasAbertas + ' tratativa' + (r.tratativasAbertas === 1 ? '' : 's') + ' em aberto' : '') + '</div></div>' +
+            '<div class="date"><b>' + rhomeFmtData(r.dataInspecao) + '</b></div>' +
+            (r.loteId ? '<div class="rhome-pwrap"><div class="rhome-pbar"><i style="width:' + pct + '%"></i></div></div><div class="rhome-pnum">' + (r.itensConfirmados != null ? r.itensConfirmados : '—') + '/' + (r.totalItens != null ? r.totalItens : '—') + '</div>' : '<div></div><div></div>') +
+            '<div class="rhome-sig">' +
+              (r.temRiscoAlto ? '<span class="rhome-pill risk">Risco ' + escapeHtml(r.riscoLoja || '') + '</span>' : '') +
+              (r.loteId ? '<span class="rhome-pill ' + (completo ? 'done">✓ Completa' : 'doing">Em revisão') + '</span>' : '<span class="rhome-pill">Sem PDF importado</span>') +
+            '</div>' +
+            '<div class="rhome-chev">' + (r.loteId ? '›' : '') + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('rhomeConteudo').innerHTML = hero + banda + filtros + semanas;
 }
 
 async function carregar(){
