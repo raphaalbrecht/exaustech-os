@@ -201,13 +201,12 @@
 
   /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
      altura que o card ocupava no topo da página, mesmo recolhido. */
-  .nova-aud-overlay{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:70px 20px;overflow-y:auto}
-  /* 15/07/2026 (pedido do Raphael): quando o modal cresce pra mostrar a prévia do PDF (ver
-     .tem-preview abaixo), o overlay muda de "cai do topo com respiro grande" pra "centralizado com
-     respiro pequeno" — senão o modal alto+largo esbarra no padding de 70px e fica apertado. Classe
-     alternada via JS em naAtualizarPreviewPdf(), mesmo padrão imperativo do resto do arquivo (em vez
-     de :has() em CSS). */
-  .nova-aud-overlay.overlay-grande{align-items:center;padding:24px}
+  /* 31/07/2026 (pedido do Raphael "triplique a altura da janela e centralize"): o modal passa a
+     abrir SEMPRE centralizado e alto, mesmo antes de anexar o PDF — antes só ficava assim depois
+     de anexar (classe .overlay-grande, alternada via JS em naAtualizarPreviewPdf()). Como agora
+     isso é sempre verdade, a classe .overlay-grande virou redundante (mantida no JS sem efeito
+     extra, não removida pra não mexer em código que funciona por uma mudança só visual). */
+  .nova-aud-overlay{position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:50;display:none;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
   /* pedido do Raphael (10/07): modal um pouco maior (640→760) + campo de upload passa a ocupar a
      largura toda da linha (antes ficava espremido do lado do botão Analisar, sobrando espaço). */
   .nova-aud-modal{background:var(--card);border-radius:10px;max-width:760px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
@@ -216,8 +215,10 @@
      à direita também cresce (pedido em 2 rodadas: primeiro só a prévia, depois "aumentar a largura
      da coluna da direita também") — max-width salta de 760 pra 1180. */
   .nova-aud-modal.tem-preview{max-width:1180px}
-  .nova-aud-cols{display:flex;min-height:0}
-  .nova-aud-modal.tem-preview .nova-aud-cols{min-height:min(72vh,600px)}
+  /* altura tripliquei (72vh/600px → 92vh/1800px, o 92vh domina em qualquer tela real — o 1800px é
+     só o teto matemático) e passou a valer sempre, não só com .tem-preview, pra já abrir alta e
+     centralizada mesmo no estado "só Etapa 1" (card ficou pequeno depois de remover os textos). */
+  .nova-aud-cols{display:flex;min-height:min(92vh,1800px)}
   .nova-aud-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--brand-d)}
   .modal-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--weak);padding:2px 8px}
   .modal-close:hover{color:var(--txt)}
@@ -243,9 +244,8 @@
   /* telas estreitas (a área de trabalho hoje é desktop-only, mas isso evita quebrar de vez se
      alguém abrir numa janela pequena): empilha em vez de colunas lado a lado. */
   @media (max-width:900px){
-    .nova-aud-cols{flex-direction:column}
+    .nova-aud-cols{flex-direction:column;min-height:0}
     .na-preview-col{flex:0 0 auto;border-right:none;border-bottom:1px solid var(--border);max-height:280px}
-    .nova-aud-modal.tem-preview .nova-aud-cols{min-height:0}
   }
   /* rodada 13 (10/07) — pedido do Raphael "os textos superiores estão adensados... arejar", 2
      propostas do Fable (Salesforce vs Apple), Raphael escolheu a A (Salesforce Lightning): a etapa
