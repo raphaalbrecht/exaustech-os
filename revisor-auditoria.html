@@ -234,6 +234,12 @@
   .na-preview-nome{font-size:12px;font-weight:500;color:var(--txt);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:4px 0 0}
   .na-preview-trocar{font-size:11.5px;color:var(--brand);font-weight:600;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline;font-family:inherit}
   #novaAudBody{flex:1 1 auto;min-width:0;padding:16px 18px;overflow-y:auto}
+  /* 31/07/2026 (pedido do Raphael): enquanto a Etapa 2 está escondida (só a Etapa 1 visível),
+     centraliza o card da IA verticalmente ao lado da prévia do PDF em vez de deixá-lo grudado no
+     topo com um vazio grande embaixo — "fica mais limpa a página". naRevelarEtapa2() remove esta
+     classe assim que a Etapa 2 aparece, voltando ao empilhamento normal de cima pra baixo. */
+  #novaAudBody.na-so-etapa1{display:flex;flex-direction:column;justify-content:center}
+  #novaAudBody.na-so-etapa1 .etapa-card-ia{margin-bottom:0}
   /* telas estreitas (a área de trabalho hoje é desktop-only, mas isso evita quebrar de vez se
      alguém abrir numa janela pequena): empilha em vez de colunas lado a lado. */
   @media (max-width:900px){
@@ -1018,17 +1024,24 @@
           <button type="button" class="na-preview-trocar" onclick="naTrocarArquivo()">Trocar arquivo</button>
         </div>
       </div>
-      <div id="novaAudBody">
+      <!-- 31/07/2026 (pedido do Raphael): Etapa 2 só aparece depois que a Etapa 1 RODAR até o fim —
+           sucesso ou falha, nunca trava (mesmo padrão "IA nunca trava o cadastro" do resto do
+           projeto: naAnalisarPdf() chama naRevelarEtapa2() no finally, que executa nos dois casos).
+           Enquanto só existe a Etapa 1, #novaAudBody ganha a classe .na-so-etapa1 (centraliza o
+           card verticalmente ao lado da prévia do PDF, ver CSS) — naRevelarEtapa2() remove essa
+           classe e mostra #naEtapa2Wrap. -->
+      <div id="novaAudBody" class="na-so-etapa1">
         <div class="etapa-card etapa-card-ia">
-          <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · Pré-preenchimento com IA (opcional)</p>
+          <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · Pré-preenchimento com IA</p>
           <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled style="margin-bottom:14px"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
-          <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF à esquerda e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.</div>
+          <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF à esquerda e clique em "Pré-preencher com IA" — é o passo obrigatório antes da Etapa 2. Mesmo que a IA não consiga ler tudo, a Etapa 2 libera do mesmo jeito pra você completar na mão.</div>
           <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
             <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
             <div class="na-progress-pct" id="naProgressPct">0%</div>
           </div>
         </div>
 
+        <div id="naEtapa2Wrap" style="display:none">
         <p class="etapa-label etapa-divider">Etapa 2 · Dados da auditoria <span class="etapa-hint">— preencha na mão ou revise o que a IA sugeriu</span></p>
         <div class="loadbar" style="margin-bottom:10px">
           <div style="position:relative">
@@ -1061,6 +1074,7 @@
             <select id="naRisco" onchange="naAtualizarBotaoCriar()"></select>
           </div>
           <button class="btn" id="btnCriarAuditoria" onclick="naCriarEImportar()" disabled title="Preencha conta, tipo, data, cocção, risco e anexe o PDF pra habilitar">Criar auditoria e importar PDF</button>
+        </div>
         </div>
         <!-- achado #4 da revisão Fable (10/07): naCriarEImportar() usava o msg() global, que escreve
              em #msgArea — fora do modal, embaixo do backdrop (.nova-aud-overlay tem z-index:50). O
@@ -1413,8 +1427,12 @@ function toggleNovaAuditoria(){
     document.getElementById('naCocao').value = '';
     document.getElementById('naCocaoTag').innerHTML = '';
     document.getElementById('naRiscoTag').innerHTML = '';
-    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF à esquerda e clique em "Pré-preencher com IA" pra deixar a Etapa 2 pronta — ou pule esta etapa e preencha tudo na mão. O PDF anexado entra no cadastro de qualquer forma.';
+    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF à esquerda e clique em "Pré-preencher com IA" — é o passo obrigatório antes da Etapa 2. Mesmo que a IA não consiga ler tudo, a Etapa 2 libera do mesmo jeito pra você completar na mão.';
     document.getElementById('btnAnalisarPdf').disabled = true;
+    // 31/07/2026: reabrir o modal volta a esconder a Etapa 2 e a centralizar só a Etapa 1 — mesmo
+    // estado inicial de sempre, não pode "vazar" revelado de uma tentativa anterior.
+    document.getElementById('naEtapa2Wrap').style.display = 'none';
+    document.getElementById('novaAudBody').classList.add('na-so-etapa1');
     // 15/07/2026: volta a coluna de prévia pro estado vazio e o modal pro tamanho compacto
     document.getElementById('naPreviewVazio').style.display = 'flex';
     document.getElementById('naPreviewCapa').style.display = 'none';
@@ -1763,6 +1781,18 @@ function naProgressoParar(){ // erro/cancelamento: some sem fingir que chegou a 
   document.getElementById('naProgressWrap').style.display = 'none';
 }
 
+// 31/07/2026 (pedido do Raphael): revela a Etapa 2 e tira #novaAudBody do modo centralizado
+// (.na-so-etapa1). Chamada no finally de naAnalisarPdf() — roda sempre, IA lendo tudo certo, lendo
+// só parte, ou falhando de vez (mesmo padrão "IA nunca trava o cadastro" do resto do projeto):
+// rodar a Etapa 1 até o fim é obrigatório, mas o RESULTADO da leitura não precisa ser bom pra
+// destravar a Etapa 2.
+function naRevelarEtapa2(){
+  const wrap = document.getElementById('naEtapa2Wrap');
+  if (wrap) wrap.style.display = '';
+  const body = document.getElementById('novaAudBody');
+  if (body) body.classList.remove('na-so-etapa1');
+}
+
 async function naAnalisarPdf(){
   if (!NA.arquivo) { msg('Selecione o PDF antes de analisar.', 'err'); return; }
   const btn = document.getElementById('btnAnalisarPdf');
@@ -1825,6 +1855,7 @@ async function naAnalisarPdf(){
   } finally {
     btn.disabled = false; document.getElementById('btnAnalisarPdfTxt').textContent = 'Pré-preencher com IA';
     if (ok) naProgressoConcluir(); else naProgressoParar();
+    naRevelarEtapa2(); // sempre — sucesso ou falha, ver comentário acima da função
   }
 }
 
