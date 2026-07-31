@@ -1867,6 +1867,13 @@ async function carregarHome(){
     if (!r.ok) return;
     const d = await r.json();
     if (!d || !Array.isArray(d.recentes)) return;
+    // 30/07/2026 (bug urgente reportado pelo Raphael): esse fetch é assíncrono e pode terminar DEPOIS
+    // de o revisor já ter clicado pra dentro de uma auditoria específica (ex.: abriu a home, clicou
+    // rápido numa auditoria antes da home terminar de carregar). Sem essa checagem, a home aplicava a
+    // classe "rhome-ativo" (que tem display:block !important no CSS) por cima da tela da auditoria já
+    // aberta, misturando dado agregado de todas as contas com a tela de uma auditoria só. Se já tem
+    // lote carregado, a home não pisa em cima — quem decide mostrar a home de novo é voltarParaHome().
+    if (ST.loteId) return;
     RHOME.dados = d; RHOME.filtro = 'todas';
     rhomeRender();
     document.getElementById('rhomeFallback').style.display = 'none';
@@ -2050,6 +2057,15 @@ async function carregar(){
     localStorage.setItem('revisor_last', JSON.stringify({ auditoriaId, loteId }));
     msg('');
     document.getElementById('estadoVazio').style.display = 'none';
+    // 30/07/2026 (bug urgente reportado pelo Raphael — "cliquei em Em aberto e abriu informação que
+    // não é da Auditoria Técnica"): a classe "rhome-ativo" (CSS com display:block !important, ver
+    // linha ~604) tinha ficado grudada no #estadoVazio desde que a home carregou — o "style.display =
+    // 'none'" logo acima NUNCA conseguia esconder o elemento, porque !important em folha de estilo
+    // sempre vence style inline sem !important. Resultado: a home (métricas de todas as contas, faixa
+    // de risco alto cross-conta, lista de outras auditorias) continuava visível atrás/abaixo da tela
+    // da auditoria específica que acabou de ser carregada. Precisa remover a classe aqui também, não
+    // só o style.
+    document.getElementById('estadoVazio').classList.remove('rhome-ativo');
     // 30/07/2026 (achado do Raphael): "Buscar auditoria" (buBuscaWrap) serve só pra ACHAR uma
     // Auditoria Técnica antes de abrir uma — depois de carregada, ela não faz mais sentido flutuando
     // dentro da tela de revisão (some junto com #estadoVazio, mesma lógica). Fecha as listas
