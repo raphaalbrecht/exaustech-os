@@ -1187,9 +1187,21 @@ const SUBTIPO_MANUTENCAO = 'Manutenção';
 function escopoDaLinha(l){ return l.escopoLinha || (l.classificacaoLinha ? (l.classificacaoLinha === CLASSIF_FORA_ESCOPO ? ESCOPO_FORA : ESCOPO_DENTRO) : null); }
 function foraDeEscopo(l){ return escopoDaLinha(l) === ESCOPO_FORA; }
 // Contestação técnica (11/07) — eixo ortogonal ao escopo, ver DECISAO_contestacao-tecnica.md.
-// Contestação Procedente tem o MESMO efeito que fora-de-escopo na estatística de tratativa (some
-// dela, continua no relatório); Pendente/Improcedente continuam contando normalmente.
+// excluidaDaTratativa() continua sendo usada só pra pendências de MATCH (pílula "sem match por
+// IA" — ver contagem('Sem match')), onde um item com contestação já julgada não deveria contar
+// como "faltando revisar". Pendente/Improcedente continuam contando normalmente.
 function excluidaDaTratativa(l){ return foraDeEscopo(l) || l.statusContestacao === 'Procedente'; }
+// 30/07/2026 (achado do Raphael — os totalizadores "Em aberto"/"Fora de escopo"/"Tratadas" não
+// batiam com o total de itens): antes, contestação Procedente SUMIA da conta de tratativa (mesmo
+// efeito que fora de escopo) — o item ficava invisível em toda pílula, mas o CARD continuava
+// dizendo "NÃO TRATADA", como se ainda precisasse de ação. Pedido do Raphael: contestação
+// Procedente passa a CONTAR como "tratada" (a contestação foi julgada a favor da Exaustech —
+// pro efeito prático, o caso está encerrado, igual a ter tratado a não conformidade). Só entra
+// aqui quem está DENTRO do escopo — fora de escopo continua sendo sua própria categoria, sem
+// mudança.
+function statusTratativaEfetivo(l){
+  return l.statusContestacao === 'Procedente' ? 'tratada' : (l.statusTratativa || 'nao_tratada');
+}
 // 12/07/2026 (rodada 2): Contestar e Solicitar levantamento só ficam disponíveis DEPOIS do match
 // confirmado — pedido do Raphael. Antes disso o registro ainda está em edição (Pergunta/NC podem
 // mudar), então contestar ou abrir uma OS de levantamento em cima de um match que ainda pode ser
@@ -2203,11 +2215,14 @@ function contagem(faixaOrTag){
   // fora-de-escopo dos dois lados — classificar como fora de escopo já É o trabalho de revisão
   // (por isso 'confirmado'/'todas' abaixo NÃO excluem: revisão cobre 100% dos itens, senão o lote
   // podia marcar "Revisão completa" com item nunca olhado).
+  // 30/07/2026: statusTratativaEfetivo() (não l.statusTratativa cru) — contestação Procedente
+  // conta como 'tratada' agora, só fora de escopo continua fora da conta (ver comentário na
+  // definição da função).
   if (faixaOrTag === 'nao_tratada' || faixaOrTag === 'em_tratativa' || faixaOrTag === 'tratada')
-    return ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa === faixaOrTag).length;
+    return ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) === faixaOrTag).length;
   // Rodada 16: "Em aberto" da aba-placar = tudo que ainda NÃO chegou em 'tratada' (nao_tratada +
   // em_tratativa juntos) — é o agregado que a Proposta 2 do Fable pediu pra virar botão de destaque.
-  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa !== 'tratada').length;
+  if (faixaOrTag === 'trat_aberta') return ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) !== 'tratada').length;
   if (faixaOrTag === 'fora_escopo') return ST.linhas.filter(foraDeEscopo).length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
   if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
@@ -2252,8 +2267,8 @@ function linhasFiltradas(){
     case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)); break;
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
-    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa === ST.filtro); break;
-    case 'trat_aberta': base = ST.linhas.filter(l => !excluidaDaTratativa(l) && l.statusTratativa !== 'tratada'); break;
+    case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) === ST.filtro); break;
+    case 'trat_aberta': base = ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) !== 'tratada'); break;
     case 'fora_escopo': base = ST.linhas.filter(foraDeEscopo); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
@@ -2878,7 +2893,9 @@ function renderLista(){
     // Rodada 17 (11/07): item "fora de escopo" ganha trilho/palavra próprios (não entram na conta
     // de tratativa — ver contagem()/linhasFiltradas() — mas continuam visíveis e filtráveis aqui).
     const fora = foraDeEscopo(l);
-    const trat = labelTratativa(l.statusTratativa || 'nao_tratada');
+    // 30/07/2026: statusTratativaEfetivo() — item com contestação Procedente mostra "tratada" no
+    // card (trilho verde), não mais "não tratada" (ver definição da função e o pedido do Raphael).
+    const trat = labelTratativa(statusTratativaEfetivo(l));
     const tratCls = fora ? 'trat-fora' : trat.cls;
     // 14/07/2026 (rodada 40): pedido do Raphael — cards com match ainda PENDENTE não devem
     // exibir "não tratada". Tratativa só faz sentido depois que o match está confirmado (antes
@@ -4062,7 +4079,7 @@ function ctHtmlForm(l){
   const ok = !!CT.motivo.trim();
   return '<div class="cont-card">'
     + '<div class="cont-head"><span class="cont-titulo">Contestação técnica</span></div>'
-    + '<div class="cont-txt" style="color:var(--weak)">Use quando o apontamento do vistoriador for inaplicável ou mal interpretado. A linha continua no relatório; se a contestação for julgada procedente, ela sai da estatística de tratativa.</div>'
+    + '<div class="cont-txt" style="color:var(--weak)">Use quando o apontamento do vistoriador for inaplicável ou mal interpretado. A linha continua no relatório; se a contestação for julgada procedente, ela passa a contar como tratada.</div>'
     + '<label class="cont-rotulo">Motivo da contestação (obrigatório)</label>'
     + '<textarea rows="3" oninput="ctOnMotivo(this.value)">' + escapeHtml(CT.motivo) + '</textarea>'
     + '<div class="cont-acoes">'
@@ -4079,7 +4096,7 @@ function ctHtmlPendente(l){
     + '<label class="cont-rotulo">Resolução (obrigatória pra avaliar)</label>'
     + '<textarea rows="3" oninput="ctOnResolucao(this.value)">' + escapeHtml(CT.resolucao) + '</textarea>'
     + '<div class="cont-acoes">'
-      + '<button class="btn cont-proc ctBtnAvaliar"' + (ok ? '' : ' disabled') + ' onclick="ctAvaliar(\'' + l.id + '\', \'Procedente\')">Procedente — sai da estatística</button>'
+      + '<button class="btn cont-proc ctBtnAvaliar"' + (ok ? '' : ' disabled') + ' onclick="ctAvaliar(\'' + l.id + '\', \'Procedente\')">Procedente — conta como tratada</button>'
       + '<button class="btn sec ctBtnAvaliar"' + (ok ? '' : ' disabled') + ' onclick="ctAvaliar(\'' + l.id + '\', \'Improcedente\')">Improcedente — continua contando</button>'
     + '</div></div>';
 }
@@ -4091,7 +4108,7 @@ function ctHtmlResolvida(l, st){
       + '<span class="badge ' + (proc ? 'cont-procedente' : 'cont-improcedente') + '">' + escapeHtml(st) + '</span></div>'
     + '<div class="cont-txt"><b>Motivo:</b> <span class="nota-inline">"' + escapeHtml(l.motivoContestacao || '') + '"</span></div>'
     + '<div class="cont-txt"><b>Resolução:</b> <span class="nota-inline">"' + escapeHtml(l.resolucaoContestacao || '') + '"</span></div>'
-    + (proc ? '<div class="cont-nota">Não entra na estatística de tratativa, mas continua no relatório.</div>' : '')
+    + (proc ? '<div class="cont-nota">Conta como tratada na estatística de tratativa (contestação julgada a favor da Exaustech).</div>' : '')
     + '</div>';
 }
 
@@ -4147,7 +4164,7 @@ async function ctRegistrar(linhaId){
 async function ctAvaliar(linhaId, veredito){
   if (!CT || !CT.resolucao.trim()) return;
   if (!confirm(veredito === 'Procedente'
-    ? 'Marcar como PROCEDENTE? A linha sai da estatística de tratativa (continua no relatório).'
+    ? 'Marcar como PROCEDENTE? A linha passa a contar como TRATADA (continua no relatório).'
     : 'Marcar como IMPROCEDENTE? A linha volta a contar normalmente; a justificativa fica registrada.')) return;
   document.querySelectorAll('.ctBtnAvaliar').forEach((b) => { b.disabled = true; });
   try {
