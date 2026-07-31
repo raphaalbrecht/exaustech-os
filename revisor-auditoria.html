@@ -965,6 +965,18 @@
   .resolvido-chip{font-size:11px;padding:1px 8px;border-radius:999px;background:var(--succ-bg);color:var(--succ);white-space:nowrap}
   .risk-pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;display:inline-block;min-width:64px;text-align:center}
 </style>
+<!-- 31/07/2026 (pedido do Raphael, botão "Tentar via imagem" no import de auditoria): primeira
+     dependência externa desta página (até aqui era HTML+CSS+JS 100% sem build, sem lib nenhuma —
+     ver CLAUDE.md). pdf.js só RENDERIZA página como imagem no navegador (canvas), pra mandar pro
+     Gemini como fallback quando o Gemini falha ao ler o PDF nativo — não mexe em mais nada da tela,
+     carrega assíncrono e só é usado dentro de naTentarViaImagem(). Se o CDN cair, essa tela inteira
+     continua funcionando normal — só o botão de 2ª tentativa fica indisponível. -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+</script>
 </head>
 <body>
 <header>
@@ -1587,9 +1599,18 @@ function naMostrarErroImportacao(j2){
   if (!el) return;
   const podeRetry = MOTIVOS_IMPORT_COM_RETRY.includes(j2.motivo);
   const mensagem = 'Auditoria ' + escapeHtml(NA.auditoriaCriadaId || '') + ' criada, mas houve erro ao importar o PDF: ' + escapeHtml(j2.mensagem || j2.error || 'erro desconhecido');
-  const botoes = podeRetry
-    ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn" onclick="naTentarNovamenteImportacao()">Tentar de novo</button></div>'
-    : '';
+  let botoesHtml = '';
+  if (podeRetry) {
+    botoesHtml += '<button type="button" class="btn" onclick="naTentarNovamenteImportacao()">Tentar de novo</button>';
+    // 31/07/2026 (pedido do Raphael, resposta "os dois: tenta de novo, e se falhar de novo oferece
+    // o modo imagem"): só aparece depois que PELO MENOS 1 "Tentar de novo" já falhou de novo (ou
+    // seja, esta é a 2ª falha em diante) — NA.tentativasImportacao só é incrementado dentro de
+    // naTentarNovamenteImportacao, nunca na 1ª chamada de naCriarEImportar.
+    if (NA.tentativasImportacao >= 1 && window.pdfjsLib) {
+      botoesHtml += '<button type="button" class="btn sec" onclick="naTentarViaImagem()">Tentar via imagem (mais lento)</button>';
+    }
+  }
+  const botoes = botoesHtml ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + botoesHtml + '</div>' : '';
   el.innerHTML = '<div class="msg err" style="margin-top:10px"><div>' + mensagem + '</div>' + botoes + '</div>';
 }
 
@@ -1624,6 +1645,74 @@ async function naTentarNovamenteImportacao(){
     msg(j2.totalItens + ' item(ns) identificado(s) no PDF, ' + j2.semMatch + ' sem match — revise abaixo.', 'info');
   } catch (e) {
     naMsg('Falha de rede: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.textContent = 'Criar auditoria e importar PDF'; naAtualizarBotaoCriar(); }
+    if (ok) naProgressoConcluir(); else naProgressoParar();
+  }
+}
+
+// 31/07/2026 (pedido do Raphael, resposta "os dois: tenta de novo, e se falhar de novo oferece o
+// modo imagem"): renderiza cada página do PDF em JPEG (via pdf.js, carregado no <head> — única
+// dependência externa desta página) e manda como imagens pro Gemini em vez do PDF nativo. Cobre o
+// caso em que o Gemini falha especificamente ao processar aquele PDF como documento (estrutura
+// interna que o parser não gosta), mas que abriria normalmente como imagem. Limite de 25 páginas:
+// um laudo real tem no máximo umas 15-20 (mesmo teto implícito do sanity-check de 60 achados no
+// backend) — mais que isso é sinal de PDF errado anexado, melhor travar aqui com aviso claro do que
+// mandar 100+ imagens pro Gemini e estourar tempo/limite de payload.
+const NA_MAX_PAGINAS_IMAGEM = 25;
+
+async function naRenderizarPaginasComoImagens(arquivo){
+  const buf = await arquivo.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+  const totalPaginas = Math.min(doc.numPages, NA_MAX_PAGINAS_IMAGEM);
+  const blobs = [];
+  for (let n = 1; n <= totalPaginas; n++) {
+    const pagina = await doc.getPage(n);
+    // escala calculada pra largura ~1600px — precisa ser nítido o bastante pro Gemini enxergar o
+    // radio button Sim/Não (elemento pequeno), sem gerar um JPEG gigante à toa
+    const viewportBase = pagina.getViewport({ scale: 1 });
+    const escala = 1600 / viewportBase.width;
+    const viewport = pagina.getViewport({ scale: escala });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await pagina.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (blob) blobs.push(blob);
+  }
+  return blobs;
+}
+
+async function naTentarViaImagem(){
+  if (!NA.auditoriaCriadaId || !NA.arquivo) return;
+  if (!window.pdfjsLib) { naMsg('Não foi possível carregar o leitor de PDF (pdf.js) agora — verifique a conexão e tente de novo.', 'err'); return; }
+  NA.tentativasImportacao++;
+  naMsg('');
+  const btn = document.getElementById('btnCriarAuditoria');
+  if (btn) { btn.disabled = true; btn.textContent = 'Convertendo páginas em imagem…'; }
+  naProgressoIniciar(160000, 100,
+    'Ainda processando — convertendo páginas e reenviando pro Gemini. Não feche esta janela.');
+  let ok = false;
+  try {
+    const imagens = await naRenderizarPaginasComoImagens(NA.arquivo);
+    if (!imagens.length) { naMsg('Não foi possível converter nenhuma página do PDF em imagem.', 'err'); return; }
+    if (btn) btn.textContent = 'Enviando ' + imagens.length + ' página(s) como imagem…';
+    const fd = new FormData();
+    fd.append('arquivo', NA.arquivo);
+    fd.append('importarMesmoAssim', 'true');
+    imagens.forEach((blob, i) => fd.append('imagens', blob, 'pagina-' + (i + 1) + '.jpg'));
+    const r2 = await fetch(BACKEND + '/exp/auditorias/' + NA.auditoriaCriadaId + '/importar-pdf', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
+    });
+    const j2 = await r2.json();
+    if (!r2.ok || j2.ok === false) { naMostrarErroImportacao(j2); return; }
+    ok = true;
+    document.getElementById('inAuditoria').value = NA.auditoriaCriadaId;
+    document.getElementById('inLote').value = j2.loteId;
+    toggleNovaAuditoria();
+    await carregar();
+    msg(j2.totalItens + ' item(ns) identificado(s) no PDF (via imagem), ' + j2.semMatch + ' sem match — revise abaixo.', 'info');
+  } catch (e) {
+    naMsg('Falha ao converter/enviar as páginas como imagem: ' + e.message, 'err');
   } finally {
     if (btn) { btn.textContent = 'Criar auditoria e importar PDF'; naAtualizarBotaoCriar(); }
     if (ok) naProgressoConcluir(); else naProgressoParar();
