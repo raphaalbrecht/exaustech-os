@@ -964,9 +964,12 @@
 </head>
 <body>
 <header>
+  <!-- 30/07/2026: pedido do Raphael — botão "Home" reposicionado pro canto ESQUERDO do header (antes
+       da esquerda do título — convenção comum de "voltar", ver .chip-btn-home no CSS), com seta em
+       triângulo sólido (▶ girado ao contrário, U+25C0) em vez do caractere de seta fina (←). -->
+  <button class="chip-btn-home" id="btnHome" onclick="voltarParaHome()" title="Sair desta auditoria e voltar pro histórico">◀ Home</button>
   <h1>Exaustech · Revisor de Auditoria</h1>
   <div class="spacer"></div>
-  <button class="chip-btn-home" id="btnHome" onclick="voltarParaHome()" title="Sair desta auditoria e voltar pro histórico">← Home</button>
   <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
   <div class="chip" id="userchip">carregando sessão…</div>
 </header>
