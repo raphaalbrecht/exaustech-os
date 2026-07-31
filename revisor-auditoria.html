@@ -1030,11 +1030,15 @@
            Enquanto só existe a Etapa 1, #novaAudBody ganha a classe .na-so-etapa1 (centraliza o
            card verticalmente ao lado da prévia do PDF, ver CSS) — naRevelarEtapa2() remove essa
            classe e mostra #naEtapa2Wrap. -->
+      <!-- 31/07/2026 (pedido do Raphael): "remova todos os textos e deixe só o botão" — tirou o
+           rótulo "ETAPA 1..." e a legenda estática de instrução (óbvia agora que o card só tem o
+           botão). #naAnaliseStatus continua existindo pro feedback DINÂMICO (resultado da IA, erro,
+           sugestão de conta) — isso não é "texto de enfeite", é informação que o revisor precisa
+           depois de clicar; só nasce vazio/escondido (ver naSetStatus()) em vez de com legenda fixa. -->
       <div id="novaAudBody" class="na-so-etapa1">
         <div class="etapa-card etapa-card-ia">
-          <p class="etapa-label etapa-label-ia"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg>Etapa 1 · Pré-preenchimento com IA</p>
-          <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled style="margin-bottom:14px"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
-          <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak)">Anexe o PDF à esquerda e clique em "Pré-preencher com IA" — é o passo obrigatório antes da Etapa 2. Mesmo que a IA não consiga ler tudo, a Etapa 2 libera do mesmo jeito pra você completar na mão.</div>
+          <button class="btn sec btn-ia" id="btnAnalisarPdf" onclick="naAnalisarPdf()" disabled style="margin-bottom:10px"><svg class="ia-spark" width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2c.6 3.9 3.1 6.4 7 7-3.9.6-6.4 3.1-7 7-.6-3.9-3.1-6.4-7-7 3.9-.6 6.4-3.1 7-7z" fill="currentColor"/><path d="M19 13c.3 1.95 1.55 3.2 3.5 3.5-1.95.3-3.2 1.55-3.5 3.5-.3-1.95-1.55-3.2-3.5-3.5 1.95-.3 3.2-1.55 3.5-3.5z" fill="currentColor" opacity=".65"/></svg><span id="btnAnalisarPdfTxt">Pré-preencher com IA</span></button>
+          <div id="naAnaliseStatus" style="font-size:12px;color:var(--weak);display:none"></div>
           <div class="na-progress-wrap" id="naProgressWrap" style="display:none">
             <div class="na-progress"><div class="na-progress-fill" id="naProgressFill"></div></div>
             <div class="na-progress-pct" id="naProgressPct">0%</div>
@@ -1427,7 +1431,7 @@ function toggleNovaAuditoria(){
     document.getElementById('naCocao').value = '';
     document.getElementById('naCocaoTag').innerHTML = '';
     document.getElementById('naRiscoTag').innerHTML = '';
-    document.getElementById('naAnaliseStatus').textContent = 'Anexe o PDF à esquerda e clique em "Pré-preencher com IA" — é o passo obrigatório antes da Etapa 2. Mesmo que a IA não consiga ler tudo, a Etapa 2 libera do mesmo jeito pra você completar na mão.';
+    naSetStatus(''); // reabrir volta ao card só-botão, sem legenda nem resultado de tentativa anterior
     document.getElementById('btnAnalisarPdf').disabled = true;
     // 31/07/2026: reabrir o modal volta a esconder a Etapa 2 e a centralizar só a Etapa 1 — mesmo
     // estado inicial de sempre, não pode "vazar" revelado de uma tentativa anterior.
@@ -1793,12 +1797,21 @@ function naRevelarEtapa2(){
   if (body) body.classList.remove('na-so-etapa1');
 }
 
+// 31/07/2026 (pedido do Raphael, "remova todos os textos e deixe só o botão"): #naAnaliseStatus
+// nasce vazio/escondido — só aparece quando tem algo de verdade pra mostrar (progresso, resultado
+// da IA, erro). Texto vazio esconde de novo, pra não deixar a faixa colorida vazia flutuando.
+function naSetStatus(texto){
+  const el = document.getElementById('naAnaliseStatus');
+  if (!el) return;
+  el.textContent = texto || '';
+  el.style.display = texto ? '' : 'none';
+}
+
 async function naAnalisarPdf(){
   if (!NA.arquivo) { msg('Selecione o PDF antes de analisar.', 'err'); return; }
   const btn = document.getElementById('btnAnalisarPdf');
-  const status = document.getElementById('naAnaliseStatus');
   btn.disabled = true; document.getElementById('btnAnalisarPdfTxt').textContent = 'Analisando…';
-  status.textContent = 'Lendo o PDF com IA (pode levar até ~80s)…';
+  naSetStatus('Lendo o PDF com IA (pode levar até ~80s)…');
   // 17/07/2026: pedido do Raphael — 80s agora é o teto de 100% (era 60s, que antes era 25s c/ teto de
   // 92%, ver comentário de naProgressoIniciar acima). Passado esse tempo, o cronômetro (' · Ns' anexado
   // ao %, já existente desde a rodada 19/11-07) entra em cena sozinho — mesma mecânica, só os
@@ -1813,7 +1826,7 @@ async function naAnalisarPdf(){
       method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
     });
     const j = await r.json();
-    if (!r.ok) { status.textContent = 'Falha na análise: ' + (j.error || r.status) + ' — preencha os campos manualmente.'; return; }
+    if (!r.ok) { naSetStatus('Falha na análise: ' + (j.error || r.status) + ' — preencha os campos manualmente.'); return; }
     ok = true;
 
     document.getElementById('naTipo').value = j.tipo === 'ARPLAC' ? 'ARPLAC' : 'FTR';
@@ -1824,7 +1837,7 @@ async function naAnalisarPdf(){
 
     if (j.cabecalhoIndisponivel) {
       naAtualizarOpcoesRisco();
-      status.textContent = 'Tipo detectado: ' + j.tipo + '. Não deu pra ler o resto do cabeçalho automaticamente' + (j.cabecalhoErro ? ' (' + j.cabecalhoErro + ')' : '') + ' — confira os campos abaixo.';
+      naSetStatus('Tipo detectado: ' + j.tipo + '. Não deu pra ler o resto do cabeçalho automaticamente' + (j.cabecalhoErro ? ' (' + j.cabecalhoErro + ')' : '') + ' — confira os campos abaixo.');
       return;
     }
 
@@ -1846,12 +1859,12 @@ async function naAnalisarPdf(){
 
     if (j.contasSugeridas && j.contasSugeridas.length) {
       naSelecionarConta(j.contasSugeridas[0].id, j.contasSugeridas[0].nome);
-      status.textContent = 'Sugestão de conta: "' + j.contasSugeridas[0].nome + '"' + (lidoDoPdf ? ' (lido do PDF: ' + lidoDoPdf + ')' : '') + ' — confira antes de confirmar.';
+      naSetStatus('Sugestão de conta: "' + j.contasSugeridas[0].nome + '"' + (lidoDoPdf ? ' (lido do PDF: ' + lidoDoPdf + ')' : '') + ' — confira antes de confirmar.');
     } else {
-      status.textContent = 'Não encontrei conta com nome parecido com ' + (lidoDoPdf || '(nada lido)') + ' — busque manualmente no campo Conta.';
+      naSetStatus('Não encontrei conta com nome parecido com ' + (lidoDoPdf || '(nada lido)') + ' — busque manualmente no campo Conta.');
     }
   } catch (e) {
-    status.textContent = 'Falha de rede na análise: ' + e.message + ' — preencha os campos manualmente.';
+    naSetStatus('Falha de rede na análise: ' + e.message + ' — preencha os campos manualmente.');
   } finally {
     btn.disabled = false; document.getElementById('btnAnalisarPdfTxt').textContent = 'Pré-preencher com IA';
     if (ok) naProgressoConcluir(); else naProgressoParar();
