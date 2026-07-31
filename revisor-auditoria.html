@@ -3175,7 +3175,20 @@ async function renderDetalhe(){
 // 16/07/2026 (modo enxuto — ver DECISAO_modo-enxuto-pos-match.md): drawer do PDF original, aberto
 // tanto pela pílula "PDF do laudo" na barra de resumo (lote inteiro, sem página específica) quanto
 // pelo link "ver no PDF" de cada item (pula direto pra página do item, igual o antigo colPdf fazia).
+// 31/07/2026 (bug reportado pelo Raphael: "clico na pílula PDF do laudo, fecho, e na 2ª abertura não
+// carrega") — token de corrida pro drawer. A guarda antiga checava overlay.classList.contains('open'),
+// mas essa classe só é adicionada 1 frame depois (via requestAnimationFrame lá embaixo, pra CSS
+// animar o slide-in). Na 1ª abertura o fetch de rede (fotoBlobUrl) é lento o bastante pro frame já
+// ter passado quando o await resolve — guarda passa, tudo bem. Mas da 2ª abertura em diante o PDF já
+// está em fotoCache (mesmo PDF do lote inteiro, não muda por item): o await resolve num microtask,
+// que roda ANTES do requestAnimationFrame — a classe 'open' ainda não tinha sido adicionada, a
+// guarda antiga interpretava isso como "usuário fechou durante o carregamento" e abortava, deixando
+// "carregando PDF…" preso pra sempre. Token incrementado em toda abertura/fechamento não depende de
+// quando o CSS de fato aplicou a classe.
+let pdfDrawerReq = 0;
+
 async function abrirDrawerPdf(linhaId){
+  const meuReq = ++pdfDrawerReq;
   const l = ST.linhas.find(x => x.id === linhaId);
   const pdfUrl = ST.lote && ST.lote.pdfOriginalUrl;
   const overlay = document.getElementById('pdfDrawerOverlay');
@@ -3199,16 +3212,17 @@ async function abrirDrawerPdf(linhaId){
   body.innerHTML = '<span style="font-size:12px;color:var(--weaker);display:block;margin:16px">carregando PDF…</span>';
   try {
     const url = await fotoBlobUrl(pdfUrl); // já cacheado por URL (ver renderDetalhe) — trocar de item não bate rede de novo
-    if (!overlay.classList.contains('open')) return; // fechou o drawer durante o carregamento — não pinta painel morto
+    if (meuReq !== pdfDrawerReq) return; // fechou/reabriu o drawer durante o carregamento — não pinta painel morto/velho
     const params = (l && l.paginaPdf ? 'page=' + l.paginaPdf + '&' : '') + 'navpanes=0';
     body.innerHTML = '<iframe src="' + url + '#' + params + '" title="PDF original do laudo"></iframe>';
   } catch (e) {
-    if (!overlay.classList.contains('open')) return;
+    if (meuReq !== pdfDrawerReq) return;
     body.innerHTML = '<span style="font-size:12px;color:var(--err-tx);display:block;margin:16px">falha ao carregar o PDF: ' + escapeHtml(e.message) + '</span>';
   }
 }
 
 function fecharDrawerPdf(){
+  pdfDrawerReq++; // invalida qualquer abrirDrawerPdf() ainda em andamento (ver comentário acima)
   const overlay = document.getElementById('pdfDrawerOverlay');
   if (!overlay) return;
   overlay.classList.remove('open');
