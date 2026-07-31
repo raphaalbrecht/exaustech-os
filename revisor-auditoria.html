@@ -1651,7 +1651,15 @@ function naMostrarErroImportacao(j2){
       botoesHtml += '<button type="button" class="btn sec" onclick="naTentarViaImagem()">Tentar via imagem (mais lento)</button>';
     }
   }
-  const botoes = botoesHtml ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + botoesHtml + '</div>' : '';
+  // 31/07/2026 (pedido do Raphael, "acrescentar o botão Cancelar ao lado direito"): fecha o modal
+  // (mesma ação do × no cabeçalho) — SEMPRE presente, mesmo quando o motivo não permite retry (ex.
+  // resultado_suspeito), porque nesses casos a pessoa ficava sem nenhum botão aqui embaixo, só o ×
+  // lá em cima. .btn.sec = fundo branco (mesmo estilo do "Tentar via imagem"), pedido explícito.
+  // justify-content:space-between empurra o Cancelar pra ponta direita, separado do grupo de retry.
+  const botoes = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px">'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + botoesHtml + '</div>'
+    + '<button type="button" class="btn sec" onclick="toggleNovaAuditoria()">Cancelar</button>'
+    + '</div>';
   el.innerHTML = '<div class="msg err" style="margin-top:10px"><div>' + mensagem + '</div>' + botoes + '</div>';
 }
 
