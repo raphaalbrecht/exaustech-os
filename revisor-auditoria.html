@@ -741,6 +741,10 @@
   .cont-card.improcedente .cont-titulo{color:var(--neu-tx)}
   .badge.cont-pendente,.badge.cont-procedente{background:var(--err-bg);color:var(--err-tx)}
   .badge.cont-improcedente{background:var(--neu-bg);color:var(--neu-tx)}
+  /* 31/07/2026: badge "contestado" do card da lista — cobre Procedente E Improcedente juntos (o
+     card não distingue o veredito, só sinaliza "já foi julgada"); neutro de propósito, o veredito
+     em si (bom/ruim pra Exaustech) só aparece dentro do registro. */
+  .badge.cont-confirmado{background:var(--neu-bg);color:var(--neu-tx)}
   .cont-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
   .cont-txt+.cont-txt{margin-top:6px}
   .cont-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
@@ -2226,6 +2230,14 @@ function contagem(faixaOrTag){
   if (faixaOrTag === 'fora_escopo') return ST.linhas.filter(foraDeEscopo).length;
   if (faixaOrTag === 'recorrente') return idsRecorrentes().size ? ST.linhas.filter(l => idsRecorrentes().has(l.naoConformidadeId)).length : 0;
   if (faixaOrTag === 'confirmado') return ST.linhas.filter(l => l.status === 'Pendente proposta').length;
+  // 31/07/2026 (pedido do Raphael): 2 totalizadores novos pro eixo de contestação técnica (ver
+  // DECISAO_contestacao-tecnica.md) — "contestação em análise" é quem já foi aberta mas ainda
+  // aguarda julgamento (Status_da_contestacao__c = 'Pendente de avaliação'); "contestado" é quem já
+  // foi julgada, não importa o veredito (Procedente OU Improcedente — o veredito em si já tem seu
+  // próprio destaque na coluna do registro, ver ctHtmlResolvida()). Não excluem fora de escopo nem
+  // nada — contam toda linha com contestação nesse estado, ponto.
+  if (faixaOrTag === 'contestacao_analise') return ST.linhas.filter(l => l.statusContestacao === 'Pendente de avaliação').length;
+  if (faixaOrTag === 'contestacao_confirmada') return ST.linhas.filter(l => l.statusContestacao === 'Procedente' || l.statusContestacao === 'Improcedente').length;
   if (faixaOrTag.indexOf('risco:') === 0) { const n = Number(faixaOrTag.slice(6)); return ST.linhas.filter(l => l.risco === n).length; }
   // "Sem match" é a única faixa de match que conta pra estatística de tratativa (Fraco/Forte não
   // são exibidos como pílula de "penalidade" hoje) — exclui fora de escopo e contestação procedente.
@@ -2270,6 +2282,8 @@ function linhasFiltradas(){
     case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) === ST.filtro); break;
     case 'trat_aberta': base = ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) !== 'tratada'); break;
     case 'fora_escopo': base = ST.linhas.filter(foraDeEscopo); break;
+    case 'contestacao_analise': base = ST.linhas.filter(l => l.statusContestacao === 'Pendente de avaliação'); break;
+    case 'contestacao_confirmada': base = ST.linhas.filter(l => l.statusContestacao === 'Procedente' || l.statusContestacao === 'Improcedente'); break;
     case 'recorrente': { const ids = idsRecorrentes(); base = ST.linhas.filter(l => ids.has(l.naoConformidadeId)); break; }
     case 'confirmado': base = ST.linhas.filter(l => l.status === 'Pendente proposta'); break;
     default: base = ST.linhas;
@@ -2398,12 +2412,16 @@ function renderTudo(){
     const ativoConfirmado = ST.filtro === 'confirmado';
     const ativoSemMatch = ST.filtro === 'Sem match';
     const ativoForaEscopo = ST.filtro === 'fora_escopo';
+    const ativoContestacaoAnalise = ST.filtro === 'contestacao_analise';
+    const ativoContestacaoConfirmada = ST.filtro === 'contestacao_confirmada';
     // Rodada 17 (11/07): pílula "sem match" trocou de fonte — l.itensSemMatch é campo do backend
     // (Itens_Sem_Match__c) calculado só na importação e nunca recalculado após correção manual
     // (bug identificado 10/07, "como explicar a diferença..."); contagem('Sem match') é sempre
     // client-side, reflete o estado atual da tela e de brinde já exclui fora de escopo. Zero
     // mudança de backend.
     const foraEscopoCount = contagem('fora_escopo');
+    const contestacaoAnaliseCount = contagem('contestacao_analise');
+    const contestacaoConfirmadaCount = contagem('contestacao_confirmada');
     // pedido do Raphael (13/07): abas "Em aberto"/"Tratadas" saem do topo da coluna-lista e entram
     // nesta mesma barra horizontal de resumo — mesmo componente .trat-tabs, só mudou de casa (ver
     // remoção equivalente mais abaixo, no innerHTML do .col-list).
@@ -2419,7 +2437,10 @@ function renderTudo(){
         + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
       + '</div>'
-      + (completo ? '<div class="badge confirmada" style="align-self:center;padding:6px 13px;font-size:12.5px;white-space:nowrap">✓ Revisão completa</div>' : '')
+      // 31/07/2026: pedido do Raphael — removido o selo "✓ Revisão completa" que aparecia aqui ao
+      // lado da pílula de confirmados. A pílula de confirmados (100% + barra verde) já comunica a
+      // mesma informação; o selo era redundante. loteCompleto continua calculado igual (ainda decide
+      // a cor da pílula de confirmados, a pílula PDF do laudo logo abaixo, e o modo enxuto).
       // 17/07/2026: pílula "PDF do laudo" — só existe no modo enxuto (lote 100% confirmado). Abre
       // o drawer (ver .pdf-drawer-* no CSS e abrirDrawerPdf() mais abaixo) já na página da NC
       // selecionada, se houver uma. pdfPillAnimar (calculado no topo de renderTudo) só é true na
@@ -2510,6 +2531,11 @@ function renderTudo(){
          mudou nada, só o texto exibido. */
       '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match por ia</div></div>'
       + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
+      // 31/07/2026 (pedido do Raphael): 2 quadrados totalizadores novos pro eixo de contestação
+      // técnica, mesmo padrão do "fora de escopo" acima (só aparecem se houver pelo menos 1 item
+      // nesse estado, pra não virar ruído em auditorias sem nenhuma contestação aberta).
+      + (contestacaoAnaliseCount ? '<div class="stat clicavel' + (ativoContestacaoAnalise ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')"><div class="n">' + contestacaoAnaliseCount + '</div><div class="l">contestação em análise</div></div>' : '')
+      + (contestacaoConfirmadaCount ? '<div class="stat clicavel' + (ativoContestacaoConfirmada ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_confirmada\')"><div class="n">' + contestacaoConfirmadaCount + '</div><div class="l">contestado</div></div>' : '')
       + '<div class="trat-tabs">'
         + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
           + '<span class="big">' + abertaCount + (emTratativaCount
@@ -2871,9 +2897,13 @@ function renderLista(){
     if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
     if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
     if (recorrentes.has(l.naoConformidadeId)) tags.push('<span class="badge neu">recorrente</span>');
-    // 11/07: só o estado "precisa de ação" ganha badge na lista — resolvidas (Procedente/Improcedente)
-    // não poluem aqui, o card na coluna direita já registra o histórico (ver ctHtml()).
-    if (l.statusContestacao === 'Pendente de avaliação') tags.push('<span class="badge cont-pendente">contestada</span>');
+    // 31/07/2026 (pedido do Raphael): volta a mostrar as 2 fases da contestação no card da lista —
+    // a decisão de 11/07 (só o estado "precisa de ação" ganha badge aqui) foi revista: agora tanto
+    // "em análise" quanto "já contestado" (julgada, qualquer veredito) aparecem, pra não precisar
+    // abrir o item pra saber o estado. O veredito em si (Procedente/Improcedente) continua só na
+    // coluna do registro (ver ctHtml()/ctHtmlResolvida()).
+    if (l.statusContestacao === 'Pendente de avaliação') tags.push('<span class="badge cont-pendente">contestação em análise</span>');
+    else if (l.statusContestacao === 'Procedente' || l.statusContestacao === 'Improcedente') tags.push('<span class="badge cont-confirmado">contestado</span>');
     // 12/07/2026: Demanda de Levantamento em campo — só estado ativo (Solicitada/Aprovada) vira
     // ruído na lista, mesmo critério da contestação acima (ver DECISAO_demanda-levantamento-campo.md).
     const lvBadge = lvBadgeLista(l);
