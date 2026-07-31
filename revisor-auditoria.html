@@ -263,7 +263,11 @@
      formulário branco é o dado de verdade — sem virar seletor either-or (avaliado e descartado
      via Fable 5: 2 cards empilhados prometeriam uma exclusividade que o fluxo não tem, já que o
      PDF anexado é importado de qualquer forma e os campos seguem editáveis depois da IA). */
-  .etapa-card-ia{background:linear-gradient(180deg,var(--brand-l),var(--card) 60%);border-color:var(--border2)}
+  /* 31/07/2026 (pedido do Raphael "centralize o botão"): card da Etapa 1 hoje só tem o botão (mais
+     o status dinâmico quando aparece) — sem isso ele ficava colado na borda esquerda do card, que
+     agora é bem largo e alto (ver #novaAudBody.na-so-etapa1). flex column + align-items:center
+     centraliza o botão (e o aviso de status, quando presente) horizontalmente dentro do card. */
+  .etapa-card-ia{background:linear-gradient(180deg,var(--brand-l),var(--card) 60%);border-color:var(--border2);display:flex;flex-direction:column;align-items:center}
   .etapa-label-ia{display:flex;align-items:center;gap:6px;color:var(--brand-d)}
   .ia-spark{flex:0 0 auto;display:inline-block}
   .btn-ia{display:inline-flex;align-items:center;gap:7px}
