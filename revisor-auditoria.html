@@ -2471,7 +2471,13 @@ function renderTudo(){
     }
 
     resumoN2.innerHTML =
-      '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match</div></div>'
+      /* 30/07/2026: pedido do Raphael — pílula renomeada de "sem match" pra "sem match por IA", pra
+         deixar claro que é o casador automático que não achou candidato no catálogo, e não "eu ainda
+         não revisei/confirmei este item" (achado ao investigar por que a AUDTEC 000090 mostrava 0
+         mesmo sem nenhum item confirmado: a IA tinha achado candidato Forte/Fraco pra todos os 14
+         itens — contagem estava certa, só o rótulo confundia). Contagem (contagem('Sem match')) não
+         mudou nada, só o texto exibido. */
+      '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match por ia</div></div>'
       + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
       + '<div class="trat-tabs">'
         + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
