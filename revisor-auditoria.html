@@ -199,8 +199,10 @@
   .pdf-drawer-body{flex:1 1 auto;min-height:0;background:var(--bg)}
   .pdf-drawer-body iframe{width:100%;height:100%;border:none;display:block}
 
-  /* Nova auditoria virou modal (overlay fixo), disparado pelo botão no header — libera de vez a
-     altura que o card ocupava no topo da página, mesmo recolhido. */
+  /* Nova auditoria virou modal (overlay fixo) — libera de vez a altura que o card ocupava no topo
+     da página, mesmo recolhido. 01/08/2026: gatilho do header foi removido (redundante com o CTA
+     da home, ver comentário perto de #btnHome); toggleNovaAuditoria() agora só é chamado pelo
+     .rhome-cta da home. */
   /* 31/07/2026 (pedido do Raphael "triplique a altura da janela e centralize"): o modal passa a
      abrir SEMPRE centralizado e alto, mesmo antes de anexar o PDF — antes só ficava assim depois
      de anexar (classe .overlay-grande, alternada via JS em naAtualizarPreviewPdf()). Como agora
@@ -360,6 +362,25 @@
      .col-list (acima da busca, precisava de respiro pro elemento seguinte); hoje ele é só mais um
      item da fileira de pílulas de #summaryInline, e aquele margin comia 10px do align-items:stretch
      da linha, deixando .trat-tabs sistematicamente mais baixo que os .stat vizinhos. */
+  /* 01/08/2026 (Proposta A, mockup do subagente Fable aprovado em chat): barra de composição da
+     auditoria — resumo visual único ao lado dos quadradinhos de "fora de escopo"/"contestação" que
+     já existem (decisão do Raphael: adicionar, não substituir os quadradinhos clicáveis). Mesma
+     moldura .card dos vizinhos (.stat/.risco-card), só não é clicável nesta rodada — é leitura
+     rápida da proporção, quem quer filtrar ainda usa os quadradinhos ou o gráfico de risco. */
+  .composicao-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 14px;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:170px}
+  .composicao-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--neu-bg)}
+  .composicao-seg{display:block}
+  .composicao-seg.seg-tratativa{background:var(--brand)}
+  .composicao-seg.seg-analise{background:var(--err)}
+  .composicao-seg.seg-fora{background:var(--warn)}
+  .composicao-seg.seg-procedente{background:var(--err-tx)}
+  .composicao-legenda{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:10px;color:var(--weak)}
+  .composicao-item{display:flex;align-items:center;gap:4px;white-space:nowrap}
+  .composicao-item i{display:inline-block;width:7px;height:7px;border-radius:2px}
+  .composicao-item i.seg-tratativa{background:var(--brand)}
+  .composicao-item i.seg-analise{background:var(--err)}
+  .composicao-item i.seg-fora{background:var(--warn)}
+  .composicao-item i.seg-procedente{background:var(--err-tx)}
   .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto}
   /* pedido do Raphael (13/07): "Em aberto"/"Tratadas" tinham perdido o destaque que o comentário
      acima já pedia ("mais destaque que os filtros") — os 2 cortes de altura da barra (-25%, -15%)
@@ -755,6 +776,10 @@
      card não distingue o veredito, só sinaliza "já foi julgada"); neutro de propósito, o veredito
      em si (bom/ruim pra Exaustech) só aparece dentro do registro. */
   .badge.cont-confirmado{background:var(--neu-bg);color:var(--neu-tx)}
+  /* 01/08/2026 (Proposta B): badge "Fora do escopo Exaustech" da pílula composta no card da lista —
+     mesma cor de aviso (warn) já usada nas outras pílulas de "precisa de atenção mas não é erro"
+     (lv-solicitada, cot-solicitada, exe-solicitada), ver escopoContestacaoPillHtml(). */
+  .badge.fora{background:var(--warn-bg);color:var(--warn-tx)}
   .cont-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
   .cont-txt+.cont-txt{margin-top:6px}
   .cont-rotulo{font-size:11.5px;color:var(--weak);display:block;margin:8px 0 4px;font-weight:600}
@@ -996,14 +1021,19 @@
   <button class="chip-btn-home" id="btnHome" onclick="voltarParaHome()" title="Sair desta auditoria e voltar pro histórico">◀ Home</button>
   <h1>Exaustech · Revisor de Auditoria</h1>
   <div class="spacer"></div>
-  <button class="chip-btn" onclick="toggleNovaAuditoria()">+ Nova auditoria</button>
+  <!-- 01/08/2026 (pedido do Raphael): botão "+ Nova auditoria" removido daqui — a home/dashboard
+       (rhomeRender(), ver mais abaixo) já tem o mesmo CTA em destaque (.rhome-cta), então esse
+       segundo botão fixo no header virou redundância. toggleNovaAuditoria() continua existindo,
+       só perdeu ESTE gatilho; quem estiver DENTRO de uma auditoria carregada agora precisa clicar
+       "◀ Home" primeiro pra abrir uma nova (antes dava pra pular direto, de qualquer tela). -->
   <div class="chip" id="userchip">carregando sessão…</div>
 </header>
 
 <!-- pedido do Raphael (10/07, rodada 2): tirar esse formulário do fluxo normal da página (antes
      era um card sempre presente logo abaixo do header, ocupando altura mesmo fechado) — agora é
-     um modal disparado pelo botão "+ Nova auditoria" do header, com position:fixed (não conta pra
-     altura de nada) por cima do resto da tela. Mesmos ids internos, só a moldura mudou. -->
+     um modal disparado pelo CTA "+ Nova auditoria" da home (.rhome-cta — o header tinha um botão
+     próprio até 01/08/2026, removido por redundância), com position:fixed (não conta pra altura de
+     nada) por cima do resto da tela. Mesmos ids internos, só a moldura mudou. -->
 <div class="nova-aud-overlay" id="novaAudOverlay" onclick="if(event.target===this) toggleNovaAuditoria()">
   <div class="nova-aud-modal" id="novaAudModal">
     <div class="nova-aud-modal-head">
@@ -1229,6 +1259,23 @@ function foraDeEscopo(l){ return escopoDaLinha(l) === ESCOPO_FORA; }
 // IA" — ver contagem('Sem match')), onde um item com contestação já julgada não deveria contar
 // como "faltando revisar". Pendente/Improcedente continuam contando normalmente.
 function excluidaDaTratativa(l){ return foraDeEscopo(l) || l.statusContestacao === 'Procedente'; }
+// 01/08/2026 (Proposta B, mockup do subagente Fable aprovado em chat): pílula composta escopo +
+// contestação pro card da lista (renderLista()). Antes eram 2 sinais textuais separados no MESMO
+// card — o trat-word "fora de escopo" de um lado e o badge de contestação (cont-pendente/
+// cont-confirmado) do outro, cada um numa posição diferente da faixa de tags — exigindo o revisor
+// juntar mentalmente os 2 pra saber "esse item é nosso e ainda tá em disputa, ou é do prédio e nem
+// vale contestar". Contestação só existe quando dentro do escopo (podeAbrirExcecao já garante isso
+// no gatilho), então os 2 cabem numa pílula só sem perder informação. Sem fora de escopo e sem
+// contestação, devolve '' — o card comum continua sem pílula nenhuma (mesma filosofia de "só
+// aparece quando há exceção" já usada nos totalizadores do cabeçalho).
+function escopoContestacaoPillHtml(l){
+  if (foraDeEscopo(l)) return '<span class="badge fora">Fora do escopo Exaustech</span>';
+  const st = l.statusContestacao;
+  if (st === 'Pendente de avaliação') return '<span class="badge cont-pendente">Dentro do escopo · Contestação em análise</span>';
+  if (st === 'Procedente') return '<span class="badge cont-confirmado">Dentro do escopo · Contestação procedente (fora da conta)</span>';
+  if (st === 'Improcedente') return '<span class="badge cont-confirmado">Dentro do escopo · Contestação improcedente</span>';
+  return '';
+}
 // 30/07/2026 (achado do Raphael — os totalizadores "Em aberto"/"Fora de escopo"/"Tratadas" não
 // batiam com o total de itens): antes, contestação Procedente SUMIA da conta de tratativa (mesmo
 // efeito que fora de escopo) — o item ficava invisível em toda pílula, mas o CARD continuava
@@ -2649,6 +2696,27 @@ function renderTudo(){
     const foraEscopoCount = contagem('fora_escopo');
     const contestacaoAnaliseCount = contagem('contestacao_analise');
     const contestacaoConfirmadaCount = contagem('contestacao_confirmada');
+    // 01/08/2026 (Proposta A, mockup do subagente Fable aprovado em chat — "adicionar ao lado",
+    // não substitui os quadradinhos acima): barra de composição da auditoria. contestacaoConfirmadaCount
+    // junta Procedente+Improcedente (ver contagem()), mas só Procedente sai da conta de tratativa
+    // (excluidaDaTratativa()) — por isso a barra separa só o procedente aqui, improcedente continua
+    // dentro do segmento "em tratativa". Só renderiza quando há pelo menos 1 item no lote (evita
+    // dividir por zero) e omite segmento com contagem 0 (sem fatia vazia poluindo a barra).
+    const procedenteCount = ST.linhas.filter(x => x.statusContestacao === 'Procedente').length;
+    const emTratativaBarCount = Math.max(0, ST.linhas.length - foraEscopoCount - contestacaoAnaliseCount - procedenteCount);
+    let composicaoHtml = '';
+    if (ST.linhas.length > 0) {
+      const segs = [
+        { n: emTratativaBarCount, cls: 'seg-tratativa', label: 'Em tratativa' },
+        { n: contestacaoAnaliseCount, cls: 'seg-analise', label: 'Contestação em análise' },
+        { n: foraEscopoCount, cls: 'seg-fora', label: 'Fora do escopo' },
+        { n: procedenteCount, cls: 'seg-procedente', label: 'Contestação procedente' }
+      ].filter(s => s.n > 0);
+      composicaoHtml = '<div class="composicao-card"><span class="risco-card-label">Composição da auditoria</span>'
+        + '<div class="composicao-bar">' + segs.map(s => '<span class="composicao-seg ' + s.cls + '" style="flex:' + s.n + '" title="' + s.label + ' · ' + s.n + '"></span>').join('') + '</div>'
+        + '<div class="composicao-legenda">' + segs.map(s => '<span class="composicao-item"><i class="' + s.cls + '"></i>' + s.label + ' · ' + s.n + '</span>').join('') + '</div>'
+        + '</div>';
+    }
     // pedido do Raphael (13/07): abas "Em aberto"/"Tratadas" saem do topo da coluna-lista e entram
     // nesta mesma barra horizontal de resumo — mesmo componente .trat-tabs, só mudou de casa (ver
     // remoção equivalente mais abaixo, no innerHTML do .col-list).
@@ -2763,6 +2831,7 @@ function renderTudo(){
       // nesse estado, pra não virar ruído em auditorias sem nenhuma contestação aberta).
       + (contestacaoAnaliseCount ? '<div class="stat clicavel' + (ativoContestacaoAnalise ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')"><div class="n">' + contestacaoAnaliseCount + '</div><div class="l">contestação em análise</div></div>' : '')
       + (contestacaoConfirmadaCount ? '<div class="stat clicavel' + (ativoContestacaoConfirmada ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_confirmada\')"><div class="n">' + contestacaoConfirmadaCount + '</div><div class="l">contestado</div></div>' : '')
+      + composicaoHtml
       + '<div class="trat-tabs">'
         + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
           + '<span class="big">' + abertaCount + (emTratativaCount
@@ -3124,13 +3193,9 @@ function renderLista(){
     if (l.possuiFoto) tags.push('<span class="badge neu">foto</span>');
     if (l.possuiTextoComplementar) tags.push('<span class="badge neu">nota</span>');
     if (recorrentes.has(l.naoConformidadeId)) tags.push('<span class="badge neu">recorrente</span>');
-    // 31/07/2026 (pedido do Raphael): volta a mostrar as 2 fases da contestação no card da lista —
-    // a decisão de 11/07 (só o estado "precisa de ação" ganha badge aqui) foi revista: agora tanto
-    // "em análise" quanto "já contestado" (julgada, qualquer veredito) aparecem, pra não precisar
-    // abrir o item pra saber o estado. O veredito em si (Procedente/Improcedente) continua só na
-    // coluna do registro (ver ctHtml()/ctHtmlResolvida()).
-    if (l.statusContestacao === 'Pendente de avaliação') tags.push('<span class="badge cont-pendente">contestação em análise</span>');
-    else if (l.statusContestacao === 'Procedente' || l.statusContestacao === 'Improcedente') tags.push('<span class="badge cont-confirmado">contestado</span>');
+    // 01/08/2026: o badge de contestação que morava aqui (separado do "fora de escopo" lá embaixo)
+    // virou a pílula composta escopoContestacaoPillHtml(), empurrada mais abaixo — ver comentário
+    // junto de "fora" logo depois de calcular tratCls, e a função em si perto de excluidaDaTratativa().
     // 12/07/2026: Demanda de Levantamento em campo — só estado ativo (Solicitada/Aprovada) vira
     // ruído na lista, mesmo critério da contestação acima (ver DECISAO_demanda-levantamento-campo.md).
     const lvBadge = lvBadgeLista(l);
@@ -3159,8 +3224,13 @@ function renderLista(){
     // disso não há o que "tratar" ainda); "não tratada" num item pendente é ruído, não
     // informação. Some o trat-word inteiro nesse caso (mantém "em tratativa"/"tratada" visíveis
     // se por algum motivo já existirem antes da confirmação).
-    if (fora) tags.push('<span class="trat-word fora">fora de escopo</span>');
-    else if (matchConfirmado(l) || trat.cls !== 'trat-nao') { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
+    // 01/08/2026 (Proposta B): pílula composta escopo+contestação entra aqui, no lugar do antigo
+    // trat-word "fora de escopo" (que só dizia "fora de escopo", sem contestação nenhuma — ver
+    // escopoContestacaoPillHtml()). Tratativa (não tratada/em tratativa/tratada) continua um sinal
+    // à parte, só faz sentido dentro do escopo.
+    const pillEscopo = escopoContestacaoPillHtml(l);
+    if (pillEscopo) tags.push(pillEscopo);
+    if (!fora && (matchConfirmado(l) || trat.cls !== 'trat-nao')) { const tratSuf = trat.cls.replace('trat-', ''); tags.push('<span class="trat-word ' + tratSuf + '">' + trat.label + '</span>'); }
     // "caixa de entrada": não lida (Pendente de revisão) fica em negrito, lida fica normal — e o
     // card ganha fundo azul claro quando já passou pelo olhar humano do revisor. O check-icon que
     // ficava aqui foi removido nesta rodada: virou pílula explícita em tags[] (badgeStatusMini()).
