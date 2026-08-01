@@ -318,8 +318,13 @@
   /* pedido do Raphael (10/07, rodada 2): a pílula "confirmados" ficou mais alta que as outras 3
      depois de ganhar a barra de progresso — align-items:stretch no container (#summaryInline) +
      .stat virar flex-column centralizado faz todas ficarem com a MESMA altura (a da mais alta),
-     com o conteúdo das mais curtas centralizado em vez de grudado no topo. */
-  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 18px;min-width:110px;display:flex;flex-direction:column;justify-content:center}
+     com o conteúdo das mais curtas centralizado em vez de grudado no topo.
+     01/08/2026: o container (.resumo-n2) mudou pra align-items:center em algum momento depois
+     dessa rodada, o que voltou a deixar .stat/.trat-tabs/.composicao-card mais baixos que o
+     .risco-card vizinho (que é alto por causa do gráfico). align-self:stretch direto em cada um
+     (aqui, em .composicao-card e em .trat-tabs) resolve sem mexer no container — não afeta as
+     outras instâncias de .stat que já vivem em containers com align-items:stretch (#n1Right). */
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 18px;min-width:110px;display:flex;flex-direction:column;justify-content:center;align-self:stretch}
   .stat .n{font-size:15px;font-weight:600}
   /* sugestão Fable 10/07: nome do arquivo reusava a fonte de "métrica" (20px bold) e brigava com
      os números de verdade — reduz peso/tamanho e trunca com ellipsis pra não alargar o card */
@@ -367,7 +372,7 @@
      já existem (decisão do Raphael: adicionar, não substituir os quadradinhos clicáveis). Mesma
      moldura .card dos vizinhos (.stat/.risco-card), só não é clicável nesta rodada — é leitura
      rápida da proporção, quem quer filtrar ainda usa os quadradinhos ou o gráfico de risco. */
-  .composicao-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 14px;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:170px}
+  .composicao-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 14px;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:170px;align-self:stretch}
   .composicao-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--neu-bg)}
   .composicao-seg{display:block}
   .composicao-seg.seg-tratativa{background:var(--brand)}
@@ -381,7 +386,7 @@
   .composicao-item i.seg-analise{background:var(--err)}
   .composicao-item i.seg-fora{background:var(--warn)}
   .composicao-item i.seg-procedente{background:var(--err-tx)}
-  .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto}
+  .trat-tabs{display:flex;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;flex:0 0 auto;align-self:stretch}
   /* pedido do Raphael (13/07): "Em aberto"/"Tratadas" tinham perdido o destaque que o comentário
      acima já pedia ("mais destaque que os filtros") — os 2 cortes de altura da barra (-25%, -15%)
      comprimiram tudo uniformemente, inclusive este placar. Calibrado ao vivo: .big volta a crescer
@@ -394,7 +399,7 @@
      sempre azul se misturaria visualmente com "23 TOTAL ITENS" quando ele estiver selecionado.
      var(--neu-bg) (cinza claro neutro, já usado nos badges "corrigido"/"manual") separa o placar dos
      .stat brancos vizinhos sem reaproveitar uma cor que já tem outro significado na tela. */
-  .trat-tab{flex:1;padding:8px 20px 9px;background:var(--neu-bg);border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative}
+  .trat-tab{flex:1;padding:8px 20px 9px;background:var(--neu-bg);border:none;cursor:pointer;text-align:left;font-family:inherit;position:relative;display:flex;flex-direction:column;justify-content:center}
   .trat-tab+.trat-tab{border-left:1px solid var(--border2)}
   .trat-tab:hover{background:var(--bg)}
   .trat-tab .big{font-size:26px;font-weight:800;line-height:1;color:var(--txt);display:flex;align-items:baseline;gap:8px}
