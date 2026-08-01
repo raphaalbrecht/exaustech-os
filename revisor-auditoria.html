@@ -3432,6 +3432,7 @@ async function renderDetalhe(){
     // levantamento) que acontece antes dela.
     + '<div class="hist" id="historico"></div>';
   kvAplicarTruncamento(colReg);
+  edCarregarThumbFoto(l.id); // 01/08/2026: pinta a miniatura assíncrona logo depois da 1ª pintura do painel (edHtmlTabela já colocou o placeholder #edFotoThumb, se for o caso)
 
   if (pdfUrl && colPdf) { // 16/07 (modo enxuto): sem colPdf não tem #pdfWrap pra preencher — o mesmo PDF vira acessível só pelo drawer (abrirDrawerPdf)
     try {
@@ -3910,13 +3911,40 @@ function edUsarNcExistente(ncId){
   edRerenderTabela();
 }
 
+// 01/08/2026 (pedido do Raphael: miniatura da foto depois do upload manual concluído) — chamada
+// depois de toda renderização que inclui edHtmlTabela(l) quando l.possuiFoto vira true (ver
+// mostrarThumbFoto ali, e #edFotoThumb como alvo). Função separada (em vez de inline) porque tem
+// 2 pontos de chamada: renderDetalhe() (1ª pintura do painel) e edRerenderTabela() (depois do
+// upload em si, via anexarFotoLinha() → carregar() → renderTudo() → renderDetalhe() de novo — na
+// prática os dois call sites cobrem os mesmos casos, mas manter os dois deixa a miniatura
+// consistente mesmo se um dia edRerenderTabela() rodar sem passar por renderDetalhe()).
+// Independente de matchConfirmado(l) de propósito — diferente do #fotoWrap (mais abaixo, na coluna
+// de registro), que só existe depois do match confirmado. A miniatura aqui serve pra confirmar que
+// o upload deu certo mesmo ANTES de qualquer match, que é literalmente o caso de uso pedido.
+async function edCarregarThumbFoto(linhaId){
+  const l = ST.linhas.find((x) => x.id === linhaId);
+  if (!l || !l.possuiFoto || !l.fotoUrl) return;
+  const thumb = document.getElementById('edFotoThumb');
+  if (!thumb) return; // painel pode já ter trocado de item, ou o bloco não existe nesse estado
+  try {
+    const url = await fotoBlobUrl(l.fotoUrl);
+    if (!ED || ED.linhaId !== linhaId) return; // usuário já trocou de item — não pinta miniatura errada
+    const alvo = document.getElementById('edFotoThumb');
+    if (alvo) alvo.innerHTML = '<img src="' + url + '" alt="miniatura da foto anexada" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line)">';
+  } catch (e) {
+    if (!ED || ED.linhaId !== linhaId) return;
+    const alvo = document.getElementById('edFotoThumb');
+    if (alvo) alvo.innerHTML = '<span style="font-size:11px;color:var(--err-tx)">falha na miniatura</span>';
+  }
+}
+
 function edRerenderTabela(){
   const l = ST.linhas.find((x) => x.id === ED.linhaId);
   if (!l) return;
   const tabelaWrap = document.getElementById('regSf');
   const acaoWrap = document.getElementById('regAcao');
   const escopoWrap = document.getElementById('regEscopo');
-  if (tabelaWrap) { tabelaWrap.innerHTML = edHtmlTabela(l); kvAplicarTruncamento(tabelaWrap); }
+  if (tabelaWrap) { tabelaWrap.innerHTML = edHtmlTabela(l); kvAplicarTruncamento(tabelaWrap); edCarregarThumbFoto(l.id); }
   if (escopoWrap) escopoWrap.innerHTML = edHtmlEscopo(l);
   if (acaoWrap) acaoWrap.innerHTML = edHtmlAcao(l);
   // 15/07/2026: autosave — todo mutador de ED que re-renderiza (selects em cascata, escopo,
@@ -4059,16 +4087,25 @@ function edHtmlTabela(l){
   // botão — só aparece quando a IA não extraiu foto nenhuma pro item (!l.possuiFoto). Sobe a
   // imagem pro endpoint novo POST /exp/auditorias/linhas/:linhaId/foto (ver anexarFotoLinha()) e
   // some sozinho depois que a foto entra, porque l.possuiFoto vira true e este bloco re-renderiza.
+  // 01/08/2026 (mesmo dia, pedido novo): assim que possuiFoto vira true (upload manual ou já
+  // extraída pela IA), o botão dá lugar a uma miniatura — antes disso não havia NENHUM jeito de
+  // ver a foto antes de confirmar o match (o foto-wrap grande só aparece depois, gated por
+  // matchConfirmado(l) — ver renderDetalhe()). #edFotoThumb carrega via fotoBlobUrl() (mesmo
+  // helper autenticado do resto da tela) chamado por edCarregarThumbFoto() logo depois de cada
+  // innerHTML deste bloco (ver os 2 call-sites de edHtmlTabela()).
   const mostrarAnexarFoto = !l.possuiFoto;
+  const mostrarThumbFoto = !!l.possuiFoto;
   const mostrarCadastrarNc = ED.perguntaId && !ED.novoNcAberto;
-  if (mostrarAnexarFoto || mostrarCadastrarNc) {
+  if (mostrarAnexarFoto || mostrarThumbFoto || mostrarCadastrarNc) {
     html += '<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">'
-      + (mostrarAnexarFoto
-          ? '<label class="btn sec" style="padding:6px 12px;font-size:12px;margin:0;cursor:pointer" title="Anexar uma foto tirada por fora, quando a IA não achou nenhuma no PDF">'
-              + '<span class="lblTxt">+ Anexar foto</span>'
-              + '<input type="file" accept="image/*" style="display:none" onchange="anexarFotoLinha(this,\'' + l.id + '\')">'
-            + '</label>'
-          : '')
+      + (mostrarThumbFoto
+          ? '<div id="edFotoThumb" style="display:flex;align-items:center"><span style="font-size:11px;color:var(--weaker)">carregando miniatura…</span></div>'
+          : mostrarAnexarFoto
+              ? '<label class="btn sec" style="padding:6px 12px;font-size:12px;margin:0;cursor:pointer" title="Anexar uma foto tirada por fora, quando a IA não achou nenhuma no PDF">'
+                  + '<span class="lblTxt">+ Anexar foto</span>'
+                  + '<input type="file" accept="image/*" style="display:none" onchange="anexarFotoLinha(this,\'' + l.id + '\')">'
+                + '</label>'
+              : '')
       + (mostrarCadastrarNc
           ? '<button class="btn sec" style="padding:6px 12px;font-size:12px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button>'
           : '')
