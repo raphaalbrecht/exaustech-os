@@ -3619,6 +3619,27 @@ async function anexarFotoLinha(inputEl, linhaId){
   }
 }
 
+// 01/08/2026 (pedido do Raphael): botão "excluir foto anexada" (ver edHtmlTabela, botão logo abaixo
+// de #edFotoThumb). Chama DELETE .../foto, que só DESVINCULA a foto da Linha (limpa Drive_File_Id__c/
+// Drive_URL__c/Possui_Foto__c) — o arquivo em si continua no Google Drive, não é apagado (CLAUDE.md:
+// "adicionar sim, apagar não"). Cobre tanto foto extraída automaticamente do PDF quanto anexada
+// manualmente — depois de excluída, l.possuiFoto volta a false e "+ Anexar foto" reaparece sozinho.
+async function excluirFotoLinha(linhaId){
+  if (!confirm('Excluir a foto anexada deste item? O arquivo some da tela, mas continua guardado no Drive — não é apagado de vez.')) return;
+  try {
+    const r = await fetch(BACKEND + '/exp/auditorias/linhas/' + linhaId + '/foto', {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + beTok() }
+    });
+    const j = await r.json();
+    if (!r.ok || j.ok === false) { msg('Erro ao excluir foto: ' + (j.error || r.status), 'err'); return; }
+    await carregar(); // recarrega o lote pra l.possuiFoto/l.fotoUrl virem atualizados do backend
+    ST.selecionadaId = linhaId; renderTudo();
+    msg('Foto excluída.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao excluir foto: ' + e.message, 'err');
+  }
+}
+
 // ================= editor campo a campo (Grupo/Elemento/Pergunta/Não-conformidade) =================
 // Substitui o painel de busca textual v1 (rejeitado pelo Raphael 10/07: "a edição deve ser campo
 // a campo"). Cada nível vira <select> na própria tabela "Registro no Salesforce". Regra de
@@ -4104,7 +4125,15 @@ function edHtmlTabela(l){
   const mostrarFotoEd = !!l.possuiFoto;
   const mostrarCadastrarNc = ED.perguntaId && !ED.novoNcAberto;
   if (mostrarFotoEd) {
-    html += '<div class="foto-wrap" id="edFotoThumb"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>';
+    html += '<div class="foto-wrap" id="edFotoThumb"><span style="font-size:12px;color:var(--weaker)">carregando foto…</span></div>'
+      // 01/08/2026 (pedido do Raphael): botão "excluir foto anexada" — some sozinho quando
+      // possuiFoto voltar a false (mesma re-renderização que já traz "+ Anexar foto" de volta, ver
+      // mostrarAnexarFoto acima). Fica FORA do innerHTML que edCarregarThumbFoto() sobrescreve (ver
+      // função, mais acima no arquivo) pra não precisar reinjetar o botão a cada carregamento da
+      // imagem — ele já nasce visível mesmo enquanto a foto ainda tá "carregando…".
+      + '<div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:8px">'
+        + '<button type="button" class="link-btn" style="color:var(--err-tx)" onclick="excluirFotoLinha(\'' + l.id + '\')">excluir foto anexada</button>'
+      + '</div>';
   }
   if (mostrarAnexarFoto || mostrarCadastrarNc) {
     html += '<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">'
