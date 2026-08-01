@@ -2825,12 +2825,14 @@ function renderTudo(){
          itens — contagem estava certa, só o rótulo confundia). Contagem (contagem('Sem match')) não
          mudou nada, só o texto exibido. */
       '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match por ia</div></div>'
-      + (foraEscopoCount ? '<div class="stat clicavel' + (ativoForaEscopo ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'fora_escopo\')"><div class="n">' + foraEscopoCount + '</div><div class="l">fora de escopo</div></div>' : '')
-      // 31/07/2026 (pedido do Raphael): 2 quadrados totalizadores novos pro eixo de contestação
-      // técnica, mesmo padrão do "fora de escopo" acima (só aparecem se houver pelo menos 1 item
-      // nesse estado, pra não virar ruído em auditorias sem nenhuma contestação aberta).
+      // 01/08/2026 (pedido do Raphael, depois de ver a barra de composição no ar): os quadrados
+      // "fora de escopo" e "contestado" saíram daqui — a barra de composição (composicaoHtml,
+      // logo abaixo) já cobre os dois de forma visual, o par de quadrados virou redundante. Fica
+      // só "contestação em análise": diferente dos outros 2 (que são estado JÁ resolvido), esse
+      // pede ação — vale continuar pedindo atenção mesmo com a barra ali do lado. Filtro por "fora
+      // de escopo" continua acessível pelo segmented control do gráfico de risco (setVisaoRisco);
+      // filtro por "contestado" (Procedente+Improcedente) perdeu o atalho de 1 clique no cabeçalho.
       + (contestacaoAnaliseCount ? '<div class="stat clicavel' + (ativoContestacaoAnalise ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')"><div class="n">' + contestacaoAnaliseCount + '</div><div class="l">contestação em análise</div></div>' : '')
-      + (contestacaoConfirmadaCount ? '<div class="stat clicavel' + (ativoContestacaoConfirmada ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_confirmada\')"><div class="n">' + contestacaoConfirmadaCount + '</div><div class="l">contestado</div></div>' : '')
       + composicaoHtml
       + '<div class="trat-tabs">'
         + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
