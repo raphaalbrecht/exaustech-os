@@ -2661,7 +2661,7 @@ function renderTudo(){
     // ---- NÍVEL 1 (bloco à direita da Conta/Data): confirmados + selo + pílula PDF + Risco da loja ----
     n1Right.innerHTML =
       '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
-        + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">confirmados</div>'
+        + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">matches confirmados</div>'
         + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
       + '</div>'
       // 31/07/2026: pedido do Raphael — removido o selo "✓ Revisão completa" que aparecia aqui ao
