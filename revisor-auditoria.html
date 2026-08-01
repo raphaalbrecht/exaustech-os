@@ -3578,6 +3578,46 @@ async function reverterLinha(linhaId){
   }
 }
 
+// 01/08/2026 (pedido do Raphael): "+ Anexar foto" no editor — cobre o gap documentado em
+// DECISAO_pagina-foto-vazia-em-pdf-dificil.md (PDF difícil de ler não gera foto automática pra
+// nenhum item). Não usa o mesmo padrão de botão+spinner dos outros (confirmar/reverter) porque o
+// disparo é um <input type="file"> escondido dentro de um <label>; o "botão" visual (.lblTxt) só
+// tem o texto trocado durante o envio, sem precisar de id fixo (podem existir várias linhas
+// diferentes renderizadas ao longo da sessão, cada uma com seu próprio label).
+async function anexarFotoLinha(inputEl, linhaId){
+  const arquivo = inputEl.files[0];
+  if (!arquivo) return;
+  if (!/^image\//.test(arquivo.type)) { msg('Selecione um arquivo de imagem (jpg ou png).', 'err'); inputEl.value = ''; return; }
+  const label = inputEl.closest('label');
+  const txtEl = label ? label.querySelector('.lblTxt') : null;
+  const txtOriginal = txtEl ? txtEl.textContent : '';
+  if (label) { label.style.opacity = '.6'; label.style.pointerEvents = 'none'; }
+  if (txtEl) txtEl.textContent = 'Enviando foto…';
+  try {
+    const fd = new FormData();
+    fd.append('foto', arquivo);
+    const r = await fetch(BACKEND + '/exp/auditorias/linhas/' + linhaId + '/foto', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + beTok() }, body: fd
+    });
+    const j = await r.json();
+    if (!r.ok || j.ok === false) {
+      msg('Erro ao anexar foto: ' + (j.error || r.status), 'err');
+      if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+      if (txtEl) txtEl.textContent = txtOriginal;
+      inputEl.value = '';
+      return;
+    }
+    await carregar(); // recarrega o lote pra l.possuiFoto/l.fotoUrl virem atualizados do backend
+    ST.selecionadaId = linhaId; renderTudo();
+    msg('Foto anexada.', 'info');
+  } catch (e) {
+    msg('Falha de rede ao anexar foto: ' + e.message, 'err');
+    if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+    if (txtEl) txtEl.textContent = txtOriginal;
+    inputEl.value = '';
+  }
+}
+
 // ================= editor campo a campo (Grupo/Elemento/Pergunta/Não-conformidade) =================
 // Substitui o painel de busca textual v1 (rejeitado pelo Raphael 10/07: "a edição deve ser campo
 // a campo"). Cada nível vira <select> na própria tabela "Registro no Salesforce". Regra de
@@ -4015,8 +4055,24 @@ function edHtmlTabela(l){
   // "pré-preenchido" com a NC atual (essa diferenciação era exatamente a confusão relatada).
   // pedido do Raphael (13/07, rodada 25): botão pequeno alinhado à direita — não compete
   // visualmente com o "Confirmar match" (que agora ocupa a largura toda da actionbar).
-  if (ED.perguntaId && !ED.novoNcAberto) {
-    html += '<div style="text-align:right;margin-top:8px"><button class="btn sec" style="padding:6px 12px;font-size:12px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button></div>';
+  // 01/08/2026 (pedido do Raphael): botão "+ Anexar foto" no espaço em branco à esquerda deste
+  // botão — só aparece quando a IA não extraiu foto nenhuma pro item (!l.possuiFoto). Sobe a
+  // imagem pro endpoint novo POST /exp/auditorias/linhas/:linhaId/foto (ver anexarFotoLinha()) e
+  // some sozinho depois que a foto entra, porque l.possuiFoto vira true e este bloco re-renderiza.
+  const mostrarAnexarFoto = !l.possuiFoto;
+  const mostrarCadastrarNc = ED.perguntaId && !ED.novoNcAberto;
+  if (mostrarAnexarFoto || mostrarCadastrarNc) {
+    html += '<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">'
+      + (mostrarAnexarFoto
+          ? '<label class="btn sec" style="padding:6px 12px;font-size:12px;margin:0;cursor:pointer" title="Anexar uma foto tirada por fora, quando a IA não achou nenhuma no PDF">'
+              + '<span class="lblTxt">+ Anexar foto</span>'
+              + '<input type="file" accept="image/*" style="display:none" onchange="anexarFotoLinha(this,\'' + l.id + '\')">'
+            + '</label>'
+          : '')
+      + (mostrarCadastrarNc
+          ? '<button class="btn sec" style="padding:6px 12px;font-size:12px" onclick="edOnNc(\'__novo__\')">+ Cadastrar não conformidade nova</button>'
+          : '')
+      + '</div>';
   }
 
   if (ED.novoNcAberto) html += edHtmlNovoNc();
