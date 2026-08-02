@@ -431,7 +431,9 @@
      deixa o trilho com a mesma sensação de altura do card de risco, sem depender de medir px exato. */
   .funil-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:1 1 100%;align-self:stretch}
   .funil-trilho{display:flex;align-items:stretch;gap:2px}
-  .funil-etapa{flex:1;position:relative;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:12px 10px 13px;cursor:pointer;transition:border-color .12s,box-shadow .12s;min-width:96px;min-height:74px;display:flex;flex-direction:column;justify-content:center}
+  /* 01/08/2026: min-width 96px→110px (+15%, pedido do Raphael) — "exceto o da distribuição do
+     risco" = não mexe em nada do .risco-card, só nas caixas do trilho mesmo. */
+  .funil-etapa{flex:1;position:relative;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:12px 10px 13px;cursor:pointer;transition:border-color .12s,box-shadow .12s;min-width:110px;min-height:74px;display:flex;flex-direction:column;justify-content:center}
   .funil-barra{margin-top:5px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:60px}
   .funil-barra-fill{height:100%;background:var(--brand);border-radius:999px}
   .funil-etapa:hover{border-color:var(--brand);box-shadow:0 1px 4px rgba(62,126,176,.16)}
@@ -442,6 +444,11 @@
   .funil-etapa.gargalo:hover{border-color:var(--warn)}
   .funil-etapa.gargalo .n{color:var(--warn-tx)}
   .funil-etapa.tratada-ok .n{color:var(--succ)}
+  /* 01/08/2026: pedido do Raphael — etapa zerada (fila vazia) ou 'confirmado' em 100% ganha fundo
+     verde, mesma linguagem visual do gargalo (fundo+borda), só que cor de sucesso em vez de alerta. */
+  .funil-etapa.zerada{background:var(--succ-bg);border-color:var(--succ-bd)}
+  .funil-etapa.zerada:hover{border-color:var(--succ)}
+  .funil-etapa.zerada .n{color:var(--succ)}
   .funil-selo{position:absolute;top:-8px;right:6px;background:var(--warn);color:#fff;font-size:8.5px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:8px;white-space:nowrap}
   .funil-seta{width:14px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--border2);font-size:13px}
   .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
@@ -2627,11 +2634,16 @@ function funilHtml(c){
     const ehTratada = e.key === 'tratada';
     const ativa = c.filtroAtivo === e.key;
     const ehConfirmado = e.especial === 'confirmado';
+    // 01/08/2026 (pedido do Raphael): fundo verde de identificação rápida pra etapa ZERADA (fila
+    // vazia, nada parado ali) ou, no caso da etapa 'confirmado', pra quando bate 100% — nos dois
+    // casos é "nada pra revisar aqui agora". Não pode colidir com GARGALO: gargalo só acontece com
+    // n>0, então uma etapa zerada nunca é a gargalo ao mesmo tempo.
+    const ehZerada = ehConfirmado ? c.pct === 100 : e.n === 0;
     const numeroHtml = ehConfirmado
       ? '<div class="n">' + c.confirmados + '/' + c.total + '</div><div class="funil-barra"><div class="funil-barra-fill" style="width:' + c.pct + '%"></div></div>'
       : '<div class="n">' + e.n + '</div>';
     return (i > 0 ? '<span class="funil-seta">&#8250;</span>' : '')
-      + '<div class="funil-etapa' + (ehGargalo ? ' gargalo' : '') + (ehTratada ? ' tratada-ok' : '') + (ativa ? ' ativa' : '')
+      + '<div class="funil-etapa' + (ehGargalo ? ' gargalo' : '') + (ehZerada ? ' zerada' : '') + (ehTratada ? ' tratada-ok' : '') + (ativa ? ' ativa' : '')
       + '" onclick="toggleFiltroStat(\'' + e.key + '\')" title="' + e.l + ' · ' + e.n + ' item(ns) · clique para filtrar">'
         + (ehGargalo ? '<span class="funil-selo">GARGALO</span>' : '')
         + numeroHtml + '<div class="l">' + escapeHtml(e.l) + '</div>'
