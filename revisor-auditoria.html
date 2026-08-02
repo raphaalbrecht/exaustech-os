@@ -427,7 +427,9 @@
      pra isso — o trilho foi adaptado aos dados que a tela tem, não copiado 1:1 do mockup. */
   .funil-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:1 1 100%;align-self:stretch}
   .funil-trilho{display:flex;align-items:stretch;gap:2px}
-  .funil-etapa{flex:1;position:relative;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:5px 10px 6px;cursor:pointer;transition:border-color .12s,box-shadow .12s;min-width:0}
+  .funil-etapa{flex:1;position:relative;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:5px 10px 6px;cursor:pointer;transition:border-color .12s,box-shadow .12s;min-width:96px}
+  .funil-barra{margin-top:3px;height:4px;border-radius:999px;background:var(--border2);overflow:hidden;min-width:60px}
+  .funil-barra-fill{height:100%;background:var(--brand);border-radius:999px}
   .funil-etapa:hover{border-color:var(--brand);box-shadow:0 1px 4px rgba(62,126,176,.16)}
   .funil-etapa.ativa{box-shadow:inset 0 0 0 2px var(--brand)}
   .funil-etapa .n{font-size:15px;font-weight:700;color:var(--brand-dk);line-height:1.1}
@@ -2596,25 +2598,39 @@ function labelTratativa(status){
 // mockup original tinha esse dado, mas é fictício ali — a Linha/Item da Tratativa não guarda data de
 // entrada na etapa hoje; se o Raphael quiser isso depois, é um campo novo + trabalho de backend).
 function funilHtml(c){
+  // 01/08/2026 (pedido do Raphael, ao vivo depois de publicar o trilho): "matches confirmados"
+  // saiu do bloco isolado #n1Right (ver renderTudo()) e virou uma etapa DENTRO do trilho, na
+  // posição real do fluxo — entre "match pendente" (candidato ainda sem confirmação) e "não
+  // tratada" (já confirmado, item da tratativa criado). Reaproveita o filtro 'confirmado' que já
+  // existia (l.status === 'Pendente proposta'), só muda onde ele é renderizado.
   const etapas = [
     { key: 'Sem match', n: c.semMatch, l: 'Sem match' },
     { key: 'match_pendente', n: c.matchPendente, l: 'Match pendente' },
+    { key: 'confirmado', n: c.confirmados, l: 'Confirmado', especial: 'confirmado' },
     { key: 'nao_tratada', n: c.naoTratada, l: 'Não tratada' },
     { key: 'em_tratativa', n: c.emTratativa, l: 'Em tratativa' },
     { key: 'tratada', n: c.tratada, l: 'Tratada' }
   ];
-  const candidatosGargalo = etapas.slice(0, 4); // 'tratada' nunca é gargalo — é o destino bom
+  // 01/08/2026: era etapas.slice(0,4) (posicional) — quebrava agora que "confirmado" entrou no
+  // meio do array. Vira filtro por chave explícita: 'confirmado' também fica de fora do cálculo de
+  // gargalo porque não é uma fila que empaca (é so um marco intermediário), só as 4 etapas onde um
+  // item pode de fato ficar PARADO esperando alguém agir.
+  const candidatosGargalo = etapas.filter(e => ['Sem match', 'match_pendente', 'nao_tratada', 'em_tratativa'].includes(e.key));
   const gargalo = candidatosGargalo.reduce((pior, at) => (at.n > pior.n ? at : pior), candidatosGargalo[0]);
   const temGargalo = gargalo.n > 0;
   const trilho = etapas.map((e, i) => {
     const ehGargalo = temGargalo && e.key === gargalo.key;
     const ehTratada = e.key === 'tratada';
     const ativa = c.filtroAtivo === e.key;
+    const ehConfirmado = e.especial === 'confirmado';
+    const numeroHtml = ehConfirmado
+      ? '<div class="n">' + c.confirmados + '/' + c.total + '</div><div class="funil-barra"><div class="funil-barra-fill" style="width:' + c.pct + '%"></div></div>'
+      : '<div class="n">' + e.n + '</div>';
     return (i > 0 ? '<span class="funil-seta">&#8250;</span>' : '')
       + '<div class="funil-etapa' + (ehGargalo ? ' gargalo' : '') + (ehTratada ? ' tratada-ok' : '') + (ativa ? ' ativa' : '')
       + '" onclick="toggleFiltroStat(\'' + e.key + '\')" title="' + e.l + ' · ' + e.n + ' item(ns) · clique para filtrar">'
         + (ehGargalo ? '<span class="funil-selo">GARGALO</span>' : '')
-        + '<div class="n">' + e.n + '</div><div class="l">' + escapeHtml(e.l) + '</div>'
+        + numeroHtml + '<div class="l">' + escapeHtml(e.l) + '</div>'
       + '</div>';
   }).join('');
   return '<div class="funil-card">'
@@ -2822,16 +2838,14 @@ function renderTudo(){
     const naoTratadaCount = contagem('nao_tratada');
     const matchPendenteCount = contagem('match_pendente');
 
-    // ---- NÍVEL 1 (bloco à direita da Conta/Data): confirmados + selo + pílula PDF + Risco da loja ----
+    // ---- NÍVEL 1 (bloco à direita da Conta/Data): pílula PDF + Risco da loja ----
+    // 01/08/2026 (pedido do Raphael, ao vivo): a pílula "X/Y matches confirmados" saiu daqui — foi
+    // pro trilho do funil (funilHtml(), etapa 'confirmado'), na posição real do fluxo de tratamento
+    // em vez de isolada no header. completo/ativoConfirmado continuam calculados acima (completo
+    // ainda decide a pílula PDF do laudo logo abaixo e o modo enxuto; ativoConfirmado não é mais
+    // usado aqui mas fica vivo — usado dentro de funilHtml() via c.filtroAtivo === 'confirmado').
     n1Right.innerHTML =
-      '<div class="stat clicavel' + (completo ? ' stat-completo' : '') + (ativoConfirmado ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'confirmado\')">'
-        + '<div class="n">' + confirmados + '/' + total + '</div><div class="l">matches confirmados</div>'
-        + '<div class="stat-barra"><div class="stat-barra-fill" style="width:' + pct + '%"></div></div>'
-      + '</div>'
-      // 31/07/2026: pedido do Raphael — removido o selo "✓ Revisão completa" que aparecia aqui ao
-      // lado da pílula de confirmados. A pílula de confirmados (100% + barra verde) já comunica a
-      // mesma informação; o selo era redundante. loteCompleto continua calculado igual (ainda decide
-      // a cor da pílula de confirmados, a pílula PDF do laudo logo abaixo, e o modo enxuto).
+      ''
       // 17/07/2026: pílula "PDF do laudo" — só existe no modo enxuto (lote 100% confirmado). Abre
       // o drawer (ver .pdf-drawer-* no CSS e abrirDrawerPdf() mais abaixo) já na página da NC
       // selecionada, se houver uma. pdfPillAnimar (calculado no topo de renderTudo) só é true na
@@ -2923,6 +2937,9 @@ function renderTudo(){
       funilHtml({
         semMatch: contagem('Sem match'),
         matchPendente: matchPendenteCount,
+        confirmados: confirmados,
+        total: total,
+        pct: pct,
         naoTratada: naoTratadaCount,
         emTratativa: emTratativaCount,
         tratada: tratadaCount,
