@@ -415,6 +415,37 @@
   .trat-tab.abertas .big{color:var(--warn)}
   .trat-tab.on{background:var(--brand-l)}
   .trat-tab.on::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--brand)}
+  /* 01/08/2026 (Proposta A, mockup "Trilho do Funil" do subagente Fable 5, aprovada pelo Raphael):
+     substitui a pílula "sem match por ia", a pílula "contestação em análise", a barra de composição
+     (.composicao-card acima) e as abas .trat-tabs por um trilho único que desenha o ciclo de vida
+     real da NC (ver funilHtml() no JS) — pedido original: "ver a quantidade de itens pendentes e
+     entender onde estão os gargalos". As classes .composicao-*/.trat-tabs/.trat-tab acima ficam no
+     CSS mas saem de uso (mesmo precedente de baixo risco já adotado nesta sessão pras pílulas fora-
+     de-escopo/contestação-confirmada removidas antes: não apagar, só parar de renderizar).
+     "Aguardando escopo" do mockup original do Fable NÃO virou etapa aqui: confirmar match já exige
+     escolha de escopo no mesmo passo (edSalvar/tarefa #255), não existe estado intermediário real
+     pra isso — o trilho foi adaptado aos dados que a tela tem, não copiado 1:1 do mockup. */
+  .funil-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:1 1 100%;align-self:stretch}
+  .funil-trilho{display:flex;align-items:stretch;gap:2px}
+  .funil-etapa{flex:1;position:relative;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:5px 10px 6px;cursor:pointer;transition:border-color .12s,box-shadow .12s;min-width:0}
+  .funil-etapa:hover{border-color:var(--brand);box-shadow:0 1px 4px rgba(62,126,176,.16)}
+  .funil-etapa.ativa{box-shadow:inset 0 0 0 2px var(--brand)}
+  .funil-etapa .n{font-size:15px;font-weight:700;color:var(--brand-dk);line-height:1.1}
+  .funil-etapa .l{font-size:9.5px;font-weight:700;letter-spacing:.02em;color:var(--weaker);text-transform:uppercase;white-space:nowrap}
+  .funil-etapa.gargalo{background:var(--warn-bg);border-color:var(--warn-bd)}
+  .funil-etapa.gargalo:hover{border-color:var(--warn)}
+  .funil-etapa.gargalo .n{color:var(--warn-tx)}
+  .funil-etapa.tratada-ok .n{color:var(--succ)}
+  .funil-selo{position:absolute;top:-8px;right:6px;background:var(--warn);color:#fff;font-size:8.5px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:8px;white-space:nowrap}
+  .funil-seta{width:14px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--border2);font-size:13px}
+  .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
+  .funil-fora .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em}
+  .funil-saida{font-size:11px;color:var(--neu-tx);background:var(--neu-bg);border-radius:12px;padding:2px 10px}
+  .funil-saida b{color:var(--brand-dk)}
+  .funil-analise{font-size:11px;color:var(--err-tx);background:var(--err-bg);border:1px solid var(--err-bd);border-radius:12px;padding:2px 10px;cursor:pointer}
+  .funil-analise:hover{border-color:var(--err)}
+  .funil-analise.ativa{box-shadow:inset 0 0 0 2px var(--err)}
+  .funil-analise b{font-weight:800}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
      de botões — pouco escaneável e sem noção de proporção entre os níveis. A 12b (barras verticais
      + legenda de quadradinhos coloridos abaixo) também foi reprovada: obrigava o olho a CASAR a
@@ -2525,6 +2556,11 @@ function contagem(faixaOrTag){
   // também item já confirmado (matchConfirmado) — o número agora cai conforme o revisor avança,
   // em vez de continuar contando itens que já foram corrigidos e confirmados.
   if (faixaOrTag === 'Sem match') return ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)).length;
+  // 01/08/2026 (etapa "Match pendente" do trilho do funil, ver funilHtml()): espelho exato do 'Sem
+  // match' acima, só invertendo a condição de faixa — candidato Forte/Fraco já achado pela IA, mas o
+  // revisor ainda não confirmou. Junto com 'Sem match' e 'confirmado', os 3 dividem o total sem
+  // sobrepor (todo item pendente cai em exatamente um dos dois primeiros).
+  if (faixaOrTag === 'match_pendente') return ST.linhas.filter(l => l.faixa !== 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)).length;
   return ST.linhas.filter(l => l.faixa === faixaOrTag).length;
 }
 
@@ -2543,6 +2579,55 @@ function labelTratativa(status){
   return { label: 'não tratada', cls: 'trat-nao' };
 }
 
+// 01/08/2026 (Proposta A do subagente Fable 5, "Trilho do Funil" — pedido do Raphael: "ver a
+// quantidade de itens pendentes e entender onde estão os gargalos"). Substitui, dentro de
+// #resumoN2, a pílula "sem match por ia" + a pílula "contestação em análise" + a barra de
+// composição (.composicao-card) + as abas .trat-tabs por um trilho único que desenha o ciclo real:
+// sem match → match pendente → não tratada → em tratativa → tratada. "Aguardando escopo" existia no
+// mockup original do Fable mas foi cortado aqui — confirmar match já exige escolha de escopo no
+// MESMO passo (edSalvar, tarefa #255), não existe estado intermediário real de "confirmado mas sem
+// escopo" pra virar etapa. Fora de escopo e contestação procedente ficam numa linha à parte (saem do
+// ciclo mais cedo, não fazem parte da sequência principal) e continuam SEM clique — mesmo precedente
+// do composicaoHtml antigo, "leitura rápida, não filtro" (quem quer filtrar por fora de escopo usa o
+// segmented control do gráfico de risco, ver setVisaoRisco).
+// GARGALO = maior contagem entre sem-match/match-pendente/não-tratada/em-tratativa (nunca "tratada"
+// nem as saídas laterais — são estados-fim "bons", não faz sentido chamar de gargalo). Calculado no
+// cliente a cada render, sem precisar de campo novo no Salesforce nem de saber "há quantos dias" (o
+// mockup original tinha esse dado, mas é fictício ali — a Linha/Item da Tratativa não guarda data de
+// entrada na etapa hoje; se o Raphael quiser isso depois, é um campo novo + trabalho de backend).
+function funilHtml(c){
+  const etapas = [
+    { key: 'Sem match', n: c.semMatch, l: 'Sem match' },
+    { key: 'match_pendente', n: c.matchPendente, l: 'Match pendente' },
+    { key: 'nao_tratada', n: c.naoTratada, l: 'Não tratada' },
+    { key: 'em_tratativa', n: c.emTratativa, l: 'Em tratativa' },
+    { key: 'tratada', n: c.tratada, l: 'Tratada' }
+  ];
+  const candidatosGargalo = etapas.slice(0, 4); // 'tratada' nunca é gargalo — é o destino bom
+  const gargalo = candidatosGargalo.reduce((pior, at) => (at.n > pior.n ? at : pior), candidatosGargalo[0]);
+  const temGargalo = gargalo.n > 0;
+  const trilho = etapas.map((e, i) => {
+    const ehGargalo = temGargalo && e.key === gargalo.key;
+    const ehTratada = e.key === 'tratada';
+    const ativa = c.filtroAtivo === e.key;
+    return (i > 0 ? '<span class="funil-seta">&#8250;</span>' : '')
+      + '<div class="funil-etapa' + (ehGargalo ? ' gargalo' : '') + (ehTratada ? ' tratada-ok' : '') + (ativa ? ' ativa' : '')
+      + '" onclick="toggleFiltroStat(\'' + e.key + '\')" title="' + e.l + ' · ' + e.n + ' item(ns) · clique para filtrar">'
+        + (ehGargalo ? '<span class="funil-selo">GARGALO</span>' : '')
+        + '<div class="n">' + e.n + '</div><div class="l">' + escapeHtml(e.l) + '</div>'
+      + '</div>';
+  }).join('');
+  return '<div class="funil-card">'
+    + '<div class="funil-trilho">' + trilho + '</div>'
+    + '<div class="funil-fora">'
+      + '<span class="cap">Saíram do ciclo</span>'
+      + '<span class="funil-saida" title="Fora do escopo Exaustech — item informativo, revisão não continua"><b>' + c.foraEscopo + '</b> fora de escopo</span>'
+      + '<span class="funil-saida" title="Contestação julgada procedente — NC sai da conta de tratativa"><b>' + c.procedente + '</b> contestação procedente</span>'
+      + (c.contestacaoAnalise ? '<span class="funil-analise' + (c.filtroAtivo === 'contestacao_analise' ? ' ativa' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')" title="Contestação aguardando avaliação — eixo paralelo, clique para filtrar"><b>' + c.contestacaoAnalise + '</b> contestação em análise</span>' : '')
+    + '</div>'
+  + '</div>';
+}
+
 function normalizarBusca(s){
   // minúsculas + sem acento, pra "duto" achar "Duto"/"dúto" igual (mesmo espírito do removerConectivos do backend)
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -2556,6 +2641,8 @@ function linhasFiltradas(){
     // "pendência real" — exclui item já confirmado, senão a lista filtrada mostraria itens que a
     // pílula ao lado não conta mais.
     case 'Sem match': base = ST.linhas.filter(l => l.faixa === 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)); break;
+    // 01/08/2026 (etapa "Match pendente" do trilho do funil) — mesmo predicado de contagem('match_pendente') acima.
+    case 'match_pendente': base = ST.linhas.filter(l => l.faixa !== 'Sem match' && !excluidaDaTratativa(l) && !matchConfirmado(l)); break;
     case 'foto': base = ST.linhas.filter(l => l.possuiFoto); break;
     case 'nota': base = ST.linhas.filter(l => l.possuiTextoComplementar); break;
     case 'nao_tratada': case 'em_tratativa': case 'tratada': base = ST.linhas.filter(l => !foraDeEscopo(l) && statusTratativaEfetivo(l) === ST.filtro); break;
@@ -2730,6 +2817,10 @@ function renderTudo(){
     const tratadaCount = contagem('tratada');
     const onAberta = ST.filtro === 'trat_aberta' || ST.filtro === 'em_tratativa';
     const onTratada = ST.filtro === 'tratada';
+    // 01/08/2026 (trilho do funil, ver funilHtml()): 'não tratada' precisa de contagem PRÓPRIA aqui
+    // — antes só existia agregada dentro de abertaCount ('trat_aberta' = nao_tratada + em_tratativa).
+    const naoTratadaCount = contagem('nao_tratada');
+    const matchPendenteCount = contagem('match_pendente');
 
     // ---- NÍVEL 1 (bloco à direita da Conta/Data): confirmados + selo + pílula PDF + Risco da loja ----
     n1Right.innerHTML =
@@ -2823,34 +2914,23 @@ function renderTudo(){
     }
 
     resumoN2.innerHTML =
-      /* 30/07/2026: pedido do Raphael — pílula renomeada de "sem match" pra "sem match por IA", pra
-         deixar claro que é o casador automático que não achou candidato no catálogo, e não "eu ainda
-         não revisei/confirmei este item" (achado ao investigar por que a AUDTEC 000090 mostrava 0
-         mesmo sem nenhum item confirmado: a IA tinha achado candidato Forte/Fraco pra todos os 14
-         itens — contagem estava certa, só o rótulo confundia). Contagem (contagem('Sem match')) não
-         mudou nada, só o texto exibido. */
-      '<div class="stat clicavel' + (ativoSemMatch ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'Sem match\')"><div class="n">' + contagem('Sem match') + '</div><div class="l">sem match por ia</div></div>'
-      // 01/08/2026 (pedido do Raphael, depois de ver a barra de composição no ar): os quadrados
-      // "fora de escopo" e "contestado" saíram daqui — a barra de composição (composicaoHtml,
-      // logo abaixo) já cobre os dois de forma visual, o par de quadrados virou redundante. Fica
-      // só "contestação em análise": diferente dos outros 2 (que são estado JÁ resolvido), esse
-      // pede ação — vale continuar pedindo atenção mesmo com a barra ali do lado. Filtro por "fora
-      // de escopo" continua acessível pelo segmented control do gráfico de risco (setVisaoRisco);
-      // filtro por "contestado" (Procedente+Improcedente) perdeu o atalho de 1 clique no cabeçalho.
-      + (contestacaoAnaliseCount ? '<div class="stat clicavel' + (ativoContestacaoAnalise ? ' stat-ativo' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')"><div class="n">' + contestacaoAnaliseCount + '</div><div class="l">contestação em análise</div></div>' : '')
-      + composicaoHtml
-      + '<div class="trat-tabs">'
-        + '<button class="trat-tab abertas' + (onAberta ? ' on' : '') + '" onclick="setFiltro(\'trat_aberta\')">'
-          + '<span class="big">' + abertaCount + (emTratativaCount
-            ? ' <span class="mini" onclick="event.stopPropagation();setFiltro(\'em_tratativa\')">' + emTratativaCount + ' em tratativa</span>'
-            : '') + '</span>'
-          + '<span class="l">Em aberto</span>'
-        + '</button>'
-        + '<button class="trat-tab tratadas' + (onTratada ? ' on' : '') + '" onclick="setFiltro(\'tratada\')">'
-          + '<span class="big">' + tratadaCount + '</span>'
-          + '<span class="l">Tratadas</span>'
-        + '</button>'
-      + '</div>'
+      // 01/08/2026 (Proposta A do Fable 5, "Trilho do Funil" — ver funilHtml() e o comentário grande
+      // logo acima dela): substitui de uma vez a pílula "sem match por ia", a pílula "contestação em
+      // análise", a barra de composição (composicaoHtml, ainda calculada acima mas sem uso — mesmo
+      // precedente de baixo risco desta sessão: não apagar cálculo, só parar de renderizar) e as
+      // abas .trat-tabs (idem, abertaCount/onAberta/onTratada ficam sem uso). ativoSemMatch/
+      // ativoContestacaoAnalise continuam vivos — usados dentro de funilHtml() via c.filtroAtivo.
+      funilHtml({
+        semMatch: contagem('Sem match'),
+        matchPendente: matchPendenteCount,
+        naoTratada: naoTratadaCount,
+        emTratativa: emTratativaCount,
+        tratada: tratadaCount,
+        foraEscopo: foraEscopoCount,
+        procedente: procedenteCount,
+        contestacaoAnalise: contestacaoAnaliseCount,
+        filtroAtivo: ST.filtro
+      })
       + graficoHtml
       // 30/07/2026: substitui a antiga pílula "N TOTAL ITENS" como gatilho de limparFiltros() — só
       // aparece quando há algo pra limpar (mesmo cálculo de ativoTodas usado antes pra acender a
