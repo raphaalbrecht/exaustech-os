@@ -2638,7 +2638,10 @@ function funilHtml(c){
     // vazia, nada parado ali) ou, no caso da etapa 'confirmado', pra quando bate 100% — nos dois
     // casos é "nada pra revisar aqui agora". Não pode colidir com GARGALO: gargalo só acontece com
     // n>0, então uma etapa zerada nunca é a gargalo ao mesmo tempo.
-    const ehZerada = ehConfirmado ? c.pct === 100 : e.n === 0;
+    // 01/08/2026: 'tratada' fica de fora — pedido do Raphael ("é melhor não ficar verde pra não
+    // confundir"). Zero em 'tratada' é o cenário RUIM (nada foi resolvido ainda), o oposto do que o
+    // verde comunica nas outras etapas (fila vazia = bom), então não entra nessa regra.
+    const ehZerada = ehConfirmado ? c.pct === 100 : (e.key !== 'tratada' && e.n === 0);
     const numeroHtml = ehConfirmado
       ? '<div class="n">' + c.confirmados + '/' + c.total + '</div><div class="funil-barra"><div class="funil-barra-fill" style="width:' + c.pct + '%"></div></div>'
       : '<div class="n">' + e.n + '</div>';
