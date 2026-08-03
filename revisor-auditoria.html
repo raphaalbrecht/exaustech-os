@@ -451,8 +451,13 @@
   .funil-etapa.zerada .n{color:var(--succ)}
   .funil-selo{position:absolute;top:-8px;right:6px;background:var(--warn);color:#fff;font-size:8.5px;font-weight:800;letter-spacing:.3px;padding:1px 6px;border-radius:8px;white-space:nowrap}
   .funil-seta{width:14px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--border2);font-size:13px}
+  /* 01/08/2026: "saíram do ciclo" saiu de linha própria (.funil-fora, com borda tracejada em cima)
+     e entrou na MESMA linha do trilho — pedido do Raphael "colocar tudo numa mesma linha". A borda
+     horizontal vira um traço vertical (.funil-divisor) entre os 2 grupos. .funil-fora fica sem uso
+     no HTML (mesmo precedente desta sessão: não apagar CSS, só parar de renderizar) — ver funilHtml(). */
   .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
-  .funil-fora .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em}
+  .funil-divisor{width:1px;align-self:stretch;background:var(--border2);flex:none;margin:0 2px}
+  .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em;align-self:center;white-space:nowrap;flex:none}
   /* 01/08/2026: .funil-saida/.funil-analise (pílulas de texto) saem de uso — "saíram do ciclo" virou
      quadrado (.funil-etapa reaproveitada, ver funilHtml()), mesmo precedente de baixo risco já usado
      nesta sessão pras classes antigas do resumo: não apagar CSS, só parar de renderizar. */
@@ -2673,9 +2678,14 @@ function funilHtml(c){
   const foraHtml = '<div class="funil-etapa funil-fora-item" title="Fora do escopo Exaustech · ' + c.foraEscopo + ' item(ns) — informativo, revisão não continua"><div class="n">' + c.foraEscopo + '</div><div class="l">Fora de escopo</div></div>'
     + '<div class="funil-etapa funil-fora-item" title="Contestação julgada procedente · ' + c.procedente + ' item(ns) — sai da conta de tratativa"><div class="n">' + c.procedente + '</div><div class="l">Contest. procedente</div></div>'
     + (c.contestacaoAnalise ? '<div class="funil-etapa funil-fora-item analise' + (c.filtroAtivo === 'contestacao_analise' ? ' ativa' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')" title="Contestação aguardando avaliação · ' + c.contestacaoAnalise + ' item(ns) — eixo paralelo, clique para filtrar"><div class="n">' + c.contestacaoAnalise + '</div><div class="l">Contest. em análise</div></div>' : '');
+  // 01/08/2026 (pedido do Raphael): "colocar tudo numa mesma linha" — o trilho e o "saíram do
+  // ciclo" eram 2 linhas empilhadas dentro do card (.funil-trilho embaixo de .funil-fora, com
+  // borda tracejada separando). Viram UMA linha só: junta os 2 grupos no mesmo container flex,
+  // com um traço vertical (.funil-divisor) no lugar da borda horizontal de antes.
   return '<div class="funil-card">'
-    + '<div class="funil-trilho">' + trilho + '</div>'
-    + '<div class="funil-fora">'
+    + '<div class="funil-trilho">'
+      + trilho
+      + '<span class="funil-divisor"></span>'
       + '<span class="cap">Saíram do ciclo</span>'
       + foraHtml
     + '</div>'
