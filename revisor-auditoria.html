@@ -462,7 +462,9 @@
      horizontal vira um traço vertical (.funil-divisor) entre os 2 grupos. .funil-fora fica sem uso
      no HTML (mesmo precedente desta sessão: não apagar CSS, só parar de renderizar) — ver funilHtml(). */
   .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
-  .funil-divisor{width:1px;align-self:stretch;background:var(--border2);flex:none;margin:0 2px}
+  /* 03/08/2026: pedido do Raphael — triplicar o espaço em volta do traço divisor (2px→6px de cada
+     lado) pra deixar a separação entre "o trilho" e "saíram do ciclo" bem mais clara visualmente. */
+  .funil-divisor{width:1px;align-self:stretch;background:var(--border2);flex:none;margin:0 6px}
   .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em;align-self:center;white-space:nowrap;flex:none}
   /* 03/08/2026: pedido do Raphael, ao vivo depois de ver o card real — "SAÍRAM DO CICLO" empilha
      ACIMA das caixas em vez de ficar do lado (que gastava largura horizontal à toa e era o que
