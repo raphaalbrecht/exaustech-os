@@ -560,7 +560,11 @@
      pílula. width fixo (não min-width) trava a contribuição do label pro cálculo de largura do
      flex, independente de qual das 3 frases está ativa — nowrap porque widht fixo sozinho não
      impede quebra de linha.*/
-  .risco-sec-head .risco-card-label{width:150px;white-space:nowrap;flex:0 0 auto}
+  /* 03/08/2026 (pedido do Raphael): fonte de "Distribuição por risco" igual à de "Saíram do ciclo"
+     (.cap, 9.5px) — sobe de 8px (herdado da base .risco-card-label) só aqui, sem tocar no rótulo
+     "Risco da loja" (n1-cell, que já tem seu próprio override inline de 9px) nem no composicao-card
+     morto (sem uso). */
+  .risco-sec-head .risco-card-label{width:150px;white-space:nowrap;flex:0 0 auto;font-size:9.5px}
   .risco-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;flex:0 0 auto}
   .risco-seg-btn{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:4px 8px;color:var(--weaker);cursor:pointer;white-space:nowrap}
   .risco-seg-btn+.risco-seg-btn{border-left:1px solid var(--border2)}
