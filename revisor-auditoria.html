@@ -2875,6 +2875,24 @@ function renderTudo(){
     // — antes só existia agregada dentro de abertaCount ('trat_aberta' = nao_tratada + em_tratativa).
     const naoTratadaCount = contagem('nao_tratada');
     const matchPendenteCount = contagem('match_pendente');
+    // 01/08/2026: pedido do Raphael — "os totalizadores estão errados matematicamente" (a etapa
+    // Confirmado mostrava 4/17 enquanto Não tratada sozinha já valia 12; matematicamente impossível,
+    // já que todo item em não tratada/em tratativa/tratada só chega lá depois de confirmado —
+    // ver tarefa #255, escopo é decidido no MESMO passo da confirmação). Causa: a etapa Confirmado
+    // usava l.itensConfirmados/l.totalItens, campos do Salesforce (Itens_Confirmados__c/
+    // Total_de_Itens__c) que só são recalculados em certos pontos do backend e não acompanham ações
+    // ao vivo na tela (reverter confirmação, correção manual etc.) — MESMA classe de bug já achada e
+    // corrigida em 11/07 pra "sem match" (ver comentário logo abaixo, "Rodada 17"). Fix: derivar
+    // confirmados/total da etapa Confirmado a partir dos MESMOS contadores client-side já usados
+    // nas outras caixas do trilho, garantindo que os números sempre batem entre si por construção
+    // (não tem mais 2 fontes de verdade). confirmadosTrilho = tudo que já foi confirmado E está
+    // dentro do escopo (não_tratada+em_tratativa+tratada); totalTrilho soma o que ainda falta
+    // confirmar (match_pendente) — sem_match e fora_escopo/procedente ficam fora de propósito (não
+    // são candidatos a "confirmar match": sem match não tem o que confirmar; fora_escopo/procedente
+    // já saíram do funil principal, contados à parte em "Saíram do ciclo").
+    const confirmadosTrilho = naoTratadaCount + emTratativaCount + tratadaCount;
+    const totalTrilho = matchPendenteCount + confirmadosTrilho;
+    const pctTrilho = totalTrilho > 0 ? Math.min(100, Math.round((confirmadosTrilho / totalTrilho) * 100)) : 0;
 
     // ---- NÍVEL 1 (bloco à direita da Conta/Data): pílula PDF + Risco da loja ----
     // 01/08/2026 (pedido do Raphael, ao vivo): a pílula "X/Y matches confirmados" saiu daqui — foi
@@ -2975,9 +2993,9 @@ function renderTudo(){
       funilHtml({
         semMatch: contagem('Sem match'),
         matchPendente: matchPendenteCount,
-        confirmados: confirmados,
-        total: total,
-        pct: pct,
+        confirmados: confirmadosTrilho,
+        total: totalTrilho,
+        pct: pctTrilho,
         naoTratada: naoTratadaCount,
         emTratativa: emTratativaCount,
         tratada: tratadaCount,
