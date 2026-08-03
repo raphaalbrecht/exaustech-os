@@ -453,12 +453,24 @@
   .funil-seta{width:14px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--border2);font-size:13px}
   .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
   .funil-fora .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em}
+  /* 01/08/2026: .funil-saida/.funil-analise (pílulas de texto) saem de uso — "saíram do ciclo" virou
+     quadrado (.funil-etapa reaproveitada, ver funilHtml()), mesmo precedente de baixo risco já usado
+     nesta sessão pras classes antigas do resumo: não apagar CSS, só parar de renderizar. */
   .funil-saida{font-size:11px;color:var(--neu-tx);background:var(--neu-bg);border-radius:12px;padding:2px 10px}
   .funil-saida b{color:var(--brand-dk)}
   .funil-analise{font-size:11px;color:var(--err-tx);background:var(--err-bg);border:1px solid var(--err-bd);border-radius:12px;padding:2px 10px;cursor:pointer}
   .funil-analise:hover{border-color:var(--err)}
   .funil-analise.ativa{box-shadow:inset 0 0 0 2px var(--err)}
   .funil-analise b{font-weight:800}
+  /* 01/08/2026: quadrados de "saíram do ciclo" — mesma .funil-etapa das etapas do trilho, só com
+     um modificador pra tirar o affordance de clique nas 2 que não filtram (fora de escopo,
+     contestação procedente). Contestação em análise continua clicável, sem o .nao-clicavel. */
+  .funil-etapa.funil-fora-item{flex:0 0 auto;cursor:default}
+  .funil-etapa.funil-fora-item:hover{border-color:var(--border2);box-shadow:none}
+  .funil-etapa.funil-fora-item.analise{cursor:pointer;background:var(--err-bg);border-color:var(--err-bd)}
+  .funil-etapa.funil-fora-item.analise:hover{border-color:var(--err)}
+  .funil-etapa.funil-fora-item.analise .n{color:var(--err-tx)}
+  .funil-etapa.funil-fora-item.analise.ativa{box-shadow:inset 0 0 0 2px var(--err)}
   /* pedido do Raphael (10/07, rodada 12): as 6 pílulas de Risco (R0-R5) viravam uma fileira longa
      de botões — pouco escaneável e sem noção de proporção entre os níveis. A 12b (barras verticais
      + legenda de quadradinhos coloridos abaixo) também foi reprovada: obrigava o olho a CASAR a
@@ -2652,13 +2664,20 @@ function funilHtml(c){
         + numeroHtml + '<div class="l">' + escapeHtml(e.l) + '</div>'
       + '</div>';
   }).join('');
+  // 01/08/2026 (pedido do Raphael): "saíram do ciclo" deixa de ser pílula de texto e vira quadrado
+  // igual aos da etapa — reaproveita a classe .funil-etapa (mesma altura/largura/fonte) em vez de
+  // criar uma medida nova, garantindo que a linha inteira (rótulo "Saíram do ciclo" + as caixas)
+  // fique com alturas iguais. As 2 primeiras continuam SEM onclick (não são filtro — "informativo,
+  // revisão não continua" / "sai da conta de tratativa"); só contestação em análise é clicável,
+  // mesmo comportamento de antes.
+  const foraHtml = '<div class="funil-etapa funil-fora-item" title="Fora do escopo Exaustech · ' + c.foraEscopo + ' item(ns) — informativo, revisão não continua"><div class="n">' + c.foraEscopo + '</div><div class="l">Fora de escopo</div></div>'
+    + '<div class="funil-etapa funil-fora-item" title="Contestação julgada procedente · ' + c.procedente + ' item(ns) — sai da conta de tratativa"><div class="n">' + c.procedente + '</div><div class="l">Contest. procedente</div></div>'
+    + (c.contestacaoAnalise ? '<div class="funil-etapa funil-fora-item analise' + (c.filtroAtivo === 'contestacao_analise' ? ' ativa' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')" title="Contestação aguardando avaliação · ' + c.contestacaoAnalise + ' item(ns) — eixo paralelo, clique para filtrar"><div class="n">' + c.contestacaoAnalise + '</div><div class="l">Contest. em análise</div></div>' : '');
   return '<div class="funil-card">'
     + '<div class="funil-trilho">' + trilho + '</div>'
     + '<div class="funil-fora">'
       + '<span class="cap">Saíram do ciclo</span>'
-      + '<span class="funil-saida" title="Fora do escopo Exaustech — item informativo, revisão não continua"><b>' + c.foraEscopo + '</b> fora de escopo</span>'
-      + '<span class="funil-saida" title="Contestação julgada procedente — NC sai da conta de tratativa"><b>' + c.procedente + '</b> contestação procedente</span>'
-      + (c.contestacaoAnalise ? '<span class="funil-analise' + (c.filtroAtivo === 'contestacao_analise' ? ' ativa' : '') + '" onclick="toggleFiltroStat(\'contestacao_analise\')" title="Contestação aguardando avaliação — eixo paralelo, clique para filtrar"><b>' + c.contestacaoAnalise + '</b> contestação em análise</span>' : '')
+      + foraHtml
     + '</div>'
   + '</div>';
 }
