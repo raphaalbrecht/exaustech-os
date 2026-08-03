@@ -2966,25 +2966,58 @@ function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getIt
    (fica marcado como não-verificado no Salesforce, não é bloqueio). */
 let sigCpfBusca={estado:'',nome:'',situacao:''}; // ''|'buscando'|'sugerido'|'confirmado'|'falha'
 let sigCpfDebounce=null;
+let sigCpfCountdownTimer=null;
+/* 03/08/2026 (pedido do Raphael, depois do fix do travamento): cronômetro regressivo com barra de
+   progresso enquanto espera a Direct Data — precisa bater com o TIMEOUT_MS do backend
+   (backend/cpfClient.js), senão a barra zera antes/depois da resposta de verdade chegar. */
+const SIG_CPF_TIMEOUT_S = 10;
 let sigOtp={estado:'',otpId:'',codigo:''}; // ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
 let sigSemWhats=false, sigMotivo='';
 function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
+function sigCpfPararCountdown(){ if(sigCpfCountdownTimer){ clearInterval(sigCpfCountdownTimer); sigCpfCountdownTimer=null; } }
 function sigCpfLookup(cpf){
   clearTimeout(sigCpfDebounce);
+  sigCpfPararCountdown();
   if(!SF_LIVE){ sigCpfBusca={estado:'',nome:'',situacao:''}; sigRenderCpfSug(); return; }
   sigCpfDebounce=setTimeout(async()=>{
-    sigCpfBusca={estado:'buscando',nome:'',situacao:''}; sigRenderCpfSug();
+    sigCpfBusca={estado:'buscando',nome:'',situacao:'',motivo:null,restanteS:SIG_CPF_TIMEOUT_S}; sigRenderCpfSug();
+    /* laço próprio de 1 em 1 segundo pro cronômetro/barra — se PAROU de ser 'buscando' por
+       qualquer motivo (resposta chegou, reset externo do modal etc.), a checagem no início do
+       próprio laço já se encarrega de parar sozinho, sem precisar caçar todo lugar que reseta
+       sigCpfBusca pra limpar o timer. */
+    sigCpfCountdownTimer=setInterval(()=>{
+      if(sigCpfBusca.estado!=='buscando'){ sigCpfPararCountdown(); return; }
+      sigCpfBusca.restanteS=Math.max(0, sigCpfBusca.restanteS-1);
+      sigRenderCpfSug();
+    },1000);
     try{
       const d=await bePost('/assinantes/validar-cpf',{cpf});
-      sigCpfBusca=(d&&d.valido&&d.nome)?{estado:'sugerido',nome:d.nome,situacao:d.situacaoCadastral||''}:{estado:'falha',nome:'',situacao:''};
-    }catch(e){ sigCpfBusca={estado:'falha',nome:'',situacao:''}; }
+      // motivo: guardado pra mostrar na tela quando falha — antes sumia sem explicação nenhuma,
+      // o que deixava "não funcionou" indistinguível de "travou" (achado real testando).
+      sigCpfBusca=(d&&d.valido&&d.nome)?{estado:'sugerido',nome:d.nome,situacao:d.situacaoCadastral||''}:{estado:'falha',nome:'',situacao:'',motivo:(d&&d.motivo)||null};
+    }catch(e){ sigCpfBusca={estado:'falha',nome:'',situacao:'',motivo:(e&&e.message)||null}; }
+    sigCpfPararCountdown();
     sigRenderCpfSug();
   },500);
 }
 function sigRenderCpfSug(){
   const el=document.getElementById('sigCpfSug'); if(!el) return;
-  if(sigCpfBusca.estado==='buscando'){ el.style.display=''; el.innerHTML='<small>Consultando CPF na Receita…</small>'; }
+  if(sigCpfBusca.estado==='buscando'){
+    const s=sigCpfBusca.restanteS!=null?sigCpfBusca.restanteS:SIG_CPF_TIMEOUT_S;
+    const pct=Math.max(0,Math.min(100,(s/SIG_CPF_TIMEOUT_S)*100));
+    el.style.display='';
+    el.innerHTML='<small>Consultando CPF na Receita… ('+s+'s)</small>'
+      +'<div style="height:4px;border-radius:99px;background:var(--border2);overflow:hidden;margin-top:6px">'
+        +'<div style="height:100%;width:'+pct+'%;background:var(--brand);transition:width 1s linear"></div>'
+      +'</div>';
+  }
   else if(sigCpfBusca.estado==='sugerido'){ el.style.display=''; el.innerHTML='<b>'+sigCpfBusca.nome+'</b><small>'+(sigCpfBusca.situacao||'')+'</small><a href="#" onclick="sigUsarNomeCPF();return false">usar este nome</a>'; }
+  else if(sigCpfBusca.estado==='falha'){
+    el.style.display='';
+    el.innerHTML='<small style="color:#b23b3b">Não foi possível consultar automaticamente'
+      +(sigCpfBusca.motivo?(' — '+_esc(String(sigCpfBusca.motivo))):'')
+      +'. Digite o nome manualmente.</small>';
+  }
   else { el.style.display='none'; el.innerHTML=''; }
 }
 function sigUsarNomeCPF(){ document.getElementById('sigCliNome').value=sigCpfBusca.nome; sigCpfBusca.estado='confirmado'; sigRenderCpfSug(); }
