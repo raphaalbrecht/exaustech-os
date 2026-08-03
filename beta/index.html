@@ -2969,8 +2969,10 @@ let sigCpfDebounce=null;
 let sigCpfCountdownTimer=null;
 /* 03/08/2026 (pedido do Raphael, depois do fix do travamento): cronômetro regressivo com barra de
    progresso enquanto espera a Direct Data — precisa bater com o TIMEOUT_MS do backend
-   (backend/cpfClient.js), senão a barra zera antes/depois da resposta de verdade chegar. */
-const SIG_CPF_TIMEOUT_S = 10;
+   (backend/cpfClient.js), senão a barra zera antes/depois da resposta de verdade chegar.
+   03/08/2026, 2ª rodada: subiu de 10 pra 45 junto com o TIMEOUT_MS do backend (consulta à Receita
+   Federal Pessoa Física pode ser lenta de verdade — não é mais bug de travamento). */
+const SIG_CPF_TIMEOUT_S = 45;
 let sigOtp={estado:'',otpId:'',codigo:''}; // ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
 let sigSemWhats=false, sigMotivo='';
 function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
