@@ -1283,9 +1283,12 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     <div id="sigCliFields" style="display:none">
       <div class="field"><label>Quem assina pela unidade?</label><select id="sigCliSel" onchange="sigCliSelChange()"></select></div>
       <div id="sigCliResumo" class="sig-resumo" style="display:none"></div>
-      <div class="field" id="sigFNome" style="display:none"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo" oninput="sigCliProg()"></div>
+      <!-- 03/08/2026: CPF vem ANTES do Nome (spec Fase 4, docs/06-OS-CAMPO/spec-autenticacao-assinante-otp-serpro-fase4.md
+           §2: "informa CPF... CPF válido → retorna nome oficial, pré-preenche a tela"). Estava invertido —
+           pedia nome primeiro e CPF depois — sem consultar a Direct Data antes de ter o nome digitado. -->
       <div class="field" id="sigFCPF" style="display:none"><label>CPF</label><input id="sigCliCPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" oninput="cpfMask(this);sigCliProg()"></div>
       <div id="sigCpfSug" class="sig-resumo" style="display:none"></div>
+      <div class="field" id="sigFNome" style="display:none"><label>Nome de quem assina</label><input id="sigCliNome" placeholder="nome completo" oninput="sigCliProg()"></div>
       <div class="field" id="sigFCargo" style="display:none"><label>Cargo / função na unidade</label>
         <div class="cargo-chips" id="cargoChips"></div>
         <input id="sigCliCargo" placeholder="digite o cargo…" style="display:none">
@@ -3077,7 +3080,9 @@ function sigCliSelChange(){
     sigSetPad(false); return;
   }
   if(v==='new'){
-    resumo.style.display='none'; fN.style.display='';
+    // 03/08/2026: mostra o campo de CPF primeiro (Nome fica escondido — sigCliProg() revela
+    // depois que o CPF for válido, junto com a sugestão de nome da Direct Data)
+    resumo.style.display='none'; fN.style.display='none'; fC.style.display='';
     document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
     sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
     document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
@@ -3114,13 +3119,15 @@ function removerAssinatura(ai){
   if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
   toast('✅ Assinatura removida');
 }
-/* visibilidade progressiva no cadastro novo: nome → CPF → (CPF válido) → cargo + assinatura */
+/* visibilidade progressiva no cadastro novo (invertido em 03/08/2026 — ver comentário no HTML do
+   campo sigFCPF): CPF → (Direct Data sugere o nome) → nome → (CPF válido) → cargo + assinatura.
+   O campo de CPF em si fica visível desde que "new" é escolhido (sigCliSelChange) — aqui só
+   controla nome/cargo/celular, todos condicionados ao CPF já ser válido. */
 function sigCliProg(){
   if(document.getElementById('sigCliSel').value!=='new') return;
-  const nome=document.getElementById('sigCliNome').value.trim();
   const cpfRaw=document.getElementById('sigCliCPF').value;
   const cpfOk=validaCPF(cpfRaw);
-  document.getElementById('sigFCPF').style.display = nome.length>=5 ? '' : 'none';
+  document.getElementById('sigFNome').style.display = cpfOk ? '' : 'none';
   document.getElementById('sigFCargo').style.display = cpfOk ? '' : 'none';
   document.getElementById('sigFCel').style.display = cpfOk ? '' : 'none';
   if(cpfOk){ sigCargoRender(); sigCpfLookup(cpfRaw.replace(/\D/g,'')); }
