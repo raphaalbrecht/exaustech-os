@@ -429,7 +429,13 @@
      por risco" ao lado (mesma linha do resumo, ver #resumoN2). min-height:74px + padding maior em
      .funil-etapa + display:flex/justify-content:center (centraliza número+label na caixa mais alta)
      deixa o trilho com a mesma sensação de altura do card de risco, sem depender de medir px exato. */
-  .funil-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:1 1 100%;align-self:stretch}
+  /* 03/08/2026: flex-basis sai de "100%" (que forçava o card a ocupar a linha inteira do #resumoN2,
+     empurrando "Distribuição por risco" pra linha de baixo sempre) pra "auto" — agora o funil-card
+     só ocupa a largura que o conteúdo precisa, deixando o card de risco encaixar do lado quando
+     couber (pedido do Raphael: "libera espaço pra Distribuição de risco ficar na mesma linha"). Se a
+     tela for estreita demais pros dois lado a lado, o wrap do #resumoN2 ainda joga o risco-card pra
+     baixo sozinho — comportamento normal de flex-wrap, não regressão. */
+  .funil-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:0 1 auto;align-self:stretch}
   .funil-trilho{display:flex;align-items:stretch;gap:2px}
   /* 01/08/2026: min-width 96px→110px (+15%, pedido do Raphael) — "exceto o da distribuição do
      risco" = não mexe em nada do .risco-card, só nas caixas do trilho mesmo. */
@@ -458,6 +464,14 @@
   .funil-fora{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px dashed var(--border2)}
   .funil-divisor{width:1px;align-self:stretch;background:var(--border2);flex:none;margin:0 2px}
   .cap{font-size:9.5px;font-weight:700;color:var(--weaker);text-transform:uppercase;letter-spacing:.02em;align-self:center;white-space:nowrap;flex:none}
+  /* 03/08/2026: pedido do Raphael, ao vivo depois de ver o card real — "SAÍRAM DO CICLO" empilha
+     ACIMA das caixas em vez de ficar do lado (que gastava largura horizontal à toa e era o que
+     empurrava "Distribuição por risco" pra linha de baixo). .funil-fora-group vira uma coluna
+     (rótulo em cima, caixas embaixo) dentro da MESMA linha do trilho; .cap ganha align-self:flex-
+     start aqui pra ficar alinhado à esquerda do grupo, não centralizado como antes. */
+  .funil-fora-group{display:flex;flex-direction:column;gap:5px;justify-content:center;flex:none}
+  .funil-fora-group .cap{align-self:flex-start}
+  .funil-fora-boxes{display:flex;align-items:stretch;gap:8px}
   /* 01/08/2026: .funil-saida/.funil-analise (pílulas de texto) saem de uso — "saíram do ciclo" virou
      quadrado (.funil-etapa reaproveitada, ver funilHtml()), mesmo precedente de baixo risco já usado
      nesta sessão pras classes antigas do resumo: não apagar CSS, só parar de renderizar. */
@@ -2682,12 +2696,15 @@ function funilHtml(c){
   // ciclo" eram 2 linhas empilhadas dentro do card (.funil-trilho embaixo de .funil-fora, com
   // borda tracejada separando). Viram UMA linha só: junta os 2 grupos no mesmo container flex,
   // com um traço vertical (.funil-divisor) no lugar da borda horizontal de antes.
+  // 03/08/2026 (pedido do Raphael, ao vivo): o rótulo "Saíram do ciclo" sai de do lado das caixas
+  // (gastava largura horizontal) e vira uma legenda EM CIMA delas (.funil-fora-group, coluna) —
+  // libera espaço na linha do #resumoN2 pra "Distribuição por risco" caber ao lado (ver comentário
+  // em .funil-card no CSS: flex-basis também deixou de forçar 100% de largura por causa disso).
   return '<div class="funil-card">'
     + '<div class="funil-trilho">'
       + trilho
       + '<span class="funil-divisor"></span>'
-      + '<span class="cap">Saíram do ciclo</span>'
-      + foraHtml
+      + '<div class="funil-fora-group"><span class="cap">Saíram do ciclo</span><div class="funil-fora-boxes">' + foraHtml + '</div></div>'
     + '</div>'
   + '</div>';
 }
