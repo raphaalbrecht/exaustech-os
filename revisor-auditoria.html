@@ -138,6 +138,10 @@
      quando nenhum lote está carregado, sem precisar de toggle de display via JS). */
   .resumo-n2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1 1 100%;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
   .resumo-n2:empty{margin-top:0;padding-top:0;border-top:none}
+  /* 03/08/2026 (pedido do Raphael): traço vertical entre o funil e "Distribuição por risco" —
+     margin:0 auto absorve TODO o espaço livre da linha e reparte igual pros 2 lados do traço,
+     empurrando o risco-card pra ponta direita sem precisar fixar largura/px. */
+  .resumo-divisor{width:1px;align-self:stretch;background:var(--border2);flex:none;margin:0 auto}
   /* 30/07/2026: substitui a antiga pílula "N TOTAL ITENS" como reset geral de filtros — só aparece
      quando algum filtro está de fato ativo (ver ativoTodas em renderTudo()), borda tracejada pra não
      parecer mais um filtro ativável (ela É a saída, não uma opção a mais). limparFiltros() continua
@@ -3035,6 +3039,13 @@ function renderTudo(){
         contestacaoAnalise: contestacaoAnaliseCount,
         filtroAtivo: ST.filtro
       })
+      // 03/08/2026 (pedido do Raphael): "Distribuição por risco" justifica pela direita — o espaço
+      // que sobrar entre o funil e o card de risco se divide em duas metades iguais, com um traço
+      // vertical (.resumo-divisor) exatamente no meio. Truque de flexbox: margin:0 auto no divisor
+      // consome TODO o espaço livre da linha, repartido igualmente pros 2 lados dele — o funil fica
+      // encostado à esquerda e o risco-card encostado à direita, sem precisar calcular px nenhum.
+      // Só existe quando há risco-card pra separar (graficoHtml vazio = nada a justificar).
+      + (graficoHtml ? '<span class="resumo-divisor"></span>' : '')
       + graficoHtml
       // 30/07/2026: substitui a antiga pílula "N TOTAL ITENS" como gatilho de limparFiltros() — só
       // aparece quando há algo pra limpar (mesmo cálculo de ativoTodas usado antes pra acender a
