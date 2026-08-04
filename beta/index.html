@@ -2940,7 +2940,9 @@ function sigToPad(){
   if(!cpf) return markInvalid('sigCliCPF','Informe o CPF de quem assina');
   if(!validaCPF(cpf)) return markInvalid('sigCliCPF','CPF inválido — confira os dígitos');
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
-  if(cel.length<10) return markInvalid('sigCliCel','Informe o celular de quem assina');
+  // 04/08/2026: 11 dígitos (DDD + 9), mesma regra do botão de enviar código. Antes aceitava 10 —
+  // um celular incompleto passava por aqui pelo caminho "cliente sem WhatsApp" (que não exige OTP).
+  if(cel.length<11) return markInvalid('sigCliCel','Informe o celular completo (DDD + 9 dígitos)');
   if(sigOtp.estado!=='validado' && !(sigSemWhats && sigMotivo)){ toast('Confirme o código do WhatsApp, ou informe o motivo se o cliente não tiver WhatsApp'); return; }
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
@@ -3110,7 +3112,7 @@ function sigRenderOtp(){
 function sigGateUpdate(){
   const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
-  const celOk=cel.length>=10;
+  const celOk=cel.length>=11;  // 04/08/2026: DDD + 9 dígitos (era 10, deixava passar incompleto)
   const verified=sigOtp.estado==='validado';
   const motivoOk=sigSemWhats && !!sigMotivo;
   sigRenderOtp();
