@@ -2943,7 +2943,7 @@ function sigToPad(){
   // 04/08/2026: 11 dígitos (DDD + 9), mesma regra do botão de enviar código. Antes aceitava 10 —
   // um celular incompleto passava por aqui pelo caminho "cliente sem WhatsApp" (que não exige OTP).
   if(cel.length<11) return markInvalid('sigCliCel','Informe o celular completo (DDD + 9 dígitos)');
-  if(sigOtp.estado!=='validado' && !(sigSemWhats && sigMotivo)){ toast('Confirme o código do WhatsApp, ou informe o motivo se o cliente não tiver WhatsApp'); return; }
+  if(sigOtp.estado!=='validado' && !(sigSemWhats && sigMotivo)){ toast('Confirme o código enviado ao cliente, ou informe o motivo se ele não tiver como receber'); return; }
   document.getElementById('sigLegal').innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
   document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
   document.getElementById('padBtnBack').textContent='Voltar';
@@ -2979,7 +2979,18 @@ let sigCpfCountdownTimer=null;
    já com folga generosa pra variação normal de rede.
    03/08/2026, 4ª rodada (pedido do Raphael): baixado de 20 pra 5 (TIMEOUT_MS = 5000 no backend). */
 const SIG_CPF_TIMEOUT_S = 5;
-let sigOtp={estado:'',otpId:'',codigo:''}; // ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
+/* 04/08/2026 — o token agora pode chegar por WhatsApp OU SMS, então o estado guarda também
+   POR ONDE ele saiu, quais canais sobraram, e se caiu no alternativo sozinho. */
+let sigOtp=sigOtpVazio(); // estado: ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
+function sigOtpVazio(){ return {estado:'',otpId:'',codigo:'',canal:'',canalValidado:'',telValidado:'',alternativos:[],fallback:false,falhouAntes:[],podeAlt:false,segAlt:45}; }
+let _sigAltTimer=null;
+/* libera o canal alternativo só depois da espera configurada (padrão 45s). Sem essa trava o
+   cliente ansioso pede o SMS em 5 segundos e gera custo sem o WhatsApp ter tido chance. */
+function sigArmarAlternativa(){
+  clearTimeout(_sigAltTimer);
+  if(!sigOtp.alternativos||!sigOtp.alternativos.length) return;
+  _sigAltTimer=setTimeout(()=>{ sigOtp.podeAlt=true; sigRenderOtp(); }, Math.max(0,(sigOtp.segAlt||45))*1000);
+}
 let sigSemWhats=false, sigMotivo='';
 function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
 function sigCpfPararCountdown(){ if(sigCpfCountdownTimer){ clearInterval(sigCpfCountdownTimer); sigCpfCountdownTimer=null; } }
@@ -3053,15 +3064,43 @@ function sigRenderCpfSug(){
   }
 }
 function sigCelInput(){ sigGateUpdate(); }
-async function sigEnviarOTP(){
+/* canal opcional: sem canal o backend segue a escada (WhatsApp e, se falhar, SMS sozinho).
+   Com canal, manda só por aquele — é o botão "Enviar por SMS" que aparece depois da espera. */
+async function sigEnviarOTP(canal){
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
   if(cel.length<11){ toast('Informe um celular válido (DDD + 9 dígitos)'); return; }
-  sigOtp={estado:'enviando',otpId:'',codigo:''}; sigRenderOtp();
+  /* guarda o estado atual: se o novo envio falhar, o código anterior pode continuar VIVO no
+     servidor (rate limit, canal desligado, queda de rede não invalidam nada lá). Jogar o otpId
+     fora nessa hora destruiria justamente o caminho que ainda ia funcionar. */
+  const _antes = sigOtp;
+  clearTimeout(_sigAltTimer);
+  sigOtp=sigOtpVazio(); sigOtp.estado='enviando'; sigOtp.canal=canal||''; sigRenderOtp();
   try{
-    const d=await bePost('/otp/gerar',{celular:cel});
-    sigOtp=(d&&d.otpId)?{estado:'aguardando',otpId:d.otpId,codigo:''}:{estado:'falha',otpId:'',codigo:''};
-  }catch(e){ sigOtp={estado:'falha',otpId:'',codigo:''}; toast(e.message||'Não foi possível enviar o código'); }
-  sigRenderOtp();
+    const d=await bePost('/otp/gerar', canal?{celular:cel,canal:canal}:{celular:cel});
+    if(d&&d.otpId){
+      sigOtp={estado:'aguardando',otpId:d.otpId,codigo:'',canal:d.canal||'WhatsApp',canalValidado:'',
+              alternativos:d.canaisAlternativos||[],fallback:!!d.fallback,falhouAntes:d.falhouAntes||[],
+              podeAlt:false,segAlt:d.segundosParaAlternativa||45};
+      sigArmarAlternativa();
+      /* o técnico precisa saber que o WhatsApp não saiu — senão fica esperando um WhatsApp
+         que nunca foi enviado e culpa o aparelho do cliente. */
+      if(sigOtp.fallback) toast(((sigOtp.falhouAntes||[]).join(' e ')||'O canal principal')+' falhou — código enviado por '+sigOtp.canal);
+    } else { sigOtp=sigOtpVazio(); sigOtp.estado='falha'; }
+  }catch(e){
+    if(_antes && _antes.otpId && _antes.estado==='aguardando'){
+      /* volta ao código anterior: ele ainda vale, e pode chegar no celular do cliente
+         segundos depois. Rearma a espera do canal alternativo do ponto em que estava. */
+      sigOtp=_antes; sigArmarAlternativa();
+      toast((e.message||'Não foi possível enviar de novo')+' — o código anterior ainda vale');
+    } else {
+      sigOtp=sigOtpVazio(); sigOtp.estado='falha';
+      /* 409 = nenhum canal ligado no Salesforce. Não é erro para o técnico resolver: é a deixa
+         para colher a assinatura na tela, que não depende de sinal nenhum. */
+      toast(e.status===409 ? 'Envio de código indisponível — marque "cliente não tem como receber o código" e colha a assinatura na tela'
+                           : (e.message||'Não foi possível enviar o código'));
+    }
+  }
+  sigRenderOtp(); sigGateUpdate();
 }
 async function sigValidarOTP(){
   const codigo=(document.getElementById('sigOtpCodigo')||{}).value||'';
@@ -3070,15 +3109,26 @@ async function sigValidarOTP(){
   try{
     const d=await bePost('/otp/validar',{otpId:sigOtp.otpId,codigo});
     sigOtp.estado=(d&&d.ok)?'validado':'falha';
+    /* guarda o canal e o TELEFONE que efetivamente validaram — é o que vai para a evidência */
+    if(d&&d.ok){ sigOtp.canalValidado=d.canal||sigOtp.canal||'WhatsApp'; sigOtp.telValidado=(document.getElementById('sigCliCel')||{value:''}).value.replace(/\D/g,''); clearTimeout(_sigAltTimer); }
     if(!(d&&d.ok)) toast((d&&d.motivo)||'Código incorreto');
   }catch(e){ sigOtp.estado='falha'; toast(e.message||'Falha ao validar'); }
   sigRenderOtp(); sigGateUpdate();
 }
 function sigToggleSemWhats(){ sigSemWhats=!sigSemWhats; sigRenderOtp(); sigGateUpdate(); }
 function sigMotivoSel(v){ sigMotivo=v; sigGateUpdate(); }
-const SIG_MOTIVOS=['Cliente sem celular/WhatsApp','Falha técnica no envio/validação do código','Recusou informar'];
+/* 04/08/2026: "sem sinal no local" entrou como motivo próprio. É a causa mais comum na
+   operação (casa de máquinas, cozinha de subsolo, shopping) e é a única que o SMS TAMBÉM não
+   resolve — SMS depende de rede móvel igual. Separar isso das outras é o que permite saber,
+   depois de 30 dias, se o canal alternativo resolveu alguma coisa ou não. */
+const SIG_MOTIVOS=['Sem sinal de rede no local','Cliente sem celular/WhatsApp','Falha técnica no envio/validação do código','Recusou informar'];
 function sigRenderOtp(){
   const el=document.getElementById('sigOtpBox'); if(!el) return;
+  /* 04/08/2026 (revisão): esta função reconstrói a caixa inteira por innerHTML, e agora ela
+     dispara SOZINHA quando a espera de 45s termina. Se o cliente estiver no 4º dígito nesse
+     instante, o campo voltaria vazio e ele teria que redigitar tudo. Guarda o que já foi
+     digitado antes de reconstruir e devolve depois. */
+  const _dig=(document.getElementById('sigOtpCodigo')||{}).value||'';
   const celEl=document.getElementById('sigCliCel'); const cel=celEl?celEl.value.replace(/\D/g,''):'';
   // 04/08/2026 (pedido do Raphael): celular com DDD sempre tem 11 dígitos (2 do DDD + 9 do
   // número) — o botão "Enviar código por WhatsApp" só pode aparecer/habilitar com o número
@@ -3096,23 +3146,52 @@ function sigRenderOtp(){
   }
   if(sigOtp.estado===''||sigOtp.estado==='enviando'){
     el.innerHTML='<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP()"'+(sigOtp.estado==='enviando'?' disabled':'')+'>'+(sigOtp.estado==='enviando'?'Enviando…':'Enviar código por WhatsApp')+'</button>'
-      +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente sem WhatsApp</a></div>';
+      +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente não tem como receber o código</a></div>';
     return;
   }
   if(sigOtp.estado==='validado'){
-    el.innerHTML='<div class="sig-hint" style="color:#2a7a3b">✓ Identidade confirmada por WhatsApp</div>';
+    el.innerHTML='<div class="sig-hint" style="color:#2a7a3b">✓ Identidade confirmada por '+_sigEsc(sigOtp.canalValidado||sigOtp.canal||'WhatsApp')+'</div>';
     return;
   }
-  el.innerHTML='<div class="field"><label>Código recebido no WhatsApp</label><input id="sigOtpCodigo" inputmode="numeric" maxlength="6" placeholder="000000"></div>'
+  const canal=_sigEsc(sigOtp.canal||'WhatsApp');
+  /* aviso de escalada automática: o código saiu por um canal que o técnico não escolheu.
+     Sem isso ele fica olhando o WhatsApp do cliente esperando algo que não foi enviado. */
+  const aviso = sigOtp.fallback
+    ? '<div class="sig-hint" style="color:#b26a00">⚠️ '+_sigEsc((sigOtp.falhouAntes||[]).join(' e ')||'O canal principal')+' falhou — enviamos por '+canal+'.</div>'
+    : '';
+  /* botão do canal alternativo: só aparece depois da espera (padrão 45s), e some se o único
+     alternativo já foi o que enviou. Cada clique aqui é um SMS cobrado. */
+  /* só canais com nome simples viram botão. O valor vem do CMDT (portanto do Salesforce) e
+     seria interpolado dentro de um onclick — contexto de string JS, onde escape de HTML não
+     protege. Lista branca resolve na origem em vez de depender do escape certo. */
+  const alt=(sigOtp.alternativos||[]).filter(c=>c&&c!==sigOtp.canal&&/^[A-Za-z][A-Za-z0-9 ]{0,19}$/.test(c));
+  const btnAlt = (sigOtp.podeAlt && alt.length)
+    ? alt.map(c=>'<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP(\''+_sigEsc(c)+'\')">Não recebi — enviar por '+_sigEsc(c)+'</button>').join(' ')
+    : (alt.length ? '<div class="sig-hint">Não chegou? A opção de enviar por '+_sigEsc(alt[0])+' aparece em instantes.</div>' : '');
+  el.innerHTML=aviso
+    +'<div class="field"><label>Código recebido por '+canal+'</label><input id="sigOtpCodigo" inputmode="numeric" maxlength="6" placeholder="000000"></div>'
     +'<button type="button" class="btn btn-brand" onclick="sigValidarOTP()"'+(sigOtp.estado==='validando'?' disabled':'')+'>'+(sigOtp.estado==='validando'?'Validando…':'Validar código')+'</button> '
     +'<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP()">Reenviar</button>'
+    +(btnAlt?'<div style="margin-top:8px">'+btnAlt+'</div>':'')
     +(sigOtp.estado==='falha'?'<div class="sig-hint" style="color:#c0392b">Código incorreto ou expirado — tente de novo.</div>':'')
-    +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente sem WhatsApp</a></div>';
+    +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente não tem como receber o código</a></div>';
+  const _in=document.getElementById('sigOtpCodigo'); if(_in && _dig) _in.value=_dig;
 }
+/* nomes de canal vêm do Salesforce (CMDT), então passam por escape antes de virar HTML */
+function _sigEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 function sigGateUpdate(){
   const cpfOk=validaCPF(document.getElementById('sigCliCPF').value);
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
   const celOk=cel.length>=11;  // 04/08/2026: DDD + 9 dígitos (era 10, deixava passar incompleto)
+  /* 04/08/2026 (revisão): se o técnico validou o código e DEPOIS corrigiu o celular, a
+     verificação não vale mais — ela provou a posse do número antigo. Sem isso a OS gravava
+     Verificado=true junto de um telefone que nunca recebeu código nenhum, que é exatamente
+     o dado probatório que o código existe para produzir. */
+  if(sigOtp.estado==='validado' && sigOtp.telValidado && cel!==sigOtp.telValidado){
+    sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer);
+    toast('Celular alterado — confirme o código no número novo');
+  }
   const verified=sigOtp.estado==='validado';
   const motivoOk=sigSemWhats && !!sigMotivo;
   sigRenderOtp();
@@ -3141,7 +3220,7 @@ function sigCliSelChange(){
     resumo.style.display='none'; fN.style.display='none'; fC.style.display='none'; fG.style.display='none';
     document.getElementById('sigCliNome').value=''; document.getElementById('sigCliCPF').value=''; document.getElementById('sigCliCargo').value='';
     document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
-    sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+    sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
     document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
     sigSetPad(false); return;
   }
@@ -3150,7 +3229,7 @@ function sigCliSelChange(){
     // depois que o CPF for válido, junto com a sugestão de nome da Direct Data)
     resumo.style.display='none'; fN.style.display='none'; fC.style.display='';
     document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
-    sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+    sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
     document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
     sigCliProg(); return;
   }
@@ -3163,7 +3242,7 @@ function sigCliSelChange(){
   document.getElementById('sigFCel').style.display='';
   resumo.style.display='';
   resumo.innerHTML=`<b>${r.nome}</b><small>CPF ${r.cpf} · ${r.cargo||'—'}</small><a href="#" onclick="sigCliEditar();return false">editar dados</a>`;
-  sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo='';
+  sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo='';
   sigGateUpdate();
 }
 function sigCliEditar(){ document.getElementById('sigCliSel').value='new'; sigCliSelChange(); }
@@ -3209,7 +3288,7 @@ function openSigCliente(){
   document.getElementById('sigCliObs').value=cs.obs||'';
   document.getElementById('sigCliCel').value=cs.telefone||'';
   document.getElementById('sigFCel').style.display='none';
-  sigOtp={estado:'',otpId:'',codigo:''}; sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
+  sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
   document.getElementById('sigOtpBox').innerHTML=''; document.getElementById('sigCpfSug').style.display='none';
   _recAss=assinantesDaLoja(curOS.cli||'');
   const sel=document.getElementById('sigCliSel');
@@ -3245,6 +3324,8 @@ function saveSig(){
     cs.obs=document.getElementById('sigCliObs').value.trim();
     cs.telefone=document.getElementById('sigCliCel').value.replace(/\D/g,'');
     cs.verificado = sigOtp.estado==='validado';
+    /* por qual canal o cliente confirmou (WhatsApp|SMS) — vai para Canal_Verificacao__c na OS */
+    cs.canalVerificacao = cs.verificado ? (sigOtp.canalValidado||sigOtp.canal||'WhatsApp') : '';
     cs.motivoSemVerificacao = cs.verificado ? '' : (sigMotivo||'');
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
@@ -3252,7 +3333,7 @@ function saveSig(){
     if(SF_LIVE && curOS._wo){
       bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
-        telefone:cs.telefone, verificado:cs.verificado, motivoSemVerificacao:cs.motivoSemVerificacao,
+        telefone:cs.telefone, verificado:cs.verificado, canalVerificacao:cs.canalVerificacao||'', motivoSemVerificacao:cs.motivoSemVerificacao,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
         .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;cs._sigDrive=r.driveId||null;toast('✅ Aceite gravado no Salesforce'); } })
         .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
