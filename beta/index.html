@@ -3024,7 +3024,10 @@ function sigRenderCpfSug(){
   }
   else if(sigCpfBusca.estado==='sugerido'){
     el.style.display='';
-    el.innerHTML='<b>✓ '+sigCpfBusca.nome+'</b><small>'+(sigCpfBusca.situacao||'')+' — confirmado pela Receita Federal, não editável</small>';
+    // 04/08/2026 (achado do Raphael testando no celular): o nome aparecia 2x — aqui E no campo
+    // "Nome de quem assina" logo abaixo (já travado com o valor). Tirei o nome daqui, fica só o
+    // status; o nome em si mora só no campo, uma vez só.
+    el.innerHTML='<small style="color:#2f7a3c">✓ Confirmado pela Receita Federal'+(sigCpfBusca.situacao?(' — '+sigCpfBusca.situacao):'')+'. Nome travado abaixo.</small>';
     // 03/08/2026, 4ª rodada (pedido do Raphael, antifraude): "Se a Direct funcionar não tem nem a
     // opção de mexer no nome" — preenche automático e trava. Sem link "usar este nome": não há
     // mais escolha nenhuma pra fazer, é automático.
