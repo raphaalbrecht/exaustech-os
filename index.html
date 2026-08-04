@@ -12588,15 +12588,41 @@ async function offGet(key){ const db=await offOpen(); if(!db) return OFF.mem.kv[
    é o mesmo por referência, então só precisa persistir de fato quando tem IndexedDB. */
 async function offBump(job){ const db=await offOpen(); if(!db) return;
   return new Promise(res=>{ try{ const tx=db.transaction('fila','readwrite'); tx.objectStore('fila').put(job); tx.oncomplete=()=>res(); tx.onerror=()=>res(); }catch(e){ res(); } }); }
+/* ⚠️ CEMITÉRIO GERAL DA FILA (04/08/2026 — achado de auditoria, correção trazida do /beta/).
+   Qualquer erro do servidor que NÃO fosse de rede fazia a pendência ser APAGADA da fila, com
+   um aviso de 2 segundos. Valia para assinatura de cliente, foto e vídeo com carimbo:
+   evidência que não dá para refazer, porque o cliente já foi embora. Agora nada é descartado. */
+async function offCemiterio(j,msg){
+  try{
+    const arr=(await offGet('off_recusados'))||[];
+    arr.push({ kind:j.kind||null, label:j.label||null, path:j.path||null, body:j.body||null,
+               campos:j.campos||null, filename:j.filename||null, tipo:j.tipo||null, meta:j.meta||null,
+               blob:j.blob||null,          // a EVIDÊNCIA em si: é a única cópia que existe
+               erro:String(msg||''), quando:new Date().toISOString() });
+    while(arr.length>40) arr.shift();
+    await offPut('off_recusados', arr);
+  }catch(e){}
+}
+async function offRecusadosCount(){ try{ const a=await offGet('off_recusados'); return (a&&a.length)||0; }catch(e){ return 0; } }
+const OFF_INSUBSTITUIVEL=['assinatura','midia','midiaMotor'];
+
 async function offBadge(){
   let el=document.getElementById('offBadge');
   if(!el){ el=document.createElement('div'); el.id='offBadge';
     el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:100002;background:#0B2239;color:#fff;font:600 12px system-ui,-apple-system,sans-serif;padding:6px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;align-items:center;gap:6px;white-space:nowrap';
     if(document.body) document.body.appendChild(el); else return; }
   const n=await offCount().catch(()=>0);
+  const rec=await offRecusadosCount();
   const off=!navigator.onLine;
-  if(!off && !n){ el.style.display='none'; return; }
+  if(!off && !n && !rec){ el.style.display='none'; return; }
   el.style.display='flex';
+  // recusado tem prioridade: é o único estado que exige alguém agir.
+  if(rec){
+    el.style.background='#8E2A2A';
+    el.textContent='⚠️ '+rec+' registro'+(rec>1?'s':'')+' o servidor recusou — guardado'+(rec>1?'s':'')+' no aparelho, fale com o suporte';
+    return;
+  }
+  el.style.background='#0B2239';
   el.textContent = off ? ('📡 Offline — trabalho salvo no aparelho'+(n?(' · '+n+' pendente'+(n>1?'s':'')):''))
                        : ('⏳ '+n+' pendente'+(n>1?'s':'')+' — sincronizando…');
 }
@@ -12625,13 +12651,27 @@ async function offDrain(){
         /* ACHADO 2 da revisão do coletor (28/07): dado de conferência NÃO pode ser descartado em
            silêncio. Vai para o cemitério do aparelho e o contador da barra fica vermelho até
            alguém tratar. */
+        /* SESSÃO EXPIRADA NÃO É RECUSA. O token vence em 12h: o técnico colhe a assinatura no
+           subsolo sem sinal, vai embora, e no dia seguinte a fila tenta subir com o token
+           vencido. Isso é falha PASSAGEIRA — espera o próximo login, como o coletor já fazia.
+           Antes, caía no descarte e a assinatura do cliente sumia sem deixar rastro. */
+        if(e && e.status===401){
+          j.tentativas=(j.tentativas||0)+1; await offBump(j);
+          toast('🔒 Sessão expirada — as pendências continuam guardadas. Entre de novo para sincronizar.');
+          break;
+        }
         if(j.kind==='coltPost'){
           await coltCemiterio(j, e.message);
           await offDel(j._id);
           toast('⚠️ O servidor RECUSOU: '+(j.label||'')+'. Guardado no aparelho — confira essa nota de novo.');
           try{ await coltAtualizarPend(); }catch(_e){}
         }else{
-          await offDel(j._id); toast('⚠️ Não sincronizado (descartado): '+(j.label||j.kind)+' — '+e.message);
+          /* nada é descartado: vai para o cemitério geral e o aviso vermelho fica na tela */
+          await offCemiterio(j, e.message);
+          await offDel(j._id);
+          const grave=OFF_INSUBSTITUIVEL.indexOf(j.kind)>=0;
+          toast((grave?'⚠️ O servidor RECUSOU (evidência guardada no aparelho): ':'⚠️ O servidor recusou: ')
+                +(j.label||j.kind)+' — '+e.message);
         }
       }
     }
