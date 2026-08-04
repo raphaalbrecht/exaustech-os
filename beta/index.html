@@ -3761,7 +3761,9 @@ function buildNotifs(){
      marca; sem ela, um aprovador com função fora da lista de roles perderia o aviso. */
   if(aprvPode) aprvPendentes.forEach(p=>{
     const espera=p.diasEsperando>0?('esperando há '+p.diasEsperando+'d'):'chegou hoje';
-    list.push({ico:'doc',color:'#2e844a',tit:'Pedido '+p.name+' aguarda sua aprovação',
+    const urg=!!p.justificativaEmergencia;
+    list.push({ico:'doc',color:urg?'#C4451B':'#2e844a',
+      tit:(urg?'⚡ URGENTE — pedido '+p.name+' já foi emitido':'Pedido '+p.name+' aguarda sua aprovação'),
       sub:(p.fornecedor||'')+' · '+aprvFmtMoeda(p.valorTotal)+' · '+espera,
       roles:[],_todosPapeis:true,
       go:()=>{ aprvReset(); estoqGo('aprovacoes'); aprvCarregarLista(); }});
@@ -11216,15 +11218,20 @@ function aprvRenderLista(card){
   aprvSt.pedidos.forEach(p=>{ card.appendChild(aprvCardPedido(p)); });
 }
 function aprvCardPedido(p){
+  /* urgente = já foi emitido ao fornecedor ANTES da aprovação (saída de emergência, decisão 4).
+     O compromisso já existe — por isso vem primeiro (o backend ordena) e com borda de alerta.
+     Aqui o vermelho é legítimo: não é enfeite, é "alguém já se comprometeu em seu nome". */
+  const urgente=!!p.justificativaEmergencia;
   const box=document.createElement('div');
-  box.style.cssText='border:1px solid #e5e8ec;border-radius:14px;padding:14px;margin:10px 0;background:#fff';
+  box.style.cssText='border:'+(urgente?'2px solid #C4451B':'1px solid #e5e8ec')+';border-radius:14px;padding:14px;margin:10px 0;background:#fff';
   const espera=p.diasEsperando>0?('esperando há '+p.diasEsperando+(p.diasEsperando===1?' dia':' dias')):'chegou hoje';
   const linhas=[];
   if(p.qtdItens) linhas.push(Number(p.qtdItens).toLocaleString('pt-BR')+' item(ns)');
   if(p.condicaoPagamento) linhas.push(_esc(p.condicaoPagamento));
   if(p.fretePorConta) linhas.push('frete: '+_esc(p.fretePorConta));
   if(p.dataPrevistaEntrega) linhas.push('entrega '+_esc(fmtDataBR(p.dataPrevistaEntrega)));
-  box.innerHTML='<div style="font-weight:700;font-size:14px;color:#0B2239">'+_esc(p.fornecedor||'Fornecedor não informado')+'</div>'
+  box.innerHTML=(urgente?('<div style="background:#C4451B;color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.4px;padding:5px 10px;border-radius:8px;display:inline-block;margin-bottom:8px">⚡ JÁ EMITIDO POR URGÊNCIA</div>'):'')
+    +'<div style="font-weight:700;font-size:14px;color:#0B2239">'+_esc(p.fornecedor||'Fornecedor não informado')+'</div>'
     +'<div style="font-size:12px;color:var(--weak);margin-bottom:8px">'+_esc(p.name)+' · '+_esc(espera)
     +(p.comprador?(' · pedido por '+_esc(p.comprador)):'')+(p.origem?(' · '+_esc(p.origem)):'')+'</div>'
     /* valor: só o calculado (itens + frete). Decisão C do Raphael em 04/08/2026 — mostrar os dois
@@ -11232,6 +11239,12 @@ function aprvCardPedido(p){
     +'<div style="font-size:22px;font-weight:800;color:#0B2239;letter-spacing:-.5px">'+aprvFmtMoeda(p.valorTotal)+'</div>'
     +'<div style="font-size:11.5px;color:var(--weak);margin-bottom:8px">itens '+aprvFmtMoeda(p.valorItens)+' + frete '+aprvFmtMoeda(p.valorFrete)+'</div>'
     +(linhas.length?('<div style="font-size:12.5px;color:#4A5560;margin-bottom:8px">'+linhas.join(' · ')+'</div>'):'')
+    /* a justificativa fica À VISTA, não escondida: é a informação que muda a decisão. E o aviso
+       de que aprovar aqui não é opcional — o material já foi pedido. */
+    +(urgente?('<div style="font-size:12.5px;color:#7A2A10;background:#FDF0EC;border-radius:8px;padding:9px;margin-bottom:8px">'
+        +'<b>Por que foi emitido antes:</b> '+_esc(p.justificativaEmergencia)
+        +'<div style="font-size:11.5px;color:#8a5a45;margin-top:5px">O pedido já foi feito ao fornecedor. O pagamento continua bloqueado até você decidir.</div>'
+      +'</div>'):'')
     +(p.observacoes?('<div style="font-size:12.5px;color:#4A5560;background:#F5F7F9;border-radius:8px;padding:8px;margin-bottom:8px">'+_esc(p.observacoes)+'</div>'):'');
   if(aprvSt.reprovando===p.id){ box.appendChild(aprvBoxReprovar(p)); return box; }
   const acoes=document.createElement('div'); acoes.style.cssText='display:flex;gap:8px;margin-top:4px';
