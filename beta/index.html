@@ -3476,9 +3476,19 @@ function buildNotifs(){
     const motivos=[]; if(p.semAtualizacao) motivos.push('sem atualização há '+p.diasSemAtualizacao+'d'); if(p.proximoDoPrazo) motivos.push(p.diasAteEntrega<0?('venceu há '+Math.abs(p.diasAteEntrega)+'d'):('previsão em '+p.diasAteEntrega+'d'));
     list.push({ico:'box',color:'#C25E0A',tit:'Pedido '+p.name+' precisa de atenção',sub:(p.fornecedor||'')+' · '+motivos.join(' · '),roles:['Supervisor','Coordenador','Gerente','Sócio'],go:()=>{ acmpReset(); estoqGo('acompanhamento'); acmpAbrirPedido(p.id); }});
   });
+  /* aprovação de compra (04/08/2026): _todosPapeis marca que a visibilidade NÃO é por função —
+     quem chega aqui já passou pelo filtro do backend (aprvPode). notifsForRole respeita essa
+     marca; sem ela, um aprovador com função fora da lista de roles perderia o aviso. */
+  if(aprvPode) aprvPendentes.forEach(p=>{
+    const espera=p.diasEsperando>0?('esperando há '+p.diasEsperando+'d'):'chegou hoje';
+    list.push({ico:'doc',color:'#2e844a',tit:'Pedido '+p.name+' aguarda sua aprovação',
+      sub:(p.fornecedor||'')+' · '+aprvFmtMoeda(p.valorTotal)+' · '+espera,
+      roles:[],_todosPapeis:true,
+      go:()=>{ aprvReset(); estoqGo('aprovacoes'); aprvCarregarLista(); }});
+  });
   return list;
 }
-function notifsForRole(){ const mgmt=ROLE==='Gerente'||ROLE==='Sócio'; return buildNotifs().filter(n=>mgmt||n.roles.includes(ROLE)); }
+function notifsForRole(){ const mgmt=ROLE==='Gerente'||ROLE==='Sócio'; return buildNotifs().filter(n=>n._todosPapeis||mgmt||n.roles.includes(ROLE)); }
 function updateBell(){ const b=document.getElementById('bellBadge'); if(!b)return; const n=notifsForRole().length; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
 function openNotifs(){ go('notifs'); }
 function renderNotifs(){
@@ -4025,6 +4035,7 @@ function renderEstoque(){
   if(estoqView.mode==='recebimentos'){ coltAtivo=true; if(!coltSt) coltReset(); coltRenderFluxo(wrap); return; }
   if(estoqView.mode==='estrutura'){ renderGestEstrutura(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='acompanhamento'){ renderAcmpFluxo(wrap); estoqDarkPatch(wrap); return; }
+  if(estoqView.mode==='aprovacoes'){ renderAprvFluxo(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='enviar'){ estoqueEnviarHub(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); estoqDarkPatch(wrap); return; }
@@ -4151,6 +4162,20 @@ function estoqueReceberHub(wrap){
       <span style="color:#999;font-size:18px">›</span>`;
     acmpBtn.onclick=()=>{ acmpReset(); estoqView.origem='receber'; estoqGo('acompanhamento'); acmpCarregarLista(); };
     wrap.appendChild(acmpBtn);
+  }
+  /* entrada de Aprovação de Pedido de Compra (aprv*, 04/08/2026). Quem vê é decidido pelo BACKEND
+     (aprvPode, vindo da lista de e-mails no Custom Metadata) — não por função, porque a decisão
+     nomeia duas pessoas e elas têm funções diferentes (Sócio e Gerente). */
+  if(aprvPode){
+    const aprvBtn=document.createElement('div');
+    const nPend=aprvPendentes.length;
+    aprvBtn.style.cssText='background:#fff;border:1px solid #e5e8ec;border-radius:16px;padding:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;align-items:center;gap:12px;margin-top:10px';
+    aprvBtn.innerHTML=`<div style="width:38px;height:38px;border-radius:50%;background:#3E7EB01a;display:flex;align-items:center;justify-content:center;font-size:18px">✍️</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">Compras para aprovar</div><div style="font-size:12px;color:#4A5560">${nPend?('Aprovar ou reprovar · '+nPend+' esperando'):'Nenhum pedido esperando'}</div></div>
+      ${nPend?('<span class="lz lz-warn" style="margin-right:2px">'+nPend+'</span>'):''}
+      <span style="color:#999;font-size:18px">›</span>`;
+    aprvBtn.onclick=()=>{ aprvReset(); estoqView.origem='receber'; estoqGo('aprovacoes'); aprvCarregarLista(); };
+    wrap.appendChild(aprvBtn);
   }
 }
 /* ===== HUB "Armazém" (17/07/2026): os 3 cards que antes ficavam soltos na home — Criar endereço,
@@ -10838,6 +10863,114 @@ function acmpRenderDetalhe(card){
   });
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='width:100%;height:44px;margin-top:14px'; bk.textContent='‹ Voltar'; bk.onclick=()=>{ acmpSt.step='lista'; acmpSt._carregado=false; renderEstoque(); acmpCarregarLista(); }; card.appendChild(bk);
 }
+/* ===== APROVAÇÃO DE PEDIDO DE COMPRA (aprv* — 04/08/2026,
+   DECISAO_cotacao-estruturada-e-aprovacao-pedido.md, decisão 2): todo pedido, de qualquer valor,
+   aprovado por Raphael ou Karen. O mecanismo já existia no Salesforce; o que faltava era aprovar
+   de onde eles estão — não do desktop com o Salesforce aberto. Sem isso a decisão vira gargalo, e
+   a saída de emergência (que NÃO libera pagamento) viraria rotina.
+
+   Quem aprova NÃO é decidido por função como no resto do app: a decisão nomeia duas pessoas, e
+   Raphael é Sócio enquanto Karen é Gerente — liberar por função abriria pra todo gerente. A lista
+   de e-mails mora no Custom Metadata e quem responde é o backend; aqui a tela só obedece o
+   podeAprovar que ele devolve (aprvPode). Nunca reimplementar essa regra no front. ===== */
+let aprvSt=null, aprvPendentes=[], aprvPode=false;
+function aprvReset(){ aprvSt={ step:'lista', pedidos:[], _carregado:false, erro:null, reprovando:null }; }
+async function aprvAtualizar(){
+  try{
+    const d=await beGet('/estoque/pedidos-compra/aprovacoes');
+    aprvPode=!!d.podeAprovar; aprvPendentes=d.pedidos||[];
+  }catch(e){ /* falha silenciosa, mesmo padrão de acmpAtualizarAlertas */ }
+  updateBell();
+}
+function aprvFmtMoeda(v){
+  if(v===null||v===undefined||v==='') return '—';
+  const n=Number(v); if(isNaN(n)) return '—';
+  return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function renderAprvFluxo(wrap){
+  if(!aprvSt) aprvReset();
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
+  bk.onclick=()=>estoqVoltar();
+  wrap.appendChild(bk);
+  const h=document.createElement('div'); h.className='rel-hd'; h.textContent='✍️ Compras para aprovar'; wrap.appendChild(h);
+  const card=document.createElement('div'); card.className='subcard'; wrap.appendChild(card);
+  aprvRenderLista(card);
+}
+async function aprvCarregarLista(){
+  aprvSt.erro=null;
+  try{
+    const d=await beGet('/estoque/pedidos-compra/aprovacoes');
+    aprvPode=!!d.podeAprovar; aprvPendentes=d.pedidos||[];
+    aprvSt.pedidos=aprvPendentes; aprvSt._carregado=true; renderEstoque();
+  }catch(e){ aprvSt._carregado=true; aprvSt.erro='Erro ao carregar a fila: '+e.message; renderEstoque(); }
+}
+function aprvRenderLista(card){
+  card.innerHTML='<div class="sec-title2" style="margin-top:0">Pedidos aguardando sua decisão</div>';
+  if(aprvSt.erro){ card.innerHTML+='<div class="subnote" style="color:#C4451B">'+_esc(aprvSt.erro)+'</div>'; return; }
+  if(!aprvSt._carregado){ card.innerHTML+='<div class="subnote"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  if(!aprvPode){ card.innerHTML+='<div class="subnote">Você não está na lista de aprovadores de compras.</div>'; return; }
+  if(!aprvSt.pedidos.length){ card.innerHTML+='<div class="subnote">Nenhum pedido esperando. 🎉</div>'; return; }
+  aprvSt.pedidos.forEach(p=>{ card.appendChild(aprvCardPedido(p)); });
+}
+function aprvCardPedido(p){
+  const box=document.createElement('div');
+  box.style.cssText='border:1px solid #e5e8ec;border-radius:14px;padding:14px;margin:10px 0;background:#fff';
+  const espera=p.diasEsperando>0?('esperando há '+p.diasEsperando+(p.diasEsperando===1?' dia':' dias')):'chegou hoje';
+  const linhas=[];
+  if(p.qtdItens) linhas.push(Number(p.qtdItens).toLocaleString('pt-BR')+' item(ns)');
+  if(p.condicaoPagamento) linhas.push(_esc(p.condicaoPagamento));
+  if(p.fretePorConta) linhas.push('frete: '+_esc(p.fretePorConta));
+  if(p.dataPrevistaEntrega) linhas.push('entrega '+_esc(fmtDataBR(p.dataPrevistaEntrega)));
+  box.innerHTML='<div style="font-weight:700;font-size:14px;color:#0B2239">'+_esc(p.fornecedor||'Fornecedor não informado')+'</div>'
+    +'<div style="font-size:12px;color:var(--weak);margin-bottom:8px">'+_esc(p.name)+' · '+_esc(espera)
+    +(p.comprador?(' · pedido por '+_esc(p.comprador)):'')+(p.origem?(' · '+_esc(p.origem)):'')+'</div>'
+    /* valor: só o calculado (itens + frete). Decisão C do Raphael em 04/08/2026 — mostrar os dois
+       números que o pedido tem faria a aprovação virar carimbo sobre o valor errado. */
+    +'<div style="font-size:22px;font-weight:800;color:#0B2239;letter-spacing:-.5px">'+aprvFmtMoeda(p.valorTotal)+'</div>'
+    +'<div style="font-size:11.5px;color:var(--weak);margin-bottom:8px">itens '+aprvFmtMoeda(p.valorItens)+' + frete '+aprvFmtMoeda(p.valorFrete)+'</div>'
+    +(linhas.length?('<div style="font-size:12.5px;color:#4A5560;margin-bottom:8px">'+linhas.join(' · ')+'</div>'):'')
+    +(p.observacoes?('<div style="font-size:12.5px;color:#4A5560;background:#F5F7F9;border-radius:8px;padding:8px;margin-bottom:8px">'+_esc(p.observacoes)+'</div>'):'');
+  if(aprvSt.reprovando===p.id){ box.appendChild(aprvBoxReprovar(p)); return box; }
+  const acoes=document.createElement('div'); acoes.style.cssText='display:flex;gap:8px;margin-top:4px';
+  const ok=document.createElement('button'); ok.className='btn btn-brand'; ok.style.cssText='flex:1;height:46px'; ok.textContent='Aprovar';
+  ok.onclick=()=>aprvDecidir(p.id,'aprovar');
+  const nao=document.createElement('button'); nao.className='btn btn-neutral'; nao.style.cssText='flex:1;height:46px'; nao.textContent='Reprovar';
+  nao.onclick=()=>{ aprvSt.reprovando=p.id; aprvSt.motivo=''; renderEstoque(); };
+  acoes.appendChild(ok); acoes.appendChild(nao); box.appendChild(acoes);
+  return box;
+}
+function aprvBoxReprovar(p){
+  const w=document.createElement('div');
+  w.innerHTML='<label style="font-size:12.5px;color:#4A5560;font-weight:600">Motivo da reprovação</label>'
+    +'<textarea id="aprvMotivo" rows="2" placeholder="Por que este pedido não deve seguir?" style="width:100%;border:1.5px solid #D7DEE6;border-radius:10px;padding:8px 12px;margin:4px 0 8px;box-sizing:border-box;font-family:inherit">'+cadEsc(aprvSt.motivo||'')+'</textarea>';
+  const acoes=document.createElement('div'); acoes.style.cssText='display:flex;gap:8px';
+  const conf=document.createElement('button'); conf.className='btn btn-brand'; conf.style.cssText='flex:1;height:44px'; conf.textContent='Confirmar reprovação';
+  conf.onclick=()=>aprvDecidir(p.id,'reprovar');
+  const canc=document.createElement('button'); canc.className='btn btn-neutral'; canc.style.cssText='flex:1;height:44px'; canc.textContent='Cancelar';
+  canc.onclick=()=>{ aprvSt.reprovando=null; aprvSt.motivo=''; renderEstoque(); };
+  acoes.appendChild(conf); acoes.appendChild(canc); w.appendChild(acoes);
+  setTimeout(()=>{ const t=document.getElementById('aprvMotivo'); if(t) t.oninput=()=>{ aprvSt.motivo=t.value; }; },0);
+  return w;
+}
+async function aprvDecidir(id,acao){
+  if(aprvSt._salvando) return;
+  if(acao==='reprovar' && !(aprvSt.motivo||'').trim()){ toast('Informe o motivo da reprovação'); return; }
+  aprvSt._salvando=true;
+  try{
+    await bePost('/estoque/pedidos-compra/'+id+'/'+acao, acao==='reprovar'?{motivo:(aprvSt.motivo||'').trim()}:{});
+    aprvSt._salvando=false; aprvSt.reprovando=null; aprvSt.motivo='';
+    toast(acao==='aprovar'?'✅ Pedido aprovado':'Pedido reprovado');
+    aprvSt._carregado=false; renderEstoque();
+    await aprvCarregarLista();
+  }catch(e){
+    aprvSt._salvando=false;
+    /* 409 = alguém já decidiu (os dois aprovadores podem abrir a fila ao mesmo tempo). Recarrega
+       a lista pra sumir o card em vez de deixar a tela mentindo. */
+    toast(e.message||'Não foi possível registrar a decisão');
+    aprvSt._carregado=false; renderEstoque(); aprvCarregarLista();
+  }
+}
+
 /* módulo Bipar (custódia física, Frente B): Supervisor bipa retirada na base (Marcos), Líder de
    Equipe bipa recebimento na loja — mesma tela, o backend decide a ação pelo status escaneado */
 function canBipar(r){ return ['Supervisor','Líder de Equipe','Sócio'].includes(r); }
@@ -12835,6 +12968,7 @@ async function beHydrate(quiet){
     }
     checkUrgentAlerts();
     acmpAtualizarAlertas().catch(()=>{}); /* pedidos de compra precisando de atenção — não bloqueia o hydrate principal */
+    aprvAtualizar().catch(()=>{}); /* fila de aprovação de compra (só quem está na lista recebe pedidos) — idem */
     recpAtualizarPendentesCount().catch(()=>{}); /* entradas pendentes p/ home enxuta — não bloqueia o hydrate principal */
     pendenteEstocarAtualizarCount().catch(()=>{}); /* pendente estocar p/ home */
     offBadge(); if(!_snapT) offDrain();
