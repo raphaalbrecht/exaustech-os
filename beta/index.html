@@ -3189,8 +3189,30 @@ function cpfMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>
 function validaCPF(c){ c=String(c||'').replace(/\D/g,''); if(c.length!==11||/^(\d)\1{10}$/.test(c)) return false;
   let s=0; for(let i=0;i<9;i++)s+=+c[i]*(10-i); let d=11-s%11; if(d>9)d=0; if(d!==+c[9])return false;
   s=0; for(let i=0;i<10;i++)s+=+c[i]*(11-i); d=11-s%11; if(d>9)d=0; return d===+c[10]; }
+/* 04/08/2026 — a lista de quem assina pela unidade é da EMPRESA, não do aparelho.
+   Antes ela vivia só no localStorage do celular do líder: trocar de aparelho apagava tudo, e
+   outro líder na mesma loja não via ninguém. Agora a fonte é o Salesforce (GET /assinantes) e
+   o localStorage ficou como CACHE — serve a lista na hora (sem espera) e cobre o offline. */
 function assinantesDaLoja(loja){ try{ return (JSON.parse(localStorage.getItem('assinantes')||'{}'))[loja]||[]; }catch(e){ return []; } }
 function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); const l=(all[loja]||[]).filter(x=>x.cpf!==rec.cpf); l.unshift(rec); all[loja]=l.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+function _cacheAssinantes(loja,lista){ try{ const all=JSON.parse(localStorage.getItem('assinantes')||'{}'); all[loja]=lista.slice(0,5); localStorage.setItem('assinantes',JSON.stringify(all)); }catch(e){} }
+/* busca no servidor e REDESENHA o dropdown quando chegar. Não trava a abertura da tela:
+   o modal já abriu com o cache, e a lista do servidor entra por cima se vier. */
+async function sigSincronizarAssinantes(loja){
+  if(!SF_LIVE || !loja) return;
+  try{
+    const d=await beGet('/assinantes?unidade='+encodeURIComponent(loja));
+    const lista=(d&&d.assinantes)||[];
+    if(!lista.length) return;
+    _recAss=lista; _cacheAssinantes(loja,lista);
+    const sel=document.getElementById('sigCliSel');
+    if(!sel || sel.value!=='') return;   // o líder já escolheu alguém: não mexer embaixo dele
+    sel.innerHTML='<option value="" selected>Escolha uma opção…</option>'
+      +'<option value="new">➕ Cadastrar novo assinante</option>'
+      +_recAss.slice(0,5).map((r,i)=>`<option value="${i}">${_sigEsc(r.nome)}${r.cargo?' — '+_sigEsc(r.cargo):''}</option>`).join('');
+    sel.value='';
+  }catch(e){ /* sem sinal ou rota velha: fica o cache, que é exatamente o comportamento antigo */ }
+}
 /* ===== CPF (Direct Data) + OTP WhatsApp (Huggy) na assinatura do cliente — Fase 4 =====
    CPF: sugere o nome oficial (autofill). OTP: confirma que o celular é da pessoa antes de liberar "Assinar".
    Falha em qualquer um cai graciosamente (nunca trava); "cliente sem WhatsApp" pede motivo e libera mesmo assim
@@ -3548,6 +3570,7 @@ function openSigCliente(){
   sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
   document.getElementById('sigOtpBox').innerHTML=''; document.getElementById('sigCpfSug').style.display='none';
   _recAss=assinantesDaLoja(curOS.cli||'');
+  sigSincronizarAssinantes(curOS.cli||'');   // busca do Salesforce em paralelo, sem travar a tela
   const sel=document.getElementById('sigCliSel');
   sel.innerHTML='<option value="" selected>Escolha uma opção…</option>'
     +'<option value="new">➕ Cadastrar novo assinante</option>'
@@ -3588,7 +3611,7 @@ function saveSig(){
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf, cel:cs.telefone});
     if(SF_LIVE && curOS._wo){
-      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
+      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo,celular:cs.telefone},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
         telefone:cs.telefone, verificado:cs.verificado, canalVerificacao:cs.canalVerificacao||'', motivoSemVerificacao:cs.motivoSemVerificacao,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
