@@ -2964,7 +2964,7 @@ function salvarAssinante(loja,rec){ try{ const all=JSON.parse(localStorage.getIt
    CPF: sugere o nome oficial (autofill). OTP: confirma que o celular é da pessoa antes de liberar "Assinar".
    Falha em qualquer um cai graciosamente (nunca trava); "cliente sem WhatsApp" pede motivo e libera mesmo assim
    (fica marcado como não-verificado no Salesforce, não é bloqueio). */
-let sigCpfBusca={estado:'',nome:'',situacao:''}; // ''|'buscando'|'sugerido'|'confirmado'|'falha'
+let sigCpfBusca={estado:'',nome:'',situacao:''}; // ''|'buscando'|'sugerido'|'falha'
 let sigCpfDebounce=null;
 let sigCpfCountdownTimer=null;
 /* 03/08/2026 (pedido do Raphael, depois do fix do travamento): cronômetro regressivo com barra de
@@ -2974,8 +2974,9 @@ let sigCpfCountdownTimer=null;
    podia ser lenta de verdade — não era mais bug de travamento).
    03/08/2026, 3ª rodada: trocado o produto da Direct Data (ver cpfClient.js) — a nova consulta
    não é mais ao vivo na Receita, responde em ~1s. Baixado pra 20 (TIMEOUT_MS = 20000 no backend),
-   já com folga generosa pra variação normal de rede. */
-const SIG_CPF_TIMEOUT_S = 20;
+   já com folga generosa pra variação normal de rede.
+   03/08/2026, 4ª rodada (pedido do Raphael): baixado de 20 pra 5 (TIMEOUT_MS = 5000 no backend). */
+const SIG_CPF_TIMEOUT_S = 5;
 let sigOtp={estado:'',otpId:'',codigo:''}; // ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
 let sigSemWhats=false, sigMotivo='';
 function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
@@ -2985,7 +2986,12 @@ function sigCpfLookup(cpf){
   sigCpfPararCountdown();
   if(!SF_LIVE){ sigCpfBusca={estado:'',nome:'',situacao:''}; sigRenderCpfSug(); return; }
   sigCpfDebounce=setTimeout(async()=>{
-    sigCpfBusca={estado:'buscando',nome:'',situacao:'',motivo:null,restanteS:SIG_CPF_TIMEOUT_S}; sigRenderCpfSug();
+    sigCpfBusca={estado:'buscando',nome:'',situacao:'',motivo:null,restanteS:SIG_CPF_TIMEOUT_S};
+    // 03/08/2026, 4ª rodada (pedido do Raphael, antifraude): enquanto busca, campo travado e
+    // limpo — ninguém digita um nome que a Direct Data pode substituir um instante depois.
+    const nomeElBuscando=document.getElementById('sigCliNome');
+    if(nomeElBuscando){ nomeElBuscando.value=''; nomeElBuscando.disabled=true; }
+    sigRenderCpfSug();
     /* laço próprio de 1 em 1 segundo pro cronômetro/barra — se PAROU de ser 'buscando' por
        qualquer motivo (resposta chegou, reset externo do modal etc.), a checagem no início do
        próprio laço já se encarrega de parar sozinho, sem precisar caçar todo lugar que reseta
@@ -3016,16 +3022,31 @@ function sigRenderCpfSug(){
         +'<div style="height:100%;width:'+pct+'%;background:var(--brand);transition:width 1s linear"></div>'
       +'</div>';
   }
-  else if(sigCpfBusca.estado==='sugerido'){ el.style.display=''; el.innerHTML='<b>'+sigCpfBusca.nome+'</b><small>'+(sigCpfBusca.situacao||'')+'</small><a href="#" onclick="sigUsarNomeCPF();return false">usar este nome</a>'; }
+  else if(sigCpfBusca.estado==='sugerido'){
+    el.style.display='';
+    el.innerHTML='<b>✓ '+sigCpfBusca.nome+'</b><small>'+(sigCpfBusca.situacao||'')+' — confirmado pela Receita Federal, não editável</small>';
+    // 03/08/2026, 4ª rodada (pedido do Raphael, antifraude): "Se a Direct funcionar não tem nem a
+    // opção de mexer no nome" — preenche automático e trava. Sem link "usar este nome": não há
+    // mais escolha nenhuma pra fazer, é automático.
+    const nomeEl=document.getElementById('sigCliNome');
+    if(nomeEl){ nomeEl.value=sigCpfBusca.nome; nomeEl.disabled=true; }
+  }
   else if(sigCpfBusca.estado==='falha'){
     el.style.display='';
     el.innerHTML='<small style="color:#b23b3b">Não foi possível consultar automaticamente'
       +(sigCpfBusca.motivo?(' — '+_esc(String(sigCpfBusca.motivo))):'')
       +'. Digite o nome manualmente.</small>';
+    // só quando a consulta falha o campo fica editável — se ela funcionar, o nome vem travado
+    // (ver ramo 'sugerido' acima) pra ninguém trocar o nome oficial por outro.
+    const nomeEl=document.getElementById('sigCliNome');
+    if(nomeEl){ nomeEl.disabled=false; }
   }
-  else { el.style.display='none'; el.innerHTML=''; }
+  else {
+    el.style.display='none'; el.innerHTML='';
+    const nomeEl=document.getElementById('sigCliNome');
+    if(nomeEl){ nomeEl.disabled=false; }
+  }
 }
-function sigUsarNomeCPF(){ document.getElementById('sigCliNome').value=sigCpfBusca.nome; sigCpfBusca.estado='confirmado'; sigRenderCpfSug(); }
 function sigCelInput(){ sigGateUpdate(); }
 async function sigEnviarOTP(){
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
