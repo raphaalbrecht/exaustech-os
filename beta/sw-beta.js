@@ -2,7 +2,7 @@
    (mata o cache de 10 min do GitHub Pages); offline cai na última cópia guardada. Usa cache próprio
    (exaustech-beta-*) e NÃO deleta o cache do app da raiz. Bump BETA_SW_VERSION pra forçar atualização
    do próprio SW. Adicionado 27/07/2026 por pedido do Raphael (revertendo o "beta sem SW"). */
-const BETA_SW_VERSION = '2026-08-04-12'; // pergunta unica: onde vai ser a assinatura do cliente
+const BETA_SW_VERSION = '2026-08-04-13'; // fix: Continuar da observacao ia para a propria etapa
 const CACHE = 'exaustech-beta-' + BETA_SW_VERSION;
 
 self.addEventListener('install', function(e){ self.skipWaiting(); });
