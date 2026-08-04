@@ -3166,14 +3166,19 @@ function saveSig(){
     cs.obs=document.getElementById('sigCliObs').value.trim();
     cs.telefone=document.getElementById('sigCliCel').value.replace(/\D/g,'');
     cs.verificado = sigOtp.estado==='validado';
+    /* 04/08/2026: por qual canal o cliente confirmou o código. A produção gravava a evidência
+       sem essa informação (só o /beta/ mandava), então não dava para saber depois se a OS foi
+       assinada com verificação por WhatsApp ou por SMS. Aqui a raiz ainda só tem WhatsApp; o
+       campo já sai preenchido para quando o canal de SMS for promovido. */
+    cs.canalVerificacao = cs.verificado ? 'WhatsApp' : '';
     cs.motivoSemVerificacao = cs.verificado ? '' : (sigMotivo||'');
     cs.assinatura=cv.toDataURL('image/png'); cs.assinadoEm=hh;
     cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao; cs.meta=_sigMeta();
     salvarAssinante(curOS.cli||'', {nome:cs.nome, cargo:cs.cargo, cpf:cs.cpf, cel:cs.telefone});
     if(SF_LIVE && curOS._wo){
-      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo},'Cadastro de assinante').catch(()=>{});
+      bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo,celular:cs.telefone},'Cadastro de assinante').catch(()=>{});
       beUploadAssinatura(dataURLtoBlob(cs.assinatura),{osId:curOS._wo,tipo:'Cliente',nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,obs:cs.obs,
-        telefone:cs.telefone, verificado:cs.verificado, motivoSemVerificacao:cs.motivoSemVerificacao,
+        telefone:cs.telefone, verificado:cs.verificado, canalVerificacao:cs.canalVerificacao||'', motivoSemVerificacao:cs.motivoSemVerificacao,
         declaracaoVersao:SIG_LEGAL.versao,assinadoEm:(cs.meta&&cs.meta.t)||new Date().toISOString(),geo:_geoStr(cs.meta),dispositivo:(cs.meta&&cs.meta.dispositivo)||''})
         .then(r=>{ if(r&&r._queued){ toast('📡 Aceite salvo no aparelho — sincroniza com sinal'); } else { cs._sigId=r.id;cs._sigUrl=r.driveUrl;cs._sigDrive=r.driveId||null;toast('✅ Aceite gravado no Salesforce'); } })
         .catch(e=>toast('⚠️ Aceite salvo no aparelho — falha ao gravar: '+e.message));
