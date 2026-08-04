@@ -518,6 +518,12 @@
   #sigOtpBox a{font-size:12px;font-weight:600;color:var(--brand)}
   .cargo-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   /* ---- assinatura em 3 etapas (04/08/2026) ---- */
+  .qr-wrap{text-align:center;padding:10px 0 4px}
+  #sigqrCanvas{width:230px;height:230px;image-rendering:pixelated;border:8px solid #fff;border-radius:8px;background:#fff}
+  .qr-instr{text-align:center;font-size:14.5px;color:var(--txt);line-height:1.5;margin:8px 0}
+  .qr-status{text-align:center;font-size:13px;color:var(--weak);background:#F6F8FA;border-radius:9px;padding:9px 12px;margin-top:8px}
+  .qr-status.ativo{background:#F2F7FB;color:var(--brand);font-weight:600}
+  .qr-status.ruim{background:#FBF0EF;color:#C0392B;font-weight:600}
   .abertura{text-align:center;padding:6px 2px 2px}
   .abertura-tit{font-size:20px;font-weight:700;color:var(--txt);margin-bottom:10px}
   .abertura-txt{font-size:14.5px;color:var(--txt);line-height:1.55;margin:0 0 18px}
@@ -1338,6 +1344,7 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
       <button class="btn btn-brand" id="sigBtnToPad" onclick="sigToPad()">Assinar ✍️</button>
+      <button class="btn btn-neutral" id="sigBtnQr" style="display:none" onclick="sigqrAbrir()">📱 Cliente assina no celular dele</button>
     </div></div></div>
 
   <!-- POP-UP DEDICADO DA ASSINATURA (sem rolagem = sem toque acidental no pad) -->
@@ -1347,6 +1354,21 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
        no meio da tela de assinatura, dependia do técnico oferecer; perguntando direto, o cliente
        sabe que a opção existe. Etapa 3 confirma e manda devolver o aparelho ao líder.
        A assinatura da EQUIPE não passa pelas etapas 1 e 3 — entra direto na 2. -->
+  <!-- ASSINATURA POR QR (04/08/2026): o cliente escaneia da tela do líder e assina no aparelho
+       DELE. O QR só existe aqui, por 10 minutos — não é enviado por canal nenhum. É disso que vem
+       a força probatória: quem abriu estava fisicamente na frente do líder naquele minuto.
+       Ver docs/06-OS-CAMPO/PROPOSTA_assinatura-qr-presencial.md -->
+  <div class="modal" id="sigQrModal"><div class="modal-card">
+    <div class="modal-title">Assinatura no celular do cliente</div>
+    <div class="modal-sub" id="sigqrQuem"></div>
+    <div class="qr-wrap"><canvas id="sigqrCanvas"></canvas></div>
+    <div class="qr-instr" id="sigqrInstr"></div>
+    <div class="qr-status" id="sigqrStatus"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="sigqrCancelar()">Voltar e assinar neste aparelho</button>
+      <button class="btn btn-brand" id="sigqrNovo" style="display:none" onclick="sigqrAbrir()">Gerar novo QR</button>
+    </div></div></div>
+
   <div class="modal" id="padModal"><div class="modal-card">
 
     <!-- ETAPA 1 — o código. É a PRIMEIRA tela do cliente de propósito (04/08/2026):
@@ -3475,7 +3497,106 @@ function sigGateUpdate(){
   sigSetPad(cpfOk && celOk && (!sigSemWhats || motivoOk));
   const b=document.getElementById('sigBtnToPad');
   if(b) b.textContent = sigSemWhats ? 'Continuar sem verificação' : 'Enviar código e passar o aparelho 📲';
+  /* o QR exige internet no aparelho do líder (o token nasce no servidor) E no do cliente. Sem
+     rede o botão nem aparece — o caminho que funciona offline é o de cima, e ele continua sendo
+     o principal porque sem sinal é o cenário mais comum da operação. */
+  const q=document.getElementById('sigBtnQr');
+  if(q) q.style.display = (cpfOk && celOk && !sigSemWhats && SF_LIVE && navigator.onLine) ? '' : 'none';
 }
+/* ===== assinatura por QR no celular do cliente (04/08/2026) ===== */
+let sigqrToken=null, _sigqrPoll=null, _sigqrTick=null, _sigqrFim=0;
+async function sigqrAbrir(){
+  const nome=document.getElementById('sigCliNome').value.trim();
+  const cpf=document.getElementById('sigCliCPF').value.trim();
+  const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+  const cargo=document.getElementById('sigCliCargo').value.trim();
+  if(!nome||!validaCPF(cpf)||cel.length<11){ toast('Preencha nome, CPF e celular antes'); return; }
+  sigqrParar();
+  document.getElementById('sigqrNovo').style.display='none';
+  document.getElementById('sigqrQuem').textContent=nome+(cargo?' · '+cargo:'');
+  document.getElementById('sigqrInstr').textContent='Gerando o código…';
+  document.getElementById('sigqrStatus').className='qr-status';
+  document.getElementById('sigqrStatus').textContent='';
+  document.getElementById('sigModal').classList.remove('show');
+  document.getElementById('sigQrModal').classList.add('show');
+  try{
+    const d=await bePost('/qr-assinatura',{osId:curOS._wo, numeroOS:curOS.id, unidade:curOS.cli,
+      declaracao:SIG_LEGAL.cliente+' '+SIG_LEGAL.base, declaracaoVersao:SIG_LEGAL.versao,
+      assinante:{nome,cpf,cargo,celular:cel}});
+    sigqrToken=d.token;
+    sigqrDesenhar(d.url);
+    document.getElementById('sigqrInstr').innerHTML='Peça para <b>'+_sigEsc(nome.split(' ')[0])+'</b> apontar a câmera do celular para este código.';
+    _sigqrFim=Date.now()+(d.expiraEmSeg||600)*1000;
+    sigqrStatus('Aguardando o cliente abrir…','');
+    _sigqrPoll=setInterval(sigqrConsultar,4000);
+    _sigqrTick=setInterval(sigqrContador,1000); sigqrContador();
+  }catch(e){
+    document.getElementById('sigqrInstr').textContent='';
+    if(e.status===409) sigqrStatus('Esta OS já tem o aceite do cliente registrado.','ruim');
+    else sigqrStatus(e.message||'Não foi possível gerar o código.','ruim');
+    document.getElementById('sigqrNovo').style.display='';
+  }
+}
+/* usa o gerador de QR que já vem embarcado no app (o mesmo das etiquetas) */
+function sigqrDesenhar(url){
+  try{
+    const qr=qrcode(0,'M'); qr.addData(url); qr.make();
+    const n=qr.getModuleCount(), esc=8, cv=document.getElementById('sigqrCanvas');
+    cv.width=n*esc; cv.height=n*esc;
+    const c=cv.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,cv.width,cv.height); c.fillStyle='#000';
+    for(let r=0;r<n;r++) for(let j=0;j<n;j++) if(qr.isDark(r,j)) c.fillRect(j*esc,r*esc,esc,esc);
+  }catch(e){ document.getElementById('sigqrInstr').textContent='Não foi possível desenhar o código.'; }
+}
+function sigqrStatus(txt,cls){ const el=document.getElementById('sigqrStatus'); if(el){ el.textContent=txt; el.className='qr-status'+(cls?' '+cls:''); } }
+function sigqrContador(){
+  const seg=Math.max(0,Math.round((_sigqrFim-Date.now())/1000));
+  const el=document.getElementById('sigqrInstr');
+  if(el && el.dataset) el.dataset.seg=seg;
+  if(seg<=0){ sigqrParar(); sigqrStatus('⏱ O código expirou.','ruim'); document.getElementById('sigqrNovo').style.display=''; }
+}
+async function sigqrConsultar(){
+  if(!sigqrToken) return;
+  try{
+    const d=await beGet('/qr-assinatura/'+encodeURIComponent(sigqrToken)+'/status');
+    if(!d) return;
+    if(d.status==='aberto') sigqrStatus('📖 Página aberta no celular do cliente — aguardando a assinatura…','ativo');
+    else if(d.status==='bloqueado'){ sigqrParar(); sigqrStatus('⚠️ O CPF digitado não confere (3 tentativas). Gere um novo QR ou assine neste aparelho.','ruim'); document.getElementById('sigqrNovo').style.display=''; }
+    else if(d.status==='expirado'){ sigqrParar(); sigqrStatus('⏱ O código expirou.','ruim'); document.getElementById('sigqrNovo').style.display=''; }
+    else if(d.status==='assinado') sigqrConcluir(d);
+  }catch(e){
+    /* o líder ficou sem sinal: o cliente continua e termina — a rede dele é independente */
+    sigqrStatus('📡 Sem conexão — assim que o sinal voltar, verificamos se o cliente terminou.','');
+  }
+}
+function sigqrConcluir(d){
+  sigqrParar();
+  const cs=curOS.csig=curOS.csig||{};
+  cs.nome=document.getElementById('sigCliNome').value.trim();
+  cs.cpf=document.getElementById('sigCliCPF').value.trim();
+  cs.cargo=document.getElementById('sigCliCargo').value.trim();
+  cs.telefone=document.getElementById('sigCliCel').value.replace(/\D/g,'');
+  cs.obs=d.obs||''; cs.verificado=true; cs.canalVerificacao=d.canalVerificacao||'WhatsApp';
+  cs.motivoSemVerificacao='';
+  cs.assinatura=d.imagem||null;          /* dataURL: o PDF continua funcionando sem mudar nada */
+  cs.assinadoEm=d.assinadoEm?fmtDH(d.assinadoEm):'';
+  cs.declaracao=SIG_LEGAL.cliente; cs.declaracaoVersao=SIG_LEGAL.versao;
+  cs._sigId=d.sigId||null; cs._sigUrl=d.driveUrl||null; cs._sigDrive=d.driveId||null;
+  salvarAssinante(curOS.cli||'', {nome:cs.nome,cargo:cs.cargo,cpf:cs.cpf,cel:cs.telefone});
+  if(SF_LIVE) bePost('/assinantes',{nome:cs.nome,cpf:cs.cpf,cargo:cs.cargo,unidade:curOS.cli,osId:curOS._wo,celular:cs.telefone},'Cadastro de assinante').catch(()=>{});
+  document.getElementById('sigQrModal').classList.remove('show');
+  closeSig();
+  if(navStack.length && navStack[navStack.length-1].type==='assin') showSub();
+  toast('✅ Aceite de '+(cs.nome||'').split(' ')[0]+' recebido do celular do cliente');
+}
+function sigqrParar(){ clearInterval(_sigqrPoll); clearInterval(_sigqrTick); _sigqrPoll=null; _sigqrTick=null; }
+async function sigqrCancelar(){
+  const t=sigqrToken; sigqrParar(); sigqrToken=null;
+  document.getElementById('sigQrModal').classList.remove('show');
+  document.getElementById('sigModal').classList.add('show');
+  if(t){ try{ await bePost('/qr-assinatura/'+encodeURIComponent(t)+'/cancelar',{}); }catch(e){ /* sem rede o token morre sozinho em 10 min */ } }
+}
+/* ao voltar pro app, consulta na hora: o líder não espera os 4 segundos do ciclo */
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && sigqrToken && _sigqrPoll) sigqrConsultar(); });
 function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; }
 let _recAss=[];
 /* cargo: presets de um toque + "Outro…" com texto livre */
