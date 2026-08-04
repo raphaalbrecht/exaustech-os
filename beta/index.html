@@ -3053,7 +3053,7 @@ function sigRenderCpfSug(){
 function sigCelInput(){ sigGateUpdate(); }
 async function sigEnviarOTP(){
   const cel=document.getElementById('sigCliCel').value.replace(/\D/g,'');
-  if(cel.length<10){ toast('Informe um celular válido'); return; }
+  if(cel.length<11){ toast('Informe um celular válido (DDD + 9 dígitos)'); return; }
   sigOtp={estado:'enviando',otpId:'',codigo:''}; sigRenderOtp();
   try{
     const d=await bePost('/otp/gerar',{celular:cel});
@@ -3078,7 +3078,10 @@ const SIG_MOTIVOS=['Cliente sem celular/WhatsApp','Falha técnica no envio/valid
 function sigRenderOtp(){
   const el=document.getElementById('sigOtpBox'); if(!el) return;
   const celEl=document.getElementById('sigCliCel'); const cel=celEl?celEl.value.replace(/\D/g,''):'';
-  if(cel.length<10){ el.style.display='none'; el.innerHTML=''; return; }
+  // 04/08/2026 (pedido do Raphael): celular com DDD sempre tem 11 dígitos (2 do DDD + 9 do
+  // número) — o botão "Enviar código por WhatsApp" só pode aparecer/habilitar com o número
+  // completo. Antes cortava em 10, deixando o botão clicável faltando o último dígito.
+  if(cel.length<11){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='';
   if(sigSemWhats){
     el.innerHTML='<div class="sig-hint">Confirmação por WhatsApp não realizada.</div>'
