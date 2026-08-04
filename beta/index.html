@@ -3559,7 +3559,11 @@ async function sigqrConsultar(){
   try{
     const d=await beGet('/qr-assinatura/'+encodeURIComponent(sigqrToken)+'/status');
     if(!d) return;
-    if(d.status==='aberto') sigqrStatus('📖 Página aberta no celular do cliente — aguardando a assinatura…','ativo');
+    /* O celular do CLIENTE não consegue enviar o código: quem precisa saber disso é o líder,
+       que está a um metro dele. Sem esta linha o líder via a tela parada em "aguardando" e o
+       cliente via "não foi possível enviar" — dois erros diferentes, nenhum dos dois acionável. */
+    if(d.falhaEnvio) sigqrFalhaEnvio(d.falhaEnvio);
+    else if(d.status==='aberto') sigqrStatus('📖 Página aberta no celular do cliente — aguardando a assinatura…','ativo');
     else if(d.status==='bloqueado'){ sigqrParar(); sigqrStatus('⚠️ O CPF digitado não confere (3 tentativas). Gere um novo QR ou assine neste aparelho.','ruim'); document.getElementById('sigqrNovo').style.display=''; }
     else if(d.status==='expirado'){ sigqrParar(); sigqrStatus('⏱ O código expirou.','ruim'); document.getElementById('sigqrNovo').style.display=''; }
     else if(d.status==='assinado') sigqrConcluir(d);
@@ -3567,6 +3571,19 @@ async function sigqrConsultar(){
     /* o líder ficou sem sinal: o cliente continua e termina — a rede dele é independente */
     sigqrStatus('📡 Sem conexão — assim que o sinal voltar, verificamos se o cliente terminou.','');
   }
+}
+/* Mostra por que o código não saiu. O texto do fornecedor vai junto de propósito: é ele que
+   diz se o problema é crédito acabado, número inválido ou canal desligado — e é o líder quem
+   vai me contar isso depois. A ação sugerida vem primeiro; o detalhe técnico fica em segundo
+   plano, menor, para não assustar quem está com o cliente na frente. */
+function sigqrFalhaEnvio(f){
+  const det=(f&&f.resumo)?f.resumo:((f&&f.motivo)||'');
+  const el=document.getElementById('sigqrStatus');
+  if(!el) return;
+  el.className='qr-status ruim';
+  el.innerHTML='⚠️ <b>O código não foi enviado.</b> Peça para o cliente tocar em "Tentar de novo". '
+    +'Se falhar outra vez, toque em <b>Voltar e assinar neste aparelho</b>.'
+    +(det?'<div style="margin-top:6px;font-size:11.5px;opacity:.8">'+_sigEsc(det)+'</div>':'');
 }
 function sigqrConcluir(d){
   sigqrParar();
