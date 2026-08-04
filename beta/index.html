@@ -541,6 +541,13 @@
   .obs-opt small{display:block;font-size:12px;color:var(--weak);line-height:1.35}
   .obs-opt.on{border-color:var(--brand);background:#F2F7FB}
   .obs-opt.on b{color:var(--brand)}
+  .obs-opt:disabled{opacity:.55;cursor:default}
+  /* Pergunta unica do aceite (04/08/2026): os dois caminhos usam o mesmo cartao da escolha de
+     observacao (.obs-opt) — gesto que o lider ja conhece. O link de excecao e pequeno e cinza
+     de proposito: existe, mas nao compete com os dois caminhos normais. */
+  .sig-pergunta{font-size:16.5px;font-weight:700;color:var(--txt);text-align:center;margin:14px 0 2px}
+  .sig-exc{text-align:center;margin:10px 0 2px}
+  .sig-exc a{font-size:12px;font-weight:600;color:var(--weak);text-decoration:underline}
   .pad-obs-resumo{font-size:12px;color:var(--weak);font-style:italic;background:#F6F8FA;
     border-left:3px solid var(--brand);padding:7px 10px;border-radius:0 6px 6px 0;margin:8px 0}
   .ok-wrap{text-align:center;padding:22px 6px 8px}
@@ -1340,11 +1347,29 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       </div>
       <div class="field" id="sigFCel" style="display:none"><label>Celular (WhatsApp) de quem assina</label><input id="sigCliCel" inputmode="tel" placeholder="(21) 90000-0000" maxlength="16" oninput="celMask(this);sigCelInput()"></div>
       <div id="sigOtpBox"></div>
+      <!-- 04/08/2026 (pedido do Raphael): com o assinante escolhido, a tela faz UMA pergunta.
+           Antes havia cinco acoes ao mesmo tempo (enviar codigo, enviar-e-passar, QR, sem
+           codigo, cancelar) e duas pareciam sinonimos — o lider decidia sem saber a
+           consequencia. Cada cartao diz a consequencia no subtitulo; o canal (WhatsApp->SMS)
+           nao aparece porque nao e escolha do lider, e a escada do backend. -->
+      <div id="sigLocalPend" class="sig-hint" style="display:none">Falta o celular de quem assina — é para esse número que vai o código de confirmação, nos dois caminhos.</div>
+      <div id="sigLocalBox" style="display:none">
+        <div class="sig-pergunta">Onde vai ser a assinatura do cliente?</div>
+        <div class="obs-opts">
+          <button type="button" class="obs-opt" onclick="sigEscolherLocal('lider')">
+            <b>📲 No celular do líder</b>
+            <small>Enviamos um código ao cliente e você passa este aparelho para ele conferir o código e assinar na tela.</small>
+          </button>
+          <button type="button" class="obs-opt" id="sigLocalCliente" onclick="sigEscolherLocal('cliente')">
+            <b>📱 No celular do cliente</b>
+            <small id="sigLocalCliSub">Aparece um QR nesta tela; o cliente aponta a câmera e assina no aparelho dele. Precisa de internet nos dois celulares.</small>
+          </button>
+        </div>
+        <div class="sig-exc"><a href="#" onclick="sigToggleSemWhats();return false">O cliente não tem como receber o código</a></div>
+      </div>
     </div>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn btn-neutral" onclick="closeSig()">Cancelar</button>
-      <button class="btn btn-brand" id="sigBtnToPad" onclick="sigToPad()">Assinar ✍️</button>
-      <button class="btn btn-neutral" id="sigBtnQr" style="display:none" onclick="sigqrAbrir()">📱 Cliente assina no celular dele</button>
     </div></div></div>
 
   <!-- POP-UP DEDICADO DA ASSINATURA (sem rolagem = sem toque acidental no pad) -->
@@ -1404,6 +1429,8 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 
     <div class="pad-step" id="padStep3" style="display:none">
       <div class="modal-title">Antes de assinar</div>
+      <div class="modal-sub">Leia a declaração que será registrada junto com a sua assinatura:</div>
+      <div id="padLegalObs" class="sig-legal"></div>
       <div class="modal-sub">Você quer registrar alguma observação sobre o serviço executado?</div>
       <div class="obs-opts">
         <button type="button" class="obs-opt" id="padObsNao" onclick="padObsEscolha(false)">
@@ -3075,6 +3102,14 @@ function padIrEtapa(n){
     const el=document.getElementById(id); if(el) el.style.display=(i+1===n)?'':'none';
   });
   if(n===2) sigRenderOtp();   // a caixa do código vive na etapa 2 e é redesenhada ao entrar
+  if(n===3){
+    // A declaração aparece JUNTO da pergunta da observação, não só na hora de assinar.
+    // Pedido do Raphael em 04/08/2026: quem decide se tem ressalva a fazer precisa ter lido
+    // antes o que está atestando — decidir primeiro e ler depois inverte a ordem natural.
+    // Ela continua na etapa 4 também: o texto tem que estar na tela no instante do traço.
+    const lg=document.getElementById('padLegalObs');
+    if(lg) lg.innerHTML='<b>“'+SIG_LEGAL.cliente+'”</b><small>'+SIG_LEGAL.base+'</small>';
+  }
   if(n===4){
     // mostra ao cliente, acima do canvas, a observação que ele acabou de escrever — ele assina
     // vendo o que está sendo registrado junto da assinatura, não confiando de memória.
@@ -3155,6 +3190,14 @@ function openSig(ai){
   document.getElementById('padWho').textContent=`${a.nome}${(fc&&fc.cpf)?' · CPF '+fc.cpf:''} · ${a.papel||''}${a._num?' · '+a._num:''}`;
   document.getElementById('padBtnBack').textContent='Cancelar';
   _sigPrep(4);   // equipe assina direto: não precisa de código, observação nem devolver o aparelho
+}
+/* 04/08/2026 — a resposta da pergunta unica "Onde vai ser a assinatura?". Só roteia:
+   'lider' e exatamente o que o sigToPad ja fazia (escada de codigo + passar o aparelho);
+   'cliente' e o QR. Validacao e tratamento de falha continuam nas funcoes de destino —
+   duplicar aqui criaria duas verdades. */
+function sigEscolherLocal(local){
+  if(local==='cliente'){ sigqrAbrir(); return; }
+  sigToPad();
 }
 /* avança do formulário de dados para o pop-up de assinatura (valida antes) */
 /* 04/08/2026 — o botão do formulário deixou de ser "Assinar" e virou "enviar o código e passar
@@ -3440,12 +3483,24 @@ function sigRenderOtp(){
       +SIG_MOTIVOS.map(m=>'<option value="'+m+'"'+(sigMotivo===m?' selected':'')+'>'+m+'</option>').join('')
       +'</select></div>'
       +(noPad&&sigMotivo?'<button type="button" class="btn btn-brand" style="margin:8px 0" onclick="padSeguirSemCodigo()">Continuar sem o código</button>':'')
+      /* no formulario o seguir mora AQUI, junto do motivo — a pergunta unica some no caminho
+         de excecao e o lider nao pode ficar numa tela sem saida */
+      +(!noPad&&sigMotivo?'<button type="button" class="btn btn-brand" style="margin:8px 0;width:100%" onclick="sigToPad()">Continuar sem verificação e passar o aparelho 📲</button>':'')
       +'<div><a href="#" onclick="sigToggleSemWhats();return false">voltar a tentar o código</a></div>';
     return;
   }
+  /* 04/08/2026 — o formulario nao dispara nem valida codigo: isso virou consequencia do
+     cartao "No celular do lider" (a digitacao ja vivia na etapa do pad). Aqui ficam so avisos
+     de estado, para quem VOLTOU do pad saber que o codigo continua valendo. */
+  if(!noPad){
+    if(sigOtp.estado==='validado') el.innerHTML='<div class="sig-hint" style="color:#2a7a3b">✓ Identidade já confirmada por '+_sigEsc(sigOtp.canalValidado||sigOtp.canal||'WhatsApp')+'</div>';
+    else if(sigOtp.estado==='aguardando') el.innerHTML='<div class="sig-hint">📨 Código já enviado por '+_sigEsc(sigOtp.canal||'WhatsApp')+' — continua valendo se você passar o aparelho de novo.</div>';
+    else if(sigOtp.estado==='falha') el.innerHTML='<div class="sig-hint" style="color:#c0392b">O envio falhou. Toque de novo em “No celular do líder” para tentar outra vez, ou use “O cliente não tem como receber o código”.</div>';
+    else { el.style.display='none'; el.innerHTML=''; }
+    return;
+  }
   if(sigOtp.estado===''||sigOtp.estado==='enviando'){
-    el.innerHTML='<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP()"'+(sigOtp.estado==='enviando'?' disabled':'')+'>'+(sigOtp.estado==='enviando'?'Enviando…':'Enviar código por WhatsApp')+'</button>'
-      +'<div><a href="#" onclick="sigToggleSemWhats();return false">cliente não tem como receber o código</a></div>';
+    el.innerHTML='<div class="sig-hint">Preparando o envio do código…</div>';
     return;
   }
   if(sigOtp.estado==='validado'){
@@ -3491,17 +3546,24 @@ function sigGateUpdate(){
     sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer);
     toast('Celular alterado — confirme o código no número novo');
   }
-  const motivoOk=sigSemWhats && !!sigMotivo;
   sigRenderOtp();
-  // o botão libera com os DADOS completos — o código é conferido na tela seguinte, pelo cliente
-  sigSetPad(cpfOk && celOk && (!sigSemWhats || motivoOk));
-  const b=document.getElementById('sigBtnToPad');
-  if(b) b.textContent = sigSemWhats ? 'Continuar sem verificação' : 'Enviar código e passar o aparelho 📲';
-  /* o QR exige internet no aparelho do líder (o token nasce no servidor) E no do cliente. Sem
-     rede o botão nem aparece — o caminho que funciona offline é o de cima, e ele continua sendo
-     o principal porque sem sinal é o cenário mais comum da operação. */
-  const q=document.getElementById('sigBtnQr');
-  if(q) q.style.display = (cpfOk && celOk && !sigSemWhats && SF_LIVE && navigator.onLine) ? '' : 'none';
+  // a pergunta unica aparece com os DADOS completos; no caminho de excecao ela some, porque
+  // o botao de seguir mora dentro da caixa do motivo (sigRenderOtp)
+  sigSetPad(cpfOk && celOk && !sigSemWhats);
+  // faltou so o celular: dizer o porque, em vez de sumir com os cartoes sem explicacao
+  const p=document.getElementById('sigLocalPend');
+  if(p) p.style.display = (cpfOk && !celOk && !sigSemWhats) ? '' : 'none';
+  /* o QR exige internet no aparelho do líder (o token nasce no servidor) E no do cliente.
+     Sem rede o cartao fica visivel mas desligado, com o motivo no subtitulo — sumir com ele
+     esconderia que o caminho existe, e o lider nao saberia por que "as vezes tem, as vezes
+     nao". O caminho de cima segue sendo o principal: funciona sem sinal, que e o cenario mais
+     comum da operacao. */
+  const qrOk = SF_LIVE && navigator.onLine;
+  const q=document.getElementById('sigLocalCliente'), qs=document.getElementById('sigLocalCliSub');
+  if(q) q.disabled=!qrOk;
+  if(qs) qs.textContent = qrOk
+    ? 'Aparece um QR nesta tela; o cliente aponta a câmera e assina no aparelho dele. Precisa de internet nos dois celulares.'
+    : 'Precisa de internet nos dois celulares — este aparelho está sem conexão agora. Use a opção de cima.';
 }
 /* ===== assinatura por QR no celular do cliente (04/08/2026) ===== */
 let sigqrToken=null, _sigqrPoll=null, _sigqrTick=null, _sigqrFim=0;
@@ -3614,7 +3676,9 @@ async function sigqrCancelar(){
 }
 /* ao voltar pro app, consulta na hora: o líder não espera os 4 segundos do ciclo */
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && sigqrToken && _sigqrPoll) sigqrConsultar(); });
-function sigSetPad(show){ document.getElementById('sigBtnToPad').style.display=show?'':'none'; }
+/* 04/08/2026 — o "botao de assinar" do formulario virou a caixa da pergunta unica; a funcao
+   mantem nome e chamadores para o resto do fluxo nao tomar conhecimento da troca. */
+function sigSetPad(show){ const b=document.getElementById('sigLocalBox'); if(b) b.style.display=show?'':'none'; }
 let _recAss=[];
 /* cargo: presets de um toque + "Outro…" com texto livre */
 const CARGO_PRESETS=['Gerente','Subgerente','Sócio','Supervisor','Coordenador','Técnico de manutenção','Prestador de serviço'];
@@ -3639,6 +3703,7 @@ function sigCliSelChange(){
     document.getElementById('sigCliCel').value=''; document.getElementById('sigFCel').style.display='none';
     sigOtp=sigOtpVazio(); clearTimeout(_sigAltTimer); sigSemWhats=false; sigMotivo=''; sigCpfBusca={estado:'',nome:'',situacao:''};
     document.getElementById('sigOtpBox').innerHTML=''; sigRenderCpfSug();
+    const _p=document.getElementById('sigLocalPend'); if(_p) _p.style.display='none';  // sem assinante, sem cobrar celular
     sigSetPad(false); return;
   }
   if(v==='new'){
