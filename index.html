@@ -6205,14 +6205,34 @@ async function coltLimparDedup(dedup){
    próprio aparelho e o contador da barra fica VERMELHO com "N recusada(s)" até alguém tratar.
    DECIDIDO em 27/07 (pergunta h): cemitério E aviso que trava a tela na hora. O registro de
    clientTxId no servidor continua sendo o conserto de raiz e vira entrega separada. */
+/* chave de idempotência da recusa: o app reenvia até o servidor confirmar, e o backend faz
+   upsert por ela. Sem isso, uma nota recusada sem sinal viraria várias linhas iguais. */
+function _coltChaveRecusa(){
+  try{ if(crypto&&crypto.randomUUID) return 'r-'+crypto.randomUUID(); }catch(e){}
+  return 'r-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+}
+/* 04/08/2026 — a recusa passa a ter cópia no Salesforce (RecusaConferencia__c). Antes ela vivia
+   só neste aparelho, num arquivo que nenhuma tela lia: trocar de celular apagava o histórico e a
+   gestão não conseguia auditar quantas contagens o servidor recusou, de qual nota, por quê.
+   Vai pela fila offline, então funciona sem sinal e sobe sozinho depois. */
+async function coltEnviarRecusa(rec){
+  try{
+    await bePost('/coletor/v1/recusadas', {recusadas:[{
+      chave:rec.chave, path:rec.path, body:rec.body, label:rec.label,
+      dedup:rec.dedup, erro:rec.erro, quando:rec.quando
+    }]}, 'Recusa de conferência');
+  }catch(e){ /* sem sinal a fila cuida; com erro real o cemitério geral guarda */ }
+}
 async function coltCemiterio(j, msg){
+  const rec={path:j.path||null, body:j.body||null, label:j.label||null, dedup:j.dedup||null,
+             erro:String(msg||''), quando:new Date().toISOString(), chave:_coltChaveRecusa()};
   try{
     const arr=(await offGet('colt_recusados'))||[];
-    arr.push({path:j.path||null, body:j.body||null, label:j.label||null, dedup:j.dedup||null,
-              erro:String(msg||''), quando:new Date().toISOString()});
+    arr.push(rec);
     while(arr.length>60) arr.shift();
     await offPut('colt_recusados', arr);
   }catch(e){}
+  coltEnviarRecusa(rec);
   /* o fechamento morreu na recusa: a nota volta a ser conferível, senão o operador ficaria travado
      olhando uma nota que nunca vai fechar sozinha. */
   if(coltSt && j && j.dedup===('fin:'+coltSt.recId)) coltSt.finPendenteFila=false;
@@ -6433,6 +6453,9 @@ async function coltRecusadasArquivar(){
   try{
     const arr=(await offGet('colt_recusados'))||[];
     if(arr.length){
+      /* recusas anteriores a esta versão não têm chave e nunca foram enviadas: ao arquivar,
+         sobem agora. Sem isso, o que já está nos aparelhos ficaria invisível para sempre. */
+      arr.forEach(r=>{ if(!r.chave){ r.chave=_coltChaveRecusa(); coltEnviarRecusa(r); } });
       const hist=(await offGet('colt_recusados_hist'))||[];
       await offPut('colt_recusados_hist', hist.concat(arr).slice(-300));
     }
