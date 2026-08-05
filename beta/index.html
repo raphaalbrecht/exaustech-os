@@ -883,6 +883,8 @@
   .mot-justok{width:100%;margin-top:8px;background:var(--mot-blue);color:#fff;border:none;border-radius:10px;padding:11px;font-size:.8rem;font-weight:700;cursor:pointer}
   .mot-voltalink{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
   .mot-ckhd{font-size:.7rem;color:var(--mot-text-soft);margin-bottom:2px}
+  .mot-secao{font-size:.72rem;font-weight:700;letter-spacing:.02em;color:#3E7EB0;margin:12px 0 4px;padding-bottom:3px;border-bottom:1px solid rgba(62,126,176,.22)}
+  .mot-secao:first-child{margin-top:2px}
   .mot-ckrow{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px dashed var(--mot-border);cursor:pointer}
   .mot-ckrow:last-of-type{border-bottom:none}
   .mot-ckrow .mot-box{width:22px;height:22px;border-radius:7px;border:2px solid #C9D2DB;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#fff;flex-shrink:0}
@@ -14182,7 +14184,25 @@ function motPassoRowHtml(t,p,aff){
     inner+='<div class="mot-condnote">passo condicional — aparece porque a condição = '+motEsc(pai?(motRespostaAtual(pai)||''):'')+'</div>'; }
   return inner;
 }
-function motCkRowsHtml(t,aff){ return (t.passos||[]).map(p=>motPassoRowHtml(t,p,aff)).join(''); }
+function motCkRowsHtml(t,aff){
+  // 05/08/2026 — agrupa por seção (Passo_Regra__c.Secao__c). O INS-EXA migrado tem 82 passos;
+  // sem cabeçalho a lista é impraticável de luva. O cabeçalho só sai quando a seção MUDA e
+  // quando há pelo menos uma linha visível nela — passo escondido por condicional devolve ''.
+  // Regra sem Secao__c (as antigas) não ganha cabeçalho nenhum: zero regressão.
+  let out='', secaoAtual=null, primeira=true;
+  (t.passos||[]).forEach(p=>{
+    const row=motPassoRowHtml(t,p,aff);
+    if(!row) return;
+    const sec=p.secao||null;
+    if(sec!==secaoAtual){
+      secaoAtual=sec;
+      if(sec) out+='<div class="mot-secao"'+(primeira?' style="margin-top:2px"':'')+'>'+motEsc(sec)+'</div>';
+    }
+    primeira=false;
+    out+=row;
+  });
+  return out;
+}
 function motWireRefButtons(cont){ cont.querySelectorAll('.mot-refbtn').forEach(rb=>{ rb.addEventListener('click',ev=>{ ev.stopPropagation(); motAbrirRef(rb.dataset.pid); }); }); }
 function motWireTyped(cont,t){
   cont.querySelectorAll('.mot-medin').forEach(inp=>{
