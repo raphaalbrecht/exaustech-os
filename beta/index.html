@@ -831,7 +831,14 @@
   #mot-shHead{padding:6px 16px 8px;border-bottom:1px solid var(--mot-border)}
   #mot-shHead b{font-size:.92rem;color:var(--mot-navy);display:block;line-height:1.25}
   #mot-shHead small{font-size:.68rem;color:var(--mot-text-soft)}
-  #mot-shBody{padding:12px 16px 18px;overflow-y:auto;overscroll-behavior-y:contain}
+  /* 05/08/2026 — FIX de rolagem. O #mot-sheet é flex-column com max-height:80vh e o
+     #mot-shBody já tinha overflow-y:auto, mas SEM flex/min-height: num container flex o
+     filho tem min-height:auto e se recusa a encolher abaixo do conteúdo, então o
+     overflow-y nunca entrava em ação e o excedente ficava inalcançável. Passava
+     despercebido porque as regras antigas tinham ~13 passos e cabiam nos 80vh; o INS-EXA
+     migrado tem 82 e a tela travou no primeiro terço. `flex:1 1 auto` + `min-height:0`
+     é o par obrigatório pra área rolável dentro de flex-column. */
+  #mot-shBody{padding:12px 16px 18px;overflow-y:auto;overscroll-behavior-y:contain;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch}
   .mot-fsteps{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
   .mot-fstep{font-size:.6rem;font-weight:800;border-radius:12px;padding:3px 9px;background:#EEF1F4;color:#8A96A3;letter-spacing:.2px}
   .mot-fstep.on{background:var(--mot-blue);color:#fff}
