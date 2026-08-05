@@ -1047,6 +1047,9 @@
   .pln-tfreq{text-align:right;flex-shrink:0}
   .pln-tfreq .ef{font-size:.8rem;font-weight:700;color:var(--pln-navy)}
   .pln-tfreq .calc{font-size:.56rem;color:var(--pln-text-soft)}
+  /* 05/08/2026 — proposta do CBM: aparece na Ficha, mas quem DECIDE é a aba Aprovações
+     (Coordenador pra cima). O número grande continua sendo o intervalo EM VIGOR. */
+  .pln-tfreq .prop{font-size:.6rem;font-weight:700;color:#B26A00}
   .pln-crit{font-size:.7rem;color:var(--pln-text);padding:3px 0 3px 10px;border-left:2.5px solid var(--pln-blue-soft)}
   .pln-crit b{color:var(--pln-navy)}
   .pln-bomrow{display:flex;font-size:.72rem;padding:5px 0;gap:8px;align-items:center;border-bottom:1px dashed var(--pln-border)}
@@ -2033,7 +2036,10 @@ function apptClass(a){ if(a.outcome) return a.outcome==='Cancelado'?'s-cancelado
 function pendingReports(){ return appts.filter(a=>a.os.relatorio.stage>=1 && a.os.relatorio.stage<4); }
 /* fila de Alterações de Aviso pendentes (só Supervisor+ enxerga — GET /avisos/pendencias) */
 let _avPend=[];
-function updateApprBadge(){ const n=pendingReports().length+(canAprovarAviso(ROLE)?_avPend.length:0); const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+/* fila de PROPOSTAS DE PERIODICIDADE do CBM (05/08/2026 — só Coordenador pra cima decide:
+   GET /plano/propostas). O motor propõe e para; o intervalo em vigor não muda sozinho. */
+let _propPend=[];
+function updateApprBadge(){ const n=pendingReports().length+(canAprovarAviso(ROLE)?_avPend.length:0)+(canAprovarProposta(ROLE)?_propPend.length:0); const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
 /* separações marcadas como urgentes e ainda pendentes (checkbox Urgente__c na Ordem de Separação) */
 function urgentesPendentes(){ return sepListAll().filter(x=>x.s.urgente && sepPendente(x.s.status)); }
 function updateEstoqueBadge(){ const n=urgentesPendentes().length; const b=document.getElementById('estoqueBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
@@ -2060,6 +2066,7 @@ function renderApprovals(){
       <div class="appr-meta">${o.relatorio.ajustes?'Devolvido para ajustes':(o.relatorio.stage===3?'Aprovado — aguardando liberação':'Aguarda revisão · '+REP_STAGES[o.relatorio.stage])}</div>`;
     list.appendChild(el);
   });
+  renderPropostasAppr(list);
   renderAvisosAppr(list);
 }
 
@@ -12547,6 +12554,77 @@ function avisoAbrir(i){
 function closeAvisos(){ document.getElementById('avisosModal').classList.remove('show'); _avisosCtx=null; }
 function avisosConfirmar(){ const c=_avisosCtx; if(!c || c.avisos.some(v=>!v.lido)) return; closeAvisos(); if(c.onOk) c.onOk(); }
 
+/* ===== PROPOSTAS DE PERIODICIDADE (CBM) — fila de decisão (05/08/2026) =====
+   Regra do Raphael: "qualquer alteração de periodicidade deve ser primeiro validada por um
+   usuário de coordenador pra cima; não mexer automaticamente no intervalo". O CBM
+   (CascataFichaService) grava Frequencia_Proposta_Dias__c na Tarefa_Ativo__c e PARA — a
+   frequência em vigor continua a mesma até alguém decidir aqui.
+   Mesma lista de canPDF/canRelease. Supervisor continua vendo a Ficha do plano, só não decide:
+   é ele quem leva a proposta ao Coordenador. */
+function canAprovarProposta(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
+async function fetchPropPendencias(){
+  if(!(SF_LIVE&&canAprovarProposta(ROLE))){ _propPend=[]; return _propPend; }
+  try{ const r=await beGet('/plano/propostas'); _propPend=(r&&Array.isArray(r.propostas))?r.propostas:[]; }catch(e){ _propPend=[]; }
+  return _propPend;
+}
+function renderPropostasAppr(list){
+  if(!(SF_LIVE&&canAprovarProposta(ROLE))) return;
+  const sec=document.createElement('div'); sec.id='propApprSec';
+  sec.innerHTML='<div class="rel-hd" style="padding-left:14px">🗓 Periodicidade — propostas do CBM</div>'
+    +'<div class="subnote" style="padding:0 14px 8px">O motor propõe a partir dos achados de condição em campo. Nada muda no intervalo até você decidir.</div>'
+    +'<div id="propPendList"></div>';
+  list.appendChild(sec);
+  paintPropPend();
+  fetchPropPendencias().then(()=>{ paintPropPend(); updateApprBadge(); });
+}
+function paintPropPend(){
+  const el=document.getElementById('propPendList'); if(!el) return;
+  if(!canAprovarProposta(ROLE)){ el.innerHTML=''; return; }
+  el.innerHTML=_propPend.map(p=>{
+    const de=(p.frequenciaVigenteDias!=null?p.frequenciaVigenteDias+'d':'—');
+    const para=(p.frequenciaPropostaDias!=null?p.frequenciaPropostaDias+'d':'—');
+    /* encurtar = mais visita (achado); alongar = menos visita (ativo comportado) */
+    const encurta=(p.frequenciaVigenteDias!=null&&p.frequenciaPropostaDias!=null&&p.frequenciaPropostaDias<p.frequenciaVigenteDias);
+    return '<div class="appr-item" style="cursor:default">'
+    +'<div class="appr-top"><div class="appr-cli">'+_esc(p.descricao||'—')+'</div><span class="lz '+(encurta?'lz-warn':'lz-info')+'">'+de+' → '+para+'</span></div>'
+    +'<div class="appr-meta">'+_esc(p.ativoNome||'—')+(p.localNome?' · '+_esc(p.localNome):'')+(p.contaNome?' · '+_esc(p.contaNome):'')+'</div>'
+    +(p.propostaMotivo?'<div class="appr-meta">'+_esc(p.propostaMotivo)+'</div>':'')
+    +'<div class="appr-meta">'+(p.propostaEm?fmtDH(p.propostaEm):'')+(p.manualHoje?' · intervalo atual já é manual':'')+'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button class="btn btn-succ" style="flex:1" onclick="propDecidir(\''+p.id+'\',\'aprovar\')">Aprovar '+para+'</button>'
+    +'<button class="btn btn-neutral" style="flex:1" onclick="propDecidir(\''+p.id+'\',\'ajustar\')">Ajustar</button>'
+    +'<button class="btn btn-neutral" style="flex:1;color:var(--err-tx);border-color:var(--err-bd)" onclick="propDecidir(\''+p.id+'\',\'rejeitar\')">Rejeitar</button>'
+    +'</div></div>';
+  }).join('')||'<div class="subnote" style="padding:0 14px 8px">Nenhuma proposta de periodicidade aguardando você.</div>';
+}
+async function propDecidir(tarefaId,acao){
+  const p=_propPend.find(x=>x.id===tarefaId)||{};
+  let path='/plano/propostas/'+tarefaId+'/aprovar', body={};
+  if(acao==='ajustar'){
+    /* o backend também exige justificativa quando o número muda — aqui é só pra não gastar
+       a ida ao servidor e pra explicar POR QUE está pedindo. */
+    const dias=window.prompt('Novo intervalo em dias (a proposta do CBM é '+(p.frequenciaPropostaDias||'—')+'d):', p.frequenciaPropostaDias||'');
+    if(dias==null||!String(dias).trim()) return;
+    const n=Number(dias);
+    if(!Number.isInteger(n)||n<1||n>3650){ toast('Informe um número inteiro de dias entre 1 e 3650'); return; }
+    const just=window.prompt('Por que '+n+'d e não '+(p.frequenciaPropostaDias||'—')+'d? (obrigatório — o número passa a ser seu)');
+    if(just==null||!just.trim()){ toast('Ajuste cancelado — sem justificativa'); return; }
+    body={dias:n,justificativa:just.trim()};
+  } else if(acao==='rejeitar'){
+    path='/plano/propostas/'+tarefaId+'/rejeitar';
+    const just=window.prompt('Por que a periodicidade NÃO deve mudar? (obrigatório — é isso que calibra o motor)');
+    if(just==null||!just.trim()){ toast('Rejeição cancelada — sem justificativa'); return; }
+    body={justificativa:just.trim()};
+  }
+  try{
+    const r=await bePost(path,body);
+    toast(r&&r.decisao==='rejeitada'?'Proposta rejeitada — intervalo mantido'
+         :('✅ Periodicidade '+((r&&r.decisao)||'aprovada')+': '+((r&&r.frequenciaDias)||'')+'d'));
+  }catch(e){ toast('Erro: '+e.message); }
+  /* recarrega em qualquer caso: 409 = outra pessoa já decidiu, e a fila precisa refletir isso */
+  await fetchPropPendencias(); paintPropPend(); updateApprBadge();
+}
+
 /* ===== GESTÃO DE AVISOS DE CONTRATO — fluxo de aprovação (v2, 11/07/2026) =====
    Status do aviso (fonte da verdade no Aviso_Contrato__c.Status__c, o backend decide):
    Aguardando aprovação (não bloqueia ainda) → Ativo (bloqueia) → Aguardando aprovação de
@@ -13543,6 +13621,10 @@ async function beHydrate(quiet){
     acmpAtualizarAlertas().catch(()=>{}); /* pedidos de compra precisando de atenção — não bloqueia o hydrate principal */
     aprvAtualizar().catch(()=>{}); /* fila de aprovação de compra (só quem está na lista recebe pedidos) — idem */
     recpAtualizarPendentesCount().catch(()=>{}); /* entradas pendentes p/ home enxuta — não bloqueia o hydrate principal */
+    /* 05/08/2026 — fila de periodicidade no hydrate, não só ao abrir a aba: senão o selo do
+       sino só apareceria DEPOIS de o Coordenador entrar em Aprovações, que é justamente o
+       que ele não faria sem ver o selo. */
+    fetchPropPendencias().then(()=>updateApprBadge()).catch(()=>{});
     pendenteEstocarAtualizarCount().catch(()=>{}); /* pendente estocar p/ home */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
@@ -14981,8 +15063,10 @@ function plnRenderFicha(body){
         '<div class="pln-tinfo"><div class="nm">'+motEsc(t.descricao)+'</div><div class="meta">'+
           '<span class="pln-org '+orgCls+'">'+motEsc((t.origem||'—').toUpperCase())+'</span> '+
           (t.fonte?motEsc(t.fonte):'')+(t.fatorTotalAplicado!=null&&t.fatorTotalAplicado!==1?' · fator ×'+t.fatorTotalAplicado:'')+
+          (t.frequenciaPropostaDias!=null?' · proposta aguardando validação':'')+
         '</div></div>'+
         '<div class="pln-tfreq"><div class="ef">'+(t.frequenciaEfetivaDias!=null?t.frequenciaEfetivaDias+'d':'—')+'</div>'+
+          (t.frequenciaPropostaDias!=null?'<div class="prop" title="'+motEsc(t.propostaMotivo||'')+'">→ '+t.frequenciaPropostaDias+'d ?</div>':'')+
           '<div class="calc">'+(t.proximaExecucao?'próx. '+plnFmtData(t.proximaExecucao):'')+'</div></div>'+
       '</div>';
     });
