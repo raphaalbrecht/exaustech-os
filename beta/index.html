@@ -542,6 +542,29 @@
   .obs-opt.on{border-color:var(--brand);background:#F2F7FB}
   .obs-opt.on b{color:var(--brand)}
   .obs-opt:disabled{opacity:.55;cursor:default}
+  /* 07/08/2026 — Proposta C do modal "Aceite do cliente". Classes PRÓPRIAS de propósito:
+     .obs-opt é compartilhada com a tela de observação e mexer nela mudaria outra tela sem querer.
+     O que a C resolve não é estética: hoje tocar no cartão já dispara o envio do código
+     (sigEscolherLocal -> sigToPad -> sigEnviarOTP). Um toque acidental gasta um SMS e queima um
+     código com o cliente do lado. Marcar e confirmar separa escolher de disparar. */
+  .sigloc-list{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px}
+  .sigloc-opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;font:inherit;
+    border:1.5px solid var(--border2);background:#fff;border-radius:14px;padding:13px 14px;
+    min-height:44px;cursor:pointer}
+  .sigloc-opt:active{background:#F2F7FB}
+  .sigloc-opt.on{border-color:var(--brand);background:#F2F7FB}
+  .sigloc-rd{flex:0 0 auto;width:22px;height:22px;border-radius:50%;
+    border:2px solid var(--border2);margin-top:1px;position:relative}
+  .sigloc-opt.on .sigloc-rd{border-color:var(--brand)}
+  .sigloc-opt.on .sigloc-rd::after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--brand)}
+  .sigloc-tx{flex:1;min-width:0}
+  .sigloc-tx b{display:block;font-size:16px;color:var(--txt)}
+  .sigloc-opt.on .sigloc-tx b{color:var(--brand)}
+  .sigloc-tx small{display:block;font-size:12px;color:var(--weak);line-height:1.35;margin-top:4px}
+  .sigloc-opt:disabled{opacity:.6;cursor:default}
+  .sigloc-opt:disabled .sigloc-rd{border-style:dashed}
+  /* o select de "Quem assina" entra na mesma linguagem: mesma borda e mesmo raio dos cartões */
+  select#sigCliSel{border-radius:12px}
   /* Pergunta unica do aceite (04/08/2026): os dois caminhos usam o mesmo cartao da escolha de
      observacao (.obs-opt) — gesto que o lider ja conhece. O link de excecao e pequeno e cinza
      de proposito: existe, mas nao compete com os dois caminhos normais. */
@@ -1367,16 +1390,19 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       <div id="sigLocalPend" class="sig-hint" style="display:none">Falta o celular de quem assina — é para esse número que vai o código de confirmação, nos dois caminhos.</div>
       <div id="sigLocalBox" style="display:none">
         <div class="sig-pergunta">Onde vai ser a assinatura do cliente?</div>
-        <div class="obs-opts">
-          <button type="button" class="obs-opt" onclick="sigEscolherLocal('lider')">
-            <b>📲 No celular do líder</b>
-            <small>Enviamos um código ao cliente e você passa este aparelho para ele conferir o código e assinar na tela.</small>
+        <div class="sigloc-list">
+          <button type="button" class="sigloc-opt" id="sigLocalLider" onclick="sigLocalMarcar('lider')">
+            <span class="sigloc-rd"></span>
+            <span class="sigloc-tx"><b>📲 No celular do líder</b>
+              <small id="sigLocalLidSub">Enviamos um código ao cliente e você passa este aparelho para ele conferir o código e assinar na tela.</small></span>
           </button>
-          <button type="button" class="obs-opt" id="sigLocalCliente" onclick="sigEscolherLocal('cliente')">
-            <b>📱 No celular do cliente</b>
-            <small id="sigLocalCliSub">Aparece um QR nesta tela; o cliente aponta a câmera e assina no aparelho dele. Precisa de internet nos dois celulares.</small>
+          <button type="button" class="sigloc-opt" id="sigLocalCliente" onclick="sigLocalMarcar('cliente')">
+            <span class="sigloc-rd"></span>
+            <span class="sigloc-tx"><b>📱 No celular do cliente</b>
+              <small id="sigLocalCliSub">Aparece um QR nesta tela; o cliente aponta a câmera e assina no aparelho dele. Precisa de internet nos dois celulares.</small></span>
           </button>
         </div>
+        <button type="button" class="btn btn-brand" id="sigLocalContinuar" style="width:100%;margin-top:10px" disabled onclick="sigLocalContinuar()">Continuar</button>
         <div class="sig-exc"><a href="#" onclick="sigToggleSemWhats();return false">O cliente não tem como receber o código</a></div>
       </div>
     </div>
@@ -3211,6 +3237,41 @@ function openSig(ai){
    'lider' e exatamente o que o sigToPad ja fazia (escada de codigo + passar o aparelho);
    'cliente' e o QR. Validacao e tratamento de falha continuam nas funcoes de destino —
    duplicar aqui criaria duas verdades. */
+/* 07/08/2026 — Proposta C: marcar e confirmar, em vez de tocar-e-disparar. sigEscolherLocal
+   continua sendo a AÇÃO (e continua sendo quem dispara o OTP); o que mudou é que ela só é
+   chamada pelo botão Continuar. Nenhuma opção nasce marcada de propósito: opção pré-marcada
+   vira disparo por inércia, que é exatamente o que esta mudança evita. */
+let sigLocalEscolha='';
+
+function sigLocalMarcar(local){ sigLocalEscolha=local; sigLocalPintar(); }
+
+function sigLocalPintar(){
+  const mapa={lider:'sigLocalLider', cliente:'sigLocalCliente'};
+  for (const chave in mapa){
+    const el=document.getElementById(mapa[chave]);
+    if(!el) continue;
+    /* opção desabilitada não pode ficar marcada: o QR se desliga sozinho quando cai a rede, e
+       a escolha feita antes disso tem que cair junto — senão o Continuar dispararia um caminho
+       que a tela já sabe que não funciona. */
+    if(el.disabled && sigLocalEscolha===chave) sigLocalEscolha='';
+    const on=(sigLocalEscolha===chave);
+    el.classList.toggle('on', on);
+    const sub=el.querySelector('small');
+    /* a descrição aparece na MARCADA ou na DESABILITADA. A segunda metade é a que importa:
+       quando o QR está desligado por falta de rede, o subtítulo é o único lugar que diz POR QUE
+       (ver o comentário em sigGateUpdate). Escondê-lo repetiria o problema que aquele comentário
+       resolveu — o líder não saber por que "às vezes tem, às vezes não". */
+    if(sub) sub.style.display=(on || el.disabled) ? '' : 'none';
+  }
+  const b=document.getElementById('sigLocalContinuar');
+  if(b) b.disabled=!sigLocalEscolha;
+}
+
+function sigLocalContinuar(){
+  if(!sigLocalEscolha) return;
+  sigEscolherLocal(sigLocalEscolha);
+}
+
 function sigEscolherLocal(local){
   if(local==='cliente'){ sigqrAbrir(); return; }
   sigToPad();
@@ -3580,6 +3641,7 @@ function sigGateUpdate(){
   if(qs) qs.textContent = qrOk
     ? 'Aparece um QR nesta tela; o cliente aponta a câmera e assina no aparelho dele. Precisa de internet nos dois celulares.'
     : 'Precisa de internet nos dois celulares — este aparelho está sem conexão agora. Use a opção de cima.';
+  sigLocalPintar();   // 07/08: o disabled acabou de mudar — a marcação e o Continuar seguem junto
 }
 /* ===== assinatura por QR no celular do cliente (04/08/2026) ===== */
 let sigqrToken=null, _sigqrPoll=null, _sigqrTick=null, _sigqrFim=0;
@@ -3807,7 +3869,7 @@ function bindPad(cv){
   cv.onmousedown=start;cv.onmousemove=move;window.onmouseup=end;cv.ontouchstart=start;cv.ontouchmove=move;cv.ontouchend=end;
 }
 function clearSig(){const cv=document.getElementById('sigPad');if(sigCtx)sigCtx.clearRect(0,0,cv.width,cv.height);sigDirty=false;}
-function closeSig(){document.getElementById('sigModal').classList.remove('show');document.getElementById('padModal').classList.remove('show');}
+function closeSig(){sigLocalEscolha='';document.getElementById('sigModal').classList.remove('show');document.getElementById('padModal').classList.remove('show');}
 function saveSig(){
   const cv=document.getElementById('sigPad');
   const now=new Date(); const hh=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
