@@ -593,23 +593,51 @@
      Sai sozinha em 3s e também no toque: tela que trava 3 segundos sem saída é armadilha quando
      algo dá errado. */
   #padSplash{position:fixed;inset:0;z-index:9999;background:#2a7a3b;display:none;
-    flex-direction:column;align-items:center;justify-content:center;padding:24px;cursor:pointer}
+    flex-direction:column;align-items:center;justify-content:center;padding:24px;cursor:pointer;
+    overflow:hidden}
+  /* 08/08/2026 — a 1a versão animava por 0,6s e ficava parada os 2,4s restantes: a tela durava
+     3 segundos, mas PARECIA rápida, porque o que dura é o movimento, não o relógio. A linha do
+     tempo agora cobre os 3s inteiros: círculo salta -> check é desenhado -> três ondas de halo
+     saem em intervalos -> título e legenda entram escalonados -> a barra de baixo corre os 3s.
+     A barra não é enfeite: ela diz que a tela vai passar sozinha, o que evita o toque ansioso. */
+  #padSplash .sp-stage{position:relative;display:flex;align-items:center;justify-content:center;
+    width:150px;height:150px}
+  #padSplash .sp-halo{position:absolute;width:150px;height:150px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.6);opacity:0;pointer-events:none}
+  #padSplash.play .sp-halo{animation:spHalo 1.5s ease-out forwards;animation-delay:.5s}
+  #padSplash.play .sp-halo.b{animation-delay:1.05s}
+  #padSplash.play .sp-halo.c{animation-delay:1.6s}
+  @keyframes spHalo{0%{transform:scale(.72);opacity:.7}100%{transform:scale(2.6);opacity:0}}
   #padSplashCheck{width:150px;height:150px;border-radius:50%;background:#fff;
-    display:flex;align-items:center;justify-content:center;transform:scale(0);opacity:0}
+    display:flex;align-items:center;justify-content:center;transform:scale(0);opacity:0;
+    box-shadow:0 10px 30px rgba(0,0,0,.18)}
   #padSplashCheck svg{width:84px;height:84px;stroke:#2a7a3b;stroke-width:5;fill:none;
     stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:44;stroke-dashoffset:44}
-  #padSplashCheck.play{animation:okPop .5s cubic-bezier(.17,.89,.32,1.28) forwards}
-  #padSplashCheck.play svg{animation:okDraw .34s .3s ease-out forwards}
-  #padSplash .sp-tit{color:#fff;font-size:23px;font-weight:800;text-align:center;margin-top:26px;
-    line-height:1.3;max-width:15em}
-  #padSplash .sp-sub{color:rgba(255,255,255,.85);font-size:13px;margin-top:10px}
+  #padSplash.play #padSplashCheck{animation:spPop .6s cubic-bezier(.17,.89,.32,1.28) forwards}
+  #padSplash.play #padSplashCheck svg{animation:okDraw .45s .38s ease-out forwards}
+  @keyframes spPop{0%{transform:scale(0);opacity:0}55%{transform:scale(1.16);opacity:1}
+    72%{transform:scale(.96)}86%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+  #padSplash .sp-tit{color:#fff;font-size:24px;font-weight:800;text-align:center;margin-top:30px;
+    line-height:1.3;max-width:15em;opacity:0}
+  #padSplash .sp-sub{color:rgba(255,255,255,.8);font-size:13px;margin-top:12px;opacity:0}
+  #padSplash.play .sp-tit{animation:spSobe .55s .85s cubic-bezier(.2,.8,.3,1) forwards}
+  #padSplash.play .sp-sub{animation:spSobe .55s 1.35s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes spSobe{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+  #padSplash .sp-bar{position:absolute;left:0;bottom:0;height:4px;width:0;
+    background:rgba(255,255,255,.9)}
+  #padSplash.play .sp-bar{animation:spBar 3s linear forwards}
+  @keyframes spBar{to{width:100%}}
   /* quem desliga animação no sistema operacional vê o estado final, sem movimento */
   @media (prefers-reduced-motion: reduce){
     #padCheck,#padCheck.play{animation:none;transform:scale(1);opacity:1}
     #padCheck.play svg{animation:none;stroke-dashoffset:0}
     .ok-hand{animation:none}
-    #padSplashCheck,#padSplashCheck.play{animation:none;transform:scale(1);opacity:1}
-    #padSplashCheck.play svg{animation:none;stroke-dashoffset:0}
+    #padSplash.play #padSplashCheck{animation:none;transform:scale(1);opacity:1}
+    #padSplash.play #padSplashCheck svg{animation:none;stroke-dashoffset:0}
+    #padSplash.play .sp-halo{animation:none;opacity:0}
+    #padSplash .sp-tit,#padSplash .sp-sub,
+    #padSplash.play .sp-tit,#padSplash.play .sp-sub{animation:none;opacity:1;transform:none}
+    #padSplash.play .sp-bar{animation:none;width:100%}
   }
   .cargo-chip{border:1px solid var(--border2);background:#fff;color:var(--txt);font-size:12px;font-weight:600;padding:7px 11px;border-radius:16px;cursor:pointer}
   .cargo-chip.on{border-color:var(--brand);background:var(--brand-l);color:var(--brand-d)}
@@ -1522,9 +1550,13 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     </div>
 
     <div id="padSplash" onclick="padSplashFechar()">
-      <div id="padSplashCheck"><svg viewBox="0 0 52 52"><path d="M14 27l8 8 16-16"/></svg></div>
+      <div class="sp-stage">
+        <span class="sp-halo"></span><span class="sp-halo b"></span><span class="sp-halo c"></span>
+        <div id="padSplashCheck"><svg viewBox="0 0 52 52"><path d="M14 27l8 8 16-16"/></svg></div>
+      </div>
       <div class="sp-tit">Assinatura finalizada com sucesso</div>
       <div class="sp-sub">toque para continuar</div>
+      <div class="sp-bar"></div>
     </div>
 
     <div class="pad-step" id="padStep5" style="display:none">
@@ -3249,14 +3281,16 @@ function padSplashAbrir(){
   if(!el) return;
   clearTimeout(_padSplashTimer);
   el.style.display='flex';
-  const ck=document.getElementById('padSplashCheck');
-  if(ck){ ck.classList.remove('play'); void ck.offsetWidth; ck.classList.add('play'); }
+  /* a classe 'play' passou do check para o CONTAINER: agora ela dispara halo, título, legenda e
+     barra na mesma linha do tempo. O reflow forçado reinicia tudo — sem ele, a 2a assinatura
+     mostraria a tela já no estado final, parada. */
+  el.classList.remove('play'); void el.offsetWidth; el.classList.add('play');
   _padSplashTimer=setTimeout(padSplashFechar, 3000);
 }
 function padSplashFechar(){
   clearTimeout(_padSplashTimer); _padSplashTimer=null;
   const el=document.getElementById('padSplash');
-  if(el) el.style.display='none';
+  if(el){ el.style.display='none'; el.classList.remove('play'); }
 }
 
 /* Botão da abertura: vai para o código se houver código em jogo; senão pula direto para a
