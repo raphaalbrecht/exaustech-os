@@ -3454,14 +3454,32 @@ const SIG_CPF_TIMEOUT_S = 5;
    POR ONDE ele saiu, quais canais sobraram, e se caiu no alternativo sozinho. */
 let sigOtp=sigOtpVazio(); // estado: ''|'enviando'|'aguardando'|'validando'|'validado'|'falha'
 function sigOtpVazio(){ return {estado:'',otpId:'',codigo:'',canal:'',canalValidado:'',telValidado:'',alternativos:[],fallback:false,falhouAntes:[],podeAlt:false,segAlt:45,tentados:[]}; }
-let _sigAltTimer=null;
-/* libera o canal alternativo só depois da espera configurada (padrão 45s). Sem essa trava o
-   cliente ansioso pede o SMS em 5 segundos e gera custo sem o WhatsApp ter tido chance. */
+let _sigAltTimer=null, _sigAltTick=null;
+/* libera o canal alternativo só depois da espera configurada (30s hoje, vindo do CMDT). Sem essa
+   trava o cliente ansioso pede o SMS em 5 segundos e gera custo sem o WhatsApp ter tido chance.
+
+   08/08/2026 — a espera passou a ter CONTADOR. Antes o aviso dizia "aparece em instantes", e
+   "instantes" não segura ninguém: no teste de campo de 07/08 o próprio Raphael, que construiu a
+   funcionalidade, olhou a tela e concluiu que o SMS não existia. Trava sem prazo visível é
+   indistinguível de ausência. O segundo a segundo atualiza só o número (getElementById), não a
+   tela inteira: re-render a cada segundo apagaria o código que o cliente está digitando. */
 function sigArmarAlternativa(){
-  clearTimeout(_sigAltTimer);
+  clearTimeout(_sigAltTimer); clearInterval(_sigAltTick);
   if(!sigOtp.alternativos||!sigOtp.alternativos.length) return;
-  _sigAltTimer=setTimeout(()=>{ sigOtp.podeAlt=true; sigRenderOtp(); }, Math.max(0,(sigOtp.segAlt||45))*1000);
+  const seg=Math.max(0,(sigOtp.segAlt||45));
+  sigOtp.restaAlt=seg;
+  _sigAltTick=setInterval(function(){
+    sigOtp.restaAlt=Math.max(0,(sigOtp.restaAlt||0)-1);
+    const el=document.getElementById('sigAltSeg');
+    if(el) el.textContent=sigOtp.restaAlt;
+    if(sigOtp.restaAlt<=0) clearInterval(_sigAltTick);
+  },1000);
+  _sigAltTimer=setTimeout(function(){
+    clearInterval(_sigAltTick);
+    sigOtp.podeAlt=true; sigRenderOtp();
+  }, seg*1000);
 }
+function sigPararContagemAlt(){ clearTimeout(_sigAltTimer); clearInterval(_sigAltTick); }
 let sigSemWhats=false, sigMotivo='';
 function celMask(el){ let v=el.value.replace(/\D/g,'').slice(0,11); if(v.length>10) v=v.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'); else if(v.length>6) v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3'); else if(v.length>2) v=v.replace(/(\d{2})(\d{0,5})/,'($1) $2'); el.value=v; }
 function sigCpfPararCountdown(){ if(sigCpfCountdownTimer){ clearInterval(sigCpfCountdownTimer); sigCpfCountdownTimer=null; } }
@@ -3603,7 +3621,7 @@ async function sigValidarOTP(){
     if(d&&d.ok){
       sigOtp.canalValidado=d.canal||sigOtp.canal||'WhatsApp';
       sigOtp.telValidado=(document.getElementById('sigCliCel')||{value:''}).value.replace(/\D/g,'');
-      clearTimeout(_sigAltTimer);
+      sigPararContagemAlt();
       // código conferido: o cliente já está com o aparelho, segue direto para a observação
       if(padEtapa===2){ setTimeout(function(){ padIrEtapa(3); },650); }
     }
@@ -3695,7 +3713,8 @@ function sigRenderOtp(){
   const alt=(sigOtp.alternativos||[]).filter(c=>c&&c!==sigOtp.canal&&/^[A-Za-z][A-Za-z0-9 ]{0,19}$/.test(c));
   const btnAlt = (sigOtp.podeAlt && alt.length)
     ? alt.map(c=>'<button type="button" class="btn btn-neutral" onclick="sigEnviarOTP(\''+_sigEsc(c)+'\')">Não recebi — enviar por '+_sigEsc(c)+'</button>').join(' ')
-    : (alt.length ? '<div class="sig-hint">Não chegou? A opção de enviar por '+_sigEsc(alt[0])+' aparece em instantes.</div>' : '');
+    : (alt.length ? '<div class="sig-hint">Não chegou? Você poderá enviar por '+_sigEsc(alt[0])
+        +' em <b id="sigAltSeg">'+(sigOtp.restaAlt!=null?sigOtp.restaAlt:'')+'</b>s.</div>' : '');
   el.innerHTML=aviso
     +'<div class="field"><label>Código recebido por '+canal+'</label><input id="sigOtpCodigo" inputmode="numeric" maxlength="6" placeholder="000000" oninput="sigOtpDigitou(this)"></div>'
     +'<button type="button" class="btn btn-brand" onclick="sigValidarOTP()"'+(sigOtp.estado==='validando'?' disabled':'')+'>'+(sigOtp.estado==='validando'?'Validando…':'Validar código')+'</button> '
@@ -3966,7 +3985,7 @@ function bindPad(cv){
   cv.onmousedown=start;cv.onmousemove=move;window.onmouseup=end;cv.ontouchstart=start;cv.ontouchmove=move;cv.ontouchend=end;
 }
 function clearSig(){const cv=document.getElementById('sigPad');if(sigCtx)sigCtx.clearRect(0,0,cv.width,cv.height);sigDirty=false;}
-function closeSig(){sigLocalEscolha='';padSplashFechar();document.getElementById('sigModal').classList.remove('show');document.getElementById('padModal').classList.remove('show');}
+function closeSig(){sigLocalEscolha='';padSplashFechar();sigPararContagemAlt();document.getElementById('sigModal').classList.remove('show');document.getElementById('padModal').classList.remove('show');}
 function saveSig(){
   const cv=document.getElementById('sigPad');
   const now=new Date(); const hh=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -7790,6 +7809,29 @@ const COLT_COR_ITEM={
 function coltCorItem(s){ return COLT_COR_ITEM[s] || COLT_COR_ITEM['Pendente']; }
 function coltPendente(i){ return !i.status || i.status==='Pendente'; }
 function coltOk(i){ return i.status==='Conferido OK'; }
+/* 08/08/2026 — item recebido SEM vínculo de produto NÃO é divergência: a contagem está certa, o
+   que falta é o escritório vincular o produto. A regra já existia em coltRenderFechamento desde
+   28/07 ("Separo do nDiv pra o previsto bater com o Apex") mas só lá — as outras duas telas
+   faziam `total - ok - pendentes` e jogavam este status na sobra, em vermelho.
+
+   Foi achado no teste de campo de 07/08: item 10 de 10, quantidade correta, e a tela dizendo
+   "1 Divergência". Não é cosmético — conferente que vê divergência numa contagem que ele sabe
+   estar certa aprende, em duas semanas, a ignorar o contador. Quando aparecer uma de verdade,
+   ninguém olha.
+
+   O Apex concorda com esta leitura: a nota fecha como 'Recebido - Pendente Estocagem', não como
+   'Recebido com Divergência' (provado no REC-000132 em 07/08). */
+function coltSemVinculo(i){ return !!i && i.status==='Recebido sem Vínculo'; }
+/* 'Pendente Estocar' é o MESMO caso um passo à frente: o escritório já vinculou o produto e falta
+   o endereço. Contagem certa, pendência posterior — não é divergência. O harness pegou esta
+   variante; o campo só tinha mostrado a primeira. O Apex trata as duas igual: a nota fecha como
+   'Recebido - Pendente Estocagem' nos dois casos. */
+function coltAEstocar(i){ return !!i && (i.status==='Recebido sem Vínculo' || i.status==='Pendente Estocar'); }
+/* divergência REAL = o que sobra depois de tirar ok, pendentes e as duas pendências de estocagem */
+function coltDivergencias(itens){
+  const l=itens||[];
+  return l.length - l.filter(coltOk).length - l.filter(coltPendente).length - l.filter(coltAEstocar).length;
+}
 
 /* unidade mostrada ao lado da quantidade. recpUnidade é helper compartilhado: unidade da NF quando
    existe, senão a do produto. O prefixo "1" colado — '1UN' em vez de 'UN' — é tirado só quando ele
@@ -8350,17 +8392,22 @@ function coltRenderBipagem(corpo, root){
     +(coltSt.bipeErro?'<div style="font-size:12.5px;color:'+CD.vm+';margin-top:10px;line-height:1.5;text-align:left">'+_esc(coltSt.bipeErro)+'</div>':'');
   corpo.appendChild(sb);
 
+  const nSemVinc=itens.filter(coltAEstocar).length;
+  const nDivReal=coltDivergencias(itens);
   const pOk=total?Math.round(nOk/total*100):0;
-  const pDiv=total?Math.round(nDiv/total*100):0;
+  const pDiv=total?Math.round(nDivReal/total*100):0;
+  const pSv=total?Math.round(nSemVinc/total*100):0;
   corpo.appendChild(coltEl('div','margin-bottom:14px',
      '<div style="height:6px;border-radius:99px;background:'+CD.bd+';overflow:hidden;display:flex">'
       +'<div style="width:'+pOk+'%;background:'+CD.vd+'"></div>'
-      +'<div style="width:'+pDiv+'%;background:'+CD.am+'"></div>'
+      +'<div style="width:'+pDiv+'%;background:'+CD.vm+'"></div>'
+      +'<div style="width:'+pSv+'%;background:'+CD.am+'"></div>'
      +'</div>'
      +'<div style="display:flex;gap:8px;margin-top:9px">'
       +coltContador('Conferidos', nOk, CD.vd)
       +coltContador('Pendentes', nPend, nPend?CD.am:CD.mu)
-      +coltContador('Divergências', nDiv, nDiv?CD.vm:CD.mu)
+      +coltContador('Divergências', nDivReal, nDivReal?CD.vm:CD.mu)
+      +(nSemVinc?coltContador('A estocar', nSemVinc, CD.am):'')
      +'</div>'));
 
   itens.sort((a,b)=>{
@@ -9205,7 +9252,8 @@ function coltRenderResumo(corpo, root){
   const total=itens.length;
   const nOk=itens.filter(coltOk).length;
   const nPend=itens.filter(coltPendente).length;
-  const nDiv=total-nOk-nPend;
+  const nSemVinc=itens.filter(coltAEstocar).length;
+  const nDiv=coltDivergencias(itens);
 
   coltTitulo(corpo, 'Resumo da conferência',
     _esc((c.numeroNF?('NF '+c.numeroNF+' · '):'')+(c.fornecedor||(c.emitente&&c.emitente.nome)||'')),
@@ -9214,7 +9262,8 @@ function coltRenderResumo(corpo, root){
   corpo.appendChild(coltEl('div','display:flex;gap:8px;margin-bottom:14px',
      coltContador('Conferidos', nOk, CD.vd)
     +coltContador('Pendentes', nPend, nPend?CD.am:CD.mu)
-    +coltContador('Divergências', nDiv, nDiv?CD.vm:CD.mu)));
+    +coltContador('Divergências', nDiv, nDiv?CD.vm:CD.mu)
+    +(nSemVinc?coltContador('A estocar', nSemVinc, CD.am):'')));
 
   /* volumes da doca: "ninguém contou" é informação, não buraco — nunca null na tela. */
   corpo.innerHTML+=coltCard('Volumes na doca',
@@ -9278,8 +9327,8 @@ function coltRenderFechamento(corpo, root){
   const temDivergencia=(nPend>0||nDiv>0);
   /* 28/07 (opção 3): item recebido SEM vínculo não é divergência de verdade — vira o status
      próprio 'Recebido - Pendente Estocagem'. Separo do nDiv pra o previsto bater com o Apex. */
-  const nSemVinc=itens.filter(i=>i&&i.status==='Recebido sem Vínculo').length;
-  const nDivReal=nDiv-nSemVinc;
+  const nSemVinc=itens.filter(coltAEstocar).length;
+  const nDivReal=coltDivergencias(itens);   // 08/08: mesma função das outras telas — uma fonte só
 
   /* ---- tela de sucesso: substitui o formulário depois do POST dar certo ---- */
   if(coltSt.finOk){
