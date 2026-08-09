@@ -3385,13 +3385,16 @@ async function sigToPad(){
   document.getElementById('padWho').textContent=nome+' · '+(document.getElementById('sigCliCargo').value.trim()||'Cliente')+' · CPF '+cpf;
   document.getElementById('padBtnBack').textContent='Voltar';
   document.getElementById('sigModal').classList.remove('show');
-  // se já havia observação (reassinatura), a etapa 1 abre com "Sim" marcado e o texto à vista
-  const _obs=(document.getElementById('sigCliObs')||{}).value||'';
+  // 08/08/2026 — a tela SEMPRE abre sem escolha feita e sem campo de assinatura, mesmo numa
+  // reassinatura em que ja existe texto. Antes o "Sim" vinha pre-marcado e o canvas ja aparecia:
+  // visto de fora, era exatamente o defeito que a regra nova veio impedir — campo de assinatura
+  // na tela sem ninguem ter respondido nada. O texto anterior NAO se perde: continua no campo,
+  // escondido, e reaparece inteiro se o cliente tocar em "Sim".
   padObsQuer=null;
   document.getElementById('padObsNao').classList.remove('on');
   document.getElementById('padObsSim').classList.remove('on');
   document.getElementById('padObsBox').style.display='none';
-  if(_obs.trim()) padObsEscolha(true);
+  padAssMostrar(false);
   const sub=document.getElementById('padOtpSub');
   if(sub) sub.textContent='Enviamos um código para '+(document.getElementById('sigCliCel').value||'seu celular')+'. Digite-o abaixo para confirmar que é você.';
   // o cliente sempre começa pela abertura; a etapa do código só existe se houver código
