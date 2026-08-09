@@ -342,6 +342,16 @@ self.addEventListener('fetch', (e) => {
   const isHTML = req.mode === 'navigate' || accept.includes('text/html');
 
   if (isHTML) {
+    // O /beta/ fica FORA da regra nova de propósito. O service worker é registrado na raiz,
+    // então o escopo dele cobre /beta/ também — e ali o que importa é frescor, não velocidade:
+    // é onde o Raphael valida a versão nova antes de promover. Cache-primeiro no /beta/ faria
+    // ele testar a versão anterior sem perceber. Segue rede-primeiro, e sem entrar no cache.
+    if (new URL(req.url).pathname.indexOf('/beta/') === 0) {
+      e.respondWith(
+        fetch(req).catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+      );
+      return;
+    }
     // v162: stale-while-revalidate. Antes era network-first — TODA abertura esperava o
     // download inteiro do HTML antes de desenhar o primeiro pixel, mesmo com o arquivo
     // já em cache. Em sinal ruim isso não falha rápido: demora. Era a causa principal da
