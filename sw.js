@@ -113,7 +113,7 @@
     estrutura" (gest*) restrita a Gerente+ pra cadastrar Área/Setor/Posição/Nível direto no app,
     sem depender de script Apex. Bin/Espaço Delimitado SEM gate novo — Estoquista+ continua
     criando endereço normalmente em qualquer fluxo, inclusive na recepção) */
-const CACHE = 'exaustech-os-v161'; // v161 04/08: as contagens de NF que o servidor RECUSA passam a ter copia auditavel no Salesforce (RecusaConferencia__c), com chave de idempotencia para reenvio nao duplicar. Antes morriam num arquivo do aparelho que nenhuma tela lia. Achado de auditoria. // v160 04/08: evidencia da assinatura passa a gravar o CANAL que confirmou o codigo (a producao gravava sem isso) e o celular do assinante vai junto no cadastro, para o numero deixar de existir so no aparelho. Achados de auditoria. // v159 04/08: fila offline PARA DE DESCARTAR assinatura/foto quando o servidor recusa ou a sessao expira. 401 vira falha passageira (espera o proximo login); recusa real vai pro cemiterio no aparelho COM a evidencia junto, e o aviso do topo fica vermelho ate alguem tratar. Achado de auditoria: uma assinatura colhida sem sinal podia sumir sem rastro. Fluxo de assinatura NAO foi tocado nesta versao. // v158 29/07: 2ª parte da promoção — Home do Estoque V3 escura vai pra RAIZ. CSS #scr-estoque (30 linhas) + estoqDarkPatch()/_EBG/_EBD/_ETX + renderEstoque() reescrito (dash com seções Pendências/Retorno/Filas/Ações, resto dos modos chamando estoqDarkPatch(wrap)) + estoqBuscaRenderResultados() escurece os resultados da busca. Confirmado que NÃO toca :root (CSS 100% escopado em #scr-estoque/#estoqBusca) — resto do app (Motor, Plano, Fotos, Armazém) continua claro.
+const CACHE = 'exaustech-os-v162'; // v162 09/08: HTML passa de network-first para stale-while-revalidate (abertura instantanea) + aviso de nova versao na tela; jsPDF com defer; preconnect do fonts.gstatic.com. // v161 04/08: as contagens de NF que o servidor RECUSA passam a ter copia auditavel no Salesforce (RecusaConferencia__c), com chave de idempotencia para reenvio nao duplicar. Antes morriam num arquivo do aparelho que nenhuma tela lia. Achado de auditoria. // v160 04/08: evidencia da assinatura passa a gravar o CANAL que confirmou o codigo (a producao gravava sem isso) e o celular do assinante vai junto no cadastro, para o numero deixar de existir so no aparelho. Achados de auditoria. // v159 04/08: fila offline PARA DE DESCARTAR assinatura/foto quando o servidor recusa ou a sessao expira. 401 vira falha passageira (espera o proximo login); recusa real vai pro cemiterio no aparelho COM a evidencia junto, e o aviso do topo fica vermelho ate alguem tratar. Achado de auditoria: uma assinatura colhida sem sinal podia sumir sem rastro. Fluxo de assinatura NAO foi tocado nesta versao. // v158 29/07: 2ª parte da promoção — Home do Estoque V3 escura vai pra RAIZ. CSS #scr-estoque (30 linhas) + estoqDarkPatch()/_EBG/_EBD/_ETX + renderEstoque() reescrito (dash com seções Pendências/Retorno/Filas/Ações, resto dos modos chamando estoqDarkPatch(wrap)) + estoqBuscaRenderResultados() escurece os resultados da busca. Confirmado que NÃO toca :root (CSS 100% escopado em #scr-estoque/#estoqBusca) — resto do app (Motor, Plano, Fotos, Armazém) continua claro.
 // v157 29/07: promove pra RAIZ (produção) o Coletor de Recebimento escuro que estava só no /beta/ (bloco colt*, ~90 funções, telas 1-6 + fila offline + cemitério de recusados) — decisão do Raphael de subir mesmo sem E2E no celular feito ainda (só headless/beta provado). recp* antigo NÃO foi apagado, só ficou órfão (Estoque → Entradas pendentes agora abre coltRenderFluxo em vez de renderRecpFluxo). offDrain() ganhou o branch 'coltPost' (drena fila offline do coletor + cemitério em caso de recusa do servidor). Home do Estoque V3 escura (item separado) NÃO entrou nesta promoção.
 // v156 26/07: conferencia passa a perguntar o fator de embalagem quando a unidade da NF difere da interna (passo 5 da DECISAO_conversao-unidade-nf-estoque). A nota do v153 dizia "o saldo entra sem conversao" — deixou de ser verdade quando o Apex do passo 2 subiu; virou campo, com a conta por extenso nos dois estados. Fator do DePara pre-preenche (humano ja contou), o do XML e chip de um toque (fornecedor declarou, nao provou). Em branco nao bloqueia: cai em 1, identico ao comportamento de hoje.
 // v153 26/07: (a) unidade de medida ao lado do campo de quantidade recebida na conferência (pedido do Raphael) — mostra a unidade da NF (uCom do XML) e avisa quando ela diverge da unidade em que o estoque conta o produto, porque a confirmação soma QuantidadeRecebida__c no SaldoFisico__c SEM conversão; (b) todo campo numérico do app declara inputmode (numeric/decimal), então o teclado numérico do aparelho abre direto ao tocar (pedido do Raphael), e a vírgula desse teclado passa a virar ponto decimal em vez de ser engolida — "1,5" virava 15
@@ -327,6 +327,12 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+function avisarNovaVersao() {
+  self.clients.matchAll({ type: 'window' }).then((cs) => {
+    cs.forEach((c) => c.postMessage({ tipo: 'nova-versao' }));
+  });
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -336,15 +342,31 @@ self.addEventListener('fetch', (e) => {
   const isHTML = req.mode === 'navigate' || accept.includes('text/html');
 
   if (isHTML) {
-    // network-first: pega a versão fresca; se offline, serve o cache
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+    // v162: stale-while-revalidate. Antes era network-first — TODA abertura esperava o
+    // download inteiro do HTML antes de desenhar o primeiro pixel, mesmo com o arquivo
+    // já em cache. Em sinal ruim isso não falha rápido: demora. Era a causa principal da
+    // sensação de app lento. Agora: serve o cache na hora e busca a versão nova por trás;
+    // se o conteúdo mudou, avisa a tela para ela oferecer o "Atualizar".
+    const fundo = caches.open(CACHE).then((c) =>
+      c.match(req).then((antigo) => {
+        const textoAntigo = antigo ? antigo.clone().text() : Promise.resolve(null);
+        return fetch(req).then((res) => {
+          if (!res || !res.ok) return res;
+          c.put(req, res.clone());
+          const paraComparar = res.clone();
+          Promise.all([textoAntigo, paraComparar.text()])
+            .then((v) => { if (v[0] !== null && v[0] !== v[1]) avisarNovaVersao(); })
+            .catch(() => {});
           return res;
-        })
-        .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+        });
+      })
+    );
+    // mantém o service worker vivo até a busca de fundo terminar
+    e.waitUntil(fundo.catch(() => {}));
+    e.respondWith(
+      caches.match(req).then((cached) =>
+        cached || fundo.catch(() => caches.match('./index.html'))
+      )
     );
   } else {
     // cache-first para estáticos
