@@ -1145,54 +1145,6 @@
   .pln-docst.env{background:var(--pln-ok-soft);color:#16744A}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
-  /* ===== COMPROMISSO DE SERVIÇO (cps*) — 09/08/2026 =====
-     Porte do mockup-compromisso-de-servico.html (aprovado pelo Raphael). Reusa o que o app
-     já tem: .sched-top/.days/.day/.daylabel (carrossel da Agenda), .appt + .appt.s-* (cartão),
-     .lz/.lz-* (losangos), .hl/.hl-fields/.hf (destaque de registro), .rel-hd/.rel-row/.rel-name/
-     .rel-arrow/.sec-cnt (listas relacionadas), .subcard/.subnote, .empty, .btn/.footer-bar.
-     Abaixo, SÓ o que não tinha equivalente. Prefixo cps- em tudo pra nunca colidir. */
-  /* o detalhe vira flex-coluna pro .footer-bar (sticky) colar embaixo mesmo quando o
-     compromisso tem pouco conteúdo — sem isso o botão único flutuaria no meio da tela */
-  #scr-cpsdet.active{display:flex;flex-direction:column;min-height:100%}
-  #cps-det-body{flex:1}
-  /* chip de TIPO da visita — família visual do .lz, sem a bolinha: tipo é rótulo, não estado */
-  .cps-tp{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 9px;border-radius:14px;border:1px solid var(--border2);white-space:nowrap;line-height:1.5;letter-spacing:.2px;color:var(--brand-d);background:#fff}
-  .cps-tp-retorno{color:var(--warn-tx);background:var(--warn-bg);border-color:var(--warn-bd)}
-  .cps-tp-emergencial{color:var(--err-tx);background:var(--err-bg);border-color:var(--err-bd)}
-  .cps-tp-orcamento{color:var(--brand);background:var(--brand-l);border-color:#9fc6f0}
-  /* faixa âmbar do retorno — precisa gritar no cartão (exigência do desenho aprovado):
-     retorno é visita onde o cliente já esperou uma vez; a equipe chega sabendo */
-  .cps-ret{display:flex;gap:8px;align-items:flex-start;font-size:12px;font-weight:600;color:var(--warn-tx);background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:7px;padding:8px 10px;margin-top:8px;line-height:1.45}
-  .cps-ret b{font-weight:800}
-  .cps-ret a{color:var(--warn-tx);font-weight:700;text-decoration:underline;cursor:pointer}
-  /* barra "N de M linhas resolvidas" do cartão da agenda */
-  .cps-lin{display:flex;align-items:center;gap:8px;margin-top:9px}
-  .cps-lin .bar{flex:1;height:6px;background:#E6EAEE;border-radius:4px;overflow:hidden}
-  .cps-lin .bar i{display:block;height:100%;background:var(--brand);border-radius:4px}
-  .cps-lin .bar i.full{background:var(--succ)}
-  .cps-lin .n{font-size:11.5px;font-weight:700;color:var(--weak);white-space:nowrap}
-  /* equipe da visita (presença por Alocacao_no_Compromisso__c) */
-  .cps-eqrow{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border);min-height:44px}
-  .cps-eqrow:last-child{border-bottom:none}
-  .cps-eqav{width:38px;height:38px;border-radius:50%;background:var(--brand-l);color:var(--brand-d);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;position:relative}
-  .cps-eqav.lider{box-shadow:0 0 0 1.5px #f7b500}
-  .cps-eqav .star{position:absolute;top:-5px;right:-5px;font-size:11px;color:#f7b500;text-shadow:0 0 2px #fff,0 0 2px #fff}
-  .cps-eqinfo{flex:1;min-width:0}
-  .cps-eqinfo .nm{font-weight:700;font-size:13.5px}
-  .cps-eqinfo .fn{font-size:11.5px;color:var(--weak);margin-top:1px}
-  .cps-pres{font-size:10.5px;font-weight:800;border-radius:10px;padding:3px 9px;white-space:nowrap}
-  .cps-pres.in{background:var(--succ-bg);color:var(--succ)}
-  .cps-pres.out{background:var(--neu-bg);color:var(--neu-tx)}
-  .cps-pres.wait{background:var(--brand-l);color:var(--brand-d)}
-  .cps-eqnote{font-size:12px;color:var(--weak);background:#FAFBFC;border:1px dashed var(--border2);border-radius:7px;padding:9px 10px;margin:10px 0}
-  /* bolinha de status da linha de OT — o .mot-stdot equivalente usa vars --mot-* que só
-     existem dentro de #mot-root, então aqui é uma cópia com cor resolvida, não um reuso */
-  .cps-stdot{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid transparent}
-  .cps-stdot.pend{background:#fff;border-color:#C9D2DB}
-  .cps-stdot.ok{background:#1E8E5A}
-  .cps-stdot.skip{background:#9AA6B2;border-color:#9AA6B2}
-  /* sublinha dentro de .rel-name — escopado ao detalhe pra não mudar as outras telas que usam .rel-name */
-  #scr-cpsdet .rel-name small{display:block;font-weight:400;font-size:12px;color:var(--weak);margin-top:2px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1431,21 +1383,6 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       <div id="pln-root"></div>
     </section>
 
-    <!-- COMPROMISSOS DE SERVIÇO (cps*) — 09/08/2026: a agenda por alocação
-         (Alocacao_no_Compromisso__c) que acaba com o "digite o Id de 18 caracteres"
-         da Execução. Corpo todo renderizado por cpsRenderAgenda(). -->
-    <section class="screen" id="scr-cps">
-      <div id="cps-body"></div>
-    </section>
-
-    <!-- COMPROMISSO ABERTO (cabeçalho + equipe + linhas da OT + botão único no rodapé).
-         O footer fica DENTRO da section (sticky) porque o #footer global é da tela antiga
-         de compromisso (advanceStatus) — reusar ele acoplaria as duas máquinas de estado. -->
-    <section class="screen" id="scr-cpsdet">
-      <div id="cps-det-body"></div>
-      <div class="footer-bar" id="cps-footer" style="display:none"></div>
-    </section>
-
   </main>
 
   <!-- FOOTER: botão de status -->
@@ -1457,7 +1394,6 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
   <!-- NAV INFERIOR -->
   <nav class="botnav" id="botnav" style="display:none">
     <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
-<button id="nav-cps" onclick="go('cps')" style="display:none"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/><path d="M9 14.5l2 2 4-4"/></svg>Visitas</button>
     <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
     <button id="nav-producao" onclick="go('producao')" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg>Produção</button>
     <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
@@ -2075,9 +2011,9 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor'||scr==='plano'||scr==='cps');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor'||scr==='plano');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
-  document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha'||scr==='cpsdet')?'block':'none';
+  document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
   document.getElementById('logoutBtn').style.display=topLevel?'flex':'none';
   document.getElementById('bellBtn').style.display=(scr!=='login')?'flex':'none';
   const tt=document.getElementById('hdrTitle'), ts=document.getElementById('hdrSub');
@@ -2090,12 +2026,8 @@ function go(scr){
   else if(scr==='producao'){ tt.textContent='Produção'; ts.textContent='Fabricação própria'; }
   else if(scr==='motor'){ tt.textContent='Execução da OT'; ts.textContent='Checklist e registro de campo'; }
   else if(scr==='plano'){ tt.textContent='Plano de Manutenção'; ts.textContent='Retaguarda — ficha, biblioteca e agenda'; }
-  else if(scr==='cps'){ tt.textContent='Compromissos'; ts.textContent='Suas visitas em campo'; }
-  /* 09/08/2026: o número/cliente podem ainda não ter chegado (fetch em voo) — cpsCarregarDet
-     reescreve o título quando a resposta chega */
-  else if(scr==='cpsdet'){ tt.textContent=(CPS.det&&CPS.det.compromisso&&CPS.det.compromisso.numero)||'Compromisso'; ts.textContent=(CPS.det&&CPS.det.compromisso)?cpsCliente(CPS.det.compromisso):'Compromisso de Serviço'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
-  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); const npl=document.getElementById('nav-plano'); if(npl) npl.classList.toggle('on',scr==='plano'); const ncp=document.getElementById('nav-cps'); if(ncp) ncp.classList.toggle('on',scr==='cps'); }
+  if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); const npl=document.getElementById('nav-plano'); if(npl) npl.classList.toggle('on',scr==='plano'); }
   document.getElementById('main').scrollTop=0; try{window.scrollTo(0,0);}catch(e){}
   if(scr==='schedule') renderSchedule();
   if(scr==='approvals') renderApprovals();
@@ -2110,8 +2042,6 @@ function go(scr){
   if(scr==='bipar') renderBipar();
   if(scr==='motor') renderMotor();
   if(scr==='plano') renderPlano();
-  if(scr==='cps') cpsRenderAgenda();
-  if(scr==='cpsdet') cpsRenderDet();
   renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
@@ -11827,9 +11757,6 @@ function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.s
   const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none';
   const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none';
   const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none';
-  /* 09/08/2026: Visitas = mesmo público da Execução (canMotor), e SÓ ao vivo — a agenda é
-     por alocação real (resourceId da sessão), não existe no modo demonstração */
-  const ncp=document.getElementById('nav-cps'); if(ncp) ncp.style.display=(SF_LIVE&&canMotor(ROLE))?'flex':'none';
   const pl=document.getElementById('nav-plano'); if(pl) pl.style.display=canPlano(ROLE)?'flex':'none'; }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
@@ -14068,7 +13995,7 @@ function renderMotor(){
 }
 function motRenderEmpty(root){
   root.innerHTML='<div class="mot-empty"><div class="mot-emico">🧰</div><h3>Nenhuma OT aberta</h3>'+
-    '<p>Sua agenda agora vive na aba <b>Visitas</b> — cada compromisso abre a OT direto, sem digitar nada. Este campo continua só pra abrir uma OT avulsa pelo <b>Id do registro</b> (Salesforce).</p>'+
+    '<p>Ainda não existe uma lista de "minhas OTs de hoje" — o modelo novo (Ordem_de_Trabalho__c) não tem campo de técnico responsável ainda. Por enquanto, abra a OT pelo <b>Id do registro</b> (Salesforce) pra testar a execução.</p>'+
     (MOT._erro?'<div class="mot-oterr">'+motEsc(MOT._erro)+'</div>':'')+
     '<div class="mot-otform"><input class="mot-otinput" id="mot-otinput" placeholder="Id do registro (15-18 caracteres) — não o Name"><button class="mot-otbtn" id="mot-otbtn">'+(MOT.loading?'Abrindo…':'Abrir OT')+'</button></div></div>';
   const btn=document.getElementById('mot-otbtn'), inp=document.getElementById('mot-otinput');
@@ -14077,10 +14004,8 @@ function motRenderEmpty(root){
   btn.addEventListener('click',motAbrirOtId);
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter') motAbrirOtId(); });
 }
-async function motAbrirOtId(idOpt){
-  /* 09/08/2026: o Id pode vir por parâmetro (Compromisso → "Abrir execução"), não só do input.
-     O typeof filtra o Event que o addEventListener passa quando o clique vem do botão antigo. */
-  const inp=document.getElementById('mot-otinput'); const v=(typeof idOpt==='string'&&idOpt.trim())||(inp&&inp.value||'').trim();
+async function motAbrirOtId(){
+  const inp=document.getElementById('mot-otinput'); const v=(inp&&inp.value||'').trim();
   MOT._lastOtInput=v; MOT._erro=null;
   if(!/^[a-zA-Z0-9]{15,18}$/.test(v)){ MOT._erro='Informe o Id do registro da OT (Salesforce, 15-18 caracteres) — não o Name.'; renderMotor(); return; }
   MOT.loading=true; renderMotor();
@@ -15448,285 +15373,6 @@ function plnRenderAgenda(body){
   }
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selVisita=+el.dataset.i; plnRenderTabBody(); }); });
-}
-
-/* ===================================================================================
-   COMPROMISSO DE SERVIÇO (cps*) — 09/08/2026
-   Porte do mockup-compromisso-de-servico.html (aprovado) por cima do contrato
-   compromissoRoutes.js. Rodada 1, de propósito pequena e testável: Agenda de
-   Compromissos + Compromisso aberto + check-in + ponte pra Execução existente.
-   Encerramento (concluir / não-concluir / check-out) e "OT por inteiro" ficam pra
-   próxima rodada. É esta agenda que aposenta o "digite o Id de 18 caracteres" do
-   motRenderEmpty: a OT agora sabe de quem é, pela Alocacao_no_Compromisso__c.
-   =================================================================================== */
-let CPS={lista:null,_t:0,loading:false,erro:null,selDia:null,detId:null,det:null,detLoading:false,detErro:null,busy:false};
-
-/* Status__c → losango .lz; a borda esquerda reusa as classes .appt.s-* que já existem.
-   Agendado fica SEM classe de propósito: a borda padrão do .appt já é o azul da marca. */
-const CPS_LZ={'Novo':'lz-neu','Agendado':'lz-info','Em Andamento':'lz-warn','Concluído':'lz-succ','Não Concluído':'lz-err','Cancelado':'lz-err'};
-const CPS_BORDA={'Em Andamento':'s-andamento','Concluído':'s-concluido','Não Concluído':'s-cancelado','Cancelado':'s-cancelado'};
-const CPS_TP={'Retorno':'cps-tp-retorno','Emergencial':'cps-tp-emergencial','Orçamento':'cps-tp-orcamento'};
-const CPS_WD=['dom','seg','ter','qua','qui','sex','sáb'];
-const CPS_WDL=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
-const CPS_MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-
-function cpsDiaKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function cpsHojeKey(){ return cpsDiaKey(new Date()); }
-/* visita começada nunca pode sumir da agenda: Em Andamento pode vir sem janela (a rota
-   devolve mesmo fora do recorte de datas) — sem data, ela entra no dia de HOJE */
-function cpsKeyDoIso(iso){ if(!iso) return cpsHojeKey(); const d=new Date(iso); return isNaN(d)?cpsHojeKey():cpsDiaKey(d); }
-/* -7/+14 espelha a janela da rota GET /compromissos/meus — assim nenhum compromisso
-   devolvido fica sem dia no carrossel; se o recorte da rota mudar, mudar aqui junto */
-function cpsDias(){ const out=[],h=new Date();
-  for(let i=-7;i<=14;i++){ const d=new Date(h.getFullYear(),h.getMonth(),h.getDate()+i);
-    out.push({key:cpsDiaKey(d),wd:CPS_WD[d.getDay()].toUpperCase(),d:d.getDate(),hoje:i===0,
-      label:(i===0?'Hoje · ':'')+CPS_WDL[d.getDay()]+', '+d.getDate()+' de '+CPS_MES[d.getMonth()]}); }
-  return out; }
-function cpsJanela(c){ if(!c.inicioAgendado) return 'Sem janela'; const a=motFmtHora(c.inicioAgendado),b=motFmtHora(c.fimAgendado); return b?(a+' – '+b):a; }
-function cpsDiaCurto(iso){ const d=new Date(iso||''); if(isNaN(d)) return '';
-  return cpsDiaKey(d)===cpsHojeKey()?'Hoje':(CPS_WD[d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')); }
-function cpsJanelaLonga(c){ if(!c.inicioAgendado) return 'Escritório ainda vai agendar'; const dia=cpsDiaCurto(c.inicioAgendado); return (dia?dia+' · ':'')+cpsJanela(c); }
-function cpsTipoChip(c){ const t=c.tipo||'Principal'; const seq=(t==='Retorno'&&c.sequencia)?(' · '+c.sequencia+'ª visita'):'';
-  return '<span class="cps-tp '+(CPS_TP[t]||'')+'">'+(t==='Retorno'?'↩ ':'')+_esc(t)+_esc(seq)+'</span>'; }
-function cpsLz(st){ return '<span class="lz '+(CPS_LZ[st]||'lz-neu')+'">'+_esc(st||'—')+'</span>'; }
-/* cliente/local vêm das fórmulas Conta_da_OT__c/Local_da_OT__c e podem chegar null se a
-   licença de integração não ler fórmula cross-object (risco 3 da DECISAO) — o Name da OT
-   é o fallback pro cartão nunca ficar sem identificação nenhuma */
-function cpsCliente(c){ return c.contaNome||(c.ot&&c.ot.name)||'—'; }
-
-/* ---------- agenda: carga ---------- */
-async function cpsCarregar(){
-  if(CPS.loading) return;
-  CPS.loading=true; CPS.erro=null; cpsRenderAgenda();
-  try{ const r=await beGet('/compromissos/meus'); CPS.lista=(r&&r.compromissos)||[]; CPS._t=Date.now(); }
-  catch(e){
-    /* offline-first sem storage: com dados na memória, avisa e segue com o que tem;
-       sem nada, a tela diz em português o que houve e oferece tentar de novo */
-    if(CPS.lista) toast('Sem conexão — mostrando a última agenda carregada');
-    else CPS.erro=netFail(e)
-      ?'Sem conexão com o servidor. A agenda carrega quando o sinal voltar — toque em "Tentar de novo".'
-      :(e.message||'Não foi possível carregar a agenda.');
-  }
-  CPS.loading=false; cpsRenderAgenda();
-}
-
-/* ---------- agenda: render ---------- */
-function cpsRenderAgenda(){
-  const root=document.getElementById('cps-body'); if(!root) return;
-  /* 60s de validade: o técnico alterna entre execução e agenda o tempo todo e o status /
-     as linhas mudam no meio da visita — recarrega ao voltar, sem piscar a lista atual */
-  if(!CPS.loading && !CPS.erro && (CPS.lista===null || Date.now()-CPS._t>60000)) cpsCarregar();
-  if(!CPS.selDia) CPS.selDia=cpsHojeKey();
-  const dias=cpsDias(), porDia={};
-  (CPS.lista||[]).forEach(c=>{ const k=cpsKeyDoIso(c.inicioAgendado); (porDia[k]=porDia[k]||[]).push(c); });
-  let lbl='';
-  let h='<div class="sched-top"><div class="sched-title">Compromissos</div><div class="days" id="cps-days">';
-  dias.forEach(dd=>{
-    if(dd.key===CPS.selDia) lbl=dd.label;
-    h+='<div class="day'+(dd.key===CPS.selDia?' on':'')+(dd.hoje?' hoje':'')+'" data-cps-dia="'+dd.key+'">'+
-      '<div class="wd">'+dd.wd+'</div><div class="dn">'+(dd.hoje?'HOJE':dd.d)+'</div>'+
-      '<div class="pip '+((porDia[dd.key]||[]).length?'':'no')+'"></div></div>';
-  });
-  h+='</div></div><div class="daylabel">'+_esc(lbl)+'</div>';
-  if(CPS.lista===null){
-    h+=CPS.erro
-      ?'<div class="empty">⚠️<br><br>'+_esc(CPS.erro)+'<br><button class="btn btn-neutral" id="cps-retry" style="max-width:240px;margin:16px auto 0">Tentar de novo</button></div>'
-      :'<div class="empty">Carregando sua agenda…</div>';
-  } else {
-    const doDia=porDia[CPS.selDia]||[];
-    if(!doDia.length){
-      h+='<div class="empty"><span class="tile"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg></span>'+
-        '<div>'+(CPS.lista.length?'Sem compromissos neste dia.':'Nenhum compromisso seu nos últimos 7 ou próximos 14 dias.')+'</div></div>';
-    } else doDia.forEach(c=>{ h+=cpsCardHtml(c); });
-  }
-  root.innerHTML=h;
-  root.querySelectorAll('[data-cps-dia]').forEach(el=>el.addEventListener('click',()=>{ CPS.selDia=el.dataset.cpsDia; cpsRenderAgenda(); }));
-  root.querySelectorAll('[data-cps-id]').forEach(el=>el.addEventListener('click',()=>cpsAbrir(el.dataset.cpsId)));
-  const rt=document.getElementById('cps-retry'); if(rt) rt.addEventListener('click',()=>{ CPS.erro=null; cpsCarregar(); });
-  /* centraliza o dia selecionado — com 22 dias no carrossel, "hoje" não pode nascer fora da vista */
-  const on=root.querySelector('.day.on'), days=document.getElementById('cps-days');
-  if(on&&days) days.scrollLeft=Math.max(0,on.offsetLeft-(days.clientWidth-on.offsetWidth)/2);
-}
-
-function cpsCardHtml(c){
-  const tot=(c.linhas&&c.linhas.total)||0, res=(c.linhas&&c.linhas.resolvidas)||0, full=tot>0&&res===tot;
-  let ret='';
-  if(c.tipo==='Retorno'){
-    /* o motivo da não conclusão da visita de origem NÃO vem na rota /meus (só id+numero da
-       origem) — a faixa avisa que já estiveram lá; o porquê se vê abrindo a origem no detalhe */
-    ret='<div class="cps-ret"><span>↩</span><span><b>Já estiveram lá</b> — retorno da visita '+
-      _esc((c.origem&&c.origem.numero)||'anterior')+', que terminou sem concluir.</span></div>';
-  }
-  return '<div class="appt '+(CPS_BORDA[c.status]||'')+'" data-cps-id="'+_esc(c.id)+'">'+
-    '<div class="appt-row"><div style="font-size:18px;font-weight:800;color:#0B5CAB;letter-spacing:.3px">'+_esc(cpsJanela(c))+'</div>'+cpsLz(c.status)+'</div>'+
-    '<div class="appt-wt" style="color:var(--txt);font-size:15px">'+_esc(cpsCliente(c))+'</div>'+
-    '<div class="appt-acc" style="color:var(--weak);font-size:12.5px">'+_esc(c.localNome||'Local não informado')+'</div>'+
-    '<div class="appt-meta" style="flex-wrap:wrap">'+cpsTipoChip(c)+'<span>'+_esc(c.numero||'')+((c.ot&&c.ot.name)?' · '+_esc(c.ot.name):'')+'</span></div>'+
-    ret+
-    '<div class="cps-lin"><div class="bar"><i class="'+(full?'full':'')+'" style="width:'+(tot?Math.round(res/tot*100):0)+'%"></i></div>'+
-      '<span class="n">'+(tot?(res+' de '+tot+' linha'+(tot>1?'s':'')+' resolvida'+(res===1?'':'s')):'sem linhas na OT')+'</span></div>'+
-  '</div>';
-}
-
-/* ---------- compromisso aberto ---------- */
-function cpsAbrir(id){
-  if(!id) return;
-  CPS.detId=id; CPS.det=null; CPS.detErro=null; CPS.detLoading=false; CPS.busy=false;
-  go('cpsdet');
-}
-async function cpsCarregarDet(){
-  if(CPS.detLoading||!CPS.detId) return;
-  CPS.detLoading=true; CPS.detErro=null; cpsRenderDet();
-  try{ CPS.det=await beGet('/compromissos/'+encodeURIComponent(CPS.detId)); }
-  catch(e){ CPS.detErro=netFail(e)
-    ?'Sem conexão com o servidor. Este compromisso ainda não está guardado no aparelho — tente quando o sinal voltar.'
-    :(e.message||'Não foi possível abrir o compromisso.'); }
-  CPS.detLoading=false; cpsRenderDet();
-  /* o go() rodou antes do fetch — atualiza o cabeçalho agora que o número/cliente chegaram */
-  if(CPS.det){ const sc=document.querySelector('main .screen.active');
-    if(sc&&sc.id==='scr-cpsdet'){
-      document.getElementById('hdrTitle').textContent=CPS.det.compromisso.numero||'Compromisso';
-      document.getElementById('hdrSub').textContent=cpsCliente(CPS.det.compromisso); } }
-}
-/* a rota de detalhe não marca qual alocação é a minha; o vínculo é o mesmo do resto do app:
-   Recurso__c da alocação × be_rid da sessão (myRid) */
-function cpsMinhaAloc(){
-  const d=CPS.det; if(!d) return null; const rid=myRid(); if(!rid) return null;
-  return (d.equipe||[]).find(p=>p.recursoId===rid)||null;
-}
-
-function cpsRenderDet(){
-  const root=document.getElementById('cps-det-body'); if(!root) return;
-  if(!CPS.det&&!CPS.detLoading&&!CPS.detErro){ if(CPS.detId) cpsCarregarDet(); return; }
-  if(!CPS.det){
-    root.innerHTML=CPS.detLoading
-      ?'<div class="empty">Carregando o compromisso…</div>'
-      :'<div class="empty">⚠️<br><br>'+_esc(CPS.detErro||'')+'<br><button class="btn btn-neutral" id="cps-det-retry" style="max-width:240px;margin:16px auto 0">Tentar de novo</button></div>';
-    const b=document.getElementById('cps-det-retry'); if(b) b.addEventListener('click',cpsCarregarDet);
-    cpsRenderFooter(); return;
-  }
-  const d=CPS.det, c=d.compromisso, itens=d.itens||[], eq=d.equipe||[];
-  const tot=(c.linhas&&c.linhas.total!=null)?c.linhas.total:itens.length;
-  const res=(c.linhas&&c.linhas.resolvidas!=null)?c.linhas.resolvidas:itens.filter(i=>i.statusItem&&i.statusItem!=='Pendente').length;
-  let h='<div class="hl"><div class="hl-sub">Compromisso de Serviço · '+_esc(c.numero||'')+'</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
-      '<div><div class="hl-title">'+_esc(cpsCliente(c))+'</div><div class="hl-acc">'+_esc(c.localNome||'Local não informado')+'</div></div>'+cpsLz(c.status)+'</div>'+
-    '<div class="hl-fields">'+
-      '<div class="hf"><div class="k">Janela</div><div class="v">'+_esc(cpsJanelaLonga(c))+'</div></div>'+
-      '<div class="hf"><div class="k">Tipo</div><div class="v">'+cpsTipoChip(c)+'</div></div>'+
-      '<div class="hf"><div class="k">Ordem de Trabalho</div><div class="v">'+_esc((c.ot&&c.ot.name)||'—')+
-        ((c.ot&&c.ot.status)?' <small style="font-weight:600;color:var(--weaker)">· '+_esc(c.ot.status)+'</small>':'')+'</div></div>'+
-      '<div class="hf"><div class="k">Linhas da OT</div><div class="v">'+res+' de '+tot+' resolvidas</div></div>'+
-      (c.chegadaReal?'<div class="hf"><div class="k">Chegada real</div><div class="v">'+motFmtHora(c.chegadaReal)+'</div></div>':'')+
-      (c.saidaReal?'<div class="hf"><div class="k">Saída real</div><div class="v">'+motFmtHora(c.saidaReal)+'</div></div>':'')+
-    '</div></div>';
-  if(c.travada) h+='<div class="cps-ret" style="margin:10px 14px 0"><span>🔒</span><span><b>Visita travada para edição</b> — assinada ou com documento da OT em revisão/mediação. Check-in e alterações estão bloqueados.</span></div>';
-  if(c.tipo==='Retorno'&&c.origem) h+='<div class="cps-ret" style="margin:10px 14px 0"><span>↩</span><span><b>Vocês já estiveram lá</b> — esta é a volta da visita '+
-    _esc(c.origem.numero||'anterior')+'. <a data-cps-origem="'+_esc(c.origem.id)+'">Abrir a visita de origem</a> pra ver o que ficou pendente e por quê.</span></div>';
-  if(c.status==='Não Concluído'&&c.motivoNaoConclusao) h+='<div class="cps-ret" style="margin:10px 14px 0"><span>⚠️</span><span><b>Encerrada sem concluir</b> — '+
-    _esc(c.motivoNaoConclusao)+(c.detalheMotivo?': '+_esc(c.detalheMotivo):'')+'.</span></div>';
-  /* retornos que ESTA visita gerou: a pendência não some da vista do técnico enquanto o
-     escritório não agenda — é exatamente pra isso que a rota devolve d.retornos */
-  (d.retornos||[]).forEach(r=>{ h+='<div class="cps-ret" style="margin:10px 14px 0"><span>↩</span><span><b>Retorno '+_esc(r.numero||'')+' já criado</b> — '+
-    (r.inicioAgendado?('agendado pra '+_esc(cpsDiaCurto(r.inicioAgendado))+' às '+motFmtHora(r.inicioAgendado)):'ainda sem data; quem agenda é o escritório')+'.</span></div>'; });
-  if(c.descricao) h+='<div class="subnote">'+_esc(c.descricao)+'</div>';
-  /* equipe */
-  h+='<div class="rel-hd">Equipe desta visita <span class="sec-cnt" style="margin-left:6px">'+eq.length+'</span></div>'+
-    '<div class="subcard" style="padding:4px 14px">';
-  if(!eq.length) h+='<div class="cps-eqnote">Equipe ainda não alocada — o escritório monta a equipe da visita.</div>';
-  eq.forEach(p=>{
-    const nome=p.nomeAbreviado||p.recursoNome||'—';
-    const ini=String(p.recursoNome||nome).split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase()||'?';
-    const eu=(p.recursoId&&p.recursoId===myRid())?' (você)':'';
-    const pres=p.efetivoTermino?'<span class="cps-pres out">Saiu '+motFmtHora(p.efetivoTermino)+'</span>'
-      :(p.efetivoInicio?'<span class="cps-pres in">Check-in '+motFmtHora(p.efetivoInicio)+'</span>'
-      :'<span class="cps-pres wait">Aguardando</span>');
-    h+='<div class="cps-eqrow"><div class="cps-eqav'+(p.lider?' lider':'')+'">'+_esc(ini)+(p.lider?'<span class="star">★</span>':'')+'</div>'+
-      '<div class="cps-eqinfo"><div class="nm">'+_esc(nome)+_esc(eu)+'</div><div class="fn">'+_esc(p.funcao||'Técnico')+
-      (p.lider?' · Líder da visita':'')+(p.presenca?' · '+_esc(p.presenca):'')+'</div></div>'+pres+'</div>';
-  });
-  h+='</div>';
-  /* linhas da OT */
-  h+='<div class="rel-hd">Linhas da OT — o que fazer <span class="sec-cnt'+(tot&&res===tot?' full':'')+'" style="margin-left:6px">'+res+'/'+tot+'</span></div>';
-  if(!itens.length) h+='<div class="subnote">A OT desta visita ainda não tem linhas (Item_OS__c).</div>';
-  itens.forEach(i=>{
-    const st=i.statusItem||'Pendente', naoExec=/não execut/i.test(st);
-    const dot=st==='Pendente'?'pend':(naoExec?'skip':'ok');
-    const lz=st==='Pendente'?'lz-neu':(naoExec?'lz-warn':'lz-succ');
-    h+='<div class="rel-row" data-cps-linha="1"><span class="cps-stdot '+dot+'"></span>'+
-      '<div class="rel-name">'+_esc(i.ativoNome||'—')+'<small>'+_esc(i.tarefaNome||'')+
-      (i.ativoDescricao?' · '+_esc(i.ativoDescricao):'')+(i.motivoNaoExecucao?' · motivo: '+_esc(i.motivoNaoExecucao):'')+'</small></div>'+
-      '<span class="lz '+lz+'" style="font-size:10.5px">'+_esc(st)+'</span><span class="rel-arrow">›</span></div>';
-  });
-  h+='<div class="subnote" style="padding-bottom:16px">Toque numa linha (ou em "Abrir execução") pra trabalhar nas tarefas — é a tela de Execução que você já usa, sem digitar Id.</div>';
-  root.innerHTML=h;
-  root.querySelectorAll('[data-cps-linha]').forEach(el=>el.addEventListener('click',cpsAbrirExecucao));
-  const og=root.querySelector('[data-cps-origem]');
-  if(og) og.addEventListener('click',ev=>{ ev.stopPropagation(); cpsAbrir(og.dataset.cpsOrigem); });
-  cpsRenderFooter();
-}
-
-/* ---------- o botão único do rodapé ---------- */
-function cpsRenderFooter(){
-  const f=document.getElementById('cps-footer'); if(!f) return;
-  const d=CPS.det, c=d&&d.compromisso;
-  let h='';
-  if(c){
-    const minha=cpsMinhaAloc();
-    const podeCheckin=!c.travada&&(c.status==='Agendado'||c.status==='Em Andamento')&&minha&&!minha.efetivoInicio;
-    if(podeCheckin){
-      /* botão único: primeiro a presença (o carimbo é NA SUA alocação — cada um registra a
-         própria chegada), depois a execução. Vale até pra visita já Em Andamento por um colega. */
-      h='<button class="btn btn-brand" id="cps-btn-checkin"'+(CPS.busy?' disabled':'')+'>'+
-        (CPS.busy?'Registrando…':'📍 Fazer check-in — cheguei ao local')+'</button>';
-    } else if(c.status==='Em Andamento'){
-      h='<button class="btn btn-brand" id="cps-btn-exec">▶ Abrir execução</button>';
-    }
-    /* Agendado sem alocação minha (coordenador) ou status terminal: sem botão — a rota
-       /iniciar existe como fallback, mas o botão dela fica pra rodada do encerramento */
-  }
-  f.innerHTML=h; f.style.display=h?'block':'none';
-  const bi=document.getElementById('cps-btn-checkin'); if(bi) bi.addEventListener('click',cpsCheckin);
-  const be=document.getElementById('cps-btn-exec'); if(be) be.addEventListener('click',cpsAbrirExecucao);
-}
-
-async function cpsCheckin(){
-  const d=CPS.det; if(!d||CPS.busy) return; const c=d.compromisso;
-  CPS.busy=true; cpsRenderFooter();
-  /* hora e geo capturadas AGORA: se ficar sem sinal, a fila offline reenvia com ESTE
-     timestamp, não com a hora do replay — a rota aceita efetivoInicio no corpo por isso.
-     getGeo/_geoStr são os mesmos do check-in legado (checkInAloc): carimbo igual nos dois mundos. */
-  const t=new Date().toISOString();
-  await getGeo(); const geo=_geoStr({geo:_lastGeo});
-  try{
-    const r=await bePost('/compromissos/'+encodeURIComponent(c.id)+'/checkin',
-      Object.assign({efetivoInicio:t},geo?{geoCheckin:geo}:{}), 'Check-in — '+(c.numero||'visita'));
-    const minha=cpsMinhaAloc();
-    if(minha){ minha.efetivoInicio=(r&&!r._queued&&r.efetivoInicio)||t; if(geo) minha.geoCheckin=geo; }
-    c.status=(r&&!r._queued&&r.status)||'Em Andamento';
-    if(!c.chegadaReal) c.chegadaReal=t;
-    if(CPS.lista){ const na=CPS.lista.find(x=>x.id===c.id);
-      if(na){ na.status=c.status; na.minhaAlocacao=na.minhaAlocacao||{}; na.minhaAlocacao.efetivoInicio=t; } }
-    toast(r&&r._queued?'📡 Check-in salvo no aparelho — sincroniza com sinal':'✅ Check-in registrado às '+motFmtHora(t));
-  }catch(e){
-    /* 409 "já registrado" não é erro do usuário: outro aparelho/replay chegou antes —
-       recarrega pra tela refletir o fato em vez de brigar com ele */
-    if(e&&e.status===409&&/já registrado/i.test(e.message||'')){ toast('Check-in já estava registrado — atualizando a visita'); CPS.det=null; }
-    else toast('⚠️ Check-in não registrado: '+(e.message||'erro'));
-  }
-  CPS.busy=false;
-  cpsRenderDet();
-}
-
-/* ---------- a ponte: compromisso → Execução existente ---------- */
-function cpsAbrirExecucao(){
-  const d=CPS.det, ot=d&&d.compromisso&&d.compromisso.ot;
-  if(!ot||!ot.id){ toast('Este compromisso não tem Ordem de Trabalho vinculada'); return; }
-  /* reusa o caminho INTEIRO do motAbrirOtId (fetch, normalização, toast, tratamento de erro)
-     — só que com o Id vindo do compromisso em vez de digitado. OT já carregada não recarrega:
-     preserva em memória o progresso da execução em andamento. */
-  if(!(MOT.ot&&MOT.otId===ot.id)){ MOT.ot=null; MOT._erro=null; MOT._shellOtId=null; motAbrirOtId(ot.id); }
-  go('motor');
 }
 
 /* PWA — registro do service worker (offline + instalável) */
