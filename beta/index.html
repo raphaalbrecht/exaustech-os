@@ -1592,6 +1592,18 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       <button class="btn btn-brand" onclick="confirmBiparExc()">Confirmar mesmo assim</button>
     </div></div></div>
 
+  <!-- MODAL CONFERÊNCIA DE RETORNO (FATIA 4 — consumo WMS: bipar com status 'Pendente conferência'
+       abre esta sheet item a item; confirmar reenvia o scan com confirmarConferencia:true e aí a
+       transição p/ Encerrada roda junto com a reintegração de saldo) -->
+  <div class="modal" id="biparConfModal"><div class="modal-card">
+    <div class="modal-title" id="bcoTitle"></div>
+    <div class="modal-sub">Confira quanto de cada item voltou pro estoque (ajuste se precisar). Ao confirmar, a separação é encerrada e o retorno reintegra o saldo no WMS.</div>
+    <div id="bcoItens" style="max-height:46vh;overflow:auto;margin:10px 0 0"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-neutral" onclick="closeBiparConf()">Cancelar</button>
+      <button class="btn btn-brand" onclick="confirmBiparConf()">Confirmar conferência</button>
+    </div></div></div>
+
   <!-- MODAL SEPARAR SEM BIPAR (rastreio por série — 17/07/2026: achado ao vivo, exige justificativa
        igual à exceção de cancelamento, senão a separação fecha sem nenhum rastreio real) -->
   <div class="modal" id="sepSemBiparModal"><div class="modal-card">
@@ -2653,6 +2665,7 @@ function sepFromSF(wo){
   const sp=(wo.separacoes||[]).slice(-1)[0];
   if(!sp) return {id:'—', status:'Sem materiais', urgente:false, pendencia:null, retirado:false, justificativaExcecao:null, cienciaPor:null, cienciaEm:null, materiais:[]};
   return { id:sp.name, _sf:sp.id, status:sp.status, obs:sp.obs||'', urgente:!!sp.urgente, pendencia:sp.pendencia||null,
+    baixaWmsEm:sp.baixaWmsEm||null, devolucaoWmsEm:sp.devolucaoWmsEm||null, /* FATIA 4: carimbos do consumo WMS (GET /ordens) */
     retirado:!!sp.retirado, justificativaExcecao:sp.justificativaExcecao||null, cienciaPor:sp.cienciaPor||null, cienciaEm:sp.cienciaEm||null,
     materiais:(sp.itens||[]).map(i=>({ _sf:i.id, nome:i.material, un:i.un||'un', solicitado:i.solicitada||0,
       embarcado:i.embarcada||0, consumido:i.usada||0, baixa:sepParseBaixa(i.baixa||0,i.motivoBaixa), retorno:i.retornada||0, fotos:[],
@@ -2684,7 +2697,7 @@ function sepSetStatus(v,el){ const sep=curOS.separacao; if(!sep._sf||!v) return;
   }
   sep.status=v;
   bePatch('/separacoes/'+sep._sf,{status:v},'Status da separação')
-    .then(r=>toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v))
+    .then(r=>{ toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v); avisoBaixaToast(r); })
     .catch(e=>toast('⚠️ Status não gravado: '+e.message));
   if(navStack.length) showSub(); }
 /* escalar/rebaixar urgência de uma separação já existente (dispara o alerta pro Estoquista) */
@@ -10858,11 +10871,33 @@ function recpRenderEtiquetas(card){
   desfazer.onclick=()=>recpAbrirEstorno(recpSt.recId);
   card.appendChild(desfazer);
 }
+/* FATIA 4 (consumo WMS): badge discreto do estado da baixa/reintegração de saldo. Sem botão nas
+   listas (toque no card avança — o Retentar mora só na página da separação, estoqueSepPage). */
+function sepWmsBadge(s){
+  if(s.devolucaoWmsEm) return ' <span class="eq-pill" style="background:rgba(46,132,74,.16);color:#2e844a;font-size:10px;padding:1px 7px">retorno reintegrado ✓</span>';
+  if(s.baixaWmsEm) return ' <span class="eq-pill" style="background:rgba(46,132,74,.16);color:#2e844a;font-size:10px;padding:1px 7px">saldo baixado ✓</span>';
+  const i=SEP_STATUS_APP.indexOf(s.status);
+  if(i>=SEP_STATUS_APP.indexOf('Embarcada') && s.status!=='Reprovada' && s.status!=='Cancelada')
+    return ' <span class="eq-pill" style="background:rgba(194,94,10,.18);color:#C25E0A;font-size:10px;padding:1px 7px">baixa pendente</span>';
+  return '';
+}
+function avisoBaixaToast(r){ if(r&&r.avisoBaixa) toast('⚠️ Saldo não baixado: '+r.avisoBaixa+' — retentável pelo painel'); }
+async function sepRetentarBaixa(sepId){
+  try{
+    const r=await bePost('/separacoes/'+sepId+'/retentar-baixa',{resourceId:myRid()},'Retentar baixa WMS');
+    if(r&&r._queued){ toast('📡 Retentativa salva no aparelho — sincroniza com sinal'); return; }
+    if(r&&r.avisoBaixa){ avisoBaixaToast(r); return; }
+    toast('✅ Baixa de saldo no WMS concluída');
+    await beHydrate(true); /* re-hidrata pra buscar baixaWmsEm fresco e re-renderiza a página */
+    const hit=sepListAll().find(x=>x.s._sf===sepId);
+    if(estoqView.mode==='sep'){ if(hit) estoqGo('sep',hit.s,hit.o); else estoqGo('dash'); }
+  }catch(e){ toast('⚠️ '+e.message); }
+}
 /* linha padrão de SEP nas listas */
 function sepRow(o,s,onclick){
   const falta=sepFaltaEmbarcar(s); const tag=osDiaTag(o);
   const row=document.createElement('div'); row.className='rel-row';
-  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${_esc(o.cli)} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span><span class="rel-arrow">›</span>`;
+  row.innerHTML=`${tile('box',TC.materiais)}<div class="eq-tt"><div class="eq-name">${s.id}${s.urgente?` <span class="eq-pill live" style="background:#ba0517;color:#fff">URGENTE</span>`:''}${sepPendente(s.status)&&osHojeAmanha(o)?` <span class="eq-pill" style="background:#C25E0A;color:#fff">${tag}</span>`:''}</div><div class="eq-sub">${o.id} · ${_esc(o.cli)} · ${s.materiais.length} material(is)${falta>0?` · <b style="color:#C25E0A">falta separar ${falta}</b>`:''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}" style="font-size:10px;padding:1px 7px">${s.status}</span>${sepWmsBadge(s)}<span class="rel-arrow">›</span>`;
   row.onclick=onclick; return row;
 }
 /* LISTA do tile selecionado (drill-down) */
@@ -10884,8 +10919,15 @@ function estoqueSepPage(wrap){
   const s=estoqView.sep, o=estoqView.os;
   const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar'; bk.onclick=()=>estoqGo(estoqView.tile?'list':'dash'); wrap.appendChild(bk);
   const hd=document.createElement('div'); hd.className='subhead';
-  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}${o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}">${s.status}</span>`;
+  hd.innerHTML=`${tile('box',TC.materiais)}<div style="flex:1"><div class="eq-name">${s.id}</div><div class="eq-sub">${o.id} · ${o.cli}${o._dataISO?' · OS em '+fmtDataBR(o._dataISO):''}</div></div><span class="lz ${sepLozCls(s.status)}${sepLozLive(s)}">${s.status}</span>${sepWmsBadge(s)}`;
   wrap.appendChild(hd);
+  /* FATIA 4: baixa de saldo WMS pendente → botão de retentativa (POST /separacoes/:id/retentar-baixa) */
+  if(s._sf && !s.baixaWmsEm && SEP_STATUS_APP.indexOf(s.status)>=SEP_STATUS_APP.indexOf('Embarcada') && s.status!=='Reprovada' && s.status!=='Cancelada'){
+    const wms=document.createElement('div'); wms.className='subcard'; wms.style.borderLeft='3px solid #C25E0A';
+    wms.innerHTML=`<div style="font-size:12.5px"><b style="color:#C25E0A">Baixa de saldo no WMS pendente</b> — o material saiu mas o saldo ainda não foi baixado.</div>
+      <button class="btn btn-neutral" style="width:100%;height:40px;margin-top:8px" onclick="sepRetentarBaixa('${s._sf}')">↻ Retentar baixa</button>`;
+    wrap.appendChild(wms);
+  }
   const card=document.createElement('div'); card.className='subcard';
   card.innerHTML='<div class="sec-title2" style="margin-top:0">Itens para separar</div>';
   (s.materiais||[]).forEach((m,mi)=>{
@@ -10943,7 +10985,7 @@ function estoqueSepPage(wrap){
   done.onclick=()=>{ if(!todos) return toast('⚠️ Separe todos os itens antes de confirmar');
     s.status='Pronta para embarque';
     if(SF_LIVE&&s._sf) bePatch('/separacoes/'+s._sf,{status:'Pronta para embarque'},'Separação pronta')
-      .then(r=>toast(r&&r._queued?'📡 Confirmação salva no aparelho — sincroniza com sinal':'✅ '+s.id+' pronta para embarque'))
+      .then(r=>{ toast(r&&r._queued?'📡 Confirmação salva no aparelho — sincroniza com sinal':'✅ '+s.id+' pronta para embarque'); avisoBaixaToast(r); })
       .catch(e=>toast('⚠️ Não gravado: '+e.message));
     else toast('✅ '+s.id+' pronta para embarque');
     bigOK('Separação concluída');
@@ -11173,12 +11215,14 @@ async function biparProcessarCodigo(codigo){
       if(st) st.textContent='Salvo offline — sincroniza quando houver sinal. Se estiver cancelada, a decisão de exceção fica pendente até sincronizar — confira depois.';
       biparResumir(); return;
     }
+    if(r.needsConferencia){ abrirBiparConf(codigo,r); return; } /* FATIA 4: 'Pendente conferência' → sheet de conferência antes de encerrar; não resume o loop */
     if(r.needsConfirm){ abrirBiparExc(codigo,r); return; } /* não resume o loop — só ao fechar/confirmar */
     if(r.jaEntregue){ mostrarBiparJaEntregue(codigo,r); return; }
     if(r.ok){
       const acao=(TIPO_LABEL_BIPAGEM[r.tipo]||'Ação confirmada')+(r.excecao?' (exceção — cancelada)':'');
       bigOK(acao+' — '+(r.name||codigo));
       if(st) st.textContent=acao+' ('+(r.name||codigo)+(r.status?(' → '+r.status):'')+')';
+      avisoBaixaToast(r); /* FATIA 4: baixa WMS falhou mas o checkpoint passou — aviso não bloqueante */
     } else { toast('⚠️ Resposta inesperada do servidor'); }
   }catch(e){ toast('⚠️ '+e.message); if(st) st.textContent='⚠️ '+e.message; }
   biparResumir(); /* segue bipando — pode ter várias etiquetas seguidas */
@@ -11239,12 +11283,55 @@ async function confirmBiparExc(){
       const retirada=(r.tipo==='embarque'||r.tipo==='retirada');
       bigOK((retirada?'Retirada':'Recebimento')+' registrada com exceção — '+(r.name||codigo));
       if(st) st.textContent='Exceção registrada ('+(r.name||codigo)+')';
+      avisoBaixaToast(r);
     }
     biparResumir();
   }catch(e){
     toast('⚠️ '+e.message);
     biparExcBotoes(false); /* mantém modal aberto e câmera pausada — dá pra tentar de novo ou cancelar */
   }finally{ _biparExcEmVoo=false; }
+}
+/* FATIA 4 (consumo WMS): sheet de conferência do retorno. Mesmo padrão do biparExcModal (câmera
+   pausada enquanto aberta, trava de duplo toque, fila offline OK — idempotência mora no Apex).
+   Ajustes de quantidade vão por PATCH /itens-separacao/:id ({qtdRetornada}) antes do reenvio. */
+let biparConf={codigo:null,itens:[]};
+function abrirBiparConf(codigo,r){
+  biparConf={codigo,itens:(r.itens||[]).map(i=>({id:i.id,material:i.material||i.name||'Material',un:i.un||'un',
+    embarcada:i.embarcada||0,usada:i.usada||0,baixa:i.baixa||0,retornada:Number(i.retornada)||0,_orig:Number(i.retornada)||0}))};
+  document.getElementById('bcoTitle').textContent='Conferência do retorno — '+(r.name||codigo);
+  const box=document.getElementById('bcoItens'); box.innerHTML='';
+  biparConf.itens.forEach((it,ix)=>{
+    box.insertAdjacentHTML('beforeend',`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(128,140,155,.25)">
+      <div style="flex:1 1 auto;min-width:0"><div style="font-weight:700;font-size:13px;line-height:1.3">${_esc(it.material)}</div>
+        <div style="font-size:11.5px;color:var(--weak);margin-top:2px">Embarcado <b>${it.embarcada}${it.un}</b> · usado ${it.usada} · baixa ${it.baixa}</div></div>
+      <input type="number" inputmode="numeric" min="0" max="${it.embarcada}" value="${it.retornada}" style="width:72px;height:40px;border:1.5px solid #D7DEE6;border-radius:10px;padding:0 6px;text-align:center;flex:0 0 auto" oninput="bcoSet(${ix},this.value)">
+    </div>`);
+  });
+  biparConfBotoes(false);
+  document.getElementById('biparConfModal').classList.add('show');
+}
+function bcoSet(ix,v){ const it=biparConf.itens[ix]; if(!it) return;
+  let n=Number(v); if(isNaN(n)||n<0) n=0; if(n>it.embarcada) n=it.embarcada; it.retornada=n; }
+function biparConfBotoes(d){ const m=document.getElementById('biparConfModal'); if(!m) return;
+  m.querySelectorAll('button').forEach(b=>{ b.disabled=d; b.style.opacity=d?'.55':''; }); }
+function closeBiparConf(){ document.getElementById('biparConfModal').classList.remove('show'); biparResumir(); }
+let _biparConfEmVoo=false;
+async function confirmBiparConf(){
+  if(_biparConfEmVoo) return; /* trava contra toque duplo */
+  const {codigo,itens}=biparConf; const st=document.getElementById('biparStatus');
+  _biparConfEmVoo=true; biparConfBotoes(true);
+  try{
+    for(const it of itens){ if(it.retornada!==it._orig){
+      await bePatch('/itens-separacao/'+it.id,{qtdRetornada:it.retornada},'Conferência: '+it.material); it._orig=it.retornada; } }
+    const r=await bePost('/separacoes/scan',{codigo,resourceId:myRid(),confirmarConferencia:true},'Bipagem (conferência) '+codigo);
+    if(r&&r.needsConferencia){ toast('⚠️ Os itens mudaram enquanto você conferia — revise de novo'); abrirBiparConf(codigo,r); return; }
+    document.getElementById('biparConfModal').classList.remove('show');
+    if(r&&r._queued){ toast('📡 Conferência salva no aparelho — sincroniza com sinal'); if(st) st.textContent='Conferência salva offline — sincroniza quando houver sinal.'; }
+    else if(r&&r.ok){ bigOK('Conferência confirmada — separação encerrada ('+(r.name||codigo)+')'); if(st) st.textContent='Conferência confirmada ('+(r.name||codigo)+')'; avisoBaixaToast(r); }
+    else toast('⚠️ Resposta inesperada do servidor');
+    biparResumir();
+  }catch(e){ toast('⚠️ '+e.message); biparConfBotoes(false); /* modal aberto, câmera pausada — pode tentar de novo */ }
+  finally{ _biparConfEmVoo=false; }
 }
 /* Caso 5: o material já tinha sido entregue quando o cancelamento chegou — não há mais checkpoint
    de bipagem a carimbar; o líder só sinaliza ciência (fecha o ciclo o Estoquista, no painel dele). */
