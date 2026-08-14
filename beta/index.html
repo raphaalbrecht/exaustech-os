@@ -8115,6 +8115,7 @@ function coltRenderFluxo(wrap){
   else if(coltSt.step==='resumo') coltRenderResumo(corpo, root);
   else if(coltSt.step==='fechamento') coltRenderFechamento(corpo, root);
   else if(coltSt.step==='confirmados') coltRenderConfirmados(corpo, root);
+  else if(coltSt.step==='recenteResumo') coltRenderRecenteResumo(corpo, root);
   else if(coltSt.step==='recusadas') coltRenderRecusadas(corpo, root);
   else if(coltSt.step==='peFila') coltRenderPeFila(corpo, root);
   else if(coltSt.step==='peEndereco') coltRenderPeEndereco(corpo, root);
@@ -8170,15 +8171,23 @@ function coltRenderFila(corpo, root){
     let h='<div style="font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:'+CD.mu2+';margin-bottom:8px">Confirmados há pouco</div>';
     box.innerHTML=h;
     recentes.forEach(r=>{
+      /* ACHADO 2 (decisão de 11/08, opção b): o cartão tem moldura de cartão, então TOCA e ABRE —
+         um resumo SOMENTE LEITURA do que foi contado. Editar não é opção (o backend recusa:
+         "Este recebimento já foi confirmado — não é mais possível editar os itens"); a pergunta
+         real do conferente é "o que foi mesmo que eu contei?", e a resposta não pode custar um
+         Desfazer. O stopPropagation no botão é o que impede o contrário também: tocar em
+         Desfazer não pode abrir o resumo por cima da folha de estorno. */
       const row=coltEl('div','display:flex;align-items:center;gap:10px;background:'+CD.card+';border:1px solid '+CD.bd
-        +';border-radius:14px;padding:11px 12px;margin-bottom:8px');
+        +';border-radius:14px;padding:11px 12px;margin-bottom:8px;cursor:pointer');
       row.innerHTML='<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:700;color:'+CD.tx+'">'+_esc(r.fornecedor||r.name||'')+'</div>'
-        +'<div style="font-size:11.5px;color:'+CD.mu+';margin-top:2px">NF '+_esc(r.numeroNF||'—')+(r.name?' <span style="color:'+CD.mu2+'">· '+_esc(r.name)+'</span>':'')+'</div></div>';
+        +'<div style="font-size:11.5px;color:'+CD.mu+';margin-top:2px">NF '+_esc(r.numeroNF||'—')+(r.name?' <span style="color:'+CD.mu2+'">· '+_esc(r.name)+'</span>':'')
+        +' <span style="color:'+CD.mu2+'">· ver o que foi contado ›</span></div></div>';
+      row.onclick=()=>coltAbrirRecenteResumo(r);
       const b=coltEl('button','flex:0 0 auto;padding:9px 12px;border-radius:11px;border:1px solid '+CD.bd
         +';background:'+CD.card2+';color:'+CD.tx+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap',
         'Desfazer ('+coltMinutosRestantes(r.estornavelAte)+'min)');
-      b.onclick=()=>coltAbrirEstorno(r.id);
+      b.onclick=(ev)=>{ ev.stopPropagation(); coltAbrirEstorno(r.id); };
       row.appendChild(b);
       box.appendChild(row);
     });
@@ -8218,6 +8227,71 @@ function coltMeusRecentes(){
 function coltMinutosRestantes(estornavelAte){
   const ms=new Date(estornavelAte).getTime()-Date.now();
   return Math.max(1, Math.ceil(ms/60000));
+}
+
+/* ---------- ACHADO 2 (decisão de 11/08): resumo SOMENTE LEITURA de um confirmado há pouco ------
+   Fonte: o mesmo GET do coletor; se a rede faltar (ou o servidor recusar o detalhe), cai na cópia
+   local 'colt_rec_<id>' — ela existe porque foi ESTE aparelho que acabou de contar (§6.2, o
+   snapshot é regravado a cada contagem). Nada aqui grava nada. ---------- */
+function coltAbrirRecenteResumo(r){
+  coltSt.roResumo={id:r.id, nome:(r.fornecedor||r.name||''), nf:(r.numeroNF||''), rec:null,
+    carregando:true, erro:null, deCache:false, estornavelAte:r.estornavelAte||null};
+  coltGo('recenteResumo');
+  coltCarregarRecenteResumo();
+}
+async function coltCarregarRecenteResumo(){
+  const ro=coltSt.roResumo; if(!ro) return;
+  try{
+    const d=await beGet('/coletor/v1/recebimento/'+encodeURIComponent(ro.id));
+    ro.rec=d; ro.carregando=false;
+  }catch(e){
+    let cache=null; try{ cache=await offGet('colt_rec_'+ro.id); }catch(_){}
+    if(cache){ ro.rec=cache; ro.deCache=true; ro.carregando=false; }
+    else { ro.carregando=false; ro.erro='Não deu para abrir o resumo: '+e.message; }
+  }
+  if(coltSt.step==='recenteResumo') renderEstoque();
+}
+function coltRenderRecenteResumo(corpo, root){
+  const ro=coltSt.roResumo;
+  if(!ro){ coltGo('fila'); return; }
+  coltTitulo(corpo, 'O que foi contado', _esc((ro.nf?('NF '+ro.nf+' · '):'')+ro.nome), ()=>coltGo('fila'));
+  if(ro.carregando){ corpo.innerHTML+=coltCarregando('Buscando a contagem…'); return; }
+  if(ro.erro){ corpo.innerHTML+=coltErroBox(ro.erro); return; }
+  /* o selo vem ANTES dos números: quem abriu precisa saber que aqui nada edita, e que o caminho
+     de mudar continua sendo o Desfazer do cartão, enquanto a janela estiver aberta. */
+  corpo.innerHTML+='<div style="font-size:12.5px;color:'+CD.mu+';background:'+CD.card2+';border:1px solid '+CD.bd
+    +';border-radius:12px;padding:10px 12px;line-height:1.5;margin-bottom:12px">Somente leitura — este recebimento já foi confirmado. Para mudar a contagem, use o <b>Desfazer</b> do cartão na fila enquanto a janela estiver aberta.'
+    +(ro.deCache?' <span style="color:'+CD.am+'">Sem rede agora: mostrando a cópia deste aparelho.</span>':'')+'</div>';
+  const itens=((ro.rec&&ro.rec.itens)||[]).slice();
+  const nOk=itens.filter(coltOk).length;
+  const nPend=itens.filter(coltPendente).length;
+  const nSemVinc=itens.filter(coltAEstocar).length;
+  const nDiv=coltDivergencias(itens);
+  corpo.appendChild(coltEl('div','display:flex;gap:8px;margin-bottom:14px',
+     coltContador('Conferidos', nOk, CD.vd)
+    +coltContador('Pendentes', nPend, nPend?CD.am:CD.mu)
+    +coltContador('Divergências', nDiv, nDiv?CD.vm:CD.mu)
+    +(nSemVinc?coltContador('A estocar', nSemVinc, CD.am):'')));
+  let h='';
+  itens.sort((a,b)=>(a.sequencia==null?9999:a.sequencia)-(b.sequencia==null?9999:b.sequencia)).forEach(i=>{
+    const uni=coltUni(i);
+    const rec=coltNum(i.quantidadeRecebida), nf=coltNum(i.quantidadeNF);
+    const cor=coltAEstocar(i)?CD.am:coltCorItem(i.status);
+    h+='<div style="padding:10px 0;border-bottom:1px solid '+CD.bd+'">'
+      +'<div style="font-size:13px;font-weight:700;color:'+CD.tx+';line-height:1.35">'+_esc(i.produto||i.descricaoNF||'(sem descrição)')+'</div>'
+      +'<div style="display:flex;gap:10px;align-items:baseline;margin-top:4px">'
+        +'<div style="flex:1;min-width:0;font-size:12px;color:'+CD.mu+'">'
+          +(rec!=null?('Contado <b style="color:'+CD.tx+'">'+rec+(uni?(' '+_esc(uni)):'')+'</b>'):'Não contado')
+          +(nf!=null?(' · NF '+nf+(uni?(' '+_esc(uni)):'')):'')
+        +'</div>'
+        +'<div style="flex:0 0 auto;font-size:11px;font-weight:800;color:'+cor+';white-space:nowrap">'+_esc(i.status||'Pendente')+'</div>'
+      +'</div></div>';
+  });
+  corpo.innerHTML+=coltCard('Itens', h||coltVazio('Sem itens nesta nota.'));
+  const f=coltRodape(root,'');
+  const b=coltEl('button', coltBotao('', CD.tx, CD.card2, CD.bd), '‹ Voltar à fila');
+  b.onclick=()=>coltGo('fila');
+  f.appendChild(b);
 }
 
 /* ---------- passo 'confirmados': busca do Sócio para estornar fora da janela ---------- */
@@ -8393,7 +8467,6 @@ function coltRenderBipagem(corpo, root){
   const total=itens.length;
   const nOk=itens.filter(coltOk).length;
   const nPend=itens.filter(coltPendente).length;
-  const nDiv=total-nOk-nPend;
 
   coltTitulo(corpo, c.numeroNF ? ('NF '+c.numeroNF) : (c.name||'Conferência'),
     _esc((c.fornecedor || (c.emitente&&c.emitente.nome) || '')) , coltVoltarFila);
