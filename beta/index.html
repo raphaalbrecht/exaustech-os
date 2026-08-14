@@ -2697,7 +2697,20 @@ function sepSetStatus(v,el){ const sep=curOS.separacao; if(!sep._sf||!v) return;
   }
   sep.status=v;
   bePatch('/separacoes/'+sep._sf,{status:v},'Status da separação')
-    .then(r=>{ toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v); avisoBaixaToast(r); })
+    .then(r=>{ toast(r&&r._queued?'📡 Status salvo no aparelho — sincroniza com sinal':'✅ Separação: '+v); avisoBaixaToast(r);
+      /* Consumo WMS (14/08/2026): o carimbo Baixa_WMS_Em__c/Devolucao_WMS_Em__c nasce no APEX, não
+         no aparelho — sem isto o badge "saldo baixado ✓" só apareceria no próximo carregamento do
+         app, e o teste no celular parece que "nada aconteceu" (foi o que aconteceu no E2E de 14/08).
+         Só marca quando o servidor confirmou de verdade: fila offline (_queued) ou avisoBaixa
+         significam que o Apex NÃO rodou. beHydrate traz a verdade do servidor logo em seguida. */
+      if(r && !r._queued && !r.avisoBaixa && (v==='Embarcada' || v==='Encerrada')){
+        const agora=new Date().toISOString();
+        if(!sep.baixaWmsEm) sep.baixaWmsEm=agora;
+        if(v==='Encerrada') sep.devolucaoWmsEm=agora;
+        if(navStack.length) showSub();
+        try{ beHydrate(true); }catch(_){}
+      }
+    })
     .catch(e=>toast('⚠️ Status não gravado: '+e.message));
   if(navStack.length) showSub(); }
 /* escalar/rebaixar urgência de uma separação já existente (dispara o alerta pro Estoquista) */
