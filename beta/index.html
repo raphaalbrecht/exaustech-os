@@ -4751,6 +4751,8 @@ function renderEstoque(){
   if(estoqView.mode==='receber'){ estoqueReceberHub(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='armazem'){ estoqueArmazemHub(wrap); estoqDarkPatch(wrap); return; }
   if(estoqView.mode==='fotoprod'){ renderFprod(wrap); estoqDarkPatch(wrap); return; }
+  /* Inventário (inv*, 17/08/2026): já nasce escuro na paleta CD — sem estoqDarkPatch. */
+  if(estoqView.mode==='inventario'){ renderInvFluxo(wrap); return; }
   // ===== HOME DO ESTOQUISTA — tema escuro V3 (28/07, aprovado pelo Raphael). Reaproveita 100% das
   //       fontes de dados e destinos da home clara; muda só a cara e a organização (Pendências /
   //       Retorno em destaque / Filas), na identidade do coletor. =====
@@ -4822,6 +4824,11 @@ function renderEstoque(){
     estoqIcoSvg('warehouse',CD.mu,16)+'<span style="flex:1">Armazém</span><span style="color:'+CD.mu2+';font-size:16px">›</span>');
   _arm.onclick=()=>estoqGo('armazem');
   root.appendChild(_arm);
+  /* Inventário (17/08/2026, Fatia C): contagem CEGA por endereço — mesmo card quieto do Armazém. */
+  const _inv=_el('div','margin-top:9px;background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:13px;height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;color:'+CD.tx+';font-weight:700;font-size:14px;cursor:pointer',
+    '<span style="font-size:15px">📋</span><span style="flex:1">Inventário</span><span style="color:'+CD.mu2+';font-size:12px">contagem cega</span><span style="color:'+CD.mu2+';font-size:16px">›</span>');
+  _inv.onclick=()=>{ invReset(); estoqView.origem='home'; estoqGo('inventario'); invCarregarFila(); };
+  root.appendChild(_inv);
 
   wrap.appendChild(root);
 }
@@ -4938,6 +4945,199 @@ function estoqueArmazemHub(wrap){
   fotoBtn.onclick=()=>{ fprodReset(); estoqView.origem='armazem'; estoqGo('fotoprod'); };
   wrap.appendChild(fotoBtn);
 }
+/* ===== INVENTÁRIO (inv*, 17/08/2026 — Fatia C): contagem CEGA por endereço.
+   DECISAO_8-pendencias-estoque_11-08-2026 item 3: o estoquista bipa o endereço e conta SEM ver
+   o teórico — o backend nem manda QtdTeorica (inventarioRoutes.js). Ajuste/aprovação é tela de
+   Salesforce (Gerente/Sócio), nunca daqui. Visual: tema escuro do coletor (paleta CD), toque no
+   card avança. Offline: bePost com fila (_queued) pros registros de contagem e pro envio —
+   abertura de contagem exige rede (a lista de itens vem do servidor); idempotência mora no Apex. */
+let invSt=null;
+function invReset(){ invSt={step:'fila', fila:[], carregando:false, erro:null, bipeErro:null, abrindo:false,
+  ctg:null, itens:[], itemSel:null, salvando:false, enviando:false}; }
+function _iel(tag,css,html){ const e=document.createElement(tag); if(css)e.style.cssText=css; if(html!=null)e.innerHTML=html; return e; }
+function _invHd(wrap,txt,voltar){
+  const bk=_iel('button','background:transparent;border:1px solid '+CD.bd+';color:'+CD.tx+';border-radius:11px;height:38px;padding:0 14px;font-size:13px;font-weight:700;margin:2px 0 10px;cursor:pointer','‹ Voltar');
+  bk.onclick=voltar; wrap.appendChild(bk);
+  wrap.appendChild(_iel('div','font-size:17px;font-weight:800;color:'+CD.tx+';margin:0 0 12px',txt));
+}
+async function invCarregarFila(){
+  invSt.carregando=true; invSt.erro=null; renderEstoque();
+  try{ const d=await beGet('/inventario/contagens'); invSt.fila=(d&&d.contagens)||[]; }
+  catch(e){ invSt.erro=e.message; }
+  invSt.carregando=false; renderEstoque();
+}
+async function invBiparEndereco(valor){
+  const v=String(valor==null?'':valor).trim(); if(!v||invSt.abrindo) return;
+  invSt.bipeErro=null; invSt.abrindo=true; renderEstoque();
+  try{
+    /* mesmo resolvedor de etiqueta do recebimento (recpResolverEtiqueta): QR imprime URL /e/<token>,
+       NFC entrega o token puro. */
+    const m=/\/e\/([A-Za-z0-9-]+)/.exec(v); const token=m?m[1]:v;
+    const d=await beGet('/estoque/enderecos/etiqueta/'+encodeURIComponent(token));
+    const end=d&&d.endereco;
+    if(!end||!end.localId) throw new Error('Etiqueta reconhecida, mas sem endereço/local válido.');
+    if(navigator.vibrate) try{ navigator.vibrate(35); }catch(_){ }
+    /* abrir exige rede DE PROPÓSITO (sem fila): a lista de produtos a contar vem do servidor —
+       sem ela não há o que contar. Idempotente no Apex: reabrir o mesmo endereço devolve a mesma. */
+    const r=await bePost('/inventario/contagens',{localId:end.localId, enderecoId:end.id});
+    if(!r||!r.contagemId) throw new Error('O servidor não devolveu a contagem aberta.');
+    await invAbrirContagem(r.contagemId);
+  }catch(e){
+    if(navigator.vibrate) try{ navigator.vibrate([60,50,60]); }catch(_){ }
+    invSt.bipeErro=(e&&e.status===404)?'Etiqueta não encontrada.':(netFail(e)?'Sem rede agora — abrir contagem precisa de conexão. As já abertas continuam valendo.':e.message);
+  }
+  invSt.abrindo=false; renderEstoque();
+}
+async function invAbrirContagem(id){
+  invSt.carregando=true; invSt.erro=null; invSt.step='contar'; renderEstoque();
+  try{
+    const d=await beGet('/inventario/contagens/'+encodeURIComponent(id));
+    invSt.ctg=d.contagem; invSt.itens=d.itens||[];
+    if(invSt.ctg && invSt.ctg.status==='Em Aprovação'){ toast('Esta contagem já foi enviada para aprovação.'); }
+  }catch(e){ invSt.erro=e.message; }
+  invSt.carregando=false; renderEstoque();
+}
+function invProxPendente(aposId){
+  const pend=invSt.itens.filter(i=>i.status==='Pendente');
+  if(!pend.length) return null;
+  if(aposId){ const resto=pend.filter(i=>i.id!==aposId); return resto[0]||null; }
+  return pend[0]||null;
+}
+async function invConfirmarItem(){
+  const it=invSt.itemSel; if(!it||invSt.salvando) return;
+  const inp=document.getElementById('invQtd');
+  const bruto=inp?String(inp.value).replace(',','.').trim():'';
+  const qtd=Number(bruto);
+  if(bruto===''||!Number.isFinite(qtd)||qtd<0){ toast('⚠️ Digite a quantidade contada (0 vale — significa que não achou).'); return; }
+  const obsEl=document.getElementById('invObs'); const obs=obsEl?String(obsEl.value).trim():'';
+  invSt.salvando=true; renderEstoque();
+  try{
+    /* bePost com fila: sem rede vira pendência (_queued) e sobe sozinha depois — o carimbo real
+       vai em contadoEmMs. Recontagem antes da aprovação sobrescreve no Apex. */
+    const body={qtdContada:qtd, contadoEmMs:Date.now()}; if(obs) body.observacao=obs;
+    const r=await bePost('/inventario/contagens/'+encodeURIComponent(invSt.ctg.id)+'/itens/'+encodeURIComponent(it.id), body,
+      'contagem de '+(it.produto||'item'));
+    it.contado=qtd; it.status='Contado'; it.observacao=obs||null; it._local=!!(r&&r._queued);
+    toast(r&&r._queued ? 'Contagem guardada no aparelho — sobe quando a rede voltar.' : '✓ '+(it.produto||'Item')+' contado.');
+    /* toque avança: confirma e já cai no próximo pendente. */
+    const prox=invProxPendente(it.id);
+    invSt.itemSel=prox; invSt.step=prox?'item':'contar';
+  }catch(e){ toast('⚠️ '+e.message); }
+  invSt.salvando=false; renderEstoque();
+}
+async function invEnviarAprovacao(){
+  if(invSt.enviando||!invSt.ctg) return;
+  const pend=invSt.itens.filter(i=>i.status==='Pendente').length;
+  if(pend>0 && !confirm(pend+' item(ns) ainda sem contagem — enviar assim mesmo? Itens não contados ficam de fora do ajuste.')) return;
+  invSt.enviando=true; renderEstoque();
+  try{
+    const r=await bePost('/inventario/contagens/'+encodeURIComponent(invSt.ctg.id)+'/enviar-aprovacao',{},
+      'envio da contagem '+(invSt.ctg.numero||''));
+    toast(r&&r._queued ? 'Envio guardado no aparelho — sobe quando a rede voltar.' : '✓ Contagem enviada para aprovação do gerente.');
+    invReset(); invCarregarFila();
+  }catch(e){ toast('⚠️ '+e.message); invSt.enviando=false; renderEstoque(); }
+}
+function renderInvFluxo(wrap){
+  if(!invSt) invReset();
+  const root=_iel('div','padding:12px 15px 26px');
+  wrap.appendChild(root);
+  if(invSt.step==='item' && invSt.itemSel){ invTelaItem(root); return; }
+  if(invSt.step==='contar'){ invTelaContar(root); return; }
+  invTelaFila(root);
+}
+function invTelaFila(root){
+  _invHd(root,'📋 Inventário — contagem cega',()=>{ estoqGo('dash'); });
+  /* abrir nova contagem bipando o endereço */
+  const card=_iel('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-left:3px solid '+CD.az+';border-radius:16px;padding:14px 15px;margin-bottom:14px');
+  card.appendChild(_iel('div','font-size:14px;font-weight:800;color:'+CD.tx,'Nova contagem por endereço'));
+  card.appendChild(_iel('div','font-size:11.5px;color:'+CD.mu+';margin:3px 0 10px','Bipe o QR/NFC do endereço. Você conta o que está lá — o sistema não mostra o saldo esperado.'));
+  const linha=_iel('div','display:flex;gap:8px');
+  const inp=document.createElement('input');
+  inp.id='invBipe'; inp.placeholder='Bipar ou digitar etiqueta…';
+  inp.style.cssText='flex:1;height:46px;background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:12px;color:'+CD.tx+';padding:0 13px;font-size:14px;outline:none';
+  inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); const v=inp.value; inp.value=''; invBiparEndereco(v); } });
+  const cam=_iel('button','width:46px;height:46px;background:'+CD.azBg+';border:1px solid '+CD.bd+';border-radius:12px;color:'+CD.az+';font-size:18px;cursor:pointer','📷');
+  cam.onclick=async()=>{ toast('📷 Aponte a câmera pro QR do endereço'); await estoqScanCamAbrir((texto)=>{ invBiparEndereco(texto); }); };
+  linha.appendChild(inp); linha.appendChild(cam); card.appendChild(linha);
+  if(invSt.abrindo) card.appendChild(_iel('div','font-size:12px;color:'+CD.mu+';margin-top:8px','Abrindo contagem…'));
+  if(invSt.bipeErro) card.appendChild(_iel('div','font-size:12px;color:'+CD.vm+';margin-top:8px','⚠️ '+_esc(invSt.bipeErro)));
+  root.appendChild(card);
+  /* fila de contagens abertas */
+  root.appendChild(_iel('div','font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:'+CD.mu+';margin:4px 2px 9px','Abertas / em contagem'));
+  if(invSt.carregando){ root.appendChild(_iel('div','font-size:12.5px;color:'+CD.mu,'Carregando…')); return; }
+  if(invSt.erro){ root.appendChild(_iel('div','font-size:12.5px;color:'+CD.vm,'⚠️ '+_esc(invSt.erro))); return; }
+  if(!invSt.fila.length){ root.appendChild(_iel('div','background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:13px;padding:12px 14px;font-size:12.5px;color:'+CD.mu,'Nenhuma contagem aberta. Bipe um endereço pra começar.')); return; }
+  invSt.fila.forEach(c=>{
+    const escopo=c.endereco?('📍 '+c.endereco):(c.area?('Área '+c.area):(c.local||'—'));
+    const r=_iel('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-radius:14px;padding:12px 13px;display:flex;align-items:center;gap:11px;margin-bottom:8px;cursor:pointer',
+      '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;color:'+CD.tx+'">'+_esc(escopo)+'</div>'
+      +'<div style="font-size:11px;color:'+CD.mu+';margin-top:2px">'+_esc(c.numero||'')+' · '+_esc(c.status||'')+(c.abertaPor?(' · '+_esc(c.abertaPor)):'')+'</div></div>'
+      +'<div style="font-size:13px;font-weight:800;color:'+(c.contados>=c.totalItens&&c.totalItens>0?CD.vd:CD.az)+';font-variant-numeric:tabular-nums">'+c.contados+'/'+c.totalItens+'</div>'
+      +'<span style="color:'+CD.mu2+';font-size:17px">›</span>');
+    r.onclick=()=>invAbrirContagem(c.id);
+    root.appendChild(r);
+  });
+}
+function invTelaContar(root){
+  _invHd(root,'📋 Contagem '+((invSt.ctg&&invSt.ctg.numero)||''),()=>{ invSt.step='fila'; invSt.ctg=null; invSt.itens=[]; renderEstoque(); invCarregarFila(); });
+  if(invSt.carregando){ root.appendChild(_iel('div','font-size:12.5px;color:'+CD.mu,'Carregando itens…')); return; }
+  if(invSt.erro){ root.appendChild(_iel('div','font-size:12.5px;color:'+CD.vm,'⚠️ '+_esc(invSt.erro))); return; }
+  if(!invSt.ctg) return;
+  const c=invSt.ctg;
+  const escopo=c.endereco?('📍 '+c.endereco):(c.area?('Área '+c.area):(c.local||''));
+  const contados=invSt.itens.filter(i=>i.status!=='Pendente').length;
+  root.appendChild(_iel('div','background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:13px;padding:11px 14px;margin-bottom:12px',
+    '<div style="font-size:14px;font-weight:800;color:'+CD.tx+'">'+_esc(escopo)+'</div>'
+    +'<div style="font-size:11.5px;color:'+CD.mu+';margin-top:3px">'+_esc(c.local||'')+' · '+contados+' de '+invSt.itens.length+' itens contados</div>'));
+  invSt.itens.forEach(it=>{
+    const feito=it.status!=='Pendente';
+    const r=_iel('div','background:'+CD.card+';border:1px solid '+(feito?'rgba(34,180,99,.35)':CD.bd)+';border-radius:14px;padding:12px 13px;display:flex;align-items:center;gap:11px;margin-bottom:8px;cursor:pointer',
+      '<div style="width:32px;height:32px;border-radius:9px;background:'+(feito?CD.vdBg:CD.azBg)+';color:'+(feito?CD.vd:CD.az)+';display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto">'+(feito?'✓':'▢')+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800;color:'+CD.tx+'">'+_esc(it.produto||'(sem nome)')+'</div>'
+      +'<div style="font-size:11px;color:'+CD.mu+';margin-top:2px">'+_esc(it.codigo||'')+(it.unidade?(' · '+_esc(it.unidade)):'')+'</div></div>'
+      +(feito?('<div style="font-size:16px;font-weight:800;color:'+CD.vd+';font-variant-numeric:tabular-nums">'+_esc(String(it.contado==null?'':it.contado))+'</div>'):'<span style="color:'+CD.mu2+';font-size:17px">›</span>'));
+    r.onclick=()=>{ invSt.itemSel=it; invSt.step='item'; renderEstoque(); };
+    root.appendChild(r);
+  });
+  const podeEnviar=c.status==='Aberta'||c.status==='Em Contagem';
+  if(podeEnviar){
+    const b=_iel('button','width:100%;min-height:52px;background:'+CD.vd+';border:none;border-radius:14px;color:#fff;font-size:15px;font-weight:800;margin-top:12px;cursor:pointer',
+      invSt.enviando?'Enviando…':'Enviar para aprovação');
+    b.onclick=()=>invEnviarAprovacao();
+    root.appendChild(b);
+    root.appendChild(_iel('div','font-size:11px;color:'+CD.mu2+';margin-top:7px;text-align:center','O ajuste do saldo só acontece depois da aprovação do gerente, no Salesforce.'));
+  } else {
+    root.appendChild(_iel('div','background:'+CD.amBg+';border:1px solid rgba(224,138,43,.35);border-radius:13px;padding:11px 14px;font-size:12.5px;color:'+CD.am+';font-weight:700;margin-top:12px','Esta contagem está "'+_esc(c.status||'')+'" — aguardando o gerente no Salesforce.'));
+  }
+}
+function invTelaItem(root){
+  const it=invSt.itemSel;
+  _invHd(root,'🔢 Contar item',()=>{ invSt.itemSel=null; invSt.step='contar'; renderEstoque(); });
+  const card=_iel('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-radius:16px;padding:16px 15px');
+  card.appendChild(_iel('div','font-size:16px;font-weight:800;color:'+CD.tx+';line-height:1.3',_esc(it.produto||'(sem nome)')));
+  card.appendChild(_iel('div','font-size:12px;color:'+CD.mu+';margin:4px 0 14px',_esc(it.codigo||'')+(it.unidade?(' · '+_esc(it.unidade)):'')+(it.endereco?(' · 📍 '+_esc(it.endereco)):'')));
+  card.appendChild(_iel('div','font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:'+CD.mu,'Quantidade contada'+(it.unidade?(' ('+_esc(it.unidade)+')'):'')));
+  const inp=document.createElement('input');
+  inp.id='invQtd'; inp.type='number'; inp.inputMode='decimal'; inp.min='0'; inp.step='any';
+  inp.value=(it.status!=='Pendente'&&it.contado!=null)?String(it.contado):'';
+  inp.placeholder='0';
+  inp.style.cssText='width:100%;box-sizing:border-box;height:76px;background:'+CD.card2+';border:2px solid '+CD.az+';border-radius:16px;color:'+CD.tx+';font-size:40px;font-weight:800;text-align:center;margin:8px 0 12px;outline:none;font-variant-numeric:tabular-nums';
+  inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); invConfirmarItem(); } });
+  card.appendChild(inp);
+  const obs=document.createElement('input');
+  obs.id='invObs'; obs.placeholder='Observação (opcional)'; obs.value=it.observacao||'';
+  obs.maxLength=255;
+  obs.style.cssText='width:100%;box-sizing:border-box;height:44px;background:'+CD.card2+';border:1px solid '+CD.bd+';border-radius:12px;color:'+CD.tx+';padding:0 13px;font-size:13px;outline:none;margin-bottom:14px';
+  card.appendChild(obs);
+  const b=_iel('button','width:100%;min-height:54px;background:'+CD.vd+';border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:800;cursor:pointer',
+    invSt.salvando?'Gravando…':'Confirmar contagem');
+  b.onclick=()=>invConfirmarItem();
+  card.appendChild(b);
+  if(it.status!=='Pendente') card.appendChild(_iel('div','font-size:11.5px;color:'+CD.am+';margin-top:9px;text-align:center','Já contado ('+_esc(String(it.contado==null?'':it.contado))+') — confirmar de novo sobrescreve.'));
+  root.appendChild(card);
+  setTimeout(()=>{ const i=document.getElementById('invQtd'); if(i) i.focus(); },80);
+}
+
 /* ===== FOTOS DE PRODUTO (fprod*, 22/07/2026): busca de Product2 (mesmo GET /estoque/produtos do
    vincular-produto) + upload da foto de catálogo pro Drive. Namespace próprio, mesma receita de
    upload do cadastro de ativos (FormData + Bearer). ===== */
