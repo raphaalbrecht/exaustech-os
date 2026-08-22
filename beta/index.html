@@ -9628,12 +9628,14 @@ function coltRenderFechamento(corpo, root){
   const itens=c.itens||[];
   const nOk=itens.filter(coltOk).length;
   const nPend=itens.filter(coltPendente).length;
-  const nDiv=itens.length-nOk-nPend;
-  const temDivergencia=(nPend>0||nDiv>0);
   /* 28/07 (opção 3): item recebido SEM vínculo não é divergência de verdade — vira o status
-     próprio 'Recebido - Pendente Estocagem'. Separo do nDiv pra o previsto bater com o Apex. */
+     próprio 'Recebido - Pendente Estocagem'. Separo pra o previsto bater com o Apex. */
   const nSemVinc=itens.filter(coltAEstocar).length;
   const nDivReal=coltDivergencias(itens);   // 08/08: mesma função das outras telas — uma fonte só
+  /* 18/08 (Raphael): "Recebido sem Vínculo" NÃO exige assinatura do motorista. O contador cru
+     (itens - ok - pendentes) incluía o sem-vínculo e disparava a assinatura à toa — era código
+     de 28/07, anterior ao conserto dos contadores. Agora a assinatura segue a divergência REAL. */
+  const temDivergencia=(nPend>0||nDivReal>0);
 
   /* ---- tela de sucesso: substitui o formulário depois do POST dar certo ---- */
   if(coltSt.finOk){
