@@ -1089,6 +1089,15 @@
      e o unico sinal era a caixa de sugestao embaixo. De luva, isso era pouco. */
   .mot-copt.on.ruim{background:var(--mot-warn);border-color:var(--mot-warn);color:#fff}
   .mot-medrow.fora .mot-medin{border-color:var(--mot-warn);color:var(--mot-warn);background:var(--mot-warn-soft)}
+  /* R6 15/09/2026 — resultado calculado: o tecnico nao digita, o numero muda sozinho */
+  .mot-calc{background:var(--mot-blue-soft);border:1.5px solid #BFD5E6;border-radius:10px;padding:9px 11px;margin-top:7px}
+  .mot-calcnum{display:flex;align-items:baseline;gap:7px}
+  .mot-calcv{font-size:1.35rem;font-weight:800;color:var(--mot-navy)}
+  .mot-calcun{font-size:.78rem;font-weight:700;color:var(--mot-brand)}
+  .mot-calchint{font-size:.66rem;color:var(--mot-brand);margin-top:5px;line-height:1.4}
+  .mot-calc.fora{background:var(--mot-warn-soft);border-color:var(--mot-warn)}
+  .mot-calc.fora .mot-calcv,.mot-calc.fora .mot-calcun,.mot-calc.fora .mot-calchint{color:var(--mot-warn)}
+  .mot-calcvazio{font-size:.78rem;color:var(--mot-text-soft)}
   /* ===== PLANO DE MANUTENÇÃO (retaguarda) — porte de mockup-plano-FINAL-mestre-detalhe-timeline.html =====
      Todas as classes/ids deste bloco usam o prefixo pln- pra nunca colidir com o CSS existente.
      1ª rodada (22/07/2026, task #60): só mestre-detalhe (Editor) — linha do tempo fica pra depois. */
@@ -14438,6 +14447,93 @@ function motValoresAchadoDeclarados(p){
   return out;
 }
 
+/* ===== R6 15/09/2026 — tipo Calculo =====
+   A formula vem de Passo_Regra__c.Formula__c e referencia as outras perguntas pelo Codigo__c
+   delas, entre chaves: {VEL_AR} * {AREA_BOCA} * 3600. Sem eval: parser proprio, recursivo,
+   que so entende numero, token, parenteses, + - * / e as seis funcoes do catalogo.
+   Passo de Data vale como dias desde 1970, e por isso DIAS_ENTRE e so uma subtracao. */
+const MOT_FUNCS={ MEDIA:1, MENOR:1, MAIOR:1, SOMA:1, DIAS_ENTRE:1, PERCENTUAL:1 };
+function motTokensFormula(f){
+  const re=/\{[^}]*\}|\d+(?:[.,]\d+)?|[A-Za-z_][A-Za-z_0-9]*|[+\-*/(),]/g;
+  return String(f||'').match(re)||[];
+}
+function motDiasEpoch(iso){
+  if(!iso) return null;
+  const d=new Date(String(iso).length<=10?String(iso)+'T00:00:00':iso);
+  if(isNaN(d.getTime())) return null;
+  return Math.floor(d.getTime()/86400000);
+}
+function motValorDoToken(t,cod,visitados){
+  if(cod==='HOJE') return Math.floor(Date.now()/86400000);
+  const alvo=(t.passos||[]).find(x=>x.codigo===cod);
+  if(!alvo) return null;
+  if(alvo.tipoCampo==='Data') return motDiasEpoch(alvo.valorData);
+  if(alvo.tipoCampo==='Cálculo') return motCalcular(t,alvo,visitados);
+  return motValorNumericoDoPasso(alvo);
+}
+function motCalcular(t,p,visitados){
+  visitados=visitados||{};
+  if(!p||!p.formula) return null;
+  if(visitados[p.id]) return null;          /* formula que se referencia em circulo */
+  visitados[p.id]=true;
+  const tk=motTokensFormula(p.formula);
+  let i=0;
+  const olha=()=>tk[i], come=()=>tk[i++];
+  function expr(){
+    let v=termo(); if(v==null) return null;
+    while(olha()==='+'||olha()==='-'){ const op=come(); const d=termo(); if(d==null) return null; v=(op==='+')?v+d:v-d; }
+    return v;
+  }
+  function termo(){
+    let v=fator(); if(v==null) return null;
+    while(olha()==='*'||olha()==='/'){ const op=come(); const d=fator(); if(d==null) return null;
+      if(op==='/'){ if(d===0) return null; v=v/d; } else v=v*d; }
+    return v;
+  }
+  function fator(){
+    if(olha()==='-'){ come(); const v=fator(); return v==null?null:-v; }
+    if(olha()==='+'){ come(); return fator(); }
+    return primario();
+  }
+  function args(){
+    const out=[];
+    if(olha()===')'){ come(); return out; }
+    for(;;){ const v=expr(); if(v==null) return null; out.push(v);
+      if(olha()===','){ come(); continue; }
+      if(olha()===')'){ come(); return out; }
+      return null; }
+  }
+  function primario(){
+    const c=olha();
+    if(c==null) return null;
+    if(c==='('){ come(); const v=expr(); if(olha()!==')') return null; come(); return v; }
+    if(c[0]==='{'){ come(); return motValorDoToken(t,c.slice(1,-1).trim(),visitados); }
+    if(/^\d/.test(c)){ come(); return parseFloat(c.replace(',','.')); }
+    if(/^[A-Za-z_]/.test(c)){
+      const nome=come().toUpperCase();
+      if(olha()!=='('){ return motValorDoToken(t,nome,visitados); }   /* HOJE sem parenteses */
+      come();
+      const a=args(); if(a==null||!a.length) return null;
+      if(nome==='SOMA') return a.reduce((x,y)=>x+y,0);
+      if(nome==='MEDIA') return a.reduce((x,y)=>x+y,0)/a.length;
+      if(nome==='MENOR') return Math.min.apply(null,a);
+      if(nome==='MAIOR') return Math.max.apply(null,a);
+      if(nome==='DIAS_ENTRE') return a.length===2?(a[0]-a[1]):null;
+      if(nome==='PERCENTUAL') return (a.length===2&&a[1]!==0)?(a[0]/a[1]*100):null;
+      return null;
+    }
+    return null;
+  }
+  const r=expr();
+  if(r==null||isNaN(r)||!isFinite(r)) return null;
+  if(i<tk.length) return null;              /* sobrou token: formula malformada */
+  return r;
+}
+function motCalcFmt(p,v){
+  const casas=(p.casasDecimais==null?2:p.casasDecimais);
+  return v.toFixed(casas).replace('.',',');
+}
+
 /* Impedimentos de concluir como "Esta OK". Travam SO esse botao: "Com nao conformidade" e
    "Nao executado" seguem abertos sempre, porque excecao nunca trava o tecnico, so exige
    justificativa registrada. Ver §6 da DECISAO_base-da-regra-logica_15-09-2026.md. */
@@ -14474,6 +14570,17 @@ function motAvisosHtml(t){
    montar o HTML, e nunca reescreve o mesmo valor duas vezes (guarda em p._auto). Sugerir so
    preenche campo VAZIO: o tecnico pode trocar depois, travar ele nao pode. */
 function motAplicarAutomaticas(t){
+  /* R6 — o resultado calculado e gravado em Valor_Numerico__c como qualquer medicao, e por
+     isso entra na serie historica do equipamento. So regrava quando o numero muda. */
+  (t.passos||[]).forEach(p=>{
+    if(p.tipoCampo!=='Cálculo') return;
+    const v=motCalcular(t,p);
+    if(v==null) return;
+    const arred=parseFloat(v.toFixed(p.casasDecimais==null?2:p.casasDecimais));
+    if(p.valorNumerico===arred&&p.statusPasso==='Feito') return;
+    p.valorNumerico=arred; p.statusPasso='Feito'; p.horaRegistro=new Date().toISOString();
+    motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:arred});
+  });
   (t.passos||[]).forEach(p=>{
     if(!p.regras||!p.regras.length) return;
     if(p.statusPasso==='Não realizado') return;
@@ -14518,6 +14625,8 @@ function motItemResolvido(t,p){
   if(p.regras&&p.regras.length&&motEfeitos(t,p).obrigatoria===false) return true;
   if(p.statusPasso==='Não realizado') return true;
   if(p.tipoCampo==='Instrução') return true;
+  /* R6 — resultado calculado nao e trabalho do tecnico: quem trava o avanco sao as leituras de origem */
+  if(p.tipoCampo==='Cálculo') return true;
   if(p.tipoCampo==='Checkbox') return p.statusPasso==='Feito';
   if(p.tipoCampo==='Medição'){ if(p.valorNumerico==null) return false; return !motMedForaFaixa(p)||!!p._dec; }
   if(p.tipoCampo==='Condição'){ if(!p.valorOpcao) return false; return p.valorOpcao!=='Ruim'||!!p._dec; }
@@ -15090,6 +15199,17 @@ function motTypedStepHtml(t,p,aff){
     h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+(motRespostaEhAchado(p,op)?' ruim':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
       (motRespostaEhAchado(p,p.valorOpcao)&&!p._dec?motSugBoxHtml(p):'')+
       (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+  }else if(p.tipoCampo==='Cálculo'){
+    /* nao ha campo pra digitar: o numero e recalculado a cada toque nas perguntas de origem */
+    const v=motCalcular(t,p);
+    if(v==null){
+      h+='<div class="mot-calc"><div class="mot-calcvazio">aguardando as leituras acima</div></div>';
+    }else{
+      const fora=(p.valorMinVigente!=null&&p.valorMaxVigente!=null)&&(v<p.valorMinVigente||v>p.valorMaxVigente);
+      h+='<div class="mot-calc'+(fora?' fora':'')+'"><div class="mot-calcnum"><span class="mot-calcv">'+motCalcFmt(p,v)+'</span><span class="mot-calcun">'+motEsc(p.unidade||'')+'</span>'+
+        (p.valorMinVigente!=null&&p.valorMaxVigente!=null?('<span style="flex:1"></span><span class="mot-medflag '+(fora?'fora':'ok')+'">'+(fora?'fora da faixa':'✓ na faixa')+'</span>'):'')+'</div>'+
+        '<div class="mot-calchint">'+motEsc(p.formula||'')+(p.valorMinVigente!=null&&p.valorMaxVigente!=null?(' · faixa '+motFmt(p.valorMinVigente)+' a '+motFmt(p.valorMaxVigente)+' '+motEsc(p.unidade||'')):'')+'</div></div>';
+    }
   }else if(p.tipoCampo==='Mídia'){
     h+=p.statusPasso==='Feito'?('<div class="mot-fsim mini vid"><div class="mot-cap">VÍDEO · anexado'+(p.horaRegistro?' · '+motFmtHora(p.horaRegistro):'')+'</div></div>'):('<button class="mot-vidtap" data-pid="'+p.id+'">🎥 vídeo curto (máx 30s) — toque para gravar</button>');
   }else if(p.tipoCampo==='Picklist'){
@@ -15141,7 +15261,7 @@ function motPassoRowHtml(t,p,aff){
   if(p.statusPasso==='Não realizado') inner=motSkipRowHtml(p);
   else if(p.tipoCampo==='Instrução') inner='<div class="mot-ckrow info" data-pid="'+p.id+'"><span class="mot-iico">⚠</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
   else if(p.tipoCampo==='Checkbox') inner=motCheckboxRowHtml(p,aff);
-  else if(['Instrução','Checkbox','Medição','Condição','Mídia','Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) inner=motTypedStepHtml(t,p,aff);
+  else if(['Instrução','Checkbox','Medição','Condição','Mídia','Picklist','Multi-Picklist','Texto','Contador','Data','NFC','Cálculo'].includes(p.tipoCampo)) inner=motTypedStepHtml(t,p,aff);
   /* 15/09/2026 — os 6 tipos acima passaram a ter campo de verdade. O fallback fica como rede
      de seguranca pra um Tipo_Campo__c novo que apareca na biblioteca sem tela correspondente. */
   else inner=motFallbackRowHtml(p);
