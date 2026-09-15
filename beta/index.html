@@ -36,6 +36,25 @@
   /* R7 15/09/2026 — a retaguarda de Plano e trabalho de computador, nao de celular: montar uma
      regra logica numa coluna de 420px e imprestavel. Numa janela larga a aba Plano ocupa a tela;
      no celular continua exatamente como era. Mesmo mecanismo do .cad-wide acima. */
+  /* iPad em pe tem 768 a 834px de largura: a faixa entre 760 e 1000 e justamente ele, e
+     tambem o notebook com a janela pela metade. Aqui a aba Plano ja usa a tela inteira; o
+     mestre-detalhe lado a lado so desmonta abaixo de 620px, que e celular de verdade. */
+  @media(min-width:760px){
+    .phone.plano-wide{max-width:100%;margin:0;height:100vh;height:100dvh;border-radius:0}
+    .phone.plano-wide .pln-detail{padding:12px 18px 34px}
+  }
+  /* Dedo, nao mouse: no iPad os controles do montador precisam de alvo grande. Vale para
+     qualquer aparelho de toque, inclusive celular grande em pe. */
+  @media(pointer:coarse){
+    .pln-sel,.pln-inp{min-height:38px;font-size:.78rem;padding:7px 10px}
+    .pln-rbtn{font-size:.72rem;padding:7px 10px}
+    .pln-addregra{font-size:.72rem;padding:9px 14px}
+    .pln-bsave,.pln-bcancel{font-size:.78rem;padding:10px 18px}
+    .pln-bdel{font-size:.74rem;padding:8px 4px}
+    .pln-jn button{font-size:.74rem;padding:9px 18px}
+    .pln-regra{font-size:.72rem;padding:8px 10px}
+    .pln-mitem{padding-top:10px;padding-bottom:10px}
+  }
   @media(min-width:1000px){
     .phone.plano-wide{max-width:1280px}
     .phone.plano-wide .pln-master{width:290px}
