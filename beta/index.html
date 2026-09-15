@@ -14569,6 +14569,19 @@ function motAvisosHtml(t){
 /* "Preencher e travar" e "Sugerir valor" escrevem no passo. Roda uma vez por render, antes de
    montar o HTML, e nunca reescreve o mesmo valor duas vezes (guarda em p._auto). Sugerir so
    preenche campo VAZIO: o tecnico pode trocar depois, travar ele nao pode. */
+/* O valor ainda e exatamente o que a regra escreveu? Se sim, ninguem mexeu nele, e desfazer
+   e seguro. Se o tecnico mudou, o valor passou a ser dele e ninguem apaga. */
+function motValorVeioDaRegra(p,valor){
+  if(p.tipoCampo==='Medição'||p.tipoCampo==='Contador'){ const n=motNum(valor); return n!=null&&p.valorNumerico===n; }
+  if(p.tipoCampo==='Condição'||p.tipoCampo==='Picklist'||p.tipoCampo==='Multi-Picklist') return p.valorOpcao===String(valor);
+  if(p.tipoCampo==='Data') return p.valorData===String(valor);
+  return p.valorTexto===String(valor).slice(0,255);
+}
+function motLimparPasso(t,p){
+  p.valorNumerico=null; p.valorTexto=null; p.valorOpcao=null; p.valorData=null;
+  p.statusPasso='Pendente'; p.horaRegistro=null;
+  motSalvarPasso(t,p,{limpar:true});
+}
 function motAplicarAutomaticas(t){
   /* R6 — o resultado calculado e gravado em Valor_Numerico__c como qualquer medicao, e por
      isso entra na serie historica do equipamento. So regrava quando o numero muda. */
@@ -14586,18 +14599,25 @@ function motAplicarAutomaticas(t){
     if(p.statusPasso==='Não realizado') return;
     if(!motItemVisivel(t,p)) return;
     const ef=motEfeitos(t,p);
+    const marca = ef.travar!=null ? ('T|'+ef.travar) : (ef.sugerir!=null ? ('S|'+ef.sugerir) : null);
+
+    /* 15/09/2026 — a regra que escreveu deixou de valer. O valor dela NAO pode ficar no laudo
+       como se fosse resposta do tecnico: "tem filtro inercial? Sim" sugere o modelo, ele corrige
+       para "Não", e o modelo sugerido ficava la. Desfaz, mas so se ninguem tiver mexido. */
+    if(p._auto&&p._auto!==marca){
+      const antigo=p._auto.slice(2);
+      if(marca==null&&motValorVeioDaRegra(p,antigo)) motLimparPasso(t,p);
+      p._auto=null; p._sugerido=null; p._travado=false;
+    }
+
     if(ef.travar!=null){
-      const marca='T|'+ef.travar;
-      if(p._auto!==marca){
-        p._auto=marca; p._travado=true;
-        motAplicarValorAutomatico(t,p,ef.travar);
-      } else { p._travado=true; }
+      p._travado=true;
+      if(p._auto!==marca){ p._auto=marca; motAplicarValorAutomatico(t,p,ef.travar); }
       return;
     }
     p._travado=false;
     if(ef.sugerir!=null){
       const vazio=p.valorTexto==null&&p.valorOpcao==null&&p.valorNumerico==null&&p.valorData==null;
-      const marca='S|'+ef.sugerir;
       if(vazio&&p._auto!==marca){ p._auto=marca; p._sugerido=ef.sugerir; motAplicarValorAutomatico(t,p,ef.sugerir); }
     }
   });
