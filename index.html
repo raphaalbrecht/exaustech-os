@@ -1056,6 +1056,29 @@
   .mot-fallrow:last-of-type{border-bottom:none}
   .mot-fallrow .mot-tx{flex:1;font-size:.82rem;color:var(--mot-text);line-height:1.3}
   .mot-fallbdg{flex-shrink:0;font-size:.58rem;font-weight:700;border-radius:10px;padding:3px 8px;background:#EEF1F4;color:#5F6B77}
+  /* 15/09/2026 — os 6 tipos que caiam em motFallbackRowHtml ganharam campo de verdade:
+     Picklist, Multi-Picklist, Texto, Contador, Data e NFC. O fallback continua existindo
+     como rede de seguranca pra um tipo novo que apareca no futuro. */
+  .mot-mopt{flex:1;border:1.5px solid var(--mot-border);background:var(--mot-surface);border-radius:10px;padding:10px 4px;font-size:.74rem;font-weight:700;cursor:pointer;color:var(--mot-text);min-width:64px}
+  .mot-mopt.on{background:var(--mot-blue);border-color:var(--mot-blue);color:#fff}
+  .mot-mopthint{font-size:.6rem;color:var(--mot-text-soft);margin-top:5px}
+  .mot-txin{display:block;width:100%;margin-top:7px;border:1.5px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:.8rem;font-family:inherit;color:var(--mot-text);min-height:64px;resize:vertical;box-sizing:border-box}
+  .mot-txin:focus{outline:none;border-color:var(--mot-blue)}
+  .mot-txcount{font-size:.58rem;color:var(--mot-text-soft);margin-top:4px;text-align:right}
+  .mot-datein{margin-top:7px;border:1.5px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:.86rem;font-family:inherit;font-weight:700;color:var(--mot-navy);background:var(--mot-surface)}
+  .mot-cntrow{display:flex;align-items:center;gap:10px;margin-top:7px}
+  .mot-cntbtn{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--mot-blue);background:var(--mot-surface);color:var(--mot-blue);font-size:1.3rem;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+  .mot-cntbtn:disabled{opacity:.3;border-color:#C7CDD3;color:#9AA3AD}
+  .mot-cntval{min-width:64px;text-align:center;font-size:1.25rem;font-weight:800;color:var(--mot-navy)}
+  .mot-cntun{font-size:.74rem;font-weight:700;color:var(--mot-text-soft)}
+  .mot-nfcrow{display:flex;gap:8px;margin-top:7px;align-items:center;flex-wrap:wrap}
+  .mot-nfcin{flex:1;min-width:130px;border:1.5px solid var(--mot-border);border-radius:10px;padding:9px 11px;font-size:.8rem;font-family:inherit;color:var(--mot-text);box-sizing:border-box}
+  .mot-nfclido{font-size:.68rem;font-weight:700;color:#16744A;background:var(--mot-ok-soft);border-radius:9px;padding:6px 10px;margin-top:7px}
+  /* 15/09/2026 — a resposta que o motor le como ACHADO agora tem cor propria. Antes toda
+     opcao escolhida ficava azul, entao "Bom" e "Ruim" ficavam identicos depois de tocados
+     e o unico sinal era a caixa de sugestao embaixo. De luva, isso era pouco. */
+  .mot-copt.on.ruim{background:var(--mot-warn);border-color:var(--mot-warn);color:#fff}
+  .mot-medrow.fora .mot-medin{border-color:var(--mot-warn);color:var(--mot-warn);background:var(--mot-warn-soft)}
   /* ===== PLANO DE MANUTENÇÃO (retaguarda) — porte de mockup-plano-FINAL-mestre-detalhe-timeline.html =====
      Todas as classes/ids deste bloco usam o prefixo pln- pra nunca colidir com o CSS existente.
      1ª rodada (22/07/2026, task #60): só mestre-detalhe (Editor) — linha do tempo fica pra depois. */
@@ -14257,12 +14280,51 @@ function motFmtHora(iso){ if(!iso) return ''; try{ const d=new Date(iso); return
 function motFotoBgStyle(m){ return (m&&m._localUrl)?('background-image:url('+m._localUrl+')'):''; }
 function motAcharPassoPorId(t,id){ return (t.passos||[]).find(p=>p.id===id); }
 function motRespostaAtual(p){ return p.valorOpcao!=null?p.valorOpcao:(p.valorTexto!=null?p.valorTexto:null); }
+/* 15/09/2026 — ponto unico que decide se a resposta conta como ACHADO. Hoje e a heuristica
+   historica (a palavra "Ruim"); quando `Passo_Regra__c.Valor_Achado__c` existir, so esta
+   funcao muda, e a cor, a caixa de sugestao e o CBM passam a seguir o que foi cadastrado. */
+function motRespostaEhAchado(p,op){
+  if(op==null) return false;
+  if(Array.isArray(p.valoresAchado)&&p.valoresAchado.length) return p.valoresAchado.indexOf(op)>=0;
+  return String(op).trim().toLowerCase()==='ruim';
+}
 function motMedForaFaixa(p){ if(p.valorMinVigente==null||p.valorMaxVigente==null||p.valorNumerico==null) return false; return p.valorNumerico<p.valorMinVigente||p.valorNumerico>p.valorMaxVigente; }
+/* 15/09/2026 — comparacao numerica do condicional. Pai de Medicao/Contador responde em
+   valorNumerico, que motRespostaAtual nao devolve; pai de texto pode trazer numero escrito. */
+function motValorNumericoDoPasso(p){
+  if(p.valorNumerico!=null) return p.valorNumerico;
+  const v=motRespostaAtual(p);
+  if(v==null) return null;
+  const n=parseFloat(String(v).trim().replace(',','.'));
+  return isNaN(n)?null:n;
+}
 function motItemVisivel(t,p){
   if(!p.condDe) return true;
   const pai=motAcharPassoPorId(t,p.condDe.passoPaiId); if(!pai) return true;
+  /* 15/09/2026 — passou a respeitar Passo_Regra__c.Operador__c, que existia no metadado e
+     nunca era lido: a comparacao era sempre igualdade. Os 7 valores da picklist restrita sao
+     'Igual a', 'Diferente de', 'Contem', 'Maior que', 'Maior ou igual', 'Menor que' e
+     'Menor ou igual'. Passo antigo vem com 'Igual a' (default posto no backend), entao nada
+     muda pro que ja estava cadastrado. */
+  const op=String(p.condDe.operador||'Igual a').trim().toLowerCase();
+  const alvos=p.condDe.valores||[];
+  if(op==='maior que'||op==='maior ou igual'||op==='menor que'||op==='menor ou igual'){
+    const a=motValorNumericoDoPasso(pai);
+    const b=alvos.length?parseFloat(String(alvos[0]).trim().replace(',','.')):NaN;
+    if(a==null||isNaN(b)) return false;
+    if(op==='maior que') return a>b;
+    if(op==='maior ou igual') return a>=b;
+    if(op==='menor que') return a<b;
+    return a<=b;
+  }
   const v=motRespostaAtual(pai);
-  return v!=null && p.condDe.valores.indexOf(v)>=0;
+  if(op==='diferente de') return v!=null && alvos.indexOf(v)<0;
+  if(op==='contém'||op==='contem'){
+    if(v==null) return false;
+    const vv=String(v).toLowerCase();
+    return alvos.some(a=>vv.indexOf(String(a).toLowerCase())>=0);
+  }
+  return v!=null && alvos.indexOf(v)>=0;
 }
 function motItemResolvido(t,p){
   if(!motItemVisivel(t,p)) return true;
@@ -14829,18 +14891,58 @@ function motTypedStepHtml(t,p,aff){
     (aff&&!motItemResolvido(t,p)?'<button class="mot-cksk" data-sk="'+p.id+'" title="não se aplica / não pôde ser feito">⊘</button>':'')+'</div>';
   if(p.tipoCampo==='Medição'){
     const fora=motMedForaFaixa(p);
-    h+='<div class="mot-medrow"><input class="mot-medin" data-pid="'+p.id+'" inputmode="decimal" placeholder="0,0" value="'+(p.valorNumerico!=null?motFmt(p.valorNumerico):'')+'"><span class="mot-medun">'+motEsc(p.unidade||'')+'</span>'+
+    h+='<div class="mot-medrow'+(fora?' fora':'')+'"><input class="mot-medin" data-pid="'+p.id+'" inputmode="decimal" placeholder="0,0" value="'+(p.valorNumerico!=null?motFmt(p.valorNumerico):'')+'"><span class="mot-medun">'+motEsc(p.unidade||'')+'</span>'+
       (p.valorNumerico!=null?(fora?'<span class="mot-medflag fora">fora da faixa</span>':'<span class="mot-medflag ok">✓ na faixa</span>'):'')+'</div>'+
       (p.valorMinVigente!=null&&p.valorMaxVigente!=null?'<div class="mot-faixahint">faixa vigente do ativo: '+motFmt(p.valorMinVigente)+'–'+motFmt(p.valorMaxVigente)+' '+motEsc(p.unidade||'')+'</div>':'')+
       (p.valorNumerico!=null&&fora&&!p._dec?motSugBoxHtml(p):'')+
       (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
   }else if(p.tipoCampo==='Condição'){
     const ops=(p.opcoes&&p.opcoes.length)?p.opcoes:['Bom','Regular','Ruim'];
-    h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
-      (p.valorOpcao==='Ruim'&&!p._dec?motSugBoxHtml(p):'')+
+    h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+(motRespostaEhAchado(p,op)?' ruim':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
+      (motRespostaEhAchado(p,p.valorOpcao)&&!p._dec?motSugBoxHtml(p):'')+
       (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
   }else if(p.tipoCampo==='Mídia'){
     h+=p.statusPasso==='Feito'?('<div class="mot-fsim mini vid"><div class="mot-cap">VÍDEO · anexado'+(p.horaRegistro?' · '+motFmtHora(p.horaRegistro):'')+'</div></div>'):('<button class="mot-vidtap" data-pid="'+p.id+'">🎥 vídeo curto (máx 30s) — toque para gravar</button>');
+  }else if(p.tipoCampo==='Picklist'){
+    /* 15/09/2026 — mesmo desenho de botao da Condicao, de proposito: o tecnico ja conhece o
+       gesto. A diferenca e que Picklist nao entra na leitura do CBM, entao nao ha caixa de
+       sugestao nem cor de achado. */
+    const ops=(p.opcoes&&p.opcoes.length)?p.opcoes:[];
+    h+=ops.length?('<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>')
+      :'<div class="mot-mopthint">sem opções cadastradas nesta pergunta — use o ⊘ para justificar</div>';
+  }else if(p.tipoCampo==='Multi-Picklist'){
+    const ops=(p.opcoes&&p.opcoes.length)?p.opcoes:[];
+    const sel=motMultiSel(p);
+    h+=ops.length?('<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-mopt'+(sel.indexOf(op)>=0?' on':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
+        '<div class="mot-mopthint">'+(sel.length?motEsc(sel.length+' marcada'+(sel.length===1?'':'s'))+' — toque de novo para desmarcar':'pode marcar mais de uma')+'</div>')
+      :'<div class="mot-mopthint">sem opções cadastradas nesta pergunta — use o ⊘ para justificar</div>';
+  }else if(p.tipoCampo==='Texto'){
+    /* Valor_Texto__c e cortado em 255 no backend; o contador avisa antes de perder texto. */
+    const v=p.valorTexto||'';
+    h+='<textarea class="mot-txin" data-pid="'+p.id+'" maxlength="255" placeholder="Escreva aqui…">'+motEsc(v)+'</textarea>'+
+      '<div class="mot-txcount" data-cnt="'+p.id+'">'+v.length+'/255</div>';
+  }else if(p.tipoCampo==='Contador'){
+    const min=p.valorMinVigente!=null?p.valorMinVigente:0;
+    const max=p.valorMaxVigente;
+    const v=p.valorNumerico!=null?p.valorNumerico:min;
+    h+='<div class="mot-cntrow">'+
+      '<button class="mot-cntbtn" data-cnt="-" data-pid="'+p.id+'"'+(v<=min?' disabled':'')+'>−</button>'+
+      '<span class="mot-cntval">'+motFmt(v)+'</span>'+
+      (p.unidade?'<span class="mot-cntun">'+motEsc(p.unidade)+'</span>':'')+
+      '<button class="mot-cntbtn" data-cnt="+" data-pid="'+p.id+'"'+(max!=null&&v>=max?' disabled':'')+'>+</button>'+
+      '</div>'+
+      (max!=null?'<div class="mot-mopthint">faixa vigente do ativo: '+motFmt(min)+'–'+motFmt(max)+'</div>':'');
+  }else if(p.tipoCampo==='Data'){
+    h+='<input type="date" class="mot-datein" data-pid="'+p.id+'" value="'+motEsc((p.valorData||'').slice(0,10))+'">';
+  }else if(p.tipoCampo==='NFC'){
+    /* Web NFC so existe no Chrome Android, que e justamente o aparelho de campo. Onde nao
+       existe, o campo manual e o caminho normal, nao um degrau — nada trava. */
+    const lido=p.valorTexto||'';
+    h+=lido?('<div class="mot-nfclido">🏷 etiqueta '+motEsc(lido)+(p.horaRegistro?' · '+motFmtHora(p.horaRegistro):'')+'</div>'):'';
+    h+='<div class="mot-nfcrow">'+
+      (motNfcSuportado()?'<button class="mot-vidtap" style="margin-top:0;flex:1 1 100%" data-nfc="'+p.id+'">🏷 aproximar a etiqueta NFC</button>':'')+
+      '<input class="mot-nfcin" data-pid="'+p.id+'" placeholder="ou digite o código da etiqueta" value="'+motEsc(lido)+'">'+
+      '</div>';
   }
   return h+'</div>';
 }
@@ -14850,8 +14952,10 @@ function motPassoRowHtml(t,p,aff){
   if(p.statusPasso==='Não realizado') inner=motSkipRowHtml(p);
   else if(p.tipoCampo==='Instrução') inner='<div class="mot-ckrow info" data-pid="'+p.id+'"><span class="mot-iico">⚠</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
   else if(p.tipoCampo==='Checkbox') inner=motCheckboxRowHtml(p,aff);
-  else if(['Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) inner=motFallbackRowHtml(p);
-  else inner=motTypedStepHtml(t,p,aff);
+  else if(['Instrução','Checkbox','Medição','Condição','Mídia','Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) inner=motTypedStepHtml(t,p,aff);
+  /* 15/09/2026 — os 6 tipos acima passaram a ter campo de verdade. O fallback fica como rede
+     de seguranca pra um Tipo_Campo__c novo que apareca na biblioteca sem tela correspondente. */
+  else inner=motFallbackRowHtml(p);
   if(p.statusPasso!=='Não realizado') inner+=motRefBtnHtml(p);
   if(p.condDe){ const pai=motAcharPassoPorId(t,p.condDe.passoPaiId);
     inner+='<div class="mot-condnote">passo condicional — aparece porque a condição = '+motEsc(pai?(motRespostaAtual(pai)||''):'')+'</div>'; }
@@ -14877,7 +14981,116 @@ function motCkRowsHtml(t,aff){
   return out;
 }
 function motWireRefButtons(cont){ cont.querySelectorAll('.mot-refbtn').forEach(rb=>{ rb.addEventListener('click',ev=>{ ev.stopPropagation(); motAbrirRef(rb.dataset.pid); }); }); }
+/* 15/09/2026 — apoio dos tipos novos. Multi-Picklist guarda as escolhas em Valor_Opcao__c
+   separadas por ";", que e o mesmo formato do Opcoes__c da regra; nao precisou de campo novo. */
+function motMultiSel(p){ return (p.valorOpcao||'').split(';').map(x=>x.trim()).filter(Boolean); }
+function motNfcSuportado(){ return (typeof NDEFReader!=='undefined'); }
+let motNfcCtrl=null;
+async function motLerNfc(t,p,btn){
+  if(!motNfcSuportado()){ toast('⚠️ Este aparelho/navegador não suporta leitura NFC'); return; }
+  if(motNfcCtrl){ try{ motNfcCtrl.abort(); }catch(e){} motNfcCtrl=null; }
+  const rotulo=btn?btn.textContent:'';
+  try{
+    const reader=new NDEFReader();
+    const ctrl=new AbortController();
+    await reader.scan({signal:ctrl.signal});
+    motNfcCtrl=ctrl;
+    if(btn) btn.textContent='📶 aproxime a etiqueta…';
+    reader.onreading=(e)=>{
+      let texto='';
+      for(const rec of e.message.records){
+        if(rec.recordType==='text'){ try{ texto=new TextDecoder(rec.encoding||'utf-8').decode(rec.data); }catch(err){} break; }
+      }
+      if(!texto) return;
+      try{ motNfcCtrl.abort(); }catch(err){} motNfcCtrl=null;
+      motGravarValorTexto(t,p,texto.trim());
+    };
+  }catch(e){
+    if(btn) btn.textContent=rotulo;
+    toast('⚠️ Não consegui ativar o NFC: '+e.message);
+    motNfcCtrl=null;
+  }
+}
+/* um so caminho de gravacao pros tipos de texto (Texto e NFC), pra nao duplicar o
+   salvar + marcar edicao + re-render + auto-avanco em dois lugares. */
+function motGravarValorTexto(t,p,v){
+  v=String(v==null?'':v).slice(0,255);
+  p.valorTexto=v||null; p.horaRegistro=new Date().toISOString();
+  p.statusPasso=v?'Feito':'Pendente';
+  if(v) motSalvarPasso(t,p,{statusPasso:'Feito',valorTexto:v});
+  motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+}
+function motWireNovosTipos(cont,t){
+  /* Multi-Picklist: alterna a opcao e regrava a lista inteira. */
+  cont.querySelectorAll('.mot-mopt').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      const sel=motMultiSel(p), v=b.dataset.v, i=sel.indexOf(v);
+      if(i>=0) sel.splice(i,1); else sel.push(v);
+      const val=sel.join(';');
+      p.valorOpcao=val||null; p._dec=null; p.horaRegistro=new Date().toISOString();
+      p.statusPasso=val?'Feito':'Pendente';
+      if(val) motSalvarPasso(t,p,{statusPasso:'Feito',valorOpcao:val});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  /* Texto: o contador anda a cada tecla, mas a gravacao (e o re-render, que mataria o cursor)
+     so acontece quando a pessoa sai do campo. Mesma escolha do .mot-medin. */
+  cont.querySelectorAll('.mot-txin').forEach(ta=>{
+    const cnt=cont.querySelector('[data-cnt="'+ta.dataset.pid+'"]');
+    ta.addEventListener('input',()=>{ if(cnt) cnt.textContent=ta.value.length+'/255'; });
+    ta.addEventListener('change',()=>{
+      const p=motAcharPassoPorId(t,ta.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      motGravarValorTexto(t,p,ta.value.trim());
+    });
+  });
+  /* Data: Valor_Data__c aceita o yyyy-mm-dd que o input date ja devolve. */
+  cont.querySelectorAll('.mot-datein').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      const v=inp.value||null;
+      p.valorData=v; p.horaRegistro=new Date().toISOString();
+      p.statusPasso=v?'Feito':'Pendente';
+      if(v) motSalvarPasso(t,p,{statusPasso:'Feito',valorData:v});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  /* Contador: grava em Valor_Numerico__c, respeitando a faixa vigente do ativo quando houver. */
+  cont.querySelectorAll('.mot-cntbtn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      const min=p.valorMinVigente!=null?p.valorMinVigente:0, max=p.valorMaxVigente;
+      let v=p.valorNumerico!=null?p.valorNumerico:min;
+      v+=(b.dataset.cnt==='+'?1:-1);
+      if(v<min) v=min;
+      if(max!=null&&v>max) v=max;
+      p.valorNumerico=v; p._dec=null; p.horaRegistro=new Date().toISOString(); p.statusPasso='Feito';
+      motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:v});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
+  /* NFC: o botao so aparece onde o Web NFC existe; o campo manual aparece sempre. */
+  cont.querySelectorAll('.mot-nfcin').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
+      clearTimeout(MOT.timer);
+      motGravarValorTexto(t,p,inp.value.trim());
+    });
+  });
+  cont.querySelectorAll('[data-nfc]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=motAcharPassoPorId(t,b.dataset.nfc); if(!p) return;
+      clearTimeout(MOT.timer);
+      motLerNfc(t,p,b);
+    });
+  });
+}
 function motWireTyped(cont,t){
+  motWireNovosTipos(cont,t);
   cont.querySelectorAll('.mot-medin').forEach(inp=>{
     inp.addEventListener('change',()=>{
       const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
@@ -14892,7 +15105,11 @@ function motWireTyped(cont,t){
     b.addEventListener('click',()=>{
       const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
       clearTimeout(MOT.timer);
-      p.valorOpcao=b.dataset.v; p._dec=null; p.horaRegistro=new Date().toISOString();
+      /* 15/09/2026 — passou a marcar o statusPasso local tambem. A Condicao se resolvia pelo
+         valorOpcao e nao sentia falta, mas o Picklist, que reusa este mesmo botao, se resolve
+         por statusPasso: sem esta linha a resposta era gravada no servidor e a tarefa nunca
+         completava na tela. */
+      p.valorOpcao=b.dataset.v; p._dec=null; p.horaRegistro=new Date().toISOString(); p.statusPasso='Feito';
       motSalvarPasso(t,p,{statusPasso:'Feito',valorOpcao:b.dataset.v});
       motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
     });
