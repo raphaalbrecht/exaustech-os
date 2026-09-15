@@ -14294,17 +14294,36 @@ function motRespostaEhAchado(p,op){
   return String(op).trim().toLowerCase()==='ruim';
 }
 function motMedForaFaixa(p){ if(p.valorMinVigente==null||p.valorMaxVigente==null||p.valorNumerico==null) return false; return p.valorNumerico<p.valorMinVigente||p.valorNumerico>p.valorMaxVigente; }
+/* 15/09/2026 — comparacao numerica do condicional. Pai de Medicao/Contador responde em
+   valorNumerico, que motRespostaAtual nao devolve; pai de texto pode trazer numero escrito. */
+function motValorNumericoDoPasso(p){
+  if(p.valorNumerico!=null) return p.valorNumerico;
+  const v=motRespostaAtual(p);
+  if(v==null) return null;
+  const n=parseFloat(String(v).trim().replace(',','.'));
+  return isNaN(n)?null:n;
+}
 function motItemVisivel(t,p){
   if(!p.condDe) return true;
   const pai=motAcharPassoPorId(t,p.condDe.passoPaiId); if(!pai) return true;
-  const v=motRespostaAtual(pai);
   /* 15/09/2026 — passou a respeitar Passo_Regra__c.Operador__c, que existia no metadado e
-     nunca era lido: a comparacao era sempre igualdade. Passo antigo vem com operador
-     'Igual' (default posto no backend), entao nada muda pro que ja estava cadastrado. */
-  const op=String((p.condDe.operador||'Igual')).trim().toLowerCase();
+     nunca era lido: a comparacao era sempre igualdade. Os 7 valores da picklist restrita sao
+     'Igual a', 'Diferente de', 'Contem', 'Maior que', 'Maior ou igual', 'Menor que' e
+     'Menor ou igual'. Passo antigo vem com 'Igual a' (default posto no backend), entao nada
+     muda pro que ja estava cadastrado. */
+  const op=String(p.condDe.operador||'Igual a').trim().toLowerCase();
   const alvos=p.condDe.valores||[];
-  if(op==='preenchido') return v!=null && String(v).trim()!=='';
-  if(op==='diferente') return v!=null && alvos.indexOf(v)<0;
+  if(op==='maior que'||op==='maior ou igual'||op==='menor que'||op==='menor ou igual'){
+    const a=motValorNumericoDoPasso(pai);
+    const b=alvos.length?parseFloat(String(alvos[0]).trim().replace(',','.')):NaN;
+    if(a==null||isNaN(b)) return false;
+    if(op==='maior que') return a>b;
+    if(op==='maior ou igual') return a>=b;
+    if(op==='menor que') return a<b;
+    return a<=b;
+  }
+  const v=motRespostaAtual(pai);
+  if(op==='diferente de') return v!=null && alvos.indexOf(v)<0;
   if(op==='contém'||op==='contem'){
     if(v==null) return false;
     const vv=String(v).toLowerCase();
