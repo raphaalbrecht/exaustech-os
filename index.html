@@ -959,6 +959,16 @@
   .mot-justok{width:100%;margin-top:8px;background:var(--mot-blue);color:#fff;border:none;border-radius:10px;padding:11px;font-size:.8rem;font-weight:700;cursor:pointer}
   .mot-voltalink{display:block;margin:12px auto 0;border:1px solid var(--mot-border);background:var(--mot-surface);color:#7A8794;font-size:.68rem;font-weight:600;border-radius:8px;padding:6px 12px;cursor:pointer}
   .mot-ckhd{font-size:.7rem;color:var(--mot-text-soft);margin-bottom:2px}
+  /* R5 15/09/2026 — aviso que nao trava, e o bloqueio do botao "Esta OK" */
+  .mot-avisos{background:var(--mot-warn-soft);border:1px solid var(--mot-warn);border-radius:10px;padding:9px 11px;margin:0 0 9px}
+  .mot-avisos b{display:block;font-size:.72rem;color:var(--mot-warn);margin-bottom:3px}
+  .mot-avisos div{font-size:.78rem;color:var(--mot-text);line-height:1.4}
+  .mot-okbig[disabled]{opacity:.45;filter:grayscale(.6)}
+  .mot-okblock{background:var(--mot-warn-soft);border:1px solid var(--mot-warn);border-radius:10px;padding:9px 11px;margin:8px 0 0}
+  .mot-okblock b{display:block;font-size:.72rem;color:var(--mot-warn);margin-bottom:3px}
+  .mot-okblock div{font-size:.78rem;color:var(--mot-text);line-height:1.4}
+  .mot-travado{opacity:.6;pointer-events:none}
+  .mot-sugtag{font-size:.64rem;color:var(--mot-brand);margin-top:3px}
   .mot-secao{font-size:.72rem;font-weight:700;letter-spacing:.02em;color:#3E7EB0;margin:12px 0 4px;padding-bottom:3px;border-bottom:1px solid rgba(62,126,176,.22)}
   .mot-secao:first-child{margin-top:2px}
   .mot-ckrow{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px dashed var(--mot-border);cursor:pointer}
@@ -1079,6 +1089,15 @@
      e o unico sinal era a caixa de sugestao embaixo. De luva, isso era pouco. */
   .mot-copt.on.ruim{background:var(--mot-warn);border-color:var(--mot-warn);color:#fff}
   .mot-medrow.fora .mot-medin{border-color:var(--mot-warn);color:var(--mot-warn);background:var(--mot-warn-soft)}
+  /* R6 15/09/2026 — resultado calculado: o tecnico nao digita, o numero muda sozinho */
+  .mot-calc{background:var(--mot-blue-soft);border:1.5px solid #BFD5E6;border-radius:10px;padding:9px 11px;margin-top:7px}
+  .mot-calcnum{display:flex;align-items:baseline;gap:7px}
+  .mot-calcv{font-size:1.35rem;font-weight:800;color:var(--mot-navy)}
+  .mot-calcun{font-size:.78rem;font-weight:700;color:var(--mot-brand)}
+  .mot-calchint{font-size:.66rem;color:var(--mot-brand);margin-top:5px;line-height:1.4}
+  .mot-calc.fora{background:var(--mot-warn-soft);border-color:var(--mot-warn)}
+  .mot-calc.fora .mot-calcv,.mot-calc.fora .mot-calcun,.mot-calc.fora .mot-calchint{color:var(--mot-warn)}
+  .mot-calcvazio{font-size:.78rem;color:var(--mot-text-soft)}
   /* ===== PLANO DE MANUTENÇÃO (retaguarda) — porte de mockup-plano-FINAL-mestre-detalhe-timeline.html =====
      Todas as classes/ids deste bloco usam o prefixo pln- pra nunca colidir com o CSS existente.
      1ª rodada (22/07/2026, task #60): só mestre-detalhe (Editor) — linha do tempo fica pra depois. */
@@ -1174,6 +1193,11 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<script>
+/* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
+   GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
+if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
+</script>
 <div class="phone" id="app">
 
   <!-- SPLASH DE ABERTURA (usa o diafragma real do logo) -->
@@ -14285,6 +14309,10 @@ function motRespostaAtual(p){ return p.valorOpcao!=null?p.valorOpcao:(p.valorTex
    funcao muda, e a cor, a caixa de sugestao e o CBM passam a seguir o que foi cadastrado. */
 function motRespostaEhAchado(p,op){
   if(op==null) return false;
+  /* R5 15/09/2026 — declarado vence adivinhado. So cai na heuristica historica da palavra
+     "Ruim" quando nenhuma regra "Marcar como achado" foi cadastrada pra esta pergunta. */
+  const dec=motValoresAchadoDeclarados(p);
+  if(dec.length) return dec.indexOf(op)>=0;
   if(Array.isArray(p.valoresAchado)&&p.valoresAchado.length) return p.valoresAchado.indexOf(op)>=0;
   return String(op).trim().toLowerCase()==='ruim';
 }
@@ -14298,38 +14326,344 @@ function motValorNumericoDoPasso(p){
   const n=parseFloat(String(v).trim().replace(',','.'));
   return isNaN(n)?null:n;
 }
-function motItemVisivel(t,p){
-  if(!p.condDe) return true;
-  const pai=motAcharPassoPorId(t,p.condDe.passoPaiId); if(!pai) return true;
-  /* 15/09/2026 — passou a respeitar Passo_Regra__c.Operador__c, que existia no metadado e
-     nunca era lido: a comparacao era sempre igualdade. Os 7 valores da picklist restrita sao
-     'Igual a', 'Diferente de', 'Contem', 'Maior que', 'Maior ou igual', 'Menor que' e
-     'Menor ou igual'. Passo antigo vem com 'Igual a' (default posto no backend), entao nada
-     muda pro que ja estava cadastrado. */
-  const op=String(p.condDe.operador||'Igual a').trim().toLowerCase();
-  const alvos=p.condDe.valores||[];
+/* ===== R4/R5 15/09/2026 — motor de regra logica no celular =====
+   O backend manda, por passo, `regras: [{juncao, acao, valor, gravidade, mensagem, condicoes:[...]}]`.
+   Cada condicao ja vem resolvida pra ESTA execucao: ou aponta um passo irmao (passoRefId), ou traz
+   o valor do cadastro do equipamento ja lido (valorFixo). O que sobra aqui, e so aqui, e comparar,
+   juntar por E/OU e aplicar a acao, a cada toque, sem rede.
+   Ver docs/07-MANUTENCAO/DECISAO_base-da-regra-logica_15-09-2026.md. */
+function motNum(v){ if(v==null) return null; const n=parseFloat(String(v).trim().replace(',','.')); return isNaN(n)?null:n; }
+function motTemTexto(v){ return v!=null&&String(v).trim()!==''; }
+
+function motLadoEsquerdo(t,c){
+  if(Object.prototype.hasOwnProperty.call(c,'valorFixo')) return { texto:c.valorFixo, numero:motNum(c.valorFixo), passo:null };
+  const alvo=motAcharPassoPorId(t,c.passoRefId);
+  if(!alvo) return null;
+  return { texto:motRespostaAtual(alvo), numero:motValorNumericoDoPasso(alvo), passo:alvo };
+}
+
+function motCondicaoBate(t,c){
+  const L=motLadoEsquerdo(t,c); if(!L) return false;
+  const op=String(c.operador||'Igual a').trim().toLowerCase();
+  const alvos=c.valores||[];
+  const preenchido=motTemTexto(L.texto)||L.numero!=null;
+  if(op==='está preenchido'||op==='esta preenchido') return preenchido;
+  if(op==='está vazio'||op==='esta vazio') return !preenchido;
+  if(op==='entre'){
+    const a=L.numero, b=motNum(alvos[0]), d=motNum(c.valor2);
+    if(a==null||b==null||d==null) return false;
+    return a>=Math.min(b,d)&&a<=Math.max(b,d);
+  }
+  if(op==='fora da faixa deste equipamento'){
+    /* nao repete numero nenhum: usa a faixa vigente que o backend ja resolveu pro passo
+       olhado, a do Ponto_Medicao__c do equipamento quando existe, a da biblioteca quando nao. */
+    const alvo=L.passo; if(!alvo) return false;
+    if(alvo.valorMinVigente==null||alvo.valorMaxVigente==null||L.numero==null) return false;
+    return L.numero<alvo.valorMinVigente||L.numero>alvo.valorMaxVigente;
+  }
   if(op==='maior que'||op==='maior ou igual'||op==='menor que'||op==='menor ou igual'){
-    const a=motValorNumericoDoPasso(pai);
-    const b=alvos.length?parseFloat(String(alvos[0]).trim().replace(',','.')):NaN;
-    if(a==null||isNaN(b)) return false;
+    const a=L.numero, b=motNum(alvos[0]);
+    if(a==null||b==null) return false;
     if(op==='maior que') return a>b;
     if(op==='maior ou igual') return a>=b;
     if(op==='menor que') return a<b;
     return a<=b;
   }
-  const v=motRespostaAtual(pai);
-  if(op==='diferente de') return v!=null && alvos.indexOf(v)<0;
+  const v=L.texto;
+  if(op==='diferente de') return v!=null&&alvos.indexOf(v)<0;
   if(op==='contém'||op==='contem'){
     if(v==null) return false;
     const vv=String(v).toLowerCase();
-    return alvos.some(a=>vv.indexOf(String(a).toLowerCase())>=0);
+    return alvos.some(x=>vv.indexOf(String(x).toLowerCase())>=0);
   }
-  return v!=null && alvos.indexOf(v)>=0;
+  return v!=null&&alvos.indexOf(v)>=0;
+}
+
+function motRegraBate(t,r){
+  const cs=(r&&r.condicoes)||[];
+  if(!cs.length) return false;
+  return r.juncao==='Qualquer' ? cs.some(c=>motCondicaoBate(t,c)) : cs.every(c=>motCondicaoBate(t,c));
+}
+
+/* "Ignorar secao" e a unica acao que nao age sobre a propria pergunta: apaga a secao inteira.
+   O dado deixa de existir, entao nao pesa na conclusao nem conta como nao realizado. */
+function motSecoesIgnoradas(t){
+  const set={};
+  (t.passos||[]).forEach(p=>(p.regras||[]).forEach(r=>{
+    if(r.acao==='Ignorar seção'&&r.valor&&motRegraBate(t,r)) set[r.valor]=true;
+  }));
+  return set;
+}
+
+function motEfeitos(t,p){
+  const ef={ mostrar:false, temMostrar:false, esconder:false, obrigatoria:null, exigeFoto:false,
+             travar:null, sugerir:null, achado:null, avisos:[], exigirOK:[] };
+  (p.regras||[]).forEach(r=>{
+    if(r.acao==='Mostrar') ef.temMostrar=true;
+    if(!motRegraBate(t,r)) return;
+    if(r.acao==='Mostrar') ef.mostrar=true;
+    else if(r.acao==='Esconder') ef.esconder=true;
+    else if(r.acao==='Tornar obrigatória') ef.obrigatoria=true;
+    else if(r.acao==='Deixar de ser obrigatória') ef.obrigatoria=false;
+    else if(r.acao==='Exigir foto') ef.exigeFoto=true;
+    else if(r.acao==='Preencher e travar') ef.travar=r.valor;
+    else if(r.acao==='Sugerir valor') ef.sugerir=r.valor;
+    else if(r.acao==='Marcar como achado') ef.achado=r.gravidade||'Média';
+    else if(r.acao==='Avisar sem travar'){ if(r.mensagem) ef.avisos.push(r.mensagem); }
+    else if(r.acao==='Exigir para concluir como OK') ef.exigirOK.push(r.mensagem||('"'+(p.descricao||'um passo')+'" impede concluir como OK'));
+  });
+  return ef;
+}
+
+function motItemVisivel(t,p){
+  if(p.secao&&motSecoesIgnoradas(t)[p.secao]) return false;
+  if(p.regras&&p.regras.length){
+    /* modelo novo vence o antigo quando existe. A migracao de 15/09/2026 criou uma regra
+       "Mostrar" equivalente pra cada condicional antiga, entao nada muda pro que ja estava. */
+    const ef=motEfeitos(t,p);
+    if(ef.esconder) return false;
+    if(ef.temMostrar) return ef.mostrar;
+    return true;
+  }
+  if(!p.condDe) return true;
+  const pai=motAcharPassoPorId(t,p.condDe.passoPaiId); if(!pai) return true;
+  /* 15/09/2026 — passou a respeitar Passo_Regra__c.Operador__c, que existia no metadado e
+     nunca era lido: a comparacao era sempre igualdade. */
+  return motCondicaoBate(t,{ passoRefId:p.condDe.passoPaiId, operador:p.condDe.operador||'Igual a', valores:p.condDe.valores||[] });
+}
+
+/* Valores que ja foram DECLARADOS como achado por uma regra "Marcar como achado" cuja unica
+   condicao e "resposta desta pergunta igual a X". E o que destrava escrever a pergunta no
+   positivo ("Esta limpo?" com achado em "Nao") em vez de o motor adivinhar pela palavra "Ruim". */
+function motValoresAchadoDeclarados(p){
+  const out=[];
+  (p.regras||[]).forEach(r=>{
+    if(r.acao!=='Marcar como achado') return;
+    (r.condicoes||[]).forEach(c=>{
+      const op=String(c.operador||'').trim().toLowerCase();
+      if(c.passoRefId===p.id&&op==='igual a') (c.valores||[]).forEach(v=>{ if(out.indexOf(v)<0) out.push(v); });
+    });
+  });
+  return out;
+}
+
+/* ===== R6 15/09/2026 — tipo Calculo =====
+   A formula vem de Passo_Regra__c.Formula__c e referencia as outras perguntas pelo Codigo__c
+   delas, entre chaves: {VEL_AR} * {AREA_BOCA} * 3600. Sem eval: parser proprio, recursivo,
+   que so entende numero, token, parenteses, + - * / e as seis funcoes do catalogo.
+   Passo de Data vale como dias desde 1970, e por isso DIAS_ENTRE e so uma subtracao. */
+const MOT_FUNCS={ MEDIA:1, MENOR:1, MAIOR:1, SOMA:1, DIAS_ENTRE:1, PERCENTUAL:1 };
+function motTokensFormula(f){
+  const re=/\{[^}]*\}|\d+(?:[.,]\d+)?|[A-Za-z_][A-Za-z_0-9]*|[+\-*/(),]/g;
+  return String(f||'').match(re)||[];
+}
+function motDiasEpoch(iso){
+  if(!iso) return null;
+  const d=new Date(String(iso).length<=10?String(iso)+'T00:00:00':iso);
+  if(isNaN(d.getTime())) return null;
+  return Math.floor(d.getTime()/86400000);
+}
+function motValorDoToken(t,cod,visitados){
+  if(cod==='HOJE') return Math.floor(Date.now()/86400000);
+  const alvo=(t.passos||[]).find(x=>x.codigo===cod);
+  if(!alvo) return null;
+  if(alvo.tipoCampo==='Data') return motDiasEpoch(alvo.valorData);
+  if(alvo.tipoCampo==='Cálculo') return motCalcular(t,alvo,visitados);
+  return motValorNumericoDoPasso(alvo);
+}
+function motCalcular(t,p,visitados){
+  visitados=visitados||{};
+  if(!p||!p.formula) return null;
+  if(visitados[p.id]) return null;          /* formula que se referencia em circulo */
+  visitados[p.id]=true;
+  const tk=motTokensFormula(p.formula);
+  let i=0;
+  const olha=()=>tk[i], come=()=>tk[i++];
+  function expr(){
+    let v=termo(); if(v==null) return null;
+    while(olha()==='+'||olha()==='-'){ const op=come(); const d=termo(); if(d==null) return null; v=(op==='+')?v+d:v-d; }
+    return v;
+  }
+  function termo(){
+    let v=fator(); if(v==null) return null;
+    while(olha()==='*'||olha()==='/'){ const op=come(); const d=fator(); if(d==null) return null;
+      if(op==='/'){ if(d===0) return null; v=v/d; } else v=v*d; }
+    return v;
+  }
+  function fator(){
+    if(olha()==='-'){ come(); const v=fator(); return v==null?null:-v; }
+    if(olha()==='+'){ come(); return fator(); }
+    return primario();
+  }
+  function args(){
+    const out=[];
+    if(olha()===')'){ come(); return out; }
+    for(;;){ const v=expr(); if(v==null) return null; out.push(v);
+      if(olha()===','){ come(); continue; }
+      if(olha()===')'){ come(); return out; }
+      return null; }
+  }
+  function primario(){
+    const c=olha();
+    if(c==null) return null;
+    if(c==='('){ come(); const v=expr(); if(olha()!==')') return null; come(); return v; }
+    if(c[0]==='{'){ come(); return motValorDoToken(t,c.slice(1,-1).trim(),visitados); }
+    if(/^\d/.test(c)){ come(); return parseFloat(c.replace(',','.')); }
+    if(/^[A-Za-z_]/.test(c)){
+      const nome=come().toUpperCase();
+      if(olha()!=='('){ return motValorDoToken(t,nome,visitados); }   /* HOJE sem parenteses */
+      come();
+      const a=args(); if(a==null||!a.length) return null;
+      if(nome==='SOMA') return a.reduce((x,y)=>x+y,0);
+      if(nome==='MEDIA') return a.reduce((x,y)=>x+y,0)/a.length;
+      if(nome==='MENOR') return Math.min.apply(null,a);
+      if(nome==='MAIOR') return Math.max.apply(null,a);
+      if(nome==='DIAS_ENTRE') return a.length===2?(a[0]-a[1]):null;
+      if(nome==='PERCENTUAL') return (a.length===2&&a[1]!==0)?(a[0]/a[1]*100):null;
+      return null;
+    }
+    return null;
+  }
+  const r=expr();
+  if(r==null||isNaN(r)||!isFinite(r)) return null;
+  if(i<tk.length) return null;              /* sobrou token: formula malformada */
+  return r;
+}
+function motCalcFmt(p,v){
+  const casas=(p.casasDecimais==null?2:p.casasDecimais);
+  return v.toFixed(casas).replace('.',',');
+}
+
+/* Impedimentos de concluir como "Esta OK". Travam SO esse botao: "Com nao conformidade" e
+   "Nao executado" seguem abertos sempre, porque excecao nunca trava o tecnico, so exige
+   justificativa registrada. Ver §6 da DECISAO_base-da-regra-logica_15-09-2026.md. */
+function motImpedimentosOK(t){
+  const out=[];
+  const temFoto=((t.fotos&&t.fotos.antes||[]).length+(t.fotos&&t.fotos.depois||[]).length+(t.fotos&&t.fotos.adicionais||[]).length)>0;
+  (t.passos||[]).forEach(p=>{
+    if(!p.regras||!p.regras.length) return;
+    if(!motItemVisivel(t,p)) return;
+    const ef=motEfeitos(t,p);
+    ef.exigirOK.forEach(m=>{ if(out.indexOf(m)<0) out.push(m); });
+    if(ef.exigeFoto&&!temFoto){
+      const m='"'+(p.descricao||'um passo')+'" pede foto antes de concluir como OK.';
+      if(out.indexOf(m)<0) out.push(m);
+    }
+  });
+  return out;
+}
+function motAvisosDaTarefa(t){
+  const out=[];
+  (t.passos||[]).forEach(p=>{
+    if(!p.regras||!p.regras.length||!motItemVisivel(t,p)) return;
+    motEfeitos(t,p).avisos.forEach(m=>{ if(out.indexOf(m)<0) out.push(m); });
+  });
+  return out;
+}
+function motAvisosHtml(t){
+  const av=motAvisosDaTarefa(t);
+  if(!av.length) return '';
+  return '<div class="mot-avisos"><b>⚠ Atenção</b>'+av.map(m=>'<div>'+motEsc(m)+'</div>').join('')+'</div>';
+}
+
+/* "Preencher e travar" e "Sugerir valor" escrevem no passo. Roda uma vez por render, antes de
+   montar o HTML, e nunca reescreve o mesmo valor duas vezes (guarda em p._auto). Sugerir so
+   preenche campo VAZIO: o tecnico pode trocar depois, travar ele nao pode. */
+/* O valor ainda e exatamente o que a regra escreveu? Se sim, ninguem mexeu nele, e desfazer
+   e seguro. Se o tecnico mudou, o valor passou a ser dele e ninguem apaga. */
+/* A marca "quem escreveu este valor" precisa sobreviver a recarregar o app: o tecnico fecha e
+   reabre o tempo todo em campo, por bateria, por sinal, por engano. So na memoria da pagina ela
+   se perde no primeiro reload e o valor da regra vira, indevidamente, resposta do tecnico.
+   Fica no aparelho porque e o aparelho que esta fazendo a tarefa. */
+function motAutoLer(p){
+  if(p._auto!==undefined&&p._auto!==null) return p._auto;
+  try{ return localStorage.getItem('mot_auto_'+p.id); }catch(e){ return null; }
+}
+function motAutoGravar(p,v){
+  p._auto=v;
+  try{ if(v==null) localStorage.removeItem('mot_auto_'+p.id); else localStorage.setItem('mot_auto_'+p.id,v); }catch(e){}
+}
+function motValorVeioDaRegra(p,valor){
+  if(p.tipoCampo==='Medição'||p.tipoCampo==='Contador'){ const n=motNum(valor); return n!=null&&p.valorNumerico===n; }
+  if(p.tipoCampo==='Condição'||p.tipoCampo==='Picklist'||p.tipoCampo==='Multi-Picklist') return p.valorOpcao===String(valor);
+  if(p.tipoCampo==='Data') return p.valorData===String(valor);
+  return p.valorTexto===String(valor).slice(0,255);
+}
+function motLimparPasso(t,p){
+  p.valorNumerico=null; p.valorTexto=null; p.valorOpcao=null; p.valorData=null;
+  p.statusPasso='Pendente'; p.horaRegistro=null; p._sugerido=null;
+  try{ localStorage.removeItem('mot_auto_'+p.id); }catch(e){}
+  motSalvarPasso(t,p,{limpar:true});
+}
+function motAplicarAutomaticas(t){
+  /* R6 — o resultado calculado e gravado em Valor_Numerico__c como qualquer medicao, e por
+     isso entra na serie historica do equipamento. So regrava quando o numero muda. */
+  (t.passos||[]).forEach(p=>{
+    if(p.tipoCampo!=='Cálculo') return;
+    const v=motCalcular(t,p);
+    if(v==null) return;
+    const arred=parseFloat(v.toFixed(p.casasDecimais==null?2:p.casasDecimais));
+    if(p.valorNumerico===arred&&p.statusPasso==='Feito') return;
+    p.valorNumerico=arred; p.statusPasso='Feito'; p.horaRegistro=new Date().toISOString();
+    motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:arred});
+  });
+  (t.passos||[]).forEach(p=>{
+    if(!p.regras||!p.regras.length) return;
+    if(p.statusPasso==='Não realizado') return;
+    if(!motItemVisivel(t,p)) return;
+    const ef=motEfeitos(t,p);
+    const marca = ef.travar!=null ? ('T|'+ef.travar) : (ef.sugerir!=null ? ('S|'+ef.sugerir) : null);
+    const marcado = motAutoLer(p);
+
+    /* 15/09/2026 — a regra que escreveu deixou de valer. O valor dela NAO pode ficar no laudo
+       como se fosse resposta do tecnico: "tem filtro inercial? Sim" sugere o modelo, ele corrige
+       para "Não", e o modelo sugerido ficava la. Desfaz, mas so se ninguem tiver mexido. */
+    if(marcado&&marcado!==marca){
+      const antigo=marcado.slice(2);
+      if(marca==null&&motValorVeioDaRegra(p,antigo)) motLimparPasso(t,p);
+      motAutoGravar(p,null); p._sugerido=null; p._travado=false;
+    }
+
+    if(ef.travar!=null){
+      p._travado=true;
+      if(motAutoLer(p)!==marca){ motAutoGravar(p,marca); motAplicarValorAutomatico(t,p,ef.travar); }
+      return;
+    }
+    p._travado=false;
+    if(ef.sugerir!=null){
+      const vazio=p.valorTexto==null&&p.valorOpcao==null&&p.valorNumerico==null&&p.valorData==null;
+      /* ja marcado com a MESMA sugestao e com o valor intacto: veio de uma sessao anterior, mantem
+         a marca em vez de reescrever, para o desfazer continuar valendo depois do reload. */
+      if(vazio&&motAutoLer(p)!==marca){ motAutoGravar(p,marca); p._sugerido=ef.sugerir; motAplicarValorAutomatico(t,p,ef.sugerir); }
+      else if(!vazio&&motAutoLer(p)===marca) p._sugerido=ef.sugerir;
+    }
+  });
+}
+function motAplicarValorAutomatico(t,p,valor){
+  const n=motNum(valor);
+  const payload={statusPasso:'Feito'};
+  if(p.tipoCampo==='Medição'||p.tipoCampo==='Contador'){
+    if(n==null) return;
+    p.valorNumerico=n; payload.valorNumerico=n;
+  } else if(p.tipoCampo==='Condição'||p.tipoCampo==='Picklist'||p.tipoCampo==='Multi-Picklist'){
+    p.valorOpcao=String(valor); payload.valorOpcao=String(valor);
+  } else if(p.tipoCampo==='Data'){
+    p.valorData=String(valor); payload.valorData=String(valor);
+  } else {
+    p.valorTexto=String(valor).slice(0,255); payload.valorTexto=p.valorTexto;
+  }
+  p.statusPasso='Feito'; p.horaRegistro=new Date().toISOString();
+  motSalvarPasso(t,p,payload);
 }
 function motItemResolvido(t,p){
   if(!motItemVisivel(t,p)) return true;
+  /* R5 15/09/2026 — "Deixar de ser obrigatoria" e a unica acao que solta a trava do avanco:
+     o passo continua na tela, pode ser respondido, mas em branco nao segura a tarefa. */
+  if(p.regras&&p.regras.length&&motEfeitos(t,p).obrigatoria===false) return true;
   if(p.statusPasso==='Não realizado') return true;
   if(p.tipoCampo==='Instrução') return true;
+  /* R6 — resultado calculado nao e trabalho do tecnico: quem trava o avanco sao as leituras de origem */
+  if(p.tipoCampo==='Cálculo') return true;
   if(p.tipoCampo==='Checkbox') return p.statusPasso==='Feito';
   if(p.tipoCampo==='Medição'){ if(p.valorNumerico==null) return false; return !motMedForaFaixa(p)||!!p._dec; }
   if(p.tipoCampo==='Condição'){ if(!p.valorOpcao) return false; return p.valorOpcao!=='Ruim'||!!p._dec; }
@@ -14636,6 +14970,7 @@ function motWireNav(head){
 }
 function motRenderAtual(){
   const t=MOT.tarefas[MOT.atual]; if(!t) return;
+  motAplicarAutomaticas(t);
   const head=document.getElementById('mot-shHead');
   head.innerHTML=motNavHtml()+'<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+motStepsHtml(t);
   motWireSteps(head); motWireNav(head);
@@ -14901,6 +15236,17 @@ function motTypedStepHtml(t,p,aff){
     h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+(motRespostaEhAchado(p,op)?' ruim':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
       (motRespostaEhAchado(p,p.valorOpcao)&&!p._dec?motSugBoxHtml(p):'')+
       (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+  }else if(p.tipoCampo==='Cálculo'){
+    /* nao ha campo pra digitar: o numero e recalculado a cada toque nas perguntas de origem */
+    const v=motCalcular(t,p);
+    if(v==null){
+      h+='<div class="mot-calc"><div class="mot-calcvazio">aguardando as leituras acima</div></div>';
+    }else{
+      const fora=(p.valorMinVigente!=null&&p.valorMaxVigente!=null)&&(v<p.valorMinVigente||v>p.valorMaxVigente);
+      h+='<div class="mot-calc'+(fora?' fora':'')+'"><div class="mot-calcnum"><span class="mot-calcv">'+motCalcFmt(p,v)+'</span><span class="mot-calcun">'+motEsc(p.unidade||'')+'</span>'+
+        (p.valorMinVigente!=null&&p.valorMaxVigente!=null?('<span style="flex:1"></span><span class="mot-medflag '+(fora?'fora':'ok')+'">'+(fora?'fora da faixa':'✓ na faixa')+'</span>'):'')+'</div>'+
+        '<div class="mot-calchint">'+motEsc(p.formula||'')+(p.valorMinVigente!=null&&p.valorMaxVigente!=null?(' · faixa '+motFmt(p.valorMinVigente)+' a '+motFmt(p.valorMaxVigente)+' '+motEsc(p.unidade||'')):'')+'</div></div>';
+    }
   }else if(p.tipoCampo==='Mídia'){
     h+=p.statusPasso==='Feito'?('<div class="mot-fsim mini vid"><div class="mot-cap">VÍDEO · anexado'+(p.horaRegistro?' · '+motFmtHora(p.horaRegistro):'')+'</div></div>'):('<button class="mot-vidtap" data-pid="'+p.id+'">🎥 vídeo curto (máx 30s) — toque para gravar</button>');
   }else if(p.tipoCampo==='Picklist'){
@@ -14952,11 +15298,15 @@ function motPassoRowHtml(t,p,aff){
   if(p.statusPasso==='Não realizado') inner=motSkipRowHtml(p);
   else if(p.tipoCampo==='Instrução') inner='<div class="mot-ckrow info" data-pid="'+p.id+'"><span class="mot-iico">⚠</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
   else if(p.tipoCampo==='Checkbox') inner=motCheckboxRowHtml(p,aff);
-  else if(['Instrução','Checkbox','Medição','Condição','Mídia','Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) inner=motTypedStepHtml(t,p,aff);
+  else if(['Instrução','Checkbox','Medição','Condição','Mídia','Picklist','Multi-Picklist','Texto','Contador','Data','NFC','Cálculo'].includes(p.tipoCampo)) inner=motTypedStepHtml(t,p,aff);
   /* 15/09/2026 — os 6 tipos acima passaram a ter campo de verdade. O fallback fica como rede
      de seguranca pra um Tipo_Campo__c novo que apareca na biblioteca sem tela correspondente. */
   else inner=motFallbackRowHtml(p);
   if(p.statusPasso!=='Não realizado') inner+=motRefBtnHtml(p);
+  /* R5 15/09/2026 — "Preencher e travar": o valor ja foi gravado em motAplicarAutomaticas;
+     aqui so desliga o toque, pra ninguem mudar o que a regra fixou. */
+  if(p._travado) inner='<div class="mot-travado">'+inner+'</div>';
+  else if(p._sugerido!=null) inner+='<div class="mot-sugtag">valor sugerido pela regra, pode ser alterado</div>';
   if(p.condDe){ const pai=motAcharPassoPorId(t,p.condDe.passoPaiId);
     inner+='<div class="mot-condnote">passo condicional — aparece porque a condição = '+motEsc(pai?(motRespostaAtual(pai)||''):'')+'</div>'; }
   return inner;
@@ -15180,7 +15530,7 @@ function motRenderCheck(){
      jogado de volta pro item 1. O usuário lê isso como "travou/pulou" — e ainda deixava
      scrollTop=0, que rearmava o arrasto-fecha do onMove. Guardar e devolver resolve os dois. */
   const scrollAntes = body.scrollTop;
-  body.innerHTML='<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true);
+  body.innerHTML=motAvisosHtml(t)+'<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true);
   motWireTyped(body,t); motWireCkRows(body,t);
   motHidratarThumbs(body);
   body.scrollTop = scrollAntes;
@@ -15221,11 +15571,13 @@ function motRenderSkipItem(passoId){
 function motRenderDesfecho(){
   const t=MOT.tarefas[MOT.atual];
   const body=document.getElementById('mot-shBody');
-  body.innerHTML=motAbcolHtml(t,true,true)+
-    '<button class="mot-okbig" id="mot-okbig">✓ Está OK</button>'+
+  const imped=motImpedimentosOK(t);
+  body.innerHTML=motAvisosHtml(t)+motAbcolHtml(t,true,true)+
+    '<button class="mot-okbig" id="mot-okbig"'+(imped.length?' disabled':'')+'>✓ Está OK</button>'+
+    (imped.length?('<div class="mot-okblock"><b>"Está OK" indisponível</b>'+imped.map(m=>'<div>'+motEsc(m)+'</div>').join('')+'<div style="margin-top:5px;opacity:.85">Você continua podendo registrar Anotação Técnica ou marcar como não executado.</div></div>'):'')+
     '<button class="mot-notabtn" id="mot-notabtn">Anotação Técnica<small>registrar achado ou problema</small></button>';
   motWireExtras(body,t); motWireAB(body,t);
-  body.querySelector('#mot-okbig').addEventListener('click',()=>motConcluir('ok'));
+  if(!imped.length) body.querySelector('#mot-okbig').addEventListener('click',()=>motConcluir('ok'));
   body.querySelector('#mot-notabtn').addEventListener('click',()=>{ t._fase='anota'; motRenderAtual(); });
   motHidratarThumbs(body);
 }
