@@ -33,6 +33,20 @@
   /* Telas marcadas .cad-wide (ex.: Cadastrar nova conta) usam mais largura em navegador desktop — resto do app
      continua no frame de celular de sempre. :has() é suportado nos navegadores atuais (Chrome/Edge/Safari/Firefox). */
   @media(min-width:900px){.phone:has(.cad-wide){max-width:680px}}
+  /* R7 15/09/2026 — a retaguarda de Plano e trabalho de computador, nao de celular: montar uma
+     regra logica numa coluna de 420px e imprestavel. Numa janela larga a aba Plano ocupa a tela;
+     no celular continua exatamente como era. Mesmo mecanismo do .cad-wide acima. */
+  @media(min-width:1000px){
+    .phone.plano-wide{max-width:1280px}
+    .phone.plano-wide .pln-master{width:290px}
+    .phone.plano-wide .pln-split{min-height:calc(100vh - 230px)}
+    .phone.plano-wide .pln-detail{padding:14px 22px 40px;max-width:900px}
+    .phone.plano-wide .pln-regra{font-size:.72rem}
+    .phone.plano-wide .pln-sel,.phone.plano-wide .pln-inp{font-size:.74rem;padding:6px 9px}
+    .phone.plano-wide .pln-poprow{font-size:.78rem;padding:9px 0}
+    .phone.plano-wide .pln-poprow .ds{min-width:220px}
+    .phone.plano-wide .pln-bld{padding:14px 16px}
+  }
   .cad-cnpj-pill{background:var(--brand-l);color:var(--brand-d);border:1.5px solid #9fc6f0;border-radius:999px;padding:0 20px;font-weight:700;font-size:13.5px;white-space:nowrap;cursor:pointer}
   .cad-cnpj-pill:hover{background:#dcebf9}
   .phone.fullbleed{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
@@ -2087,6 +2101,8 @@ function go(scr){
   document.querySelectorAll('main .screen, #scr-login').forEach(s=>s.classList.remove('active'));
   document.getElementById('scr-'+scr).classList.add('active');
   document.getElementById('app').classList.toggle('fullbleed', scr==='login');
+  /* R7 — so a aba Plano ganha largura de desktop; o resto do app segue no frame de celular */
+  document.getElementById('app').classList.toggle('plano-wide', scr==='plano');
   const internal=scr!=='login';
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
