@@ -14571,6 +14571,18 @@ function motAvisosHtml(t){
    preenche campo VAZIO: o tecnico pode trocar depois, travar ele nao pode. */
 /* O valor ainda e exatamente o que a regra escreveu? Se sim, ninguem mexeu nele, e desfazer
    e seguro. Se o tecnico mudou, o valor passou a ser dele e ninguem apaga. */
+/* A marca "quem escreveu este valor" precisa sobreviver a recarregar o app: o tecnico fecha e
+   reabre o tempo todo em campo, por bateria, por sinal, por engano. So na memoria da pagina ela
+   se perde no primeiro reload e o valor da regra vira, indevidamente, resposta do tecnico.
+   Fica no aparelho porque e o aparelho que esta fazendo a tarefa. */
+function motAutoLer(p){
+  if(p._auto!==undefined&&p._auto!==null) return p._auto;
+  try{ return localStorage.getItem('mot_auto_'+p.id); }catch(e){ return null; }
+}
+function motAutoGravar(p,v){
+  p._auto=v;
+  try{ if(v==null) localStorage.removeItem('mot_auto_'+p.id); else localStorage.setItem('mot_auto_'+p.id,v); }catch(e){}
+}
 function motValorVeioDaRegra(p,valor){
   if(p.tipoCampo==='Medição'||p.tipoCampo==='Contador'){ const n=motNum(valor); return n!=null&&p.valorNumerico===n; }
   if(p.tipoCampo==='Condição'||p.tipoCampo==='Picklist'||p.tipoCampo==='Multi-Picklist') return p.valorOpcao===String(valor);
@@ -14579,7 +14591,8 @@ function motValorVeioDaRegra(p,valor){
 }
 function motLimparPasso(t,p){
   p.valorNumerico=null; p.valorTexto=null; p.valorOpcao=null; p.valorData=null;
-  p.statusPasso='Pendente'; p.horaRegistro=null;
+  p.statusPasso='Pendente'; p.horaRegistro=null; p._sugerido=null;
+  try{ localStorage.removeItem('mot_auto_'+p.id); }catch(e){}
   motSalvarPasso(t,p,{limpar:true});
 }
 function motAplicarAutomaticas(t){
@@ -14600,25 +14613,29 @@ function motAplicarAutomaticas(t){
     if(!motItemVisivel(t,p)) return;
     const ef=motEfeitos(t,p);
     const marca = ef.travar!=null ? ('T|'+ef.travar) : (ef.sugerir!=null ? ('S|'+ef.sugerir) : null);
+    const marcado = motAutoLer(p);
 
     /* 15/09/2026 — a regra que escreveu deixou de valer. O valor dela NAO pode ficar no laudo
        como se fosse resposta do tecnico: "tem filtro inercial? Sim" sugere o modelo, ele corrige
        para "Não", e o modelo sugerido ficava la. Desfaz, mas so se ninguem tiver mexido. */
-    if(p._auto&&p._auto!==marca){
-      const antigo=p._auto.slice(2);
+    if(marcado&&marcado!==marca){
+      const antigo=marcado.slice(2);
       if(marca==null&&motValorVeioDaRegra(p,antigo)) motLimparPasso(t,p);
-      p._auto=null; p._sugerido=null; p._travado=false;
+      motAutoGravar(p,null); p._sugerido=null; p._travado=false;
     }
 
     if(ef.travar!=null){
       p._travado=true;
-      if(p._auto!==marca){ p._auto=marca; motAplicarValorAutomatico(t,p,ef.travar); }
+      if(motAutoLer(p)!==marca){ motAutoGravar(p,marca); motAplicarValorAutomatico(t,p,ef.travar); }
       return;
     }
     p._travado=false;
     if(ef.sugerir!=null){
       const vazio=p.valorTexto==null&&p.valorOpcao==null&&p.valorNumerico==null&&p.valorData==null;
-      if(vazio&&p._auto!==marca){ p._auto=marca; p._sugerido=ef.sugerir; motAplicarValorAutomatico(t,p,ef.sugerir); }
+      /* ja marcado com a MESMA sugestao e com o valor intacto: veio de uma sessao anterior, mantem
+         a marca em vez de reescrever, para o desfazer continuar valendo depois do reload. */
+      if(vazio&&motAutoLer(p)!==marca){ motAutoGravar(p,marca); p._sugerido=ef.sugerir; motAplicarValorAutomatico(t,p,ef.sugerir); }
+      else if(!vazio&&motAutoLer(p)===marca) p._sugerido=ef.sugerir;
     }
   });
 }
