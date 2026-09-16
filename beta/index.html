@@ -15537,13 +15537,35 @@ function motFallbackRowHtml(p){
   return '<div class="mot-fallrow" data-pid="'+p.id+'"><span class="mot-tx">'+motEsc(p.descricao)+' <small style="color:var(--mot-text-soft)">('+motEsc(p.tipoCampo)+')</small></span>'+
     '<span class="mot-fallbdg">'+bdg+'</span><button class="mot-cksk" data-sk="'+p.id+'" title="não se aplica / não pôde ser feito">⊘</button></div>';
 }
+/* ===== 16/09/2026 — um achado, uma anotacao =====
+   Antes a visita inteira virava UMA Anotacao Tecnica, com os achados concatenados no texto:
+   tres problemas em tres perguntas diferentes viravam uma linha so, sem origem e com uma
+   severidade so. Agora cada achado vindo de uma pergunta vira o seu registro.
+
+   A regra logica declara gravidade em Leve/Media/Grave/Critica; a Anotacao Tecnica tem
+   Observacao/Atencao/Critico. A traducao abaixo nao perde nada porque "Grave" vira Atencao
+   JA PEDINDO corretiva, usando o caminho que o M14 previu ("Atencao permite marcar
+   manualmente"). Critica continua sendo o unico que gera corretiva sozinho. */
+const MOT_SEV_DA_GRAVIDADE={ 'Leve':{sev:'Observação',corretiva:false},
+  'Média':{sev:'Atenção',corretiva:false}, 'Grave':{sev:'Atenção',corretiva:true},
+  'Crítica':{sev:'Crítico',corretiva:true} };
+function motSevDoAchado(p){
+  /* gravidade declarada por uma regra "Marcar como achado" vence a suposicao */
+  const ef=(typeof motEfeitos==='function')?motEfeitos(MOT.tarefas[MOT.atual],p):null;
+  const g=ef&&ef.achado;
+  if(g && MOT_SEV_DA_GRAVIDADE[g]) return MOT_SEV_DA_GRAVIDADE[g];
+  /* sem regra: medicao fora da faixa e Atencao, que e o que a caixa de sugestao ja dizia */
+  return { sev:'Atenção', corretiva:false };
+}
+
 function motSugTexto(p){
   if(p.tipoCampo==='Medição') return p.descricao+': '+motFmt(p.valorNumerico)+' '+(p.unidade||'')+' — fora da faixa do ativo ('+motFmt(p.valorMinVigente)+'–'+motFmt(p.valorMaxVigente)+' '+(p.unidade||'')+')';
   return p.descricao+': '+p.valorOpcao+' — descrever o dano observado';
 }
 function motSugBoxHtml(p){
+  const sd=motSevDoAchado(p);
   return '<div class="mot-sugbox"><b>📝 Anotação Técnica sugerida</b>'+
-    '<div class="mot-sugtx">"'+motEsc(motSugTexto(p))+'" · severidade sugerida: <b>Atenção</b></div>'+
+    '<div class="mot-sugtx">"'+motEsc(motSugTexto(p))+'" · severidade: <b>'+motEsc(sd.sev)+'</b>'+(sd.corretiva?' · já pede corretiva':'')+'</div>'+
     '<div class="mot-sugrow"><button class="mot-sugok" data-pid="'+p.id+'">Aceitar</button><button class="mot-sugdisp" data-pid="'+p.id+'">Dispensar</button></div>'+
     '<div class="mot-sughint">texto pré-preenchido — se você registrar Anotação Técnica nesta tarefa, ele entra automaticamente. Nunca trava.</div></div>';
 }
@@ -15804,7 +15826,7 @@ function motWireTyped(cont,t){
   cont.querySelectorAll('.mot-sugok').forEach(b=>{
     b.addEventListener('click',()=>{
       const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
-      p._dec='aceita'; t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora(),passoId:p.id});
+      p._dec='aceita'; const _sd=motSevDoAchado(p); t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora(),passoId:p.id,sev:_sd.sev,corretiva:_sd.corretiva});
       motRenderAtual(); motMaybeAvancaChecklist(t);
     });
   });
@@ -15965,11 +15987,12 @@ async function motConcluir(tipo,sev,txt){
   body.innerHTML='<div class="mot-transw'+(crit?' crit':'')+'"><div class="mot-tic">'+(tipo==='ok'?'✓':crit?'⚠':'📝')+'</div><b>Salvando…</b></div>';
   try{
     const payload=tipo==='ok'?{resultado:'ok'}:{resultado:'nc',severidade:sev,descricao:txt};
-    /* Fatia C 16/09/2026 — qual pergunta gerou o achado. So vai quando UMA sugestao foi aceita:
-       com duas ou mais, nao existe origem unica, e o campo fica vazio, que e a verdade. */
+    /* 16/09/2026 — um achado, uma anotacao. Cada sugestao aceita vai com a pergunta que a
+       gerou e a severidade daquele achado, nao a da tarefa inteira. */
     if(tipo!=='ok'){
-      const sug=(t._notasSugeridas||[]).filter(n=>n.passoId);
-      if(sug.length===1) payload.passoItemId=sug[0].passoId;
+      payload.achados=(t._notasSugeridas||[]).filter(n=>n.passoId).map(n=>({
+        passoItemId:n.passoId, descricao:n.txt, severidade:n.sev||'Atenção', pedeCorretiva:!!n.corretiva
+      }));
     }
     const r=await bePost('/motor/execucao/itens/'+t.id+'/concluir',payload,'Conclusão da tarefa — '+(t.tarefaNome||''));
     t.statusItem=(r&&r.statusItem)||(tipo==='ok'?'OK':'Com NC');
