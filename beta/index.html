@@ -16601,7 +16601,7 @@ const PLN_MODOS_NFC=['Confirmar presença','Serial de peça'];
 /* As unicas seis funcoes que o motor sabe calcular. Qualquer outra vira impedimento. */
 const PLN_FUNCS=['MEDIA','MENOR','MAIOR','SOMA','DIAS_ENTRE','PERCENTUAL'];
 const PLN_T_FAIXA=['Medição','Contador','Cálculo'];
-const PLN_T_OPCOES=['Picklist','Multi-Picklist'];
+const PLN_T_OPCOES=['Condição','Picklist','Multi-Picklist'];
 const PLN_T_FORMULA=['Cálculo'];
 const PLN_T_NFC=['NFC'];
 const plnTem=(lista,t)=>lista.indexOf(t||'')>=0;
@@ -16634,12 +16634,15 @@ function plnProblemasPasso(p,pop){
   if(p.unidade && !faixa) av('unidade','<b>Unidade só vale em Medição, Contador ou Cálculo.</b> Em '+motEsc(t||'outro tipo')+' o app ignora este valor e ele fica guardado sem efeito.',{rotulo:'limpar',patch:{unidade:''}});
   if(!p.unidade && (t==='Medição'||t==='Contador')) av('unidade','<b>Medição sem unidade.</b> O técnico digita um número sem saber em que unidade medir, e o relatório sai sem ela.');
   if(ops.length && !opc) av('opcoes','<b>'+motEsc(t||'Este tipo')+' não tem opções.</b> Se quer botões de escolha, o tipo é Picklist; se não, apague as opções, porque hoje elas não chegam ao técnico.',{rotulo:'virar Picklist',patch:{tipoCampo:'Picklist'}});
-  if(!ops.length && opc) imp('opcoes','<b>'+motEsc(t)+' sem nenhuma opção.</b> O técnico abriria a pergunta e não teria nada para escolher.');
+  if(!ops.length && opc){
+    if(t==='Condição') av('opcoes','<b>Condição sem opções.</b> O app cai no padrão Bom, Regular, Ruim. Se a pergunta pede outra escala, escreva as opções aqui.',{rotulo:'usar Bom;Regular;Ruim',patch:{opcoes:'Bom;Regular;Ruim'}});
+    else imp('opcoes','<b>'+motEsc(t)+' sem nenhuma opção.</b> O técnico abriria a pergunta e não teria nada para escolher.');
+  }
   if(nfc && !p.modoNFC) av('modoNfc','<b>NFC sem modo.</b> O app não sabe se é para confirmar presença no ponto ou para gravar o serial da peça, e assume confirmar presença.',{rotulo:'confirmar presença',patch:{modoNfc:'Confirmar presença'}});
 
   if(min!=null && max!=null && min>max) imp('valorMin','<b>A faixa está invertida:</b> o mínimo ('+min+') é maior que o máximo ('+max+'). Toda leitura cairia fora da faixa e todo passo viraria achado.',{rotulo:'trocar os dois',patch:{valorMin:max,valorMax:min}});
 
-  if(p.codigo && !/^[A-Z][A-Z0-9_]{0,19}$/.test(p.codigo)) av('codigo','<b>Código fora do padrão.</b> Só letras maiúsculas, números e _ , começando por letra. Do jeito que está, nenhuma fórmula consegue citar este passo.',{rotulo:'corrigir',patch:{codigo:String(p.codigo).toUpperCase().replace(/[^A-Z0-9_]/g,'_').replace(/^[^A-Z]+/,'').slice(0,20)}});
+  if(p.codigo && !/^[A-Z][A-Z0-9_-]{0,19}$/.test(p.codigo)) av('codigo','<b>Código fora do padrão.</b> Só letras maiúsculas, números, _ e - , começando por letra. Do jeito que está, nenhuma fórmula consegue citar este passo.',{rotulo:'corrigir',patch:{codigo:String(p.codigo).toUpperCase().replace(/[^A-Z0-9_-]/g,'_').replace(/^[^A-Z]+/,'').slice(0,20)}});
   if(p.codigo){
     const igual=(pop||[]).filter(x=>x.id!==p.id && (x.codigo||'')===p.codigo);
     if(igual.length) imp('codigo','<b>O código '+motEsc(p.codigo)+' já é do passo '+igual[0].ordem+'.</b> Uma fórmula que citasse {'+motEsc(p.codigo)+'} pegaria o valor errado, sem avisar ninguém.');
