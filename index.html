@@ -33,6 +33,48 @@
   /* Telas marcadas .cad-wide (ex.: Cadastrar nova conta) usam mais largura em navegador desktop — resto do app
      continua no frame de celular de sempre. :has() é suportado nos navegadores atuais (Chrome/Edge/Safari/Firefox). */
   @media(min-width:900px){.phone:has(.cad-wide){max-width:680px}}
+  /* R7 15/09/2026 — a retaguarda de Plano e trabalho de computador, nao de celular: montar uma
+     regra logica numa coluna de 420px e imprestavel. Numa janela larga a aba Plano ocupa a tela;
+     no celular continua exatamente como era. Mesmo mecanismo do .cad-wide acima. */
+  /* iPad em pe tem 768 a 834px de largura: a faixa entre 760 e 1000 e justamente ele, e
+     tambem o notebook com a janela pela metade. Aqui a aba Plano ja usa a tela inteira; o
+     mestre-detalhe lado a lado so desmonta abaixo de 620px, que e celular de verdade. */
+  @media(min-width:760px){
+    .phone.plano-wide{max-width:100%;margin:0;height:100vh;height:100dvh;border-radius:0}
+    .phone.plano-wide .pln-detail{padding:12px 18px 34px}
+    /* a lista de atividades fica parada enquanto os passos rolam: numa atividade de 82 passos,
+       perder a lista de vista a cada rolagem torna a tela inutilizavel.
+       ARMADILHA, custou uma rodada de teste: position:sticky se resolve contra o ANCESTRAL MAIS
+       PROXIMO com overflow diferente de visible, mesmo que esse ancestral nao role. #pln-root tem
+       overflow:hidden auto e nao rola (quem rola e o <main>), entao o sticky grudava nele e descia
+       junto com a pagina, sem grudar em nada. Devolver overflow:visible ao #pln-root nesta faixa e
+       o que faz o sticky valer contra o <main>. */
+    .phone.plano-wide #pln-root{overflow:visible}
+    .phone.plano-wide .pln-master{position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto}
+  }
+  /* Dedo, nao mouse: no iPad os controles do montador precisam de alvo grande. Vale para
+     qualquer aparelho de toque, inclusive celular grande em pe. */
+  @media(pointer:coarse){
+    .pln-sel,.pln-inp{min-height:38px;font-size:.78rem;padding:7px 10px}
+    .pln-rbtn{font-size:.72rem;padding:7px 10px}
+    .pln-addregra{font-size:.72rem;padding:9px 14px}
+    .pln-bsave,.pln-bcancel{font-size:.78rem;padding:10px 18px}
+    .pln-bdel{font-size:.74rem;padding:8px 4px}
+    .pln-jn button{font-size:.74rem;padding:9px 18px}
+    .pln-regra{font-size:.72rem;padding:8px 10px}
+    .pln-mitem{padding-top:10px;padding-bottom:10px}
+  }
+  @media(min-width:1000px){
+    .phone.plano-wide{max-width:1280px}
+    .phone.plano-wide .pln-master{width:290px}
+    .phone.plano-wide .pln-split{min-height:calc(100vh - 230px)}
+    .phone.plano-wide .pln-detail{padding:14px 22px 40px;max-width:900px}
+    .phone.plano-wide .pln-regra{font-size:.72rem}
+    .phone.plano-wide .pln-sel,.phone.plano-wide .pln-inp{font-size:.74rem;padding:6px 9px}
+    .phone.plano-wide .pln-poprow{font-size:.78rem;padding:9px 0}
+    .phone.plano-wide .pln-poprow .ds{min-width:220px}
+    .phone.plano-wide .pln-bld{padding:14px 16px}
+  }
   .cad-cnpj-pill{background:var(--brand-l);color:var(--brand-d);border:1.5px solid #9fc6f0;border-radius:999px;padding:0 20px;font-weight:700;font-size:13.5px;white-space:nowrap;cursor:pointer}
   .cad-cnpj-pill:hover{background:#dcebf9}
   .phone.fullbleed{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
@@ -1185,6 +1227,32 @@
   .pln-docst{font-size:.56rem;font-weight:800;border-radius:5px;padding:2px 7px}
   .pln-docst.med{background:var(--pln-blue-soft);color:#2B5A7E}
   .pln-docst.env{background:var(--pln-ok-soft);color:#16744A}
+  /* R7 15/09/2026 — montador da regra logica dentro da Biblioteca de regras */
+  .pln-regras{width:100%;padding:2px 0 4px 22px;display:flex;flex-direction:column;gap:4px}
+  .pln-regra{display:flex;align-items:flex-start;gap:7px;font-size:.62rem;line-height:1.45;color:var(--pln-text);background:var(--pln-blue-soft);border-radius:7px;padding:5px 8px}
+  .pln-regra.off{background:#F0F2F5;color:var(--pln-text-soft)}
+  .pln-regra .tx{flex:1}
+  .pln-regra .tx b{color:var(--pln-navy)}
+  .pln-regra .tx i{font-style:normal;color:#2B5A7E;font-weight:700}
+  .pln-rbtn{border:none;background:transparent;color:#2B5A7E;font:700 .6rem inherit;cursor:pointer;padding:1px 4px;border-radius:5px;flex-shrink:0}
+  .pln-rbtn:hover{background:#fff}
+  .pln-rbtn.del{color:var(--pln-warn)}
+  .pln-addregra{border:1px dashed var(--pln-border);background:#fff;color:#2B5A7E;font:700 .6rem inherit;cursor:pointer;padding:4px 9px;border-radius:7px;align-self:flex-start}
+  .pln-addregra:hover{border-color:var(--pln-blue);background:var(--pln-blue-soft)}
+  .pln-bld{width:100%;margin:6px 0 4px 22px;background:#fff;border:1.5px solid var(--pln-blue);border-radius:10px;padding:11px 12px}
+  .pln-bldhd{font-size:.56rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#5F84A3;margin-bottom:7px}
+  .pln-bldrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+  .pln-sel,.pln-inp{border:1px solid var(--pln-border);border-radius:7px;padding:5px 7px;font:600 .65rem inherit;color:var(--pln-navy);background:#fff;max-width:100%}
+  .pln-inp{min-width:90px}
+  .pln-jn{display:inline-flex;border:1px solid var(--pln-border);border-radius:7px;overflow:hidden}
+  .pln-jn button{border:none;background:#fff;color:var(--pln-text-soft);font:800 .62rem inherit;padding:4px 11px;cursor:pointer}
+  .pln-jn button.on{background:var(--pln-navy);color:#fff}
+  .pln-bldacts{display:flex;gap:7px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .pln-bsave{border:none;background:var(--pln-blue);color:#fff;font:800 .66rem inherit;padding:6px 14px;border-radius:8px;cursor:pointer}
+  .pln-bcancel{border:1px solid var(--pln-border);background:#fff;color:var(--pln-text);font:700 .66rem inherit;padding:6px 12px;border-radius:8px;cursor:pointer}
+  .pln-bdel{border:none;background:transparent;color:var(--pln-warn);font:700 .64rem inherit;cursor:pointer;margin-left:auto}
+  .pln-berr{font-size:.63rem;color:var(--pln-warn);background:var(--pln-warn-soft);border-radius:7px;padding:6px 9px;margin-top:8px;line-height:1.45}
+  .pln-bhint{font-size:.58rem;color:var(--pln-text-soft);margin-top:6px;line-height:1.45}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
 </style>
@@ -2061,6 +2129,8 @@ function go(scr){
   document.querySelectorAll('main .screen, #scr-login').forEach(s=>s.classList.remove('active'));
   document.getElementById('scr-'+scr).classList.add('active');
   document.getElementById('app').classList.toggle('fullbleed', scr==='login');
+  /* R7 — so a aba Plano ganha largura de desktop; o resto do app segue no frame de celular */
+  document.getElementById('app').classList.toggle('plano-wide', scr==='plano');
   const internal=scr!=='login';
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
@@ -16087,7 +16157,9 @@ function plnReset(){
     locais:[], localId:null,
     ficha:null, selAtivo:0,
     biblioteca:null, selRegra:0,
-    agenda:null, selVisita:0 };
+    agenda:null, selVisita:0,
+    /* R7 — montador da regra logica */
+    regraEdit:null, salvandoRegra:false, erroRegra:null };
 }
 function renderPlano(){
   const root=document.getElementById('pln-root'); if(!root) return;
@@ -16229,6 +16301,232 @@ function plnRenderFicha(body){
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selAtivo=+el.dataset.i; plnRenderTabBody(); }); });
 }
 
+/* ===== R7 15/09/2026 — montador da regra logica =====
+   A Biblioteca de regras deixa de ser vitrine. O supervisor monta o "se ... entao" aqui, e nao
+   mais por Apex. O vocabulario e o mesmo do app e do Salesforce, de proposito: se um dos tres
+   ganhar um valor novo, os outros dois tem que ganhar junto.
+   Ver docs/07-MANUTENCAO/DECISAO_base-da-regra-logica_15-09-2026.md. */
+const PLN_ACOES=['Mostrar','Esconder','Ignorar seção','Tornar obrigatória','Deixar de ser obrigatória',
+  'Exigir foto','Preencher e travar','Sugerir valor','Marcar como achado','Avisar sem travar',
+  'Exigir para concluir como OK'];
+const PLN_FONTES=['Resposta de outra pergunta','Resposta desta pergunta','Cadastro do equipamento'];
+const PLN_OPERADORES=['Igual a','Diferente de','Contém','Maior que','Maior ou igual','Menor que',
+  'Menor ou igual','Está preenchido','Está vazio','Entre','Fora da faixa deste equipamento'];
+const PLN_OP_SEM_VALOR=['Está preenchido','Está vazio','Fora da faixa deste equipamento'];
+const PLN_ACAO_COM_VALOR=['Ignorar seção','Preencher e travar','Sugerir valor'];
+const PLN_GRAVIDADES=['Leve','Média','Grave','Crítica'];
+
+function plnOpt(lista,sel){ return lista.map(v=>'<option value="'+motEsc(v)+'"'+(v===sel?' selected':'')+'>'+motEsc(v)+'</option>').join(''); }
+
+/* A regra em portugues, do jeito que alguem leria em voz alta. E o que faz a lista de regras
+   ser conferivel sem abrir o editor. */
+function plnRegraTexto(r,pop){
+  const nome=(id)=>{ const q=pop.find(x=>x.id===id); return q?q.descricao:'(pergunta de outra atividade)'; };
+  const cond=(c)=>{
+    let esq, fem=true;   /* "a resposta" e feminino, "o campo" e masculino */
+    if(c.fonte==='Resposta desta pergunta') esq='a resposta desta pergunta';
+    else if(c.fonte==='Cadastro do equipamento'){ esq='o campo <b>'+motEsc(c.campoEquipamento||'')+'</b> do equipamento'; fem=false; }
+    else esq='a resposta de <b>'+motEsc(nome(c.passoReferenciaId))+'</b>';
+    const op=String(c.operador||'');
+    if(op==='Está preenchido') return esq+(fem?' estiver preenchida':' estiver preenchido');
+    if(op==='Está vazio') return esq+(fem?' estiver vazia':' estiver vazio');
+    if(op==='Fora da faixa deste equipamento') return esq+' sair da faixa deste equipamento';
+    if(op==='Entre') return esq+' estiver entre <b>'+motEsc(c.valor||'')+'</b> e <b>'+motEsc(c.valor2||'')+'</b>';
+    return esq+' for '+op.toLowerCase()+' <b>'+motEsc((c.valor||'').split(';').join(' ou '))+'</b>';
+  };
+  const juncao=(r.juncao==='Qualquer condição')?' <i>OU</i> ':' <i>E</i> ';
+  const ses=(r.condicoes||[]).map(cond).join(juncao);
+  let entao;
+  const a=r.acao;
+  if(a==='Mostrar') entao='mostrar esta pergunta';
+  else if(a==='Esconder') entao='esconder esta pergunta';
+  else if(a==='Ignorar seção') entao='ignorar a seção <b>'+motEsc(r.valorAcao||'')+'</b> inteira';
+  else if(a==='Preencher e travar') entao='preencher com <b>'+motEsc(r.valorAcao||'')+'</b> e travar';
+  else if(a==='Sugerir valor') entao='sugerir <b>'+motEsc(r.valorAcao||'')+'</b>';
+  else if(a==='Marcar como achado') entao='marcar como achado <b>'+motEsc((r.gravidade||'').toLowerCase())+'</b>';
+  else if(a==='Avisar sem travar') entao='avisar: <b>'+motEsc(r.mensagem||'')+'</b>';
+  else if(a==='Exigir para concluir como OK') entao='exigir antes de concluir como OK';
+  else entao=String(a||'').toLowerCase();
+  return '<i>SE</i> '+ses+' <i>ENTÃO</i> '+entao;
+}
+
+function plnRegrasHtml(passo,pop){
+  let h='<div class="pln-regras">';
+  (passo.regras||[]).forEach((r,i)=>{
+    h+='<div class="pln-regra'+(r.ativa?'':' off')+'">'+
+      '<span class="tx">'+plnRegraTexto(r,pop)+(r.ativa?'':' <b>(desligada)</b>')+'</span>'+
+      '<button class="pln-rbtn" data-edit="'+passo.id+'" data-ri="'+i+'">editar</button>'+
+    '</div>';
+  });
+  if(!(PLN.regraEdit&&PLN.regraEdit.passoId===passo.id)){
+    h+='<button class="pln-addregra" data-nova="'+passo.id+'">+ regra</button>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function plnCondHtml(c,i,pop,passoId){
+  const semValor=PLN_OP_SEM_VALOR.indexOf(c.operador)>=0;
+  let h='<div class="pln-bldrow" data-ci="'+i+'">';
+  h+='<select class="pln-sel" data-f="fonte">'+plnOpt(PLN_FONTES,c.fonte)+'</select>';
+  if(c.fonte==='Resposta de outra pergunta'){
+    const outras=pop.filter(q=>q.id!==passoId&&q.tipoCampo!=='Instrução');
+    h+='<select class="pln-sel" data-f="passoReferenciaId">'+
+      '<option value="">— escolha a pergunta —</option>'+
+      outras.map(q=>'<option value="'+q.id+'"'+(q.id===c.passoReferenciaId?' selected':'')+'>'+motEsc(q.ordem+'. '+q.descricao)+'</option>').join('')+
+    '</select>';
+  }else if(c.fonte==='Cadastro do equipamento'){
+    h+='<input class="pln-inp" data-f="campoEquipamento" placeholder="campo do Ativo__c" value="'+motEsc(c.campoEquipamento||'')+'">';
+  }
+  h+='<select class="pln-sel" data-f="operador">'+plnOpt(PLN_OPERADORES,c.operador)+'</select>';
+  if(!semValor){
+    h+='<input class="pln-inp" data-f="valor" placeholder="valor" value="'+motEsc(c.valor||'')+'">';
+    if(c.operador==='Entre') h+='<span style="font-size:.62rem;color:var(--pln-text-soft)">e</span><input class="pln-inp" data-f="valor2" placeholder="valor 2" value="'+motEsc(c.valor2||'')+'">';
+  }
+  if(i>0) h+='<button class="pln-rbtn del" data-delcond="'+i+'">remover</button>';
+  h+='</div>';
+  return h;
+}
+
+function plnBuilderHtml(passo,pop){
+  const e=PLN.regraEdit;
+  let h='<div class="pln-bld">';
+  h+='<div class="pln-bldhd">Se</div>';
+  e.condicoes.forEach((c,i)=>{
+    if(i>0){
+      h+='<div class="pln-bldrow"><div class="pln-jn">'+
+        '<button data-jn="Todas as condições" class="'+(e.juncao!=='Qualquer condição'?'on':'')+'">E</button>'+
+        '<button data-jn="Qualquer condição" class="'+(e.juncao==='Qualquer condição'?'on':'')+'">OU</button>'+
+      '</div></div>';
+    }
+    h+=plnCondHtml(c,i,pop,passo.id);
+  });
+  h+='<button class="pln-addregra" data-addcond="1">+ condição</button>';
+  h+='<div class="pln-bldhd" style="margin-top:11px">Então</div><div class="pln-bldrow">';
+  h+='<select class="pln-sel" data-f="acao">'+plnOpt(PLN_ACOES,e.acao)+'</select>';
+  if(PLN_ACAO_COM_VALOR.indexOf(e.acao)>=0){
+    h+='<input class="pln-inp" data-f="valorAcao" placeholder="'+(e.acao==='Ignorar seção'?'nome da seção':'valor')+'" value="'+motEsc(e.valorAcao||'')+'">';
+  }
+  if(e.acao==='Marcar como achado'){
+    h+='<select class="pln-sel" data-f="gravidade">'+plnOpt(PLN_GRAVIDADES,e.gravidade||'Média')+'</select>';
+  }
+  if(e.acao==='Avisar sem travar'||e.acao==='Exigir para concluir como OK'){
+    h+='<input class="pln-inp" data-f="mensagem" style="flex:1;min-width:200px" placeholder="o que o técnico vai ler" value="'+motEsc(e.mensagem||'')+'">';
+  }
+  h+='</div>';
+  if(e.acao==='Exigir para concluir como OK'){
+    h+='<div class="pln-bhint">Trava somente o botão "Está OK". Anotação Técnica e não executado continuam abertos: exceção nunca trava o técnico, só exige justificativa.</div>';
+  }
+  h+='<div class="pln-bldacts">'+
+    '<button class="pln-bsave" data-salvar="1">'+(PLN.salvandoRegra?'Salvando…':'Salvar regra')+'</button>'+
+    '<button class="pln-bcancel" data-cancelar="1">Cancelar</button>'+
+    (e.id?'<button class="pln-bdel" data-apagar="1">Apagar esta regra</button>':'')+
+  '</div>';
+  if(PLN.erroRegra) h+='<div class="pln-berr">'+motEsc(PLN.erroRegra)+'</div>';
+  h+='</div>';
+  return h;
+}
+
+function plnNovaRegra(passoId){
+  PLN.erroRegra=null;
+  PLN.regraEdit={ passoId:passoId, id:null, juncao:'Todas as condições', acao:'Mostrar',
+    valorAcao:'', gravidade:'Média', mensagem:'', ativa:true,
+    condicoes:[{fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''}] };
+  plnRenderTabBody();
+}
+function plnEditarRegra(passoId,r){
+  PLN.erroRegra=null;
+  PLN.regraEdit={ passoId:passoId, id:r.id, juncao:r.juncao, acao:r.acao,
+    valorAcao:r.valorAcao||'', gravidade:r.gravidade||'Média', mensagem:r.mensagem||'', ativa:r.ativa,
+    condicoes:(r.condicoes||[]).map(c=>({fonte:c.fonte,passoReferenciaId:c.passoReferenciaId||'',
+      campoEquipamento:c.campoEquipamento||'',operador:c.operador,valor:c.valor||'',valor2:c.valor2||''})) };
+  if(!PLN.regraEdit.condicoes.length) PLN.regraEdit.condicoes=[{fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''}];
+  plnRenderTabBody();
+}
+/* Salvar recarrega a biblioteca inteira, e o carregamento zera a atividade selecionada (o que
+   esta certo ao ABRIR a aba, e errado depois de salvar). Estas duas guardam o lugar: a atividade
+   volta a ser a mesma e a tela rola de volta pra pergunta que estava sendo mexida. */
+function plnAtividadeSelId(){
+  const b=PLN.biblioteca; const r=b&&b.regras&&b.regras[PLN.selRegra];
+  return r?r.id:null;
+}
+async function plnRecarregarMantendoLugar(atividadeId,passoId){
+  await plnCarregarTab();
+  if(atividadeId&&PLN.biblioteca&&PLN.biblioteca.regras){
+    const i=PLN.biblioteca.regras.findIndex(r=>r.id===atividadeId);
+    if(i>=0&&i!==PLN.selRegra){ PLN.selRegra=i; plnRenderTabBody(); }
+  }
+  if(passoId){
+    const alvo=document.querySelector('[data-nova="'+passoId+'"]')||document.querySelector('[data-edit="'+passoId+'"]');
+    if(alvo&&alvo.scrollIntoView) alvo.scrollIntoView({block:'center'});
+  }
+}
+async function plnSalvarRegra(){
+  const e=PLN.regraEdit; if(!e||PLN.salvandoRegra) return;
+  const atividadeId=plnAtividadeSelId();
+  PLN.salvandoRegra=true; PLN.erroRegra=null; plnRenderTabBody();
+  const corpo={ passoAlvoId:e.passoId, juncao:e.juncao, acao:e.acao, valorAcao:e.valorAcao,
+    gravidade:e.gravidade, mensagem:e.mensagem, ativa:e.ativa,
+    condicoes:e.condicoes.map(c=>({fonte:c.fonte,passoReferenciaId:c.passoReferenciaId,
+      campoEquipamento:c.campoEquipamento,operador:c.operador,valor:c.valor,valor2:c.valor2})) };
+  try{
+    if(e.id) await bePatch('/plano/regra-logica/'+e.id,corpo);
+    else await bePost('/plano/regra-logica',corpo);
+    PLN.regraEdit=null; PLN.biblioteca=null;
+    PLN.salvandoRegra=false;
+    await plnRecarregarMantendoLugar(atividadeId,e.passoId);
+    toast('✅ Regra salva');
+  }catch(err){
+    PLN.salvandoRegra=false;
+    PLN.erroRegra=err.message||'Falha ao salvar';
+    plnRenderTabBody();
+  }
+}
+async function plnApagarRegra(){
+  const e=PLN.regraEdit; if(!e||!e.id) return;
+  if(!window.confirm('Apagar esta regra? As condições dela vão junto.')) return;
+  const atividadeId=plnAtividadeSelId(), passoId=e.passoId;
+  PLN.salvandoRegra=true; plnRenderTabBody();
+  try{
+    await beDelete('/plano/regra-logica/'+e.id);
+    PLN.regraEdit=null; PLN.biblioteca=null; PLN.salvandoRegra=false;
+    await plnRecarregarMantendoLugar(atividadeId,passoId);
+    toast('Regra apagada');
+  }catch(err){
+    PLN.salvandoRegra=false; PLN.erroRegra=err.message||'Falha ao apagar'; plnRenderTabBody();
+  }
+}
+function plnWireMontador(body,pop){
+  body.querySelectorAll('[data-nova]').forEach(b=>b.addEventListener('click',()=>plnNovaRegra(b.dataset.nova)));
+  body.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{
+    const passo=pop.find(x=>x.id===b.dataset.edit); if(!passo) return;
+    plnEditarRegra(passo.id,passo.regras[+b.dataset.ri]);
+  }));
+  const e=PLN.regraEdit; if(!e) return;
+  body.querySelectorAll('.pln-bld [data-jn]').forEach(b=>b.addEventListener('click',()=>{ e.juncao=b.dataset.jn; plnRenderTabBody(); }));
+  body.querySelectorAll('.pln-bld [data-addcond]').forEach(b=>b.addEventListener('click',()=>{
+    e.condicoes.push({fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''});
+    plnRenderTabBody();
+  }));
+  body.querySelectorAll('.pln-bld [data-delcond]').forEach(b=>b.addEventListener('click',()=>{
+    e.condicoes.splice(+b.dataset.delcond,1); plnRenderTabBody();
+  }));
+  /* campo que muda a FORMA do editor (fonte, operador, acao) redesenha; os demais so guardam,
+     pra nao perder o cursor a cada tecla. */
+  body.querySelectorAll('.pln-bld [data-ci] [data-f]').forEach(el=>{
+    const i=+el.closest('[data-ci]').dataset.ci, f=el.dataset.f;
+    const redesenha=(f==='fonte'||f==='operador');
+    el.addEventListener(redesenha?'change':'input',()=>{ e.condicoes[i][f]=el.value; if(redesenha) plnRenderTabBody(); });
+  });
+  body.querySelectorAll('.pln-bld > .pln-bldrow > [data-f]').forEach(el=>{
+    const f=el.dataset.f, redesenha=(f==='acao');
+    el.addEventListener(redesenha?'change':'input',()=>{ e[f]=el.value; if(redesenha) plnRenderTabBody(); });
+  });
+  body.querySelectorAll('.pln-bld [data-salvar]').forEach(b=>b.addEventListener('click',plnSalvarRegra));
+  body.querySelectorAll('.pln-bld [data-cancelar]').forEach(b=>b.addEventListener('click',()=>{ PLN.regraEdit=null; PLN.erroRegra=null; plnRenderTabBody(); }));
+  body.querySelectorAll('.pln-bld [data-apagar]').forEach(b=>b.addEventListener('click',plnApagarRegra));
+}
+
 function plnRenderBiblioteca(body){
   const d=PLN.biblioteca;
   if(!d || !d.regras.length){
@@ -16270,14 +16568,20 @@ function plnRenderBiblioteca(body){
     r.pop.forEach(p=>{
       det+='<div class="pln-poprow"><span class="num">'+p.ordem+'</span><span class="pln-tname">'+motEsc((p.tipoCampo||'').toUpperCase())+'</span><span class="ds">'+motEsc(p.descricao)+'</span>'+
         (p.temReferencia?'<span class="pln-refok">REF ✓</span>':'')+
-        (p.unidade||p.valorMin!=null||p.valorMax!=null?'<span class="pp">'+(p.unidade?'unidade <b>'+motEsc(p.unidade)+'</b>':'')+
-          ((p.valorMin!=null||p.valorMax!=null)?' · faixa <b>'+(p.valorMin!=null?p.valorMin:'')+'–'+(p.valorMax!=null?p.valorMax:'')+'</b>':'')+'</span>':'')+
+        (p.codigo?'<span class="pln-mini o">'+motEsc(p.codigo)+'</span>':'')+
+        (p.unidade||p.valorMin!=null||p.valorMax!=null||p.formula?'<span class="pp">'+(p.unidade?'unidade <b>'+motEsc(p.unidade)+'</b>':'')+
+          ((p.valorMin!=null||p.valorMax!=null)?' · faixa <b>'+(p.valorMin!=null?p.valorMin:'')+'–'+(p.valorMax!=null?p.valorMax:'')+'</b>':'')+
+          (p.formula?' · fórmula <b>'+motEsc(p.formula)+'</b>':'')+'</span>':'')+
+        /* R7 — as regras logicas da pergunta, e o montador quando esta pergunta esta em edicao */
+        plnRegrasHtml(p,r.pop)+
+        ((PLN.regraEdit&&PLN.regraEdit.passoId===p.id)?plnBuilderHtml(p,r.pop):'')+
       '</div>';
     });
     det+='</div>';
   }
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
-  body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selRegra=+el.dataset.i; plnRenderTabBody(); }); });
+  body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selRegra=+el.dataset.i; PLN.regraEdit=null; PLN.erroRegra=null; plnRenderTabBody(); }); });
+  plnWireMontador(body,r.pop);
 }
 
 function plnRenderAgenda(body){
