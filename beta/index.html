@@ -469,10 +469,10 @@
      frame e o .phone (overflow:hidden) cortava as ultimas EM SILENCIO: o botao Plano simplesmente
      nao existia pra quem olhava. Agora os botoes encolhem ate o limite e, quando nem assim cabe,
      a barra rola de lado com uma sombra na borda avisando que ha mais. */
-  .botnav{display:flex;background:#fff;border-top:1px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative}
+  .botnav{display:flex;background:#fff;border-top:1px solid var(--border);flex-shrink:0;padding:0 4px;padding-bottom:env(safe-area-inset-bottom,0);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative}
   .botnav::-webkit-scrollbar{display:none}
-  .botnav button{flex:1 0 auto;min-width:0;max-width:110px;background:none;border:none;padding:8px 4px 7px;cursor:pointer;color:var(--weaker);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;white-space:nowrap}
-  @media(max-width:560px){ .botnav button{font-size:9.5px;padding:8px 3px 7px;gap:2px} }
+  .botnav button{flex:1 0 auto;min-width:0;max-width:110px;background:none;border:none;padding:8px 3px 7px;cursor:pointer;color:var(--weaker);font-size:9.5px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;white-space:nowrap}
+  @media(min-width:900px){ .phone.plano-wide .botnav button{font-size:11px;padding:8px 4px 7px;gap:3px} .phone.plano-wide .botnav button svg{width:22px;height:22px} }
   /* 16/09/2026 — opcao C: a barra fica com as abas do CAMPO e o resto vai pra folha do "Mais".
      Quatro abas cabem folgadas em qualquer celular, com rotulo inteiro e alvo largo, e nada some
      por acidente: o contador do que esta escondido aparece no proprio botao Mais. */
@@ -480,7 +480,6 @@
   .mais-ov.on{opacity:1;pointer-events:auto}
   .mais-sheet{position:fixed;left:50%;transform:translateX(-50%) translateY(105%);bottom:0;width:100%;max-width:420px;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -10px 34px rgba(11,34,57,.22);z-index:61;transition:transform .22s;padding:8px 8px calc(12px + env(safe-area-inset-bottom,0px));max-height:76vh;overflow-y:auto}
   .mais-sheet.on{transform:translateX(-50%) translateY(0)}
-  @media(min-width:760px){ .mais-sheet{max-width:520px} }
   .mais-alca{width:38px;height:4px;border-radius:2px;background:#D7DEE6;margin:2px auto 8px}
   .mais-hd{font-size:9.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:#9AA6B2;padding:8px 10px 4px}
   .mais-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:600;color:#3A4552;background:none;border:none;width:100%;text-align:left;font-family:inherit;cursor:pointer}
@@ -491,9 +490,9 @@
   .botnav-wrap{position:relative;flex-shrink:0}
   .botnav-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:26px;pointer-events:none;background:linear-gradient(to right,rgba(255,255,255,0),#fff);opacity:0;transition:opacity .2s}
   .botnav-wrap.tem-mais::after{opacity:1}
-  .botnav button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .botnav button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .botnav button.on{color:var(--brand)}
-  .botnav .nbadge{position:absolute;top:4px;right:50%;margin-right:-22px;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .botnav .nbadge{position:absolute;top:3px;right:50%;margin-right:-19px;background:var(--err);color:#fff;font-size:8.5px;font-weight:800;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   #bellBadge{position:absolute;top:-3px;right:-3px;margin:0;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   /* ---- LOGIN — design "1a Ventilador + pino de localização" (Claude Design do Raphael) ---- */
   .login{display:none;flex-direction:column;justify-content:center;align-items:center;padding:24px;text-align:center;flex:1;min-height:0;overflow-y:auto;background:#fff}
