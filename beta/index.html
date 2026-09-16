@@ -16855,6 +16855,13 @@ function plnFormulaHtml(p,pop,v,ex){
 }
 /* Usa o MESMO motor que roda no celular do tecnico, com valores de exemplo no lugar
    das respostas. Se a conta muda aqui, muda la, porque e o mesmo codigo. */
+/* Cola o pedaco novo na formula com o espaco certo, para a formula ficar legivel
+   quando alguem for ler depois: "3600 + {CORREIA}", nao "3600+{CORREIA}". */
+function plnFxJuntar(atual,t){
+  const a=String(atual||'');
+  const semEspaco = !a || /[\s(]$/.test(a) || t===')' || t===',';
+  return a + (semEspaco?'':' ') + t;
+}
 function plnCalcPrevia(p,pop,v,ex){
   const f=String(v.formula||'').trim();
   if(!f) return {valor:null,porque:'sem fórmula'};
@@ -17115,10 +17122,7 @@ function plnWirePassoEdit(body,pop){
   raiz.querySelectorAll('[data-fxabrir]').forEach(b=>b.addEventListener('click',()=>{ e.fx=!e.fx; plnRenderTabBody(); }));
   raiz.querySelectorAll('[data-fxins]').forEach(b=>b.addEventListener('click',()=>{
     if(b.disabled) return;
-    const t=b.dataset.fxins;
-    const atual=String(e.v.formula||'');
-    const cola=(atual && !/[\s(+\-*/,]$/.test(atual) && !/^[)+\-*/,]/.test(t))?' ':'';
-    e.v.formula=atual+cola+t;
+    e.v.formula=plnFxJuntar(e.v.formula,b.dataset.fxins);
     plnRenderTabBody();
   }));
   raiz.querySelectorAll('[data-fxlimpar]').forEach(b=>b.addEventListener('click',()=>{ e.v.formula=''; plnRenderTabBody(); }));
