@@ -473,6 +473,21 @@
   .botnav::-webkit-scrollbar{display:none}
   .botnav button{flex:1 0 auto;min-width:0;max-width:110px;background:none;border:none;padding:8px 4px 7px;cursor:pointer;color:var(--weaker);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;white-space:nowrap}
   @media(max-width:560px){ .botnav button{font-size:9.5px;padding:8px 3px 7px;gap:2px} }
+  /* 16/09/2026 — opcao C: a barra fica com as abas do CAMPO e o resto vai pra folha do "Mais".
+     Quatro abas cabem folgadas em qualquer celular, com rotulo inteiro e alvo largo, e nada some
+     por acidente: o contador do que esta escondido aparece no proprio botao Mais. */
+  .mais-ov{position:fixed;inset:0;background:rgba(11,34,57,.28);z-index:60;opacity:0;pointer-events:none;transition:opacity .18s}
+  .mais-ov.on{opacity:1;pointer-events:auto}
+  .mais-sheet{position:fixed;left:50%;transform:translateX(-50%) translateY(105%);bottom:0;width:100%;max-width:420px;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -10px 34px rgba(11,34,57,.22);z-index:61;transition:transform .22s;padding:8px 8px calc(12px + env(safe-area-inset-bottom,0px));max-height:76vh;overflow-y:auto}
+  .mais-sheet.on{transform:translateX(-50%) translateY(0)}
+  @media(min-width:760px){ .mais-sheet{max-width:520px} }
+  .mais-alca{width:38px;height:4px;border-radius:2px;background:var(--border2);margin:2px auto 8px}
+  .mais-hd{font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--weaker);padding:6px 10px 4px}
+  .mais-item{display:flex;align-items:center;gap:11px;padding:13px 11px;border-radius:9px;font-size:14px;font-weight:600;color:var(--txt);background:none;border:none;width:100%;text-align:left;font-family:inherit;cursor:pointer}
+  .mais-item:hover{background:var(--brand-l)}
+  .mais-item.on{background:var(--brand-l);color:var(--brand-d)}
+  .mais-item svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+  .mais-item .cnt{margin-left:auto;background:var(--err);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px}
   .botnav-wrap{position:relative;flex-shrink:0}
   .botnav-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:26px;pointer-events:none;background:linear-gradient(to right,rgba(255,255,255,0),#fff);opacity:0;transition:opacity .2s}
   .botnav-wrap.tem-mais::after{opacity:1}
@@ -1519,18 +1534,25 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 
   <!-- NAV INFERIOR -->
   <div class="botnav-wrap" id="botnav-wrap" style="display:none"><nav class="botnav" id="botnav">
-    <button id="nav-schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
-    <button id="nav-approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
-    <button id="nav-producao" onclick="go('producao')" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg>Produção</button>
-    <button id="nav-aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
-    <button id="nav-estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque<span class="nbadge" id="estoqueBadge" style="display:none">0</span></button>
-    <button id="nav-bipar" onclick="go('bipar')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h3v3M20 14v3M14 20h3M20 17.5V20h-2.5"/></svg>Bipar</button>
-    <button id="nav-cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
-    <button id="nav-trein" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
-    <button id="nav-motor" onclick="go('motor')" style="display:none"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Execução</button>
-    <button id="nav-plano" onclick="go('plano')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/><circle cx="18" cy="12" r="2"/></svg>Plano</button>
-    <button id="nav-exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
+    <button id="nav-schedule" data-grp="campo" data-scr="schedule" onclick="go('schedule')"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 8h16"/><rect x="4" y="6" width="16" height="14" rx="1.5"/></svg>Agenda</button>
+    <button id="nav-approvals" data-grp="mais" data-scr="approvals" onclick="go('approvals')"><svg viewBox="0 0 24 24"><path d="M4 13h5l1 2h4l1-2h5"/><path d="M4 13l2-7h12l2 7v6H4z"/></svg>Aprovações<span class="nbadge" id="apprBadge" style="display:none">0</span></button>
+    <button id="nav-producao" data-grp="mais" data-scr="producao" onclick="go('producao')" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3v8H3z"/><path d="M3 21h18"/></svg>Produção</button>
+    <button id="nav-aloc" data-grp="mais" data-scr="aloc" onclick="go('aloc')" style="display:none"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c0-3 2.7-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M17.5 20c0-2-.9-3.6-2.3-4.5"/></svg>Alocação</button>
+    <button id="nav-estoque" data-grp="campo" data-scr="estoque" onclick="go('estoque')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5"/></svg>Estoque<span class="nbadge" id="estoqueBadge" style="display:none">0</span></button>
+    <button id="nav-bipar" data-grp="campo" data-scr="bipar" onclick="go('bipar')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h3v3M20 14v3M14 20h3M20 17.5V20h-2.5"/></svg>Bipar</button>
+    <button id="nav-cadastro" data-grp="mais" data-scr="cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
+    <button id="nav-trein" data-grp="mais" data-scr="treinamentos" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
+    <button id="nav-motor" data-grp="campo" data-scr="motor" onclick="go('motor')" style="display:none"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Execução</button>
+    <button id="nav-plano" data-grp="mais" data-scr="plano" onclick="go('plano')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/><circle cx="18" cy="12" r="2"/></svg>Plano</button>
+    <button id="nav-exp" data-grp="mais" data-scr="exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
+    <button id="nav-mais" onclick="abrirMais()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>Mais<span class="nbadge" id="maisBadge" style="display:none">0</span></button>
   </nav></div>
+  <div class="mais-ov" id="maisOv" onclick="fecharMais()"></div>
+  <div class="mais-sheet" id="maisSheet" role="dialog" aria-label="Mais telas">
+    <div class="mais-alca"></div>
+    <div class="mais-hd">Retaguarda</div>
+    <div id="maisLista"></div>
+  </div>
 
   <div class="toast" id="toast"></div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
@@ -2127,6 +2149,61 @@ let navStack=[]; let curSubTitle='', curSubSub='';
 let _estoqAutoFoco=false;
 /* A sombra na borda direita so aparece quando ha aba escondida, e some quando a pessoa rola ate
    o fim. Sem ela a barra corta em silencio e o botao escondido deixa de existir pra quem olha. */
+/* ===== 16/09/2026 — barra do campo + folha "Mais" (opcao C, escolhida pelo Raphael) =====
+   A barra mostra so as abas marcadas data-grp="campo" QUE O PAPEL PERMITE; as de retaguarda saem
+   da barra e viram linhas na folha. Quem decide o que cada papel ve continua sendo updateNavRole:
+   aqui so se separa em dois lugares o que ela ja deixou visivel. */
+function navLimparPermitido(){ document.querySelectorAll('.botnav button[data-grp="mais"]').forEach(b=>{ delete b.dataset.permitido; b.style.display='flex'; }); }
+function navItensMais(){
+  const out=[];
+  document.querySelectorAll('.botnav button[data-grp="mais"]').forEach(b=>{
+    if(b.dataset.permitido!=='1') return;
+    const bd=b.querySelector('.nbadge');
+    out.push({ scr:b.dataset.scr, rotulo:(b.textContent||'').trim(),
+      icone:(b.querySelector('svg')||{}).outerHTML||'',
+      cnt:(bd && bd.style.display!=='none') ? (bd.textContent||'') : '' });
+  });
+  return out;
+}
+function navAplicarGrupos(){
+  let soma=0, temMais=false;
+  document.querySelectorAll('.botnav button[data-grp="mais"]').forEach(b=>{
+    /* updateNavRole ja pos display flex/none conforme o papel: guarda isso e some da barra */
+    if(b.dataset.permitido===undefined || b.style.display!=='none') b.dataset.permitido = (b.style.display==='none')?'0':'1';
+    if(b.dataset.permitido==='1'){
+      temMais=true;
+      const bd=b.querySelector('.nbadge');
+      if(bd && bd.style.display!=='none'){ const n=parseInt(bd.textContent,10); if(!isNaN(n)) soma+=n; }
+    }
+    b.style.display='none';
+  });
+  const mb=document.getElementById('nav-mais'); if(!mb) return;
+  mb.style.display=temMais?'flex':'none';
+  const mbd=document.getElementById('maisBadge');
+  if(mbd){ if(soma>0){ mbd.style.display='flex'; mbd.textContent=soma; } else mbd.style.display='none'; }
+  const atual=(typeof curTab!=='undefined')?curTab:null;
+  mb.classList.toggle('on', navItensMais().some(i=>i.scr===atual));
+  if(document.getElementById('maisSheet') && document.getElementById('maisSheet').classList.contains('on')) montarMais();
+}
+function montarMais(){
+  const lista=document.getElementById('maisLista'); if(!lista) return;
+  const atual=(typeof curTab!=='undefined')?curTab:null;
+  lista.innerHTML=navItensMais().map(i=>
+    '<button class="mais-item'+(i.scr===atual?' on':'')+'" data-ir="'+i.scr+'">'+i.icone+
+    '<span>'+motEsc(i.rotulo)+'</span>'+(i.cnt?'<span class="cnt">'+motEsc(i.cnt)+'</span>':'')+'</button>').join('');
+  lista.querySelectorAll('[data-ir]').forEach(b=>b.addEventListener('click',()=>{ fecharMais(); go(b.dataset.ir); }));
+}
+function abrirMais(){
+  montarMais();
+  const ov=document.getElementById('maisOv'), sh=document.getElementById('maisSheet');
+  if(ov) ov.classList.add('on'); if(sh) sh.classList.add('on');
+}
+function fecharMais(){
+  const ov=document.getElementById('maisOv'), sh=document.getElementById('maisSheet');
+  if(ov) ov.classList.remove('on'); if(sh) sh.classList.remove('on');
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') fecharMais(); });
+
 function botnavSombra(){
   const n=document.getElementById('botnav'), w=document.getElementById('botnav-wrap');
   if(!n||!w) return;
@@ -2276,10 +2353,10 @@ let _avPend=[];
 /* fila de PROPOSTAS DE PERIODICIDADE do CBM (05/08/2026 — só Coordenador pra cima decide:
    GET /plano/propostas). O motor propõe e para; o intervalo em vigor não muda sozinho. */
 let _propPend=[];
-function updateApprBadge(){ const n=pendingReports().length+(canAprovarAviso(ROLE)?_avPend.length:0)+(canAprovarProposta(ROLE)?_propPend.length:0); const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+function updateApprBadge(){ const n=pendingReports().length+(canAprovarAviso(ROLE)?_avPend.length:0)+(canAprovarProposta(ROLE)?_propPend.length:0); const b=document.getElementById('apprBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none';  try{navAplicarGrupos();}catch(e){} }
 /* separações marcadas como urgentes e ainda pendentes (checkbox Urgente__c na Ordem de Separação) */
 function urgentesPendentes(){ return sepListAll().filter(x=>x.s.urgente && sepPendente(x.s.status)); }
-function updateEstoqueBadge(){ const n=urgentesPendentes().length; const b=document.getElementById('estoqueBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none'; }
+function updateEstoqueBadge(){ const n=urgentesPendentes().length; const b=document.getElementById('estoqueBadge'); if(!b)return; if(n>0){b.style.display='flex';b.textContent=n;} else b.style.display='none';  try{navAplicarGrupos();}catch(e){} }
 /* alerta de separação urgente: toast só na 1ª vez que cada separação urgente aparece pendente (poll silencioso ou ação na hora) */
 let _urgSeen=new Set();
 function checkUrgentAlerts(){
@@ -12267,7 +12344,7 @@ function canMotor(r){ return !['Estoquista','Produção'].includes(r); }
 // Plano de Manutenção (retaguarda/engenharia) — mesma lista de canCadastrar/canAloc, não é
 // escopo do técnico de campo. Espelha FUNCAO_PLANO em backend/planoRoutes.js.
 function canPlano(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
-function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
+function updateNavRole(){ navLimparPermitido(); const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
   const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
   const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
   const t=document.getElementById('nav-trein'); if(t) t.style.display=canTreino(ROLE)?'flex':'none';
@@ -12275,7 +12352,8 @@ function updateNavRole(){ const b=document.getElementById('nav-aloc'); if(b) b.s
   const bp=document.getElementById('nav-bipar'); if(bp) bp.style.display=canBipar(ROLE)?'flex':'none';
   const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none';
   const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none';
-  const pl=document.getElementById('nav-plano'); if(pl) pl.style.display=canPlano(ROLE)?'flex':'none'; }
+  const pl=document.getElementById('nav-plano'); if(pl) pl.style.display=canPlano(ROLE)?'flex':'none';
+  navAplicarGrupos(); }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
 const TREINOS=[
