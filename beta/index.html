@@ -2159,7 +2159,11 @@ function navItensMais(){
   document.querySelectorAll('.botnav button[data-grp="mais"]').forEach(b=>{
     if(b.dataset.permitido!=='1') return;
     const bd=b.querySelector('.nbadge');
-    out.push({ scr:b.dataset.scr, rotulo:(b.textContent||'').trim(),
+    /* o rotulo tem que sair SEM o contador: textContent do botao traz os dois colados
+       ("Aprovacoes1"), porque o contador e um <span> filho. */
+    const limpo=b.cloneNode(true);
+    limpo.querySelectorAll('.nbadge').forEach(x=>x.remove());
+    out.push({ scr:b.dataset.scr, rotulo:(limpo.textContent||'').trim(),
       icone:(b.querySelector('svg')||{}).outerHTML||'',
       cnt:(bd && bd.style.display!=='none') ? (bd.textContent||'') : '' });
   });
