@@ -42,6 +42,9 @@
   @media(min-width:760px){
     .phone.plano-wide{max-width:100%;margin:0;height:100vh;height:100dvh;border-radius:0}
     .phone.plano-wide .pln-detail{padding:12px 18px 34px}
+    /* a lista de atividades fica parada enquanto os passos rolam: numa atividade de 82 passos,
+       perder a lista de vista a cada rolagem torna a tela inutilizavel */
+    .phone.plano-wide .pln-master{position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto}
   }
   /* Dedo, nao mouse: no iPad os controles do montador precisam de alvo grande. Vale para
      qualquer aparelho de toque, inclusive celular grande em pe. */
@@ -16434,8 +16437,27 @@ function plnEditarRegra(passoId,r){
   if(!PLN.regraEdit.condicoes.length) PLN.regraEdit.condicoes=[{fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''}];
   plnRenderTabBody();
 }
+/* Salvar recarrega a biblioteca inteira, e o carregamento zera a atividade selecionada (o que
+   esta certo ao ABRIR a aba, e errado depois de salvar). Estas duas guardam o lugar: a atividade
+   volta a ser a mesma e a tela rola de volta pra pergunta que estava sendo mexida. */
+function plnAtividadeSelId(){
+  const b=PLN.biblioteca; const r=b&&b.regras&&b.regras[PLN.selRegra];
+  return r?r.id:null;
+}
+async function plnRecarregarMantendoLugar(atividadeId,passoId){
+  await plnCarregarTab();
+  if(atividadeId&&PLN.biblioteca&&PLN.biblioteca.regras){
+    const i=PLN.biblioteca.regras.findIndex(r=>r.id===atividadeId);
+    if(i>=0&&i!==PLN.selRegra){ PLN.selRegra=i; plnRenderTabBody(); }
+  }
+  if(passoId){
+    const alvo=document.querySelector('[data-nova="'+passoId+'"]')||document.querySelector('[data-edit="'+passoId+'"]');
+    if(alvo&&alvo.scrollIntoView) alvo.scrollIntoView({block:'center'});
+  }
+}
 async function plnSalvarRegra(){
   const e=PLN.regraEdit; if(!e||PLN.salvandoRegra) return;
+  const atividadeId=plnAtividadeSelId();
   PLN.salvandoRegra=true; PLN.erroRegra=null; plnRenderTabBody();
   const corpo={ passoAlvoId:e.passoId, juncao:e.juncao, acao:e.acao, valorAcao:e.valorAcao,
     gravidade:e.gravidade, mensagem:e.mensagem, ativa:e.ativa,
@@ -16446,7 +16468,7 @@ async function plnSalvarRegra(){
     else await bePost('/plano/regra-logica',corpo);
     PLN.regraEdit=null; PLN.biblioteca=null;
     PLN.salvandoRegra=false;
-    await plnCarregarTab();
+    await plnRecarregarMantendoLugar(atividadeId,e.passoId);
     toast('✅ Regra salva');
   }catch(err){
     PLN.salvandoRegra=false;
@@ -16457,11 +16479,12 @@ async function plnSalvarRegra(){
 async function plnApagarRegra(){
   const e=PLN.regraEdit; if(!e||!e.id) return;
   if(!window.confirm('Apagar esta regra? As condições dela vão junto.')) return;
+  const atividadeId=plnAtividadeSelId(), passoId=e.passoId;
   PLN.salvandoRegra=true; plnRenderTabBody();
   try{
     await beDelete('/plano/regra-logica/'+e.id);
     PLN.regraEdit=null; PLN.biblioteca=null; PLN.salvandoRegra=false;
-    await plnCarregarTab();
+    await plnRecarregarMantendoLugar(atividadeId,passoId);
     toast('Regra apagada');
   }catch(err){
     PLN.salvandoRegra=false; PLN.erroRegra=err.message||'Falha ao apagar'; plnRenderTabBody();
