@@ -1253,6 +1253,12 @@
   .pln-bdel{border:none;background:transparent;color:var(--pln-warn);font:700 .64rem inherit;cursor:pointer;margin-left:auto}
   .pln-berr{font-size:.63rem;color:var(--pln-warn);background:var(--pln-warn-soft);border-radius:7px;padding:6px 9px;margin-top:8px;line-height:1.45}
   .pln-bhint{font-size:.58rem;color:var(--pln-text-soft);margin-top:6px;line-height:1.45}
+  /* B.1 16/09/2026 — foto presa a pergunta, dentro da linha do passo */
+  .mot-pfoto{width:100%;display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+  .mot-pfbtn{border:1.5px dashed var(--mot-warn);background:var(--mot-warn-soft);color:var(--mot-warn);font:800 .7rem inherit;padding:8px 12px;border-radius:9px;cursor:pointer}
+  .mot-pfbtn.ok{border-style:solid;border-color:var(--mot-border);background:#fff;color:var(--mot-brand)}
+  .mot-pfthumb{width:52px;height:52px;border-radius:9px;background:#EEF1F4 center/cover no-repeat;border:1px solid var(--mot-border);flex-shrink:0}
+  .mot-pfhint{font-size:.62rem;color:var(--mot-warn);width:100%;line-height:1.4}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
 </style>
@@ -13942,7 +13948,7 @@ async function offDrain(){
         else if(j.kind==='delete') await beDelete(j.path);
         else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
-        else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true);
+        else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true,j.passoId);
         else if(j.kind==='coltPost') await coltDrainPost(j);
         await offDel(j._id); n++;
       }catch(e){
@@ -14609,13 +14615,14 @@ function motCalcFmt(p,v){
    justificativa registrada. Ver §6 da DECISAO_base-da-regra-logica_15-09-2026.md. */
 function motImpedimentosOK(t){
   const out=[];
-  const temFoto=((t.fotos&&t.fotos.antes||[]).length+(t.fotos&&t.fotos.depois||[]).length+(t.fotos&&t.fotos.adicionais||[]).length)>0;
   (t.passos||[]).forEach(p=>{
     if(!p.regras||!p.regras.length) return;
     if(!motItemVisivel(t,p)) return;
     const ef=motEfeitos(t,p);
     ef.exigirOK.forEach(m=>{ if(out.indexOf(m)<0) out.push(m); });
-    if(ef.exigeFoto&&!temFoto){
+    /* B.1 16/09/2026 — a exigencia e da PERGUNTA. Antes olhava as fotos da tarefa inteira, entao
+       uma foto do painel eletrico satisfazia uma regra que pedia foto da corrosao. */
+    if(ef.exigeFoto&&!((p.fotos||[]).length)){
       const m='"'+(p.descricao||'um passo')+'" pede foto antes de concluir como OK.';
       if(out.indexOf(m)<0) out.push(m);
     }
@@ -14797,15 +14804,18 @@ async function motProcessFoto(file){
 }
 
 /* ---------- upload real de mídia do item (offline-safe, mesmo padrão de beUploadMidia) ---------- */
-async function motUploadFoto(itemId, blob, filename, tipo, noQ){
+/* B.1 16/09/2026 — passoId opcional no fim de proposito: a fila offline ja tinha jobs gravados
+   com a assinatura antiga, e eles continuam subindo sem passo, como sempre subiram. */
+async function motUploadFoto(itemId, blob, filename, tipo, noQ, passoId){
   try{
     const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
+    if(passoId) fd.append('passoId', passoId);
     const r=await fetch(BACKEND+'/motor/execucao/itens/'+itemId+'/fotos',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
     return j;
   }catch(e){
-    if(!noQ && netFail(e)){ await offAdd({kind:'midiaMotor',itemId,blob,filename,tipo,label:'Foto ('+tipo+')'}); return {ok:true,_queued:true}; }
+    if(!noQ && netFail(e)){ await offAdd({kind:'midiaMotor',itemId,blob,filename,tipo,passoId,label:'Foto ('+tipo+')'}); return {ok:true,_queued:true}; }
     throw e;
   }
 }
@@ -15118,6 +15128,37 @@ function motCapturarPrincipal(t,tipo){
     }catch(e){ toast('Falha ao processar a foto: '+e.message); }
   });
 }
+/* B.1 16/09/2026 — foto de UMA pergunta. Mesmo caminho da foto da tarefa (processa, mostra na
+   hora, sobe, cai na fila offline se nao houver sinal), so que carregando o passo junto. A foto
+   continua contando como foto da tarefa no servidor; o que muda e que ela sabe de qual pergunta e. */
+function motCapturarFotoPasso(t,p){
+  pickPhoto(async file=>{
+    try{
+      const blob=await motProcessFoto(file);
+      const tmp={driveId:null,url:null,data:new Date().toISOString(),passoId:p.id,_localUrl:URL.createObjectURL(blob)};
+      p.fotos=p.fotos||[]; p.fotos.push(tmp);
+      (t.fotos.adicionais=t.fotos.adicionais||[]).push(tmp);
+      motMarcarEdicao(t); motRenderAtual();
+      try{
+        const r=await motUploadFoto(t.id,blob,t.id+'_passo_'+Date.now()+'.jpg','Foto Adicional',false,p.id);
+        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; motRenderAtual(); }
+        else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
+    }catch(e){ toast('Falha ao processar a foto: '+e.message); }
+  });
+}
+/* A camera so aparece onde ela significa alguma coisa: numa pergunta que uma regra mandou
+   fotografar, ou numa que ja tem foto. Botao de camera nos 82 passos seria ruido. */
+function motFotoPassoHtml(t,p,exige){
+  const fotos=p.fotos||[];
+  if(!exige&&!fotos.length) return '';
+  let h='<div class="mot-pfoto">';
+  fotos.forEach(f=>{ h+='<div class="mot-pfthumb" data-driveid="'+motEsc(f.driveId||'')+'" style="'+motFotoBgStyle(f)+'"></div>'; });
+  h+='<button class="mot-pfbtn'+(fotos.length?' ok':'')+'" data-fotopasso="'+p.id+'">📷 '+(fotos.length?'outra foto':'fotografar')+'</button>';
+  if(exige&&!fotos.length) h+='<div class="mot-pfhint">Esta pergunta pede foto para a tarefa poder ser concluída como OK.</div>';
+  h+='</div>';
+  return h;
+}
 /* atualiza na hora o(s) retângulo(s) Antes/Depois já visíveis em tela (Desfecho/Edição/Revisão),
    sem depender só do re-render geral — garante que a miniatura nunca fique "presa" na foto antiga. */
 function motForcarThumbAB(t,tipo){
@@ -15372,7 +15413,11 @@ function motPassoRowHtml(t,p,aff){
   /* 15/09/2026 — os 6 tipos acima passaram a ter campo de verdade. O fallback fica como rede
      de seguranca pra um Tipo_Campo__c novo que apareca na biblioteca sem tela correspondente. */
   else inner=motFallbackRowHtml(p);
-  if(p.statusPasso!=='Não realizado') inner+=motRefBtnHtml(p);
+  if(p.statusPasso!=='Não realizado'){
+    inner+=motRefBtnHtml(p);
+    /* B.1 — a camera da pergunta entra depois da resposta e antes do botao de referencia visual */
+    if(p.regras&&p.regras.length||((p.fotos||[]).length)) inner+=motFotoPassoHtml(t,p,motEfeitos(t,p).exigeFoto);
+  }
   /* R5 15/09/2026 — "Preencher e travar": o valor ja foi gravado em motAplicarAutomaticas;
      aqui so desliga o toque, pra ninguem mudar o que a regra fixou. */
   if(p._travado) inner='<div class="mot-travado">'+inner+'</div>';
@@ -15401,6 +15446,12 @@ function motCkRowsHtml(t,aff){
   return out;
 }
 function motWireRefButtons(cont){ cont.querySelectorAll('.mot-refbtn').forEach(rb=>{ rb.addEventListener('click',ev=>{ ev.stopPropagation(); motAbrirRef(rb.dataset.pid); }); }); }
+function motWireFotoPasso(cont,t){
+  cont.querySelectorAll('[data-fotopasso]').forEach(b=>b.addEventListener('click',ev=>{
+    ev.stopPropagation();
+    const p=motAcharPassoPorId(t,b.dataset.fotopasso); if(p) motCapturarFotoPasso(t,p);
+  }));
+}
 /* 15/09/2026 — apoio dos tipos novos. Multi-Picklist guarda as escolhas em Valor_Opcao__c
    separadas por ";", que e o mesmo formato do Opcoes__c da regra; nao precisou de campo novo. */
 function motMultiSel(p){ return (p.valorOpcao||'').split(';').map(x=>x.trim()).filter(Boolean); }
@@ -15511,6 +15562,7 @@ function motWireNovosTipos(cont,t){
 }
 function motWireTyped(cont,t){
   motWireNovosTipos(cont,t);
+  motWireFotoPasso(cont,t);
   cont.querySelectorAll('.mot-medin').forEach(inp=>{
     inp.addEventListener('change',()=>{
       const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
