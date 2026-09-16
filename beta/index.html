@@ -15804,7 +15804,7 @@ function motWireTyped(cont,t){
   cont.querySelectorAll('.mot-sugok').forEach(b=>{
     b.addEventListener('click',()=>{
       const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
-      p._dec='aceita'; t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora()});
+      p._dec='aceita'; t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora(),passoId:p.id});
       motRenderAtual(); motMaybeAvancaChecklist(t);
     });
   });
@@ -15965,6 +15965,12 @@ async function motConcluir(tipo,sev,txt){
   body.innerHTML='<div class="mot-transw'+(crit?' crit':'')+'"><div class="mot-tic">'+(tipo==='ok'?'✓':crit?'⚠':'📝')+'</div><b>Salvando…</b></div>';
   try{
     const payload=tipo==='ok'?{resultado:'ok'}:{resultado:'nc',severidade:sev,descricao:txt};
+    /* Fatia C 16/09/2026 — qual pergunta gerou o achado. So vai quando UMA sugestao foi aceita:
+       com duas ou mais, nao existe origem unica, e o campo fica vazio, que e a verdade. */
+    if(tipo!=='ok'){
+      const sug=(t._notasSugeridas||[]).filter(n=>n.passoId);
+      if(sug.length===1) payload.passoItemId=sug[0].passoId;
+    }
     const r=await bePost('/motor/execucao/itens/'+t.id+'/concluir',payload,'Conclusão da tarefa — '+(t.tarefaNome||''));
     t.statusItem=(r&&r.statusItem)||(tipo==='ok'?'OK':'Com NC');
     t._desfechoLocal=tipo==='ok'?{tipo:'ok',hora:motHoraAgora()}:{tipo:'nota',sev:sev,txt:txt,hora:motHoraAgora()};
