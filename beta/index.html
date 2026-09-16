@@ -1376,6 +1376,40 @@
   .pln-copia{border:1px solid var(--pln-border);background:#fff;color:#2B5A7E;font:700 .62rem inherit;
     cursor:pointer;padding:4px 10px;border-radius:7px;margin-left:8px}
   .pln-copia:hover{border-color:var(--pln-blue);background:var(--pln-blue-soft)}
+  /* Fatia F 16/09/2026 — painel de pendencias */
+  .pnd-filtros{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:11px}
+  .pnd-chip{border:1px solid var(--pln-border);background:#fff;color:var(--pln-text);font:700 .63rem inherit;
+    padding:5px 11px;border-radius:14px;cursor:pointer;white-space:nowrap}
+  .pnd-chip.on{background:var(--pln-navy);color:#fff;border-color:var(--pln-navy)}
+  .pnd-chip .n{opacity:.65;margin-left:5px;font-weight:800}
+  .pnd-card{background:#fff;border:1px solid var(--pln-border);border-radius:11px;padding:12px 14px;margin-bottom:9px}
+  .pnd-hd{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap}
+  .pnd-hd .tit{flex:1;min-width:0}
+  .pnd-hd .tit b{display:block;font-size:.78rem;color:var(--pln-navy);line-height:1.35}
+  .pnd-hd .tit small{display:block;font-size:.6rem;color:var(--pln-text-soft);margin-top:3px;line-height:1.45}
+  .pnd-sev{font-size:.55rem;font-weight:800;border-radius:9px;padding:2px 8px;white-space:nowrap}
+  .pnd-sev.obs{background:#EEF1F4;color:var(--pln-text-soft)}
+  .pnd-sev.at{background:var(--pln-alert-soft);color:var(--pln-alert)}
+  .pnd-sev.cr{background:var(--pln-warn-soft);color:var(--pln-warn)}
+  .pnd-sit{font-size:.55rem;font-weight:800;border-radius:9px;padding:2px 8px;white-space:nowrap;border:1px solid var(--pln-border)}
+  .pnd-sit.ab{background:var(--pln-blue-soft);color:#2B5A7E;border-color:#CBDDEC}
+  .pnd-sit.an{background:#FFF8E6;color:#8C4B02;border-color:#F3C56B}
+  .pnd-sit.re{background:var(--pln-ok-soft);color:var(--pln-ok);border-color:#BFE3D0}
+  .pnd-sit.de{background:#F0F2F5;color:var(--pln-text-soft)}
+  .pnd-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:.6rem;color:var(--pln-text-soft);margin-top:8px;line-height:1.5}
+  .pnd-meta b{color:var(--pln-text)}
+  .pnd-foto{width:64px;height:64px;border-radius:8px;background:#EEF1F4 center/cover no-repeat;border:1px solid var(--pln-border);flex-shrink:0}
+  .pnd-acoes{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px dashed var(--pln-border)}
+  .pnd-bt{border:1px solid var(--pln-border);background:#fff;color:var(--pln-text);font:700 .62rem inherit;
+    padding:5px 11px;border-radius:7px;cursor:pointer}
+  .pnd-bt:hover{border-color:var(--pln-blue);background:var(--pln-blue-soft);color:#2B5A7E}
+  .pnd-bt.prim{background:var(--pln-blue);border-color:var(--pln-blue);color:#fff}
+  .pnd-bt.prim:hover{background:#2B5A7E;color:#fff}
+  .pnd-form{margin-top:9px;background:var(--pln-bg);border-radius:8px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .pnd-form textarea{width:100%;min-height:58px;border:1px solid var(--pln-border);border-radius:7px;padding:7px 9px;
+    font:600 .65rem inherit;color:var(--pln-navy);resize:vertical}
+  .pnd-form .lbl{font-size:.6rem;font-weight:700;color:var(--pln-text-soft)}
+  .pnd-vazio{font-size:.68rem;color:var(--pln-text-soft);line-height:1.6;padding:18px 4px}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
 </style>
@@ -16495,6 +16529,7 @@ function plnRenderShell(root){
     '<button class="'+(PLN.tab==='ficha'?'on':'')+'" data-tab="ficha">Ficha do ativo</button>'+
     '<button class="'+(PLN.tab==='biblioteca'?'on':'')+'" data-tab="biblioteca">Biblioteca de regras</button>'+
     '<button class="'+(PLN.tab==='agenda'?'on':'')+'" data-tab="agenda">Agenda de OTs</button>'+
+    '<button class="'+(PLN.tab==='pendencias'?'on':'')+'" data-tab="pendencias">Pendências</button>'+
   '</div>';
   if(PLN.locais.length>1){
     // texto truncado no próprio option — <select> nativo nem sempre respeita text-overflow no
@@ -16508,7 +16543,7 @@ function plnRenderShell(root){
   h+='<div id="pln-tabbody"></div>';
   root.innerHTML=h;
   const sel=root.querySelector('#pln-localsel');
-  if(sel) sel.addEventListener('change',()=>{ PLN.localId=sel.value; PLN.ficha=null; PLN.agenda=null; PLN.erro=null; plnCarregarTab(); });
+  if(sel) sel.addEventListener('change',()=>{ PLN.localId=sel.value; PLN.ficha=null; PLN.agenda=null; if(PLN.pndSoLocal) PLN.achados=null; PLN.erro=null; plnCarregarTab(); });
   root.querySelectorAll('.pln-topnav button').forEach(b=>{
     b.addEventListener('click',()=>{ PLN.tab=b.dataset.tab; PLN.erro=null; plnRenderShell(root); plnCarregarTab(); });
   });
@@ -16516,12 +16551,13 @@ function plnRenderShell(root){
 }
 async function plnCarregarTab(){
   if(!PLN.localId) return;
-  const jaTem=(PLN.tab==='ficha'&&PLN.ficha)||(PLN.tab==='biblioteca'&&PLN.biblioteca)||(PLN.tab==='agenda'&&PLN.agenda);
+  const jaTem=(PLN.tab==='ficha'&&PLN.ficha)||(PLN.tab==='biblioteca'&&PLN.biblioteca)||(PLN.tab==='agenda'&&PLN.agenda)||(PLN.tab==='pendencias'&&PLN.achados);
   if(jaTem){ plnRenderTabBody(); return; }
   PLN.loading=true; PLN.erro=null; plnRenderTabBody();
   try{
     if(PLN.tab==='ficha'){ PLN.ficha=await beGet('/plano/ficha/'+PLN.localId); PLN.selAtivo=0; }
     else if(PLN.tab==='biblioteca'){ PLN.biblioteca=await beGet('/plano/biblioteca'); PLN.selRegra=0; }
+    else if(PLN.tab==='pendencias'){ await pndCarregar(); }
     else { PLN.agenda=await beGet('/plano/agenda/'+PLN.localId); PLN.selVisita=0; }
   }catch(e){ PLN.erro='Falha ao carregar: '+e.message; }
   PLN.loading=false;
@@ -16533,6 +16569,7 @@ function plnRenderTabBody(){
   if(PLN.erro){ body.innerHTML='<div class="pln-empty"><div class="pln-emico">⚠️</div><h3>Falha</h3><p>'+motEsc(PLN.erro)+'</p></div>'; return; }
   if(PLN.tab==='ficha') plnRenderFicha(body);
   else if(PLN.tab==='biblioteca') plnRenderBiblioteca(body);
+  else if(PLN.tab==='pendencias') plnRenderPendencias(body);
   else plnRenderAgenda(body);
 }
 function plnFmtData(iso){
@@ -17440,6 +17477,121 @@ function plnRenderBiblioteca(body){
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selRegra=+el.dataset.i; PLN.regraEdit=null; PLN.erroRegra=null; PLN.passoEdit=null; plnRenderTabBody(); }); });
   plnWireMontador(body,plnPassosVisiveis(r.pop));
+}
+
+/* ===== Fatia F 16/09/2026 — painel de pendencias =====
+   A tela que nao existia. O achado era registrado em campo e ninguem olhava: nao havia
+   fila, nao havia situacao, nao havia onde escrever o que foi feito. Aqui a retaguarda
+   tria: ve a pergunta que gerou, a foto, o equipamento, a corretiva vinculada, e decide.
+   Ver docs/07-MANUTENCAO/DECISAO_achado-vira-pendencia_16-09-2026.md */
+const PND_SITUACOES=['Aberta','Em análise','Resolvida','Descartada'];
+const pndClasseSit=(s)=>({'Aberta':'ab','Em análise':'an','Resolvida':'re','Descartada':'de'}[s]||'ab');
+const pndClasseSev=(s)=>({'Observação':'obs','Atenção':'at','Crítico':'cr'}[s]||'obs');
+
+async function pndCarregar(){
+  const q=[];
+  /* "abertas" e o padrao do servidor, que devolve Aberta mais Em analise: mandar o parametro
+     seria repetir a mesma coisa de outro jeito. */
+  const f=PLN.pndFiltro||'abertas';
+  if(f!=='abertas') q.push('status='+encodeURIComponent(f));
+  if(PLN.pndSev) q.push('severidade='+encodeURIComponent(PLN.pndSev));
+  if(PLN.pndSoLocal && PLN.localId) q.push('localId='+PLN.localId);
+  PLN.achados=await beGet('/plano/achados'+(q.length?'?'+q.join('&'):''));
+}
+function plnRenderPendencias(body){
+  const d=PLN.achados, lista=(d&&d.achados)||[];
+  let h='<div class="pnd-filtros">';
+  [['abertas','Em aberto'],['Aberta','Só as novas'],['Em análise','Em análise'],
+   ['Resolvida','Resolvidas'],['Descartada','Descartadas'],['todos','Tudo']].forEach(([v,r])=>{
+    h+='<button class="pnd-chip'+((PLN.pndFiltro||'abertas')===v?' on':'')+'" data-pndf="'+v+'">'+r+'</button>';
+  });
+  h+='<span style="width:10px"></span>';
+  [['','Toda gravidade'],['Crítico','Crítico'],['Atenção','Atenção'],['Observação','Observação']].forEach(([v,r])=>{
+    h+='<button class="pnd-chip'+((PLN.pndSev||'')===v?' on':'')+'" data-pnds="'+motEsc(v)+'">'+r+'</button>';
+  });
+  h+='<button class="pnd-chip'+(PLN.pndSoLocal?' on':'')+'" data-pndlocal>Só este local</button>';
+  h+='</div>';
+
+  if(!lista.length){
+    h+='<div class="pnd-vazio">Nenhum achado nesta seleção. Se você acabou de mudar o filtro, tente <b>Tudo</b>.</div>';
+    body.innerHTML=h; pndWire(body); return;
+  }
+  h+='<div class="pln-bhint" style="margin:0 0 9px">'+lista.length+' achado'+(lista.length===1?'':'s')+' · o mais recente primeiro</div>';
+  lista.forEach(a=>{
+    const ed=PLN.pndEdit&&PLN.pndEdit.id===a.id?PLN.pndEdit:null;
+    h+='<div class="pnd-card">';
+    h+='<div class="pnd-hd">';
+    if(a.fotoUrl) h+='<div class="pnd-foto" style="background-image:url('+JSON.stringify(a.fotoUrl)+')"></div>';
+    h+='<div class="tit"><b>'+motEsc(a.descricao||'(sem descrição)')+'</b>'+
+      '<small>'+motEsc(a.nome||'')+' · '+(a.idadeDias!=null?('há '+a.idadeDias+' dia'+(a.idadeDias===1?'':'s')):'')+
+      (a.ativo?' · equipamento <b>'+motEsc(a.ativo.descricao||a.ativo.nome||'')+'</b>':'')+
+      (a.otOrigem?' · '+motEsc(a.otOrigem.nome||'')+(a.otOrigem.localNome?' em '+motEsc(a.otOrigem.localNome):''):'')+'</small></div>';
+    h+='<span class="pnd-sev '+pndClasseSev(a.severidade)+'">'+motEsc(a.severidade||'—')+'</span>';
+    h+='<span class="pnd-sit '+pndClasseSit(a.status)+'">'+motEsc(a.status||'Aberta')+'</span>';
+    h+='</div>';
+    h+='<div class="pnd-meta">';
+    h+='<span>Pergunta de origem: <b>'+(a.perguntaOrigem?motEsc(a.perguntaOrigem.ordem+' · '+a.perguntaOrigem.descricao):'não registrada')+'</b></span>';
+    if(a.dano) h+='<span>Dano: <b>'+motEsc(a.dano)+'</b></span>';
+    if(a.causa) h+='<span>Causa: <b>'+motEsc(a.causa)+'</b></span>';
+    h+='<span>Corretiva: <b>'+(a.corretiva?motEsc(a.corretiva.nome+' · '+a.corretiva.status):(a.pediuCorretiva?'pedida, ainda não gerada':'não pedida'))+'</b></span>';
+    h+='</div>';
+    if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>O que foi feito: <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
+    if(a.motivoDescarte) h+='<div class="pnd-meta"><span>Motivo do descarte: <b>'+motEsc(a.motivoDescarte)+'</b></span></div>';
+
+    if(ed){
+      h+='<div class="pnd-form">';
+      h+='<span class="lbl">'+(ed.acao==='Resolvida'?'O que foi feito para resolver':'Por que este achado não exige ação')+'</span>';
+      h+='<textarea data-pndtxt placeholder="'+(ed.acao==='Resolvida'?'ex: mancal realinhado e rolamento trocado':'ex: desgaste dentro do aceitável para o intervalo do contrato')+'">'+motEsc(ed.txt||'')+'</textarea>';
+      if(ed.acao==='Descartada') h+='<span class="lbl" style="color:var(--pln-warn)">Descartar exige o motivo. Resolver não exige, mas ajuda a próxima visita.</span>';
+      h+='<div style="display:flex;gap:7px"><button class="pnd-bt prim" data-pndok="'+a.id+'">Confirmar '+motEsc(ed.acao)+'</button>'+
+        '<button class="pnd-bt" data-pndcancel>Cancelar</button></div>';
+      if(ed.erro) h+='<div class="pln-berr" style="margin:0">'+motEsc(ed.erro)+'</div>';
+      h+='</div>';
+    } else {
+      h+='<div class="pnd-acoes">';
+      if(a.status!=='Em análise' && a.status!=='Resolvida' && a.status!=='Descartada')
+        h+='<button class="pnd-bt" data-pndsit="Em análise" data-id="'+a.id+'">pegar para análise</button>';
+      if(a.status!=='Resolvida') h+='<button class="pnd-bt prim" data-pndform="Resolvida" data-id="'+a.id+'">resolver</button>';
+      if(a.status!=='Descartada') h+='<button class="pnd-bt" data-pndform="Descartada" data-id="'+a.id+'">descartar</button>';
+      if(a.status==='Resolvida'||a.status==='Descartada')
+        h+='<button class="pnd-bt" data-pndsit="Aberta" data-id="'+a.id+'">reabrir</button>';
+      if(!a.pediuCorretiva && !a.corretiva)
+        h+='<button class="pnd-bt" data-pndcorr="'+a.id+'">pedir corretiva</button>';
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  body.innerHTML=h;
+  pndWire(body);
+}
+function pndWire(body){
+  const recarrega=async()=>{ PLN.achados=null; PLN.pndEdit=null; await plnCarregarTab(); };
+  body.querySelectorAll('[data-pndf]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFiltro=b.dataset.pndf; recarrega(); }));
+  body.querySelectorAll('[data-pnds]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSev=b.dataset.pnds; recarrega(); }));
+  body.querySelectorAll('[data-pndlocal]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSoLocal=!PLN.pndSoLocal; recarrega(); }));
+  body.querySelectorAll('[data-pndform]').forEach(b=>b.addEventListener('click',()=>{
+    PLN.pndEdit={id:b.dataset.id, acao:b.dataset.pndform, txt:'', erro:null}; plnRenderTabBody();
+  }));
+  body.querySelectorAll('[data-pndcancel]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndEdit=null; plnRenderTabBody(); }));
+  const ta=body.querySelector('[data-pndtxt]');
+  if(ta) ta.addEventListener('input',()=>{ if(PLN.pndEdit) PLN.pndEdit.txt=ta.value; });
+  body.querySelectorAll('[data-pndsit]').forEach(b=>b.addEventListener('click',async()=>{
+    try{ await bePatch('/plano/achado/'+b.dataset.id,{status:b.dataset.pndsit}); toast('✅ Situação: '+b.dataset.pndsit); recarrega(); }
+    catch(e){ toast(e.message||'Falha ao mudar a situação'); }
+  }));
+  body.querySelectorAll('[data-pndcorr]').forEach(b=>b.addEventListener('click',async()=>{
+    if(!window.confirm('Pedir ordem corretiva para este achado?\n\nUma OT corretiva será criada com o equipamento do achado.')) return;
+    try{ await bePatch('/plano/achado/'+b.dataset.pndcorr,{geraCorretiva:true}); toast('✅ Corretiva pedida'); setTimeout(recarrega,1500); }
+    catch(e){ toast(e.message||'Falha ao pedir corretiva'); }
+  }));
+  body.querySelectorAll('[data-pndok]').forEach(b=>b.addEventListener('click',async()=>{
+    const e=PLN.pndEdit; if(!e) return;
+    const corpo={status:e.acao};
+    if(e.acao==='Resolvida') corpo.medidaCorretiva=e.txt||'';
+    else corpo.motivoDescarte=e.txt||'';
+    try{ await bePatch('/plano/achado/'+b.dataset.pndok,corpo); toast('✅ '+e.acao); recarrega(); }
+    catch(err){ PLN.pndEdit.erro=err.message||'O servidor recusou.'; plnRenderTabBody(); }
+  }));
 }
 
 function plnRenderAgenda(body){
