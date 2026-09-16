@@ -1352,6 +1352,27 @@
   .pln-fxres .st.nada{color:var(--pln-text-soft);font-weight:600}
   .pln-fxhint{font-size:.55rem;color:var(--pln-text-soft);line-height:1.45}
   @media(max-width:820px){ .pln-fgrid,.pln-fxcols{grid-template-columns:1fr} }
+  /* fatia 2, 16/09/2026: criar, arquivar, arrastar e produto */
+  .pln-poprow.arrastando{opacity:.4}
+  .pln-poprow.alvo{box-shadow:inset 0 -2px 0 var(--pln-blue)}
+  .pln-drag{cursor:grab;color:#C3CBD3;flex-shrink:0;padding:0 2px;user-select:none;font-size:.8rem;line-height:1}
+  .pln-drag:active{cursor:grabbing}
+  .pln-poprow.arq{opacity:.55}
+  .pln-poprow.arq .ds{text-decoration:line-through}
+  .pln-novo{border:1px dashed var(--pln-blue);background:var(--pln-blue-soft);color:#2B5A7E;font:800 .66rem inherit;
+    cursor:pointer;padding:7px 13px;border-radius:8px;margin-top:9px}
+  .pln-novo:hover{background:#DCE9F4}
+  .pln-tgarq{border:1px solid var(--pln-border);background:#fff;color:var(--pln-text-soft);font:700 .6rem inherit;
+    cursor:pointer;padding:3px 9px;border-radius:7px;margin-left:auto}
+  .pln-tgarq.on{background:var(--pln-navy);color:#fff;border-color:var(--pln-navy)}
+  .pln-prodbox{position:relative}
+  .pln-prodlista{position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--pln-border2,#D7DEE6);
+    border-radius:8px;box-shadow:0 10px 28px rgba(11,34,57,.18);max-height:190px;overflow-y:auto;margin-top:3px}
+  .pln-prodlista button{display:block;width:100%;text-align:left;border:none;background:none;font:600 .63rem inherit;
+    color:var(--pln-text);padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--pln-bg)}
+  .pln-prodlista button:hover{background:var(--pln-blue-soft)}
+  .pln-prodlista button small{display:block;font-size:.55rem;color:var(--pln-text-soft)}
+  .pln-prodlista .vazio{padding:8px 10px;font-size:.6rem;color:var(--pln-text-soft)}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
 </style>
@@ -16767,7 +16788,8 @@ function plnPassoParaEdicao(p){
     opcoes:(p.opcoes||[]).join(';'), codigo:p.codigo||'', formula:p.formula||'',
     casasDecimais:(p.casasDecimais==null?2:p.casasDecimais), notaReferencia:p.notaReferencia||'',
     fotoReferencia:p.fotoReferencia||'', refFTR:p.refFTR||'', modoNfc:p.modoNFC||'',
-    passoPaiId:p.passoPaiId||'', operador:p.operador||'', valorPai:p.valorPai||'' };
+    passoPaiId:p.passoPaiId||'', operador:p.operador||'', valorPai:p.valorPai||'',
+    produtoId:p.produtoId||'', produtoNome:p.produtoNome||'', quantidade:(p.quantidade!=null?p.quantidade:'') };
 }
 /* Um passo "como ficaria se salvasse agora", para as checagens rodarem no que esta na tela
    e nao no que esta gravado. E o que faz o aviso sumir na hora em que o usuario conserta. */
@@ -16778,7 +16800,8 @@ function plnPassoPrevisto(p,v){
     opcoes:String(v.opcoes||'').split(';').map(x=>x.trim()).filter(Boolean),
     codigo:v.codigo, formula:v.formula, casasDecimais:plnNum(v.casasDecimais),
     notaReferencia:v.notaReferencia, fotoReferencia:v.fotoReferencia, refFTR:v.refFTR,
-    modoNFC:v.modoNfc, passoPaiId:v.passoPaiId, operador:v.operador, valorPai:v.valorPai });
+    modoNFC:v.modoNfc, passoPaiId:v.passoPaiId, operador:v.operador, valorPai:v.valorPai,
+    produtoId:v.produtoId, produtoNome:v.produtoNome, quantidade:plnNum(v.quantidade) });
 }
 function plnMsgHtml(pr,campo){
   return pr.filter(x=>x.campo===campo).map((x,i)=>
@@ -16875,6 +16898,111 @@ function plnCalcPrevia(p,pop,v,ex){
   return {valor:val,porque:''};
 }
 
+/* ===== fatia 2, 16/09/2026: criar, arquivar, reordenar e produto =====
+   Arquivar e o nosso apagar. A engenharia tira a pergunta da atividade, ela some das
+   proximas ordens e do montador, mas o registro fica e as execucoes antigas continuam
+   apontando pra ele. Historico de manutencao nao se apaga. */
+function plnPassosVisiveis(pop){
+  return (pop||[]).filter(p=>PLN.verArquivados ? true : !p.arquivado);
+}
+async function plnNovoPasso(regraId){
+  if(PLN.salvandoPasso) return;
+  const atividadeId=plnAtividadeSelId();
+  PLN.salvandoPasso=true; plnRenderTabBody();
+  try{
+    const r=await bePost('/plano/passo',{regraId:regraId});
+    PLN.biblioteca=null; PLN.salvandoPasso=false;
+    await plnRecarregarMantendoLugar(atividadeId,null);
+    /* abre o painel do passo recem-criado: criar sem poder preencher na hora nao serve */
+    const reg=PLN.biblioteca && PLN.biblioteca.regras[PLN.selRegra];
+    const novo=reg && (reg.pop||[]).find(x=>x.id===r.id);
+    if(novo){ plnAbrirPasso(novo.id); } else { toast('✅ Pergunta criada'); }
+  }catch(err){ PLN.salvandoPasso=false; PLN.erroRegra=err.message||'Falha ao criar a pergunta'; plnRenderTabBody(); }
+}
+async function plnArquivarPasso(passoId,arquivar){
+  const pop=(PLN.biblioteca.regras[PLN.selRegra]||{}).pop||[];
+  const p=pop.find(x=>x.id===passoId); if(!p) return;
+  if(arquivar){
+    /* quem depende deste passo para de funcionar em silencio; avisar antes, com nome */
+    const filhos=pop.filter(x=>x.passoPaiId===passoId && !x.arquivado);
+    const formulas=pop.filter(x=>x.formula && p.codigo && plnCodigosDaFormula(x.formula).indexOf(p.codigo)>=0 && !x.arquivado);
+    let aviso='Arquivar a pergunta '+p.ordem+'?\n\nEla sai das próximas ordens e do montador. Nada é apagado: as execuções já feitas continuam com ela.';
+    if(filhos.length) aviso+='\n\nAtenção: '+filhos.length+' pergunta(s) dependem dela como passo pai e vão passar a aparecer sempre.';
+    if(formulas.length) aviso+='\n\nAtenção: '+formulas.length+' fórmula(s) citam o código '+p.codigo+' e vão parar de calcular.';
+    if(!window.confirm(aviso)) return;
+  }
+  const atividadeId=plnAtividadeSelId();
+  try{
+    await bePatch('/plano/passo/'+passoId,{arquivado:!!arquivar});
+    PLN.biblioteca=null; PLN.passoEdit=null;
+    await plnRecarregarMantendoLugar(atividadeId,null);
+    toast(arquivar?'Pergunta arquivada':'Pergunta de volta');
+  }catch(err){ PLN.erroRegra=err.message||'Falha ao arquivar'; plnRenderTabBody(); }
+}
+/* Arrastar reordena na tela e manda a lista INTEIRA numa chamada so, para nao existir
+   estado intermediario com duas perguntas na mesma posicao. */
+async function plnGravarOrdem(regraId,ordemIds){
+  const atividadeId=plnAtividadeSelId();
+  try{
+    await bePatch('/plano/passos/ordem',{regraId:regraId,ordens:ordemIds.map((id,i)=>({id:id,ordem:i+1}))});
+    PLN.biblioteca=null;
+    await plnRecarregarMantendoLugar(atividadeId,null);
+    toast('✅ Ordem salva');
+  }catch(err){ PLN.erroRegra=err.message||'Falha ao salvar a ordem'; plnRenderTabBody(); }
+}
+function plnWireArrastar(body,pop,regraId){
+  let origem=null;
+  body.querySelectorAll('.pln-poprow[data-pid]').forEach(el=>{
+    el.addEventListener('dragstart',(e)=>{ origem=el; el.classList.add('arrastando'); try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',el.dataset.pid);}catch(x){} });
+    el.addEventListener('dragend',()=>{ el.classList.remove('arrastando'); body.querySelectorAll('.alvo').forEach(x=>x.classList.remove('alvo')); });
+    el.addEventListener('dragover',(e)=>{ if(!origem||origem===el) return; e.preventDefault(); el.classList.add('alvo'); });
+    el.addEventListener('dragleave',()=>el.classList.remove('alvo'));
+    el.addEventListener('drop',(e)=>{
+      e.preventDefault(); el.classList.remove('alvo');
+      if(!origem||origem===el) return;
+      const lista=[...body.querySelectorAll('.pln-poprow[data-pid]')];
+      const de=lista.indexOf(origem), para=lista.indexOf(el);
+      const ids=lista.map(x=>x.dataset.pid);
+      ids.splice(para,0,ids.splice(de,1)[0]);
+      origem=null;
+      plnGravarOrdem(regraId,ids);
+    });
+  });
+}
+/* Busca de produto: digita, espera meio segundo, pergunta ao servidor. */
+let PLN_PROD_T=null;
+function plnWireProduto(raiz){
+  const e=PLN.passoEdit; if(!e) return;
+  const inp=raiz.querySelector('[data-prodbusca]'); if(!inp) return;
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim();
+    clearTimeout(PLN_PROD_T);
+    if(q.length<2){ e.prod=null; plnPintarProdutos(raiz); return; }
+    PLN_PROD_T=setTimeout(async()=>{
+      try{ const r=await beGet('/plano/produtos?q='+encodeURIComponent(q)); e.prod=r.produtos||[]; }
+      catch(x){ e.prod=[]; }
+      plnPintarProdutos(raiz);
+    },500);
+  });
+  raiz.querySelectorAll('[data-prodlimpar]').forEach(b=>b.addEventListener('click',()=>{
+    e.v.produtoId=''; e.v.produtoNome=''; e.v.quantidade=''; e.prod=null; plnRenderTabBody();
+  }));
+}
+function plnPintarProdutos(raiz){
+  const e=PLN.passoEdit, cx=raiz.querySelector('[data-prodlista]'); if(!cx) return;
+  const lista=e.prod;
+  if(!lista){ cx.innerHTML=''; return; }
+  if(!lista.length){ cx.innerHTML='<div class="pln-prodlista"><div class="vazio">Nenhum produto com esse nome ou código.</div></div>'; return; }
+  cx.innerHTML='<div class="pln-prodlista">'+lista.map(x=>
+    '<button data-prodesc="'+x.id+'" data-prodnome="'+motEsc(x.nome)+'">'+motEsc(x.nome)+
+    '<small>'+motEsc(x.codigo||'sem código')+(x.unidade?' · '+motEsc(x.unidade):'')+'</small></button>').join('')+'</div>';
+  cx.querySelectorAll('[data-prodesc]').forEach(b=>b.addEventListener('click',()=>{
+    e.v.produtoId=b.dataset.prodesc; e.v.produtoNome=b.dataset.prodnome; e.prod=null;
+    if(!e.v.quantidade) e.v.quantidade=1;
+    plnRenderTabBody();
+  }));
+}
+
 function plnPassoEditHtml(p,pop){
   const e=PLN.passoEdit, v=e.v, ex=e.ex||{};
   const prev=plnPassoPrevisto(p,v);
@@ -16937,6 +17065,15 @@ function plnPassoEditHtml(p,pop){
   h+=plnFld('Foto de referência','Foto_Referencia__c',plnInpHtml('fotoReferencia',v.fotoReferencia,'nome do arquivo modelo'));
   h+=plnFld('Ref FTR','Ref_FTR__c',plnInpHtml('refFTR',v.refFTR,'norma ou ficha de origem'));
 
+  h+='<div class="pln-sechd2"><span>Peça consumida</span><small>opcional, entra na lista de material da ordem</small></div>';
+  if(v.produtoId){
+    h+=plnFld('Produto','Produto__c','<div class="in" style="display:flex;align-items:center;gap:7px;border:1px solid var(--pln-border);border-radius:7px;padding:5px 8px;font-size:.65rem;font-weight:700;color:var(--pln-navy)"><span style="flex:1;min-width:0">'+motEsc(v.produtoNome||'produto escolhido')+'</span><button class="pln-rbtn del" data-prodlimpar>tirar</button></div>');
+    h+=plnFld('Quantidade','Quantidade__c',plnInpHtml('quantidade',v.quantidade,'','number'));
+  } else {
+    h+='<div class="pln-fld wide"><span class="pln-flab">Produto <span class="pln-ftec">Produto__c</span></span>'+
+       '<div class="pln-prodbox"><input class="pln-inp" data-prodbusca placeholder="digite duas letras do nome ou do código" style="width:100%">'+
+       '<div data-prodlista></div></div></div>';
+  }
   h+='<div class="pln-sechd2"><span>Condicional, aparece só quando</span><small>vazio: aparece sempre</small></div>';
   let paiOpts='<select class="pln-sel" data-p="passoPaiId"><option value="">sempre aparece</option>';
   (pop||[]).filter(x=>x.id!==p.id).forEach(x=>{ paiOpts+='<option value="'+x.id+'"'+(x.id===v.passoPaiId?' selected':'')+'>'+(x.ordem!=null?x.ordem+' · ':'')+motEsc(x.descricao||'')+'</option>'; });
@@ -16955,6 +17092,8 @@ function plnPassoEditHtml(p,pop){
   const trava=pr.some(x=>x.nivel==='impedimento');
   h+='<div class="pln-bldacts"><button class="pln-bsave" data-psave="'+p.id+'">Salvar passo</button>'+
      '<button class="pln-bcancel" data-pcancel>Cancelar</button>'+
+     (p.arquivado?'<button class="pln-rbtn" data-pdesarq="'+p.id+'" style="border:1px solid var(--pln-border);padding:5px 10px">tirar do arquivo</button>'
+                 :'<button class="pln-bdel" data-parq="'+p.id+'">arquivar pergunta</button>')+
      (trava?'<span class="pln-pflag imp" style="margin-left:6px">salva, mas a atividade não ativa</span>':'')+'</div>';
   if(e.erro) h+='<div class="pln-berr">'+motEsc(e.erro)+'</div>';
   h+='</div>';
@@ -16977,7 +17116,8 @@ async function plnSalvarPasso(passoId){
     valorMin:v.valorMin===''?null:v.valorMin, valorMax:v.valorMax===''?null:v.valorMax,
     opcoes:v.opcoes, codigo:v.codigo, formula:v.formula, casasDecimais:plnNum(v.casasDecimais),
     notaReferencia:v.notaReferencia, fotoReferencia:v.fotoReferencia, refFTR:v.refFTR,
-    modoNfc:v.modoNfc, passoPaiId:v.passoPaiId, operador:v.operador, valorPai:v.valorPai };
+    modoNfc:v.modoNfc, passoPaiId:v.passoPaiId, operador:v.operador, valorPai:v.valorPai,
+    produtoId:v.produtoId, quantidade:v.quantidade===''?null:v.quantidade };
   const atividadeId=plnAtividadeSelId();
   if(PLN.salvandoPasso) return;
   PLN.salvandoPasso=true; PLN.passoEdit.erro=null; plnRenderTabBody();
@@ -17069,6 +17209,10 @@ function plnWireMontador(body,pop){
     plnEditarRegra(passo.id,passo.regras[+b.dataset.ri]);
   }));
   body.querySelectorAll('[data-abrirpasso]').forEach(b=>b.addEventListener('click',()=>plnAbrirPasso(b.dataset.abrirpasso)));
+  body.querySelectorAll('[data-novopasso]').forEach(b=>b.addEventListener('click',()=>plnNovoPasso(b.dataset.novopasso)));
+  body.querySelectorAll('[data-tgarq]').forEach(b=>b.addEventListener('click',()=>{ PLN.verArquivados=!PLN.verArquivados; PLN.passoEdit=null; plnRenderTabBody(); }));
+  const _reg=PLN.biblioteca&&PLN.biblioteca.regras[PLN.selRegra];
+  if(_reg) plnWireArrastar(body,pop,_reg.id);
   plnWirePassoEdit(body,pop);
   const e=PLN.regraEdit; if(!e) return;
   body.querySelectorAll('.pln-bld [data-jn]').forEach(b=>b.addEventListener('click',()=>{ e.juncao=b.dataset.jn; plnRenderTabBody(); }));
@@ -17133,6 +17277,10 @@ function plnWirePassoEdit(body,pop){
   });
   raiz.querySelectorAll('[data-psave]').forEach(b=>b.addEventListener('click',()=>plnSalvarPasso(b.dataset.psave)));
   raiz.querySelectorAll('[data-pcancel]').forEach(b=>b.addEventListener('click',plnFecharPasso));
+  raiz.querySelectorAll('[data-parq]').forEach(b=>b.addEventListener('click',()=>plnArquivarPasso(b.dataset.parq,true)));
+  raiz.querySelectorAll('[data-pdesarq]').forEach(b=>b.addEventListener('click',()=>plnArquivarPasso(b.dataset.pdesarq,false)));
+  plnWireProduto(raiz);
+  plnPintarProdutos(raiz);
 }
 
 function plnRenderBiblioteca(body){
@@ -17173,18 +17321,23 @@ function plnRenderBiblioteca(body){
   }
   if(r.pop.length){
     /* 16/09/2026 — saude da atividade: um so lugar conta, a mesma funcao que o painel usa. */
-    const sd=plnSaudeAtividade(r.pop);
+    const popVis=plnPassosVisiveis(r.pop);
+    const nArq=(r.pop||[]).filter(x=>x.arquivado).length;
+    const sd=plnSaudeAtividade(popVis);
     det+='<div class="pln-sechd">POP — passos</div>';
     det+='<div class="pln-saude">'+
       '<span class="pln-cnt '+(sd.impedimentos?'imp':'ok')+'">'+(sd.impedimentos||0)+' impedimento'+(sd.impedimentos===1?'':'s')+'</span>'+
       '<span class="pln-cnt '+(sd.avisos?'av':'ok')+'">'+(sd.avisos||0)+' aviso'+(sd.avisos===1?'':'s')+'</span>'+
       '<span class="pln-bhint" style="margin:0">'+(sd.impedimentos?'Impedimento não trava o rascunho: trava a ativação da atividade. Abra o passo marcado para ver o que fazer.':'Nenhum impedimento: esta atividade pode ir para campo.')+'</span>'+
+      (nArq?'<button class="pln-tgarq'+(PLN.verArquivados?' on':'')+'" data-tgarq>'+(PLN.verArquivados?'esconder arquivadas':'ver '+nArq+' arquivada'+(nArq===1?'':'s'))+'</button>':'')+
     '</div>';
     det+='<div class="pln-card">';
-    r.pop.forEach(p=>{
-      const pb=plnProblemasPasso(p,r.pop);
+    popVis.forEach(p=>{
+      const pb=p.arquivado?[]:plnProblemasPasso(p,popVis);
       const temImp=pb.some(x=>x.nivel==='impedimento'), temAv=pb.some(x=>x.nivel==='aviso');
-      det+='<div class="pln-poprow"><span class="num">'+p.ordem+'</span><span class="pln-tname">'+motEsc((p.tipoCampo||'').toUpperCase())+'</span><span class="ds">'+motEsc(p.descricao)+'</span>'+
+      det+='<div class="pln-poprow'+(p.arquivado?' arq':'')+'" data-pid="'+p.id+'"'+(p.arquivado?'':' draggable="true"')+'>'+
+        '<span class="pln-drag"'+(p.arquivado?' style="visibility:hidden"':' title="arraste para reordenar"')+'>\u283F</span>'+
+        '<span class="num">'+p.ordem+'</span><span class="pln-tname">'+motEsc((p.tipoCampo||'').toUpperCase())+'</span><span class="ds">'+motEsc(p.descricao)+'</span>'+
         (temImp?'<span class="pln-pflag imp">impedimento</span>':(temAv?'<span class="pln-pflag av">aviso</span>':''))+
         (p.temReferencia?'<span class="pln-refok">REF ✓</span>':'')+
         (p.codigo?'<span class="pln-mini o">'+motEsc(p.codigo)+'</span>':'')+
@@ -17193,16 +17346,22 @@ function plnRenderBiblioteca(body){
           ((p.valorMin!=null||p.valorMax!=null)?' · faixa <b>'+(p.valorMin!=null?p.valorMin:'')+'–'+(p.valorMax!=null?p.valorMax:'')+'</b>':'')+
           (p.formula?' · fórmula <b>'+motEsc(p.formula)+'</b>':'')+'</span>':'')+
         /* R7 — as regras logicas da pergunta, e o montador quando esta pergunta esta em edicao */
-        plnRegrasHtml(p,r.pop)+
-        ((PLN.regraEdit&&PLN.regraEdit.passoId===p.id)?plnBuilderHtml(p,r.pop):'')+
-        ((PLN.passoEdit&&PLN.passoEdit.id===p.id)?plnPassoEditHtml(p,r.pop):'')+
+        (p.arquivado?'<span class="pln-pflag av">arquivada</span>':'')+
+        plnRegrasHtml(p,popVis)+
+        ((PLN.regraEdit&&PLN.regraEdit.passoId===p.id)?plnBuilderHtml(p,popVis):'')+
+        ((PLN.passoEdit&&PLN.passoEdit.id===p.id)?plnPassoEditHtml(p,popVis):'')+
       '</div>';
     });
+    det+='<button class="pln-novo" data-novopasso="'+r.id+'">+ nova pergunta</button>';
     det+='</div>';
+  } else {
+    det+='<div class="pln-sechd">POP — passos</div><div class="pln-card">'+
+      '<div class="pln-bhint" style="margin:0 0 6px">Esta atividade ainda não tem nenhuma pergunta.</div>'+
+      '<button class="pln-novo" data-novopasso="'+r.id+'">+ nova pergunta</button></div>';
   }
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selRegra=+el.dataset.i; PLN.regraEdit=null; PLN.erroRegra=null; PLN.passoEdit=null; plnRenderTabBody(); }); });
-  plnWireMontador(body,r.pop);
+  plnWireMontador(body,plnPassosVisiveis(r.pop));
 }
 
 function plnRenderAgenda(body){
