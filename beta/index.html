@@ -1373,6 +1373,9 @@
   .pln-prodlista button:hover{background:var(--pln-blue-soft)}
   .pln-prodlista button small{display:block;font-size:.55rem;color:var(--pln-text-soft)}
   .pln-prodlista .vazio{padding:8px 10px;font-size:.6rem;color:var(--pln-text-soft)}
+  .pln-copia{border:1px solid var(--pln-border);background:#fff;color:#2B5A7E;font:700 .62rem inherit;
+    cursor:pointer;padding:4px 10px;border-radius:7px;margin-left:8px}
+  .pln-copia:hover{border-color:var(--pln-blue);background:var(--pln-blue-soft)}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   .pln-legend b{color:var(--pln-text)}
 </style>
@@ -14619,6 +14622,14 @@ function motLadoEsquerdo(t,c){
   if(Object.prototype.hasOwnProperty.call(c,'valorFixo')) return { texto:c.valorFixo, numero:motNum(c.valorFixo), passo:null };
   const alvo=motAcharPassoPorId(t,c.passoRefId);
   if(!alvo) return null;
+  /* 16/09/2026 — passo do tipo Calculo nao tem resposta gravada: o numero so existe enquanto
+     o app recalcula. Ler a "resposta" dele daria sempre vazio, e a condicao nunca bateria.
+     Vale para a fonte "Resultado de calculo" e tambem para quem apontou um Calculo em
+     "Resposta de outra pergunta", que e o mesmo caso escrito de outro jeito. */
+  if(alvo.tipoCampo==='Cálculo'){
+    const v=motCalcular(t,alvo);
+    return { texto:(v==null?null:String(v)), numero:v, passo:alvo };
+  }
   return { texto:motRespostaAtual(alvo), numero:motValorNumericoDoPasso(alvo), passo:alvo };
 }
 
@@ -16565,7 +16576,8 @@ function plnRenderFicha(body){
 const PLN_ACOES=['Mostrar','Esconder','Ignorar seção','Tornar obrigatória','Deixar de ser obrigatória',
   'Exigir foto','Preencher e travar','Sugerir valor','Marcar como achado','Avisar sem travar',
   'Exigir para concluir como OK'];
-const PLN_FONTES=['Resposta de outra pergunta','Resposta desta pergunta','Cadastro do equipamento'];
+const PLN_FONTES=['Resposta de outra pergunta','Resposta desta pergunta','Cadastro do equipamento','Resultado de cálculo','Histórico'];
+const PLN_REF_HIST=['Leitura anterior deste ponto','Dias desde a última execução','Resposta anterior desta pergunta','Achado aberto neste equipamento'];
 const PLN_OPERADORES=['Igual a','Diferente de','Contém','Maior que','Maior ou igual','Menor que',
   'Menor ou igual','Está preenchido','Está vazio','Entre','Fora da faixa deste equipamento'];
 const PLN_OP_SEM_VALOR=['Está preenchido','Está vazio','Fora da faixa deste equipamento'];
@@ -16582,6 +16594,15 @@ function plnRegraTexto(r,pop){
     let esq, fem=true;   /* "a resposta" e feminino, "o campo" e masculino */
     if(c.fonte==='Resposta desta pergunta') esq='a resposta desta pergunta';
     else if(c.fonte==='Cadastro do equipamento'){ esq='o campo <b>'+motEsc(c.campoEquipamento||'')+'</b> do equipamento'; fem=false; }
+    else if(c.fonte==='Resultado de cálculo'){ esq='o resultado de <b>'+motEsc(nome(c.passoReferenciaId))+'</b>'; fem=false; }
+    else if(c.fonte==='Histórico'){
+      const rh=String(c.referenciaHistorico||'');
+      if(rh==='Dias desde a última execução'){ esq='os dias desde a última execução'; fem=false; }
+      else if(rh==='Leitura anterior deste ponto'){ esq='a leitura anterior deste ponto'; }
+      else if(rh==='Resposta anterior desta pergunta'){ esq='a resposta anterior desta pergunta'; }
+      else if(rh==='Achado aberto neste equipamento'){ esq='existir achado aberto neste equipamento'; fem=false; }
+      else esq='o histórico'; 
+    }
     else esq='a resposta de <b>'+motEsc(nome(c.passoReferenciaId))+'</b>';
     const op=String(c.operador||'');
     if(op==='Está preenchido') return esq+(fem?' estiver preenchida':' estiver preenchido');
@@ -16722,14 +16743,23 @@ function plnCondHtml(c,i,pop,passoId){
   const semValor=PLN_OP_SEM_VALOR.indexOf(c.operador)>=0;
   let h='<div class="pln-bldrow" data-ci="'+i+'">';
   h+='<select class="pln-sel" data-f="fonte">'+plnOpt(PLN_FONTES,c.fonte)+'</select>';
-  if(c.fonte==='Resposta de outra pergunta'){
-    const outras=pop.filter(q=>q.id!==passoId&&q.tipoCampo!=='Instrução');
+  if(c.fonte==='Resposta de outra pergunta'||c.fonte==='Resultado de cálculo'){
+    /* "Resultado de calculo" so lista passos do tipo Calculo: a fonte existe justamente para
+       deixar explicito que o numero vem de uma conta, nao de uma resposta digitada. */
+    const soCalc=(c.fonte==='Resultado de cálculo');
+    const outras=pop.filter(q=>q.id!==passoId && (soCalc ? q.tipoCampo==='Cálculo' : q.tipoCampo!=='Instrução'));
     h+='<select class="pln-sel" data-f="passoReferenciaId">'+
-      '<option value="">— escolha a pergunta —</option>'+
+      '<option value="">'+(soCalc?'— escolha o cálculo —':'— escolha a pergunta —')+'</option>'+
       outras.map(q=>'<option value="'+q.id+'"'+(q.id===c.passoReferenciaId?' selected':'')+'>'+motEsc(q.ordem+'. '+q.descricao)+'</option>').join('')+
     '</select>';
+    if(soCalc && !outras.length) h+='<span style="font-size:.6rem;color:var(--pln-warn)">Esta atividade não tem nenhum passo do tipo Cálculo.</span>';
   }else if(c.fonte==='Cadastro do equipamento'){
     h+='<input class="pln-inp" data-f="campoEquipamento" placeholder="campo do Ativo__c" value="'+motEsc(c.campoEquipamento||'')+'">';
+  }else if(c.fonte==='Histórico'){
+    h+='<select class="pln-sel" data-f="referenciaHistorico">'+
+      '<option value="">— o que do histórico —</option>'+
+      PLN_REF_HIST.map(x=>'<option value="'+motEsc(x)+'"'+(x===c.referenciaHistorico?' selected':'')+'>'+motEsc(x)+'</option>').join('')+
+    '</select>';
   }
   h+='<select class="pln-sel" data-f="operador">'+plnOpt(PLN_OPERADORES,c.operador)+'</select>';
   if(!semValor){
@@ -16902,6 +16932,22 @@ function plnCalcPrevia(p,pop,v,ex){
    Arquivar e o nosso apagar. A engenharia tira a pergunta da atividade, ela some das
    proximas ordens e do montador, mas o registro fica e as execucoes antigas continuam
    apontando pra ele. Historico de manutencao nao se apaga. */
+/* Copiar atividade. A copia nasce INATIVA de proposito: atividade nova que ja sai valendo
+   entraria na proxima geracao de ordens antes de alguem revisar. */
+async function plnCopiarAtividade(regraId,nomeAtual){
+  const nome=window.prompt('Nome da cópia:', String(nomeAtual||'')+' (cópia)');
+  if(nome===null) return;
+  if(!String(nome).trim()){ toast('A cópia precisa de um nome'); return; }
+  try{
+    const r=await bePost('/plano/atividade/'+regraId+'/copiar',{nome:String(nome).trim()});
+    PLN.biblioteca=null; PLN.passoEdit=null; PLN.regraEdit=null;
+    await plnCarregarTab();
+    const i=(PLN.biblioteca.regras||[]).findIndex(x=>x.id===r.id);
+    if(i>=0){ PLN.selRegra=i; plnRenderTabBody(); }
+    toast('✅ Cópia criada, inativa: '+r.passos+' passos, '+r.regras+' regras');
+  }catch(err){ PLN.erroRegra=err.message||'Falha ao copiar'; plnRenderTabBody(); }
+}
+
 function plnPassosVisiveis(pop){
   return (pop||[]).filter(p=>PLN.verArquivados ? true : !p.arquivado);
 }
@@ -17145,8 +17191,9 @@ function plnEditarRegra(passoId,r){
   PLN.regraEdit={ passoId:passoId, id:r.id, juncao:r.juncao, acao:r.acao,
     valorAcao:r.valorAcao||'', gravidade:r.gravidade||'Média', mensagem:r.mensagem||'', ativa:r.ativa,
     condicoes:(r.condicoes||[]).map(c=>({fonte:c.fonte,passoReferenciaId:c.passoReferenciaId||'',
-      campoEquipamento:c.campoEquipamento||'',operador:c.operador,valor:c.valor||'',valor2:c.valor2||''})) };
-  if(!PLN.regraEdit.condicoes.length) PLN.regraEdit.condicoes=[{fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''}];
+      campoEquipamento:c.campoEquipamento||'',referenciaHistorico:c.referenciaHistorico||'',
+      operador:c.operador,valor:c.valor||'',valor2:c.valor2||''})) };
+  if(!PLN.regraEdit.condicoes.length) PLN.regraEdit.condicoes=[{fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',referenciaHistorico:'',operador:'Igual a',valor:'',valor2:''}];
   plnRenderTabBody();
 }
 /* Salvar recarrega a biblioteca inteira, e o carregamento zera a atividade selecionada (o que
@@ -17174,7 +17221,8 @@ async function plnSalvarRegra(){
   const corpo={ passoAlvoId:e.passoId, juncao:e.juncao, acao:e.acao, valorAcao:e.valorAcao,
     gravidade:e.gravidade, mensagem:e.mensagem, ativa:e.ativa,
     condicoes:e.condicoes.map(c=>({fonte:c.fonte,passoReferenciaId:c.passoReferenciaId,
-      campoEquipamento:c.campoEquipamento,operador:c.operador,valor:c.valor,valor2:c.valor2})) };
+      campoEquipamento:c.campoEquipamento,referenciaHistorico:c.referenciaHistorico,
+      operador:c.operador,valor:c.valor,valor2:c.valor2})) };
   try{
     if(e.id) await bePatch('/plano/regra-logica/'+e.id,corpo);
     else await bePost('/plano/regra-logica',corpo);
@@ -17210,6 +17258,7 @@ function plnWireMontador(body,pop){
   }));
   body.querySelectorAll('[data-abrirpasso]').forEach(b=>b.addEventListener('click',()=>plnAbrirPasso(b.dataset.abrirpasso)));
   body.querySelectorAll('[data-novopasso]').forEach(b=>b.addEventListener('click',()=>plnNovoPasso(b.dataset.novopasso)));
+  body.querySelectorAll('[data-copiar]').forEach(b=>b.addEventListener('click',()=>plnCopiarAtividade(b.dataset.copiar,b.dataset.nome)));
   body.querySelectorAll('[data-tgarq]').forEach(b=>b.addEventListener('click',()=>{ PLN.verArquivados=!PLN.verArquivados; PLN.passoEdit=null; plnRenderTabBody(); }));
   const _reg=PLN.biblioteca&&PLN.biblioteca.regras[PLN.selRegra];
   if(_reg) plnWireArrastar(body,pop,_reg.id);
@@ -17217,7 +17266,7 @@ function plnWireMontador(body,pop){
   const e=PLN.regraEdit; if(!e) return;
   body.querySelectorAll('.pln-bld [data-jn]').forEach(b=>b.addEventListener('click',()=>{ e.juncao=b.dataset.jn; plnRenderTabBody(); }));
   body.querySelectorAll('.pln-bld [data-addcond]').forEach(b=>b.addEventListener('click',()=>{
-    e.condicoes.push({fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',operador:'Igual a',valor:'',valor2:''});
+    e.condicoes.push({fonte:'Resposta de outra pergunta',passoReferenciaId:'',campoEquipamento:'',referenciaHistorico:'',operador:'Igual a',valor:'',valor2:''});
     plnRenderTabBody();
   }));
   body.querySelectorAll('.pln-bld [data-delcond]').forEach(b=>b.addEventListener('click',()=>{
@@ -17227,7 +17276,7 @@ function plnWireMontador(body,pop){
      pra nao perder o cursor a cada tecla. */
   body.querySelectorAll('.pln-bld [data-ci] [data-f]').forEach(el=>{
     const i=+el.closest('[data-ci]').dataset.ci, f=el.dataset.f;
-    const redesenha=(f==='fonte'||f==='operador');
+    const redesenha=(f==='fonte'||f==='operador'||f==='referenciaHistorico');
     el.addEventListener(redesenha?'change':'input',()=>{ e.condicoes[i][f]=el.value; if(redesenha) plnRenderTabBody(); });
   });
   body.querySelectorAll('.pln-bld > .pln-bldrow > [data-f]').forEach(el=>{
@@ -17299,7 +17348,7 @@ function plnRenderBiblioteca(body){
     '</button>';
   });
   const r=regras[PLN.selRegra];
-  let det='<h2>'+motEsc(r.descricao)+'</h2><div class="pln-dsub">'+motEsc(r.tipoAtivoNome||'')+(r.tipoTrabalhoNome?' · '+motEsc(r.tipoTrabalhoNome):'')+'</div>';
+  let det='<h2>'+motEsc(r.descricao)+'<button class="pln-copia" data-copiar="'+r.id+'" data-nome="'+motEsc(r.descricao)+'">copiar atividade</button></h2><div class="pln-dsub">'+motEsc(r.tipoAtivoNome||'')+(r.tipoTrabalhoNome?' · '+motEsc(r.tipoTrabalhoNome):'')+'</div>';
   det+='<div class="pln-card">'+
     '<div class="pln-kv"><span class="k">Origem</span><span class="v">'+motEsc(r.origemRegra||'—')+(r.fonte?' — '+motEsc(r.fonte):'')+'</span></div>'+
     '<div class="pln-kv"><span class="k">Recorrência</span><span class="v">'+motEsc(plnFreqLabel(r.recorrencia))+'</span></div>'+
