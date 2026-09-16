@@ -43,7 +43,13 @@
     .phone.plano-wide{max-width:100%;margin:0;height:100vh;height:100dvh;border-radius:0}
     .phone.plano-wide .pln-detail{padding:12px 18px 34px}
     /* a lista de atividades fica parada enquanto os passos rolam: numa atividade de 82 passos,
-       perder a lista de vista a cada rolagem torna a tela inutilizavel */
+       perder a lista de vista a cada rolagem torna a tela inutilizavel.
+       ARMADILHA, custou uma rodada de teste: position:sticky se resolve contra o ANCESTRAL MAIS
+       PROXIMO com overflow diferente de visible, mesmo que esse ancestral nao role. #pln-root tem
+       overflow:hidden auto e nao rola (quem rola e o <main>), entao o sticky grudava nele e descia
+       junto com a pagina, sem grudar em nada. Devolver overflow:visible ao #pln-root nesta faixa e
+       o que faz o sticky valer contra o <main>. */
+    .phone.plano-wide #pln-root{overflow:visible}
     .phone.plano-wide .pln-master{position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto}
   }
   /* Dedo, nao mouse: no iPad os controles do montador precisam de alvo grande. Vale para
