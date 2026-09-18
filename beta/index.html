@@ -17823,16 +17823,23 @@ async function visAcao(rota, corpo, okMsg){
     return r;
   }catch(e){ toast('Não deu certo: '+e.message); }
 }
+/* A localizacao e um bonus, nunca um bloqueio: o aviso de permissao do navegador fica aberto ate
+   a pessoa responder, e o timeout do proprio getCurrentPosition NAO conta esse tempo. Sem a corrida
+   abaixo, o tecnico toca "Cheguei", nada acontece e ele nao sabe por que. Em 6 segundos segue sem geo. */
 function visGeo(){
   return new Promise(res=>{
-    if(!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(
-      p=>res({lat:p.coords.latitude, lng:p.coords.longitude}),
-      ()=>res(null), {timeout:6000, maximumAge:60000});
+    let pronto=false; const fim=(v)=>{ if(!pronto){ pronto=true; res(v); } };
+    setTimeout(()=>fim(null), 6000);
+    if(!navigator.geolocation) return fim(null);
+    try{
+      navigator.geolocation.getCurrentPosition(
+        p=>fim({lat:p.coords.latitude, lng:p.coords.longitude}),
+        ()=>fim(null), {timeout:6000, maximumAge:60000});
+    }catch(e){ fim(null); }
   });
 }
-async function visCheckin(){ const g=await visGeo(); visAcao('checkin', g?{lat:g.lat,lng:g.lng}:{}, 'Chegada registrada'); }
-async function visCheckout(){ const g=await visGeo(); visAcao('checkout', g?{lat:g.lat,lng:g.lng}:{}, 'Saída registrada'); }
+async function visCheckin(){ toast('Registrando chegada…'); const g=await visGeo(); visAcao('checkin', g?{lat:g.lat,lng:g.lng}:{}, 'Chegada registrada'); }
+async function visCheckout(){ toast('Registrando saída…'); const g=await visGeo(); visAcao('checkout', g?{lat:g.lat,lng:g.lng}:{}, 'Saída registrada'); }
 async function visConcluir(){
   const d=VIS.aberta; if(!d) return;
   const pend=(d.itens||[]).filter(i=>(i.statusItem||'Pendente')==='Pendente').length;
@@ -17844,7 +17851,9 @@ async function visEnviarNaoConcluir(){
   const det=(document.getElementById('visNcDetalhe')||{}).value||'';
   const pref=(document.getElementById('visNcPref')||{}).value;
   const obs=(document.getElementById('visNcPrefObs')||{}).value||'';
-  const r=await visAcao('nao-concluir', {motivo:mot, detalhe:det, preferencia:pref, preferenciaObs:obs}, 'Visita encerrada');
+  /* nomes exatos do backend (preferenciaRetorno/preferenciaRetornoObs): mandar 'preferencia' fazia
+     a escolha do cliente ser silenciosamente trocada pelo padrao. Achado testando o fluxo inteiro. */
+  const r=await visAcao('nao-concluir', {motivo:mot, detalhe:det, preferenciaRetorno:pref, preferenciaRetornoObs:obs}, 'Visita encerrada');
   if(r&&r.retorno) toast('Retorno '+r.retorno.numero+' criado — sem data, o escritório marca');
   VIS.form=null;
 }
