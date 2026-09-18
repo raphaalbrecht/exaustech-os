@@ -170,6 +170,32 @@
   .daylabel{font-size:12.5px;color:var(--weak);font-weight:600;padding:12px 16px 2px}
   .appt{background:#fff;border:1px solid var(--border);border-left:4px solid var(--brand);border-radius:.25rem;margin:8px 14px;padding:12px 13px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:.12s}
   .appt:active{background:#F2F5F8}
+  /* visitas do plano (Compromisso de Servico) — bloco proprio no topo da agenda, prefixo vis */
+  .vis-hd{display:flex;align-items:center;gap:8px;margin:10px 14px 2px;font:800 11.5px system-ui,-apple-system,sans-serif;letter-spacing:.6px;color:#5A6B7B;text-transform:uppercase}
+  .vis-hd .cnt{background:#E8EEF6;color:#0B5CAB;border-radius:9px;padding:1px 7px;font-size:11px;letter-spacing:0}
+  .vis{background:#fff;border:1px solid var(--border);border-left:4px solid #7a5cc8;border-radius:.25rem;margin:8px 14px;padding:12px 13px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .vis:active{background:#F2F5F8}
+  .vis.s-andamento{border-left-color:var(--warn)}
+  .vis.s-feito{border-left-color:var(--succ)}
+  .vis-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .vis-num{font:800 15px system-ui,-apple-system,sans-serif;color:#0B5CAB;letter-spacing:.3px}
+  .vis-cli{font:700 13.5px system-ui,-apple-system,sans-serif;color:#0B2239}
+  .vis-meta{font:500 12px system-ui,-apple-system,sans-serif;color:#5A6B7B;margin-top:3px}
+  .vis-prog{margin-top:7px;height:5px;background:#EDF1F5;border-radius:3px;overflow:hidden}
+  .vis-prog i{display:block;height:100%;background:#2e844a}
+  .vis-chip{font:700 10.5px system-ui,-apple-system,sans-serif;padding:2px 8px;border-radius:9px;background:#EEF1F4;color:#4A5560;white-space:nowrap}
+  .vis-chip.ag{background:#E8EEF6;color:#0B5CAB}
+  .vis-chip.and{background:#FDF1E3;color:#8a5a12}
+  .vis-chip.ok{background:#E7F5EC;color:#256b3c}
+  .vis-chip.nc{background:#FBE9E9;color:#8f2020}
+  .vis-linha{display:flex;align-items:center;gap:9px;padding:9px 2px;border-bottom:1px dashed #E6EAEF}
+  .vis-linha:last-child{border-bottom:none}
+  .vis-dot{width:9px;height:9px;border-radius:50%;background:#C7D0D9;flex-shrink:0}
+  .vis-dot.ok{background:#2e844a} .vis-dot.nc{background:#E8730C} .vis-dot.off{background:#9AA7B2}
+  .vis-btn{display:block;width:100%;border:none;border-radius:10px;padding:13px;font:800 14px system-ui,-apple-system,sans-serif;cursor:pointer;margin-top:9px}
+  .vis-btn.pri{background:#0B5CAB;color:#fff}
+  .vis-btn.sec{background:#EEF1F4;color:#0B2239}
+  .vis-btn.warn{background:#FDF1E3;color:#8a5a12}
   .appt.s-confirmada{border-left-color:var(--succ)}
   .appt.s-andamento{border-left-color:var(--warn)}
   .appt.s-concluido{border-left-color:var(--succ)}
@@ -1500,6 +1526,7 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
         <div class="sched-title">Agenda</div>
         <div class="days" id="days"></div>
       </div>
+      <div id="visList"></div>
       <div class="daylabel" id="dayLabel"></div>
       <div id="apptList"></div>
     </section>
@@ -2461,6 +2488,8 @@ function renderSchedule(){
     el.onclick=()=>{selDay=dd.key; renderSchedule();}; days.appendChild(el);
   });
   document.getElementById('dayLabel').textContent=DAYLABEL[selDay]||'';
+  /* visitas do plano: bloco proprio acima da agenda antiga (carrega uma vez, depois so repinta) */
+  try{ if(VIS.lista==null && !VIS.loading) visCarregar(true); else visRender(); }catch(e){}
   const list=document.getElementById('apptList'); list.innerHTML='';
   const day=appts.filter(a=>a.dia===selDay && agVisivel(a));
   if(!day.length){ const soMinhas=(agModo()==='minhas' && appts.some(a=>a.dia===selDay));
@@ -17640,6 +17669,198 @@ function plnRenderAgenda(body){
   }
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selVisita=+el.dataset.i; plnRenderTabBody(); }); });
+}
+
+/* ===== VISITAS DO PLANO (Compromisso de Serviço) — 18/09/2026 =====
+   O que este bloco resolve: a OT que o motor de plano gera nao chegava a ninguem. A agenda do app
+   lista o modelo antigo (Ordem_de_Servico__c) e a tela de Execucao so sabia abrir OT por Id colado
+   na mao, o que nenhum tecnico faz em cima de uma coifa. O Compromisso_de_Servico__c ja existia na
+   org desde 08/08 e o backend do tecnico ja estava escrito; faltava a tela.
+   Aditivo de proposito: nada da agenda antiga foi tocado. As visitas aparecem num bloco proprio no
+   topo, e somem quando nao ha nenhuma. */
+const VIS={lista:null, loading:false, erro:null, aberta:null, form:null};
+const VIS_MOTIVOS=['Falta de peça','Local fechado','Sem autorização de acesso','Condição insegura','Tempo insuficiente','Cliente reagendou','Outro'];
+const VIS_PREFS=['Sem preferência especificada','Manhã','Tarde','Fora do horário comercial','Dia específico — ver observação','O mais cedo possível'];
+
+function visChipStatus(st){
+  if(st==='Em Andamento') return '<span class="vis-chip and">em andamento</span>';
+  if(st==='Concluído') return '<span class="vis-chip ok">concluída</span>';
+  if(st==='Não Concluído') return '<span class="vis-chip nc">não concluída</span>';
+  if(st==='Agendado') return '<span class="vis-chip ag">agendada</span>';
+  return '<span class="vis-chip">'+motEsc(st||'—')+'</span>';
+}
+function visJanela(c){
+  if(!c.inicioAgendado) return 'sem data marcada';
+  const d=new Date(c.inicioAgendado);
+  const dia=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  let fim='';
+  if(c.fimAgendado){ const f=new Date(c.fimAgendado); fim=' às '+String(f.getHours()).padStart(2,'0')+':'+String(f.getMinutes()).padStart(2,'0'); }
+  const hoje=new Date(); const ehHoje=d.toDateString()===hoje.toDateString();
+  return (ehHoje?'hoje':dia)+', '+hh+fim;
+}
+async function visCarregar(silencioso){
+  if(VIS.loading) return;
+  VIS.loading=true; VIS.erro=null;
+  try{ const r=await beGet('/compromissos/meus'); VIS.lista=r.compromissos||[]; }
+  catch(e){ VIS.erro=e.message; if(!silencioso) toast('Não consegui carregar as visitas: '+e.message); }
+  VIS.loading=false; visRender();
+}
+function visRender(){
+  const box=document.getElementById('visList'); if(!box) return;
+  const lista=VIS.lista;
+  if(lista==null){ box.innerHTML=''; return; }
+  const abertas=lista.filter(c=>c.status!=='Cancelado');
+  if(!abertas.length){ box.innerHTML=''; return; }
+  let h='<div class="vis-hd">Visitas do plano<span class="cnt">'+abertas.length+'</span></div>';
+  abertas.forEach(c=>{
+    const t=c.linhas&&c.linhas.total||0, res=c.linhas&&c.linhas.resolvidas||0;
+    const pct=t?Math.round(res*100/t):0;
+    const cls=c.status==='Em Andamento'?' s-andamento':(c.status==='Concluído'?' s-feito':'');
+    h+='<div class="vis'+cls+'" data-visid="'+c.id+'">'+
+      '<div class="vis-top"><span class="vis-num">'+motEsc(c.numero||'')+'</span>'+visChipStatus(c.status)+'</div>'+
+      '<div class="vis-cli">'+motEsc(c.contaNome||'—')+'</div>'+
+      '<div class="vis-meta">'+motEsc(c.localNome||'')+' · '+visJanela(c)+(c.tipo&&c.tipo!=='Principal'?' · '+motEsc(c.tipo):'')+'</div>'+
+      '<div class="vis-meta">'+motEsc((c.ot&&c.ot.name)||'OT')+' · '+res+' de '+t+' linha'+(t===1?'':'s')+' resolvida'+(res===1?'':'s')+'</div>'+
+      (t?'<div class="vis-prog"><i style="width:'+pct+'%"></i></div>':'')+
+    '</div>';
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('[data-visid]').forEach(el=>el.addEventListener('click',()=>visAbrir(el.dataset.visid)));
+}
+async function visAbrir(id){
+  toast('Abrindo visita…');
+  try{
+    const r=await beGet('/compromissos/'+id);
+    VIS.aberta=r; VIS.form=null; visSheet();
+  }catch(e){ toast('Não consegui abrir: '+e.message); }
+}
+function visFechar(){ const m=document.getElementById('visModal'); if(m) m.style.display='none'; VIS.aberta=null; VIS.form=null; }
+function visSheet(){
+  let m=document.getElementById('visModal');
+  if(!m){ m=document.createElement('div'); m.id='visModal';
+    m.style.cssText='position:fixed;inset:0;z-index:100002;display:none;align-items:flex-end;justify-content:center;background:rgba(4,45,96,.5)';
+    m.innerHTML='<div id="visSheet" style="background:#fff;width:100%;max-width:560px;max-height:90dvh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px 22px"></div>';
+    m.onclick=e=>{ if(e.target===m) visFechar(); };
+    document.body.appendChild(m);
+  }
+  m.style.display='flex';
+  visPintarSheet();
+}
+function visPintarSheet(){
+  const alvo=document.getElementById('visSheet'); const d=VIS.aberta; if(!alvo||!d) return;
+  const c=d.compromisso, eq=d.equipe||[], itens=d.itens||[];
+  const minha=eq.find(x=>x.recursoId===myRid());
+  const emAndamento=c.status==='Em Andamento';
+  const encerrada=(c.status==='Concluído'||c.status==='Não Concluído'||c.status==='Cancelado');
+  let h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
+    '<div><div style="font:800 17px system-ui;color:#0B2239">'+motEsc(c.contaNome||'Visita')+'</div>'+
+    '<div style="font:500 12.5px system-ui;color:#5A6B7B;margin-top:2px">'+motEsc(c.numero||'')+' · '+motEsc(c.localNome||'')+' · '+visJanela(c)+'</div></div>'+
+    '<button onclick="visFechar()" style="border:none;background:none;font-size:24px;line-height:1;color:#4A5560;cursor:pointer">×</button></div>'+
+    '<div style="margin:8px 0 2px">'+visChipStatus(c.status)+(c.tipo&&c.tipo!=='Principal'?' <span class="vis-chip">'+motEsc(c.tipo)+'</span>':'')+'</div>';
+  if(c.descricao) h+='<div style="font:500 12.5px system-ui;color:#5A6B7B;margin:8px 0">'+motEsc(c.descricao)+'</div>';
+
+  h+='<div style="font:800 11.5px system-ui;letter-spacing:.6px;color:#5A6B7B;text-transform:uppercase;margin:14px 0 4px">Equipe</div>';
+  eq.forEach(p=>{
+    h+='<div class="vis-linha"><span class="vis-dot'+(p.efetivoInicio?' ok':'')+'"></span>'+
+      '<div style="flex:1"><div style="font:700 13px system-ui;color:#0B2239">'+motEsc(p.recursoNome||'—')+(p.lider?' · líder':'')+'</div>'+
+      '<div style="font:500 11.5px system-ui;color:#5A6B7B">'+motEsc(p.funcao||'')+(p.efetivoInicio?' · chegou '+motFmtHora(p.efetivoInicio):'')+(p.efetivoTermino?' · saiu '+motFmtHora(p.efetivoTermino):'')+'</div></div></div>';
+  });
+
+  h+='<div style="font:800 11.5px system-ui;letter-spacing:.6px;color:#5A6B7B;text-transform:uppercase;margin:14px 0 4px">O que fazer aqui</div>';
+  itens.forEach(i=>{
+    const st=i.statusItem||'Pendente';
+    const cls=st==='OK'?'ok':(st==='Com NC'?'nc':(st==='Não Executado'?'off':''));
+    h+='<div class="vis-linha"><span class="vis-dot '+cls+'"></span>'+
+      '<div style="flex:1"><div style="font:700 13px system-ui;color:#0B2239">'+motEsc(i.ativoDescricao||i.ativoNome||'')+'</div>'+
+      '<div style="font:500 11.5px system-ui;color:#5A6B7B">'+motEsc((i.tarefaNome||'').slice(0,70))+' · '+motEsc(st)+'</div></div></div>';
+  });
+
+  if(!encerrada){
+    if(minha && !minha.efetivoInicio) h+='<button class="vis-btn pri" onclick="visCheckin()">Cheguei no local</button>';
+    if(minha && minha.efetivoInicio && !minha.efetivoTermino) h+='<button class="vis-btn sec" onclick="visCheckout()">Registrar saída</button>';
+    h+='<button class="vis-btn '+(emAndamento?'pri':'sec')+'" onclick="visAbrirChecklist()">Abrir checklist da '+motEsc((c.ot&&c.ot.name)||'OT')+'</button>';
+    h+='<button class="vis-btn sec" onclick="visConcluir()">Concluir visita</button>';
+    h+='<button class="vis-btn warn" onclick="visFormNaoConcluir()">Não foi possível concluir</button>';
+  } else {
+    h+='<div style="background:#F4F7FA;border-radius:10px;padding:12px;margin-top:12px;font:500 12.5px system-ui;color:#4A5560">'+
+      'Visita '+motEsc(c.status)+(c.motivoNaoConclusao?': '+motEsc(c.motivoNaoConclusao):'')+(c.detalheMotivo?' — '+motEsc(c.detalheMotivo):'')+'</div>';
+    h+='<button class="vis-btn sec" onclick="visAbrirChecklist()">Ver o checklist da '+motEsc((c.ot&&c.ot.name)||'OT')+'</button>';
+  }
+  if((d.retornos||[]).length){
+    h+='<div style="font:800 11.5px system-ui;letter-spacing:.6px;color:#5A6B7B;text-transform:uppercase;margin:14px 0 4px">Retorno</div>';
+    d.retornos.forEach(r=>{ h+='<div class="vis-linha"><span class="vis-dot"></span><div style="flex:1"><div style="font:700 13px system-ui;color:#0B2239">'+motEsc(r.numero||'')+'</div><div style="font:500 11.5px system-ui;color:#5A6B7B">'+motEsc(r.status||'')+' · o escritório marca o dia</div></div></div>'; });
+  }
+  if(VIS.form==='nc') h+=visFormNCHtml();
+  alvo.innerHTML=h;
+  if(VIS.form==='nc') visWireNC(alvo);
+}
+function visFormNCHtml(){
+  let h='<div style="background:#FFFBF5;border:1px solid #F0D9B8;border-radius:12px;padding:12px;margin-top:12px">'+
+    '<div style="font:800 13px system-ui;color:#8a5a12;margin-bottom:8px">O que impediu?</div>'+
+    '<select id="visNcMotivo" style="width:100%;padding:11px;border:1px solid #DDE3EA;border-radius:9px;font:500 14px system-ui;margin-bottom:8px">'+
+    VIS_MOTIVOS.map(m=>'<option>'+motEsc(m)+'</option>').join('')+'</select>'+
+    '<input id="visNcDetalhe" placeholder="detalhe em uma linha (opcional)" style="width:100%;padding:11px;border:1px solid #DDE3EA;border-radius:9px;font:500 14px system-ui;margin-bottom:8px">'+
+    '<div style="font:800 12px system-ui;color:#5A6B7B;margin:10px 0 6px">O cliente tem preferência para a volta?</div>'+
+    '<select id="visNcPref" style="width:100%;padding:11px;border:1px solid #DDE3EA;border-radius:9px;font:500 14px system-ui">'+
+    VIS_PREFS.map(m=>'<option>'+motEsc(m)+'</option>').join('')+'</select>'+
+    '<input id="visNcPrefObs" placeholder="nas palavras do cliente (opcional)" style="width:100%;padding:11px;border:1px solid #DDE3EA;border-radius:9px;font:500 14px system-ui;margin-top:8px">'+
+    '<div style="font:500 11.5px system-ui;color:#5A6B7B;margin-top:10px">Sua parte está feita. O retorno nasce sem data e o escritório marca o dia.</div>'+
+    '<button class="vis-btn warn" onclick="visEnviarNaoConcluir()">Encerrar visita como não concluída</button>'+
+    '<button class="vis-btn sec" onclick="VIS.form=null;visPintarSheet()">Voltar</button>'+
+  '</div>';
+  return h;
+}
+function visWireNC(raiz){ const s=raiz.querySelector('#visNcMotivo'); if(s) s.focus(); }
+function visFormNaoConcluir(){ VIS.form='nc'; visPintarSheet(); }
+async function visAcao(rota, corpo, okMsg){
+  const d=VIS.aberta; if(!d) return;
+  try{
+    const r=await bePost('/compromissos/'+d.compromisso.id+'/'+rota, corpo||{}, 'Visita '+(d.compromisso.numero||''));
+    toast(okMsg||'Pronto');
+    await visAbrir(d.compromisso.id);
+    visCarregar(true);
+    return r;
+  }catch(e){ toast('Não deu certo: '+e.message); }
+}
+function visGeo(){
+  return new Promise(res=>{
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p=>res({lat:p.coords.latitude, lng:p.coords.longitude}),
+      ()=>res(null), {timeout:6000, maximumAge:60000});
+  });
+}
+async function visCheckin(){ const g=await visGeo(); visAcao('checkin', g?{lat:g.lat,lng:g.lng}:{}, 'Chegada registrada'); }
+async function visCheckout(){ const g=await visGeo(); visAcao('checkout', g?{lat:g.lat,lng:g.lng}:{}, 'Saída registrada'); }
+async function visConcluir(){
+  const d=VIS.aberta; if(!d) return;
+  const pend=(d.itens||[]).filter(i=>(i.statusItem||'Pendente')==='Pendente').length;
+  if(pend && !confirm('Ainda há '+pend+' linha(s) sem desfecho nesta OT. Concluir a visita mesmo assim?')) return;
+  visAcao('concluir', {}, 'Visita concluída');
+}
+async function visEnviarNaoConcluir(){
+  const mot=(document.getElementById('visNcMotivo')||{}).value;
+  const det=(document.getElementById('visNcDetalhe')||{}).value||'';
+  const pref=(document.getElementById('visNcPref')||{}).value;
+  const obs=(document.getElementById('visNcPrefObs')||{}).value||'';
+  const r=await visAcao('nao-concluir', {motivo:mot, detalhe:det, preferencia:pref, preferenciaObs:obs}, 'Visita encerrada');
+  if(r&&r.retorno) toast('Retorno '+r.retorno.numero+' criado — sem data, o escritório marca');
+  VIS.form=null;
+}
+async function visAbrirChecklist(){
+  const d=VIS.aberta; if(!d||!d.compromisso.ot||!d.compromisso.ot.id) return toast('Esta visita não tem OT ligada');
+  const otId=d.compromisso.ot.id;
+  visFechar();
+  toast('Carregando checklist…');
+  try{
+    const j=await beGet('/motor/execucao/'+otId);
+    MOT.ot=j.ot; MOT.tarefas=(j.tarefas||[]).map(motNormalizarTarefa);
+    MOT.otId=otId; MOT.atual=-1; MOT.rev=null; MOT.edit=false; MOT.vista='lista'; MOT.filtro=0; MOT.ordem=[]; MOT._shellOtId=null;
+    MOT.tarefas.forEach((t,i)=>{ if(t.statusItem!=='Pendente') MOT.ordem.push(i); });
+    go('motor');
+    toast('OT '+(MOT.ot.name||'')+' — '+MOT.tarefas.length+' tarefa'+(MOT.tarefas.length===1?'':'s'));
+  }catch(e){ toast('Não consegui abrir o checklist: '+e.message); }
 }
 
 /* PWA — registro do service worker (offline + instalável) */
