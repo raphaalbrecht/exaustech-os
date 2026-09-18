@@ -16128,7 +16128,12 @@ function motChecklistLeituraHtml(t){
     else if(['Picklist','Multi-Picklist','Texto','Contador','Data','NFC'].includes(p.tipoCampo)) row='<div class="mot-ckrow ro"><span class="mot-box">'+(p.statusPasso==='Feito'?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span></div>';
     else{
       let d='—';
-      if(p.tipoCampo==='Medição') d=p.valorNumerico!=null?(motFmt(p.valorNumerico)+' '+(p.unidade||'')+(motMedForaFaixa(p)?' · fora da faixa':' · na faixa')):'—';
+      /* Calculo entra aqui junto com Medicao: o resultado fica em Valor_Numerico__c como qualquer
+         medicao, e sem esta linha o registro concluido mostrava um traco no lugar do numero.
+         O selo de faixa so aparece quando existe faixa: antes dizia "na faixa" mesmo sem faixa. */
+      const temFaixa=p.valorMinVigente!=null&&p.valorMaxVigente!=null;
+      const selo=!temFaixa?'':(motMedForaFaixa(p)?' · fora da faixa':' · na faixa');
+      if(p.tipoCampo==='Medição'||p.tipoCampo==='Cálculo') d=p.valorNumerico!=null?(motFmt(p.valorNumerico)+' '+(p.unidade||'')+selo):'—';
       else if(p.tipoCampo==='Condição') d=p.valorOpcao||'—';
       else if(p.tipoCampo==='Mídia') d=p.statusPasso==='Feito'?'vídeo anexado':'—';
       row='<div class="mot-ckrow ro val"><span class="mot-box">✓</span><span class="mot-tx">'+motEsc(p.descricao)+' — <b>'+motEsc(d)+'</b></span></div>';
@@ -17521,7 +17526,10 @@ function plnRenderPendencias(body){
     const ed=PLN.pndEdit&&PLN.pndEdit.id===a.id?PLN.pndEdit:null;
     h+='<div class="pnd-card">';
     h+='<div class="pnd-hd">';
-    if(a.fotoUrl) h+='<div class="pnd-foto" style="background-image:url('+JSON.stringify(a.fotoUrl)+')"></div>';
+    /* A foto vem pelo proxy autenticado /arquivos/:driveId, igual ao resto do app. Antes ia a
+       URL__c (o link /file/d/ID/view do Drive) direto no background-image, que nunca e imagem, e
+       ainda quebrava o atributo style nas aspas: o resultado era um quadrado cinza vazio. */
+    if(a.fotoDriveId) h+='<div class="pnd-foto" data-pndfoto="'+motEsc(a.fotoDriveId)+'" title="ver foto do achado"></div>';
     h+='<div class="tit"><b>'+motEsc(a.descricao||'(sem descrição)')+'</b>'+
       '<small>'+motEsc(a.nome||'')+' · '+(a.idadeDias!=null?('há '+a.idadeDias+' dia'+(a.idadeDias===1?'':'s')):'')+
       (a.ativo?' · equipamento <b>'+motEsc(a.ativo.descricao||a.ativo.nome||'')+'</b>':'')+
@@ -17566,6 +17574,12 @@ function plnRenderPendencias(body){
 }
 function pndWire(body){
   const recarrega=async()=>{ PLN.achados=null; PLN.pndEdit=null; await plnCarregarTab(); };
+  body.querySelectorAll('[data-pndfoto]').forEach(el=>{
+    const did=el.dataset.pndfoto;
+    beArquivoDataURL(did).then(du=>{ el.style.backgroundImage='url("'+du+'")'; }).catch(()=>{ el.style.opacity='.45'; });
+    el.style.cursor='zoom-in';
+    el.addEventListener('click',()=>verImagem(did,'Foto do achado'));
+  });
   body.querySelectorAll('[data-pndf]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFiltro=b.dataset.pndf; recarrega(); }));
   body.querySelectorAll('[data-pnds]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSev=b.dataset.pnds; recarrega(); }));
   body.querySelectorAll('[data-pndlocal]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSoLocal=!PLN.pndSoLocal; recarrega(); }));
