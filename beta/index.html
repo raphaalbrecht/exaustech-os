@@ -1437,6 +1437,16 @@
   .pnd-form .lbl{font-size:.6rem;font-weight:700;color:var(--pln-text-soft)}
   .pnd-vazio{font-size:.68rem;color:var(--pln-text-soft);line-height:1.6;padding:18px 4px}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
+  /* agendar visita (retaguarda) — 19/09/2026 */
+  .pln-btn{border:1px solid var(--pln-border);background:#fff;color:var(--pln-navy);border-radius:8px;padding:9px 13px;font:700 .7rem inherit;cursor:pointer}
+  .pln-btn:hover{background:#F4F7FA}
+  .pln-btn.pri{background:var(--pln-blue,#0B5CAB);border-color:var(--pln-blue,#0B5CAB);color:#fff}
+  .pln-chip{border:1px solid var(--pln-border);background:#fff;color:var(--pln-navy);border-radius:999px;padding:6px 11px;font:600 .66rem inherit;cursor:pointer}
+  .pln-chip.on{background:var(--pln-blue,#0B5CAB);border-color:var(--pln-blue,#0B5CAB);color:#fff}
+  .pln-lbl{display:block;font:700 .64rem inherit;color:var(--pln-text-soft);letter-spacing:.3px}
+  .pln-lbl .pln-inp{display:block;width:100%;margin-top:4px}
+  .pln-aviso{border-radius:8px;padding:8px 10px;font:600 .66rem inherit;background:#FFF6E8;color:#8a5a12;border:1px solid #F0D9B8}
+  .pln-aviso.imp{background:#FBE9E9;color:#8f2020;border-color:#EFC7C7}
   .pln-legend b{color:var(--pln-text)}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16523,7 +16533,9 @@ function plnReset(){
     biblioteca:null, selRegra:0,
     agenda:null, selVisita:0,
     /* R7 — montador da regra logica */
-    regraEdit:null, salvandoRegra:false, erroRegra:null };
+    regraEdit:null, salvandoRegra:false, erroRegra:null,
+    /* 19/09 — agendar visita pela retaguarda */
+    agendar:null, visitasPorOt:null };
 }
 function renderPlano(){
   const root=document.getElementById('pln-root'); if(!root) return;
@@ -17667,8 +17679,86 @@ function plnRenderAgenda(body){
       (doc.motivoRejeicao?'<div class="pln-legend">rejeitado: '+motEsc(doc.motivoRejeicao)+'</div>':'')+
     '</div>';
   }
+  /* Agendar a visita: sem isto a OT gerada pelo motor nao chega a tecnico nenhum, porque nada
+     cria Compromisso de Servico fora do Retorno. Alcada de escritorio no backend (Supervisor pra
+     cima); aqui a tela so aparece pra quem ja enxerga a retaguarda de Plano. */
+  det+=plnAgendarHtml(v);
   body.innerHTML='<div class="pln-split"><div class="pln-master">'+master+'</div><div class="pln-detail">'+det+'</div></div>';
   body.querySelectorAll('.pln-mitem').forEach(el=>{ el.addEventListener('click',()=>{ PLN.selVisita=+el.dataset.i; plnRenderTabBody(); }); });
+  plnWireAgendar(body, v);
+}
+
+/* ---- agendar visita (retaguarda) ---- */
+function plnAgendarHtml(v){
+  const e=PLN.agendar&&PLN.agendar.otId===v.id?PLN.agendar:null;
+  let h='<div class="pln-sechd">Visitas desta OT</div><div class="pln-card">';
+  const lista=(PLN.visitasPorOt&&PLN.visitasPorOt[v.id])||null;
+  if(lista&&lista.length){
+    lista.forEach(c=>{ h+='<div class="pln-kv"><span class="k">'+motEsc(c.numero||'')+'</span><span class="v">'+motEsc(c.status||'')+
+      (c.inicioAgendado?' · '+plnFmtData(c.inicioAgendado):' · sem data')+(c.equipe?' · '+motEsc(c.equipe):'')+'</span></div>'; });
+  } else if(lista){ h+='<div class="pln-legend">Nenhuma visita agendada para esta OT ainda.</div>'; }
+  else { h+='<div class="pln-legend">As visitas aparecem aqui depois de agendadas.</div>'; }
+  if(!e){ h+='<button class="pln-btn" data-agendar="'+v.id+'" style="margin-top:10px">agendar visita</button></div>'; return h; }
+  const hoje=new Date(); const d0=new Date(hoje.getTime()-hoje.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  h+='<div style="margin-top:10px;display:grid;gap:8px">'+
+    '<label class="pln-lbl">Dia<input type="date" data-agdia value="'+(e.dia||d0)+'" class="pln-inp"></label>'+
+    '<label class="pln-lbl">Começa às<input type="time" data-aghora value="'+(e.hora||'09:00')+'" class="pln-inp"></label>'+
+    '<label class="pln-lbl">Dura (horas)<input type="number" min="1" max="12" step="1" data-aghoras value="'+(e.horas||3)+'" class="pln-inp"></label>'+
+    '<div><div class="pln-lbl" style="margin-bottom:4px">Quem vai</div><div data-agequipe style="display:flex;flex-wrap:wrap;gap:6px">'+
+      (FUNCIONARIOS||[]).map(f=>'<button class="pln-chip'+((e.equipe||[]).includes(f.matricula)?' on':'')+'" data-agrec="'+f.matricula+'">'+motEsc(f.nome)+'</button>').join('')+
+    '</div><div class="pln-legend" style="margin-top:4px">O primeiro escolhido entra como líder da visita.</div></div>'+
+    (e.erro?'<div class="pln-aviso imp">'+motEsc(e.erro)+'</div>':'')+
+    '<div style="display:flex;gap:8px"><button class="pln-btn pri" data-agsalvar style="flex:1">'+(e.salvando?'agendando…':'agendar')+'</button>'+
+    '<button class="pln-btn" data-agcancelar>cancelar</button></div>'+
+  '</div></div>';
+  return h;
+}
+function plnWireAgendar(body, v){
+  body.querySelectorAll('[data-agendar]').forEach(b=>b.addEventListener('click',()=>{
+    PLN.agendar={otId:b.dataset.agendar, dia:null, hora:'09:00', horas:3, equipe:[], erro:null, salvando:false};
+    plnRenderTabBody();
+  }));
+  body.querySelectorAll('[data-agcancelar]').forEach(b=>b.addEventListener('click',()=>{ PLN.agendar=null; plnRenderTabBody(); }));
+  const e=PLN.agendar; if(!e||e.otId!==v.id) return;
+  const dia=body.querySelector('[data-agdia]'), hora=body.querySelector('[data-aghora]'), horas=body.querySelector('[data-aghoras]');
+  if(dia) dia.addEventListener('change',()=>{ e.dia=dia.value; });
+  if(hora) hora.addEventListener('change',()=>{ e.hora=hora.value; });
+  if(horas) horas.addEventListener('change',()=>{ e.horas=+horas.value||3; });
+  body.querySelectorAll('[data-agrec]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.agrec; const i=e.equipe.indexOf(id);
+    if(i<0) e.equipe.push(id); else e.equipe.splice(i,1);
+    plnRenderTabBody();
+  }));
+  const salvar=body.querySelector('[data-agsalvar]');
+  if(salvar) salvar.addEventListener('click',async()=>{
+    if(e.salvando) return;
+    if(!e.equipe.length){ e.erro='Escolha pelo menos uma pessoa: visita sem equipe não aparece na agenda de ninguém.'; return plnRenderTabBody(); }
+    const d=(dia&&dia.value)||e.dia, hr=(hora&&hora.value)||e.hora||'09:00';
+    if(!d){ e.erro='Escolha o dia.'; return plnRenderTabBody(); }
+    const ini=new Date(d+'T'+hr+':00');
+    const fim=new Date(ini.getTime()+((+((horas&&horas.value))||e.horas||3)*3600e3));
+    e.salvando=true; e.erro=null; plnRenderTabBody();
+    try{
+      const r=await bePost('/compromissos',{otId:e.otId, tipo:'Principal', inicio:ini.toISOString(), fim:fim.toISOString(),
+        recursoIds:e.equipe, liderId:e.equipe[0]}, 'Agendamento de visita');
+      toast('Visita '+(r.numero||'')+' agendada — '+r.alocadas+' na equipe');
+      PLN.agendar=null; PLN.visitasPorOt=null; await plnCarregarVisitas(e.otId); plnRenderTabBody();
+    }catch(x){ e.salvando=false; e.erro='Não deu certo: '+x.message; plnRenderTabBody(); }
+  });
+  if(!PLN.visitasPorOt||!PLN.visitasPorOt[v.id]) plnCarregarVisitas(v.id);
+}
+async function plnCarregarVisitas(otId){
+  /* o backend hoje lista visitas por pessoa; aqui a retaguarda precisa das visitas DA OT, entao
+     a lista vem de /compromissos/meus filtrada, e some quando a visita e de outra equipe. Enquanto
+     nao existe rota por OT, e honesto dizer que a lista mostra o que esta ao alcance de quem olha. */
+  PLN.visitasPorOt=PLN.visitasPorOt||{};
+  try{
+    const r=await beGet('/compromissos/meus');
+    const doOt=(r.compromissos||[]).filter(c=>c.ot&&c.ot.id===otId)
+      .map(c=>({numero:c.numero,status:c.status,inicioAgendado:c.inicioAgendado,equipe:null}));
+    PLN.visitasPorOt[otId]=doOt;
+  }catch(e){ PLN.visitasPorOt[otId]=[]; }
+  plnRenderTabBody();
 }
 
 /* ===== VISITAS DO PLANO (Compromisso de Serviço) — 18/09/2026 =====
