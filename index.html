@@ -2133,6 +2133,9 @@ const REP_STAGES=['Rascunho','Supervisão','Coordenação','Aprovado','Cliente']
 /* ===== perfis / permissões ===== */
 const ROLES=['Auxiliar de Manutenção (MPP)','Líder de Equipe','Estoquista','Supervisor','Coordenador','Gerente','Sócio'];
 let ROLE='Líder de Equipe';
+/* CARGO REAL do cadastro (Funcao__c). ROLE guarda o PAPEL traduzido, que manda na permissao;
+   CARGO_REAL e so o que aparece na etiqueta, para o soldador nao se ver como auxiliar. */
+let CARGO_REAL='';
 function roleShort(r){ if(r==='Líder de Equipe')return 'Líder'; if(r==='Auxiliar de Manutenção (MPP)')return 'Auxiliar'; return r; }
 function canSend(r){ return r==='Líder de Equipe'||r==='Supervisor'; }
 function canPDF(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
@@ -2465,8 +2468,12 @@ function go(scr){
 }
 /* ===== perfil (seletor) ===== */
 const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
-function renderRoleChip(){ const c=document.getElementById('roleChip'); if(c) c.innerHTML=svgI('user')+'<span>'+roleShort(ROLE)+'</span>'; }
+function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return; c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'; c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
 function openRole(){
+  /* 20/09/2026: com sessao real o perfil vem do cadastro e nao se troca na tela. Antes dava para
+     escolher Socio no chip e abrir todos os modulos; o servidor recusava a gravacao, mas o app
+     parecia quebrado e expunha tela de gestao para quem nao e gestao. */
+  if(SF_LIVE||(typeof beTok==='function'&&beTok())){ toast('Seu perfil vem do cadastro do Salesforce'); return; }
   const list=document.getElementById('roleList'); list.innerHTML='';
   ROLES.forEach(r=>{ const ini=r.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const el=document.createElement('div'); el.className='role-opt'+(r===ROLE?' on':'');
@@ -14303,8 +14310,11 @@ async function beDoLogin(payload){
     if(!r.ok){ const msg=j.error||'Falha no login'; if(m)m.textContent=msg; toast(msg); return; }
     const nm=_noDemo(j.name||'');
     localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
-    localStorage.setItem('be_funcao', j.funcao||'');
-    ROLE=j.funcao||'Líder de Equipe'; try{renderRoleChip();}catch(e){} /* papel real do Recurso (Funcao__c) dirige os módulos; sem match, volta ao padrão (nunca herda papel da sessão anterior) */
+    localStorage.setItem('be_funcao', j.funcao||''); localStorage.setItem('be_cargo', j.funcaoReal||'');
+    CARGO_REAL=j.funcaoReal||'';
+    /* 20/09/2026: sem papel traduzido a pessoa entra no piso da escada, nunca em Líder de Equipe.
+       O padrão antigo dava a quem não tem cadastro um papel que ele não tem. */
+    ROLE=j.funcao||'Auxiliar de Manutenção (MPP)'; try{renderRoleChip();}catch(e){}
     toast('Bem-vindo, '+(nm.split(' ')[0]||'')); beHydrate();
   }catch(e){ if(m)m.textContent=netFail(e)?'Sem conexão — conecte para entrar':'Erro de conexão'; toast('Erro de conexão: '+e.message); }
 }
@@ -14315,7 +14325,7 @@ function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).valu
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name','be_rid','be_funcao'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name','be_rid','be_funcao','be_cargo'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
@@ -14523,6 +14533,7 @@ async function beUploadMidia(blob, filename, tipo, meta, noQ){
   }
 }
 async function beHydrate(quiet){
+  CARGO_REAL=localStorage.getItem('be_cargo')||'';
   const _bf=localStorage.getItem('be_funcao'); if(_bf){ ROLE=_bf; try{renderRoleChip();updateNavRole();}catch(e){} } /* papel real persistido */
   if(!quiet) toast('Carregando OS…');
   try{
