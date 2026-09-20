@@ -196,6 +196,13 @@
   .vis-btn.pri{background:#0B5CAB;color:#fff}
   .vis-btn.sec{background:#EEF1F4;color:#0B2239}
   .vis-btn.warn{background:#FDF1E3;color:#8a5a12}
+  /* alocacao por OT (visita) — 20/09/2026. Reaproveita .aloc-lane, .fch e .aloc-drop da tela de OS. */
+  .alv-tabs{display:flex;gap:6px;margin:2px 0 8px}
+  .alv-tab{flex:1;border:1px solid var(--border);background:#fff;color:#4A5560;border-radius:9px;padding:9px;font:700 12.5px system-ui,-apple-system,sans-serif;cursor:pointer}
+  .alv-tab.on{background:#0B5CAB;border-color:#0B5CAB;color:#fff}
+  .alv-vazio{margin:14px;padding:16px;border:1px dashed var(--border);border-radius:12px;color:#5A6B7B;font:500 13px system-ui,-apple-system,sans-serif;text-align:center}
+  .alv-ot{font:700 12px system-ui,-apple-system,sans-serif;color:#7a5cc8}
+  .alv-pend{font:600 11.5px system-ui,-apple-system,sans-serif;color:#8a5a12}
   .appt.s-confirmada{border-left-color:var(--succ)}
   .appt.s-andamento{border-left-color:var(--warn)}
   .appt.s-concluido{border-left-color:var(--succ)}
@@ -1617,9 +1624,14 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     <!-- ALOCAÇÃO (board do supervisor) -->
     <section class="screen" id="scr-aloc">
       <div class="sched-top"><div class="sched-title">Alocação de Equipe</div>
-        <div class="subnote" style="padding:0 0 6px">Arraste os funcionários <b>autorizados</b> para a OS onde vão trabalhar — cada atribuição gera uma <b>Alocação</b>. <span class="demo-tag">DEMONSTRAÇÃO</span></div>
+        <div class="alv-tabs" id="alocModos">
+          <button class="alv-tab on" data-modo="os">Ordens de Serviço</button>
+          <button class="alv-tab" data-modo="ot">Visitas do plano</button>
+        </div>
+        <div class="subnote" id="alocSub" style="padding:0 0 6px">Arraste os funcionários <b>autorizados</b> para a OS onde vão trabalhar — cada atribuição gera uma <b>Alocação</b>. <span class="demo-tag">DEMONSTRAÇÃO</span></div>
       </div>
       <div id="alocList"></div>
+      <div id="alvList" style="display:none"></div>
     </section>
 
     <!-- NOTIFICAÇÕES -->
@@ -2440,7 +2452,7 @@ function go(scr){
   if(scr==='approvals') renderApprovals();
   if(scr==='producao') renderProducao();
   if(scr==='estoque') renderEstoque();
-  if(scr==='aloc') renderAloc();
+  if(scr==='aloc'){ renderAloc(); try{ alvWireTabs(); if(alvModo()==='ot') alvCarregar(); }catch(e){} }
   if(scr==='exp') renderExp();
   if(scr==='treinamentos') renderTreino();
   if(scr==='cadastro') renderCadastro();
@@ -4472,7 +4484,13 @@ const EX_LOGO=new Image(); EX_LOGO.src='data:image/svg+xml;utf8,'+encodeURICompo
 let _lastGeo=null;
 function fmtDT(n){ const p=x=>String(x).padStart(2,'0'); return p(n.getDate())+'/'+p(n.getMonth()+1)+'/'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes()); }
 function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-function getGeo(){ return new Promise(res=>{ if(!navigator.geolocation) return res(_lastGeo); navigator.geolocation.getCurrentPosition(p=>{ _lastGeo={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy||0)}; res(_lastGeo); }, ()=>res(_lastGeo), {enableHighAccuracy:true,timeout:6000,maximumAge:30000}); }); }
+/* 20/09/2026: corrida de tempo tambem aqui. O timeout do getCurrentPosition nao conta a espera
+   do AVISO de permissao do navegador, entao, com o aviso aberto e sem resposta, a foto ficava
+   pendurada. Em 6 segundos segue com a ultima posicao conhecida (ou nenhuma). */
+function getGeo(){ return new Promise(res=>{ let pronto=false; const fim=(v)=>{ if(!pronto){ pronto=true; res(v); } };
+  setTimeout(()=>fim(_lastGeo), 6000);
+  if(!navigator.geolocation) return fim(_lastGeo);
+  try{ navigator.geolocation.getCurrentPosition(p=>{ _lastGeo={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy||0)}; fim(_lastGeo); }, ()=>fim(_lastGeo), {enableHighAccuracy:true,timeout:6000,maximumAge:30000}); }catch(e){ fim(_lastGeo); } }); }
 function pickPhoto(cb){ const inp=document.getElementById('photoInput'); if(!inp){ toast('Câmera indisponível'); return; } inp.value=''; inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(f) cb(f); }; inp.click(); }
 async function loadBitmap(file){ try{ return await createImageBitmap(file,{imageOrientation:'from-image'}); }catch(e){ return await new Promise((rs,rj)=>{ const im=new Image(); im.onload=()=>rs(im); im.onerror=rj; im.src=URL.createObjectURL(file); }); } }
 function drawWatermark(ctx,W,H,eq,geo,now,label){
@@ -14525,7 +14543,18 @@ async function beHydrate(quiet){
     /* oculta o marcador [DEMO AS] em todos os textos exibidos (nomes de teste seguem marcados no Salesforce) */
     wos=JSON.parse(JSON.stringify(wos).replace(/\s*\[DEMO AS\]/gi,''));
     REC=JSON.parse(JSON.stringify(REC).replace(/\s*\[DEMO AS\]/gi,''));
-    if(!wos.length){ if(!quiet){ toast('Nenhuma OS.'); go('schedule'); } return; }
+    /* 20/09/2026, revisao geral: este return acontecia ANTES de trocar FUNCIONARIOS pelos recursos
+       reais, entao, sem OS antiga no periodo, a tela de alocacao mostrava a equipe de demonstracao
+       (Joao Silva F-1042 e companhia) e o escritorio escalava gente que nao existe. Agora os
+       recursos reais entram primeiro, e so depois a carga para por falta de OS. */
+    if(!wos.length){
+      const _pal0=['#0B5CAB','#2e844a','#7a5cc8','#E8730C','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
+      const _fl=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
+        cor:_pal0[i%_pal0.length], lojas:[], habilidades:r.habilidades||[], externo:!!r.externo, cpf:r.cpf||null }));
+      if(_fl.length){ FUNCIONARIOS.length=0; _fl.forEach(f=>FUNCIONARIOS.push(f)); }
+      HABILIDADES.length=0; (REC.habilidades||[]).forEach(h=>HABILIDADES.push(h));
+      if(!quiet){ toast('Nenhuma OS.'); go('schedule'); } return;
+    }
     const resById={}; (REC.resources||[]).forEach(r=>resById[r.id]=r.name);
     const _pal=['#0B5CAB','#2e844a','#7a5cc8','#E8730C','#ba0517','#0b827c','#3b3bb3','#8a6d2b','#5867aa'];
     const funcLive=(REC.resources||[]).map((r,i)=>({ nome:r.name, matricula:r.id, cargo:r.funcao||'Técnico',
@@ -14575,7 +14604,10 @@ async function beHydrate(quiet){
         apontamentos.push({id:ap.name, _sf:ap.id, _fromSF:true, osId:o.id, equipTag:eq.tag, tarefa:eq.tarefa, item:ap.item,
           problemas:(ap.problemas||'').split(';').map(s=>s.trim()).filter(Boolean), obs:ap.obs||'', severidade:'Média', acaoRecomendada:'', fotos:[],
           status:ap.status||'Registrado', quando:ap.registradoEm?fmtDH(ap.registradoEm):'', eqRef:eq, osRef:o}); });
-      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _geoIn:a.geoCheckin||null, _geoOut:a.geoCheckout||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
+/* 20/09/2026: o CPF nao vem mais na lista geral de recursos (um celular perdido expunha o de
+   todo mundo). Ele chega pela ALOCACAO, so das pessoas desta OS, que sao as que podem assinar
+   aqui. Guardamos no proprio FUNCIONARIOS para as telas de assinatura e o PDF nao mudarem. */
+      o.alocacoes=(wo.alocacoes||[]).map(a=>{ const mk=funcLive.find(f=>f.matricula===a.resourceId); if(mk&&a.cpf&&!mk.cpf) mk.cpf=a.cpf; return { nome:(resById[a.resourceId]||'(recurso)'), papel:mk?mk.cargo:'Técnico', matricula:a.resourceId, cpf:a.cpf||null, _ar:a.id, _num:a.name||null, _itemAS:a.itemAutorizacaoId||null, _inicio:a.inicio||null, _termino:a.termino||null, _efIni:a.efetivoInicio||null, _efFim:a.efetivoTermino||null, _geoIn:a.geoCheckin||null, _geoOut:a.geoCheckout||null, _presenca:a.presenca||null, confirmada:true, assinatura:null, assinadoEm:null }; });
       o._minha = !!myRid() && o.alocacoes.some(a=>a.matricula===myRid());
       /* restaura assinaturas já gravadas no Salesforce (reload não apaga o trabalho) */
       const sigs=wo.assinaturas||[];
@@ -14622,7 +14654,10 @@ setTimeout(beInitGoogle, 400);
 if(beTok()) setTimeout(beHydrate, 300);  /* já logado (reload): recarrega as OS */
 /* verificação periódica (1-2 min) pra detectar separações marcadas como urgentes enquanto o app está aberto —
    sem toast de carregamento nem navegação, só atualiza dados + badge/sino (ver aviso-separacao-urgente-estoquista) */
-setInterval(()=>{ if(beTok() && SF_LIVE && document.visibilityState==='visible') beHydrate(true).catch(()=>{}); }, 90000);
+/* 20/09/2026: as visitas entram na atualizacao periodica. Antes a lista carregava uma vez por
+   sessao, entao visita agendada depois de o tecnico abrir o app so aparecia se ele fechasse e
+   abrisse de novo. Com a trava de escalacao no motor, isso deixava gente parada no cliente. */
+setInterval(()=>{ if(beTok() && SF_LIVE && document.visibilityState==='visible'){ beHydrate(true).catch(()=>{}); try{ if(typeof visCarregar==='function') visCarregar(true); }catch(e){} } }, 90000);
 
 /* ============================================================================================
    MOTOR DE EXECUÇÃO DA OT — porte de cadastro-de-ativos/mockup-execucao-FINAL-v3-ref-popup.html
@@ -17748,17 +17783,195 @@ function plnWireAgendar(body, v){
   if(!PLN.visitasPorOt||!PLN.visitasPorOt[v.id]) plnCarregarVisitas(v.id);
 }
 async function plnCarregarVisitas(otId){
-  /* o backend hoje lista visitas por pessoa; aqui a retaguarda precisa das visitas DA OT, entao
-     a lista vem de /compromissos/meus filtrada, e some quando a visita e de outra equipe. Enquanto
-     nao existe rota por OT, e honesto dizer que a lista mostra o que esta ao alcance de quem olha. */
+  /* 20/09/2026: passou a usar GET /compromissos/por-ot/:otId. Antes filtrava /compromissos/meus, que
+     so traz visita de quem esta olhando: um supervisor que escala o tecnico e nao se escala via
+     "nenhuma visita agendada" e agendava a mesma visita de novo. */
   PLN.visitasPorOt=PLN.visitasPorOt||{};
   try{
-    const r=await beGet('/compromissos/meus');
-    const doOt=(r.compromissos||[]).filter(c=>c.ot&&c.ot.id===otId)
-      .map(c=>({numero:c.numero,status:c.status,inicioAgendado:c.inicioAgendado,equipe:null}));
-    PLN.visitasPorOt[otId]=doOt;
+    const r=await beGet('/compromissos/por-ot/'+otId);
+    PLN.visitasPorOt[otId]=(r.compromissos||[]).map(c=>({
+      numero:c.numero, status:c.status, inicioAgendado:c.inicioAgendado,
+      equipe:(c.equipe||[]).map(p=>(p.recursoNome||'').split(' ')[0]+(p.lider?' (líder)':'')).join(', ')||null
+    }));
   }catch(e){ PLN.visitasPorOt[otId]=[]; }
   plnRenderTabBody();
+}
+
+/* ===== ALOCAÇÃO DE EQUIPE POR OT (visita) — 20/09/2026 =====
+   O mesmo mecanismo da tela de OS, trocando o objeto: em vez de Alocacao_em_OS__c numa Ordem de
+   Servico, grava Alocacao_no_Compromisso__c na VISITA de uma Ordem de Trabalho. Pedido do Raphael
+   depois da revisao geral, e virou peca critica: com a trava de escalacao no motor, tecnico so
+   executa OT em que esta escalado, entao esta tela e o destravador oficial quando a escala muda.
+   Diferenca deliberada em relacao a tela de OS: aqui NAO existe "pendente ate confirmar". Mudanca
+   de escala de ultima hora precisa valer no mesmo toque, senao a tela vira mais um passo entre o
+   tecnico parado e o trabalho. */
+const ALV={lista:null, loading:false, erro:null, salvando:null};
+
+function alvModo(){ return (document.querySelector('#alocModos .alv-tab.on')||{}).dataset?.modo||'os'; }
+function alvWireTabs(){
+  const box=document.getElementById('alocModos'); if(!box||box._wired) return; box._wired=true;
+  box.querySelectorAll('.alv-tab').forEach(b=>b.addEventListener('click',()=>{
+    box.querySelectorAll('.alv-tab').forEach(x=>x.classList.toggle('on',x===b));
+    const ot=b.dataset.modo==='ot';
+    document.getElementById('alocList').style.display=ot?'none':'';
+    document.getElementById('alvList').style.display=ot?'':'none';
+    const sub=document.getElementById('alocSub');
+    if(sub) sub.innerHTML = ot
+      ? 'Arraste quem vai para a <b>visita</b> da Ordem de Trabalho. Grava na hora, sem confirmar depois: mudança de escala precisa valer no mesmo toque. O primeiro da equipe é o <b>líder</b>.'
+      : 'Arraste os funcionários <b>autorizados</b> para a OS onde vão trabalhar — cada atribuição gera uma <b>Alocação</b>. <span class="demo-tag">DEMONSTRAÇÃO</span>';
+    if(ot) alvCarregar();
+  }));
+}
+async function alvCarregar(forcar){
+  if(ALV.loading) return;
+  if(ALV.lista && !forcar) return alvRender();
+  ALV.loading=true; ALV.erro=null; alvRender();
+  try{ const r=await beGet('/compromissos/agenda'); ALV.lista=r.compromissos||[]; }
+  catch(e){ ALV.erro=e.message; ALV.lista=[]; }
+  ALV.loading=false; alvRender();
+}
+function alvJanela(c){
+  if(!c.inicioAgendado) return 'sem data marcada';
+  const d=new Date(c.inicioAgendado);
+  const dia=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  let fim=''; if(c.fimAgendado){ const f=new Date(c.fimAgendado); fim='–'+String(f.getHours()).padStart(2,'0')+':'+String(f.getMinutes()).padStart(2,'0'); }
+  return dia+' · '+hh+fim;
+}
+/* conflito de agenda: a mesma pessoa em DUAS visitas que se sobrepoem no tempo. Mesma ideia do
+   allocConflict da tela de OS, so que lendo as visitas em vez dos compromissos do modelo antigo. */
+function alvConflito(recursoId, alvo){
+  if(!alvo.inicioAgendado||!alvo.fimAgendado) return null;
+  const a1=new Date(alvo.inicioAgendado).getTime(), a2=new Date(alvo.fimAgendado).getTime();
+  for(const c of (ALV.lista||[])){
+    if(c.id===alvo.id||!c.inicioAgendado||!c.fimAgendado) continue;
+    if(!(c.equipe||[]).some(p=>p.recursoId===recursoId)) continue;
+    const b1=new Date(c.inicioAgendado).getTime(), b2=new Date(c.fimAgendado).getTime();
+    if(a1<b2 && b1<a2) return c;
+  }
+  return null;
+}
+function alvChipEquipe(c,p){
+  const f=FUNCIONARIOS.find(x=>x.matricula===p.recursoId);
+  const cor=f?f.cor:'#75818D';
+  const sub=(p.lider?'líder':(p.funcao||''))+(p.chegou?' · chegou':'');
+  const travado=p.chegou?' title="Já registrou chegada: sai do plano só pelo check-out, porque presença é fato."':'';
+  return '<div class="fch in" data-alvrec="'+p.recursoId+'" data-alvcomp="'+c.id+'" data-alvaloc="'+p.id+'" data-src="alloc"'+travado+'>'+
+    avatarHTML(p.recursoNome||'?',cor)+'<span class="fnm">'+_esc((p.recursoNome||'').split(' ')[0])+'<small>'+_esc(sub)+'</small></span>'+
+    (p.chegou?'':'<button class="frm" title="Tirar da equipe" onclick="event.stopPropagation();alvRemover(\''+p.id+'\',\''+c.id+'\')">×</button>')+
+  '</div>';
+}
+function alvChipLivre(c,f){
+  const cf=alvConflito(f.matricula,c);
+  if(cf) return '<div class="fch busy" title="Já está na visita '+_esc(cf.numero||'')+' ('+_esc(cf.contaNome||'')+') no mesmo horário">'+
+    avatarHTML(f.nome,f.cor)+'<span class="fnm">'+_esc(firstName(f.nome))+'<small>ocupado · '+_esc(cf.numero||'')+'</small></span></div>';
+  return '<div class="fch" data-alvrec="'+f.matricula+'" data-alvcomp="'+c.id+'" data-src="avail">'+
+    avatarHTML(f.nome,f.cor)+'<span class="fnm">'+_esc(firstName(f.nome))+'<small>'+_esc(f.cargo||'')+'</small></span></div>';
+}
+function alvRender(){
+  const box=document.getElementById('alvList'); if(!box) return;
+  if(ALV.loading && !ALV.lista){ box.innerHTML='<div class="alv-vazio">Carregando visitas…</div>'; return; }
+  if(ALV.erro){ box.innerHTML='<div class="alv-vazio">Não consegui carregar: '+_esc(ALV.erro)+'</div>'; return; }
+  const lista=(ALV.lista||[]).filter(c=>c.status!=='Cancelado');
+  if(!lista.length){
+    box.innerHTML='<div class="alv-vazio">Nenhuma visita agendada nos próximos dias.<br><br>'+
+      'Visita nasce na aba <b>Plano</b>, dentro de <b>Agenda de OTs</b>, no botão <b>agendar visita</b>. Sem visita, o técnico não consegue executar a OT.</div>';
+    return;
+  }
+  let h='<div class="aloc-hint">Cada faixa é uma <b>visita</b> de uma Ordem de Trabalho. Quem está na equipe pode executar o checklist daquela OT; quem não está, não. Arraste para mudar, que grava na hora.</div>';
+  lista.forEach(c=>{
+    const eq=c.equipe||[];
+    const temLider=eq.some(p=>p.lider);
+    const ids=eq.map(p=>p.recursoId);
+    const livres=(FUNCIONARIOS||[]).filter(f=>!ids.includes(f.matricula));
+    const pend=(c.itens||[]).filter(i=>(i.statusItem||'Pendente')==='Pendente').length;
+    const salvando=ALV.salvando===c.id;
+    h+='<div class="aloc-lane team-'+(eq.length?(temLider?'ok':'under'):'under')+'">'+
+      '<div class="aloc-lhd"><div>'+
+        '<div class="aloc-os">'+_esc(c.numero||'')+' <span class="alv-ot">'+_esc((c.ot&&c.ot.name)||'')+'</span></div>'+
+        '<div class="aloc-dh">'+_esc(alvJanela(c))+' · '+_esc(c.status||'')+'</div>'+
+        '<div class="aloc-cli">'+_esc(c.contaNome||'')+(c.localNome?' · '+_esc(c.localNome):'')+'</div>'+
+      '</div><div class="aloc-rhd">'+
+        '<span class="tcount tcount-'+(eq.length?(temLider?'ok':'under'):'under')+'">'+eq.length+' na equipe</span>'+
+        (eq.length&&!temLider?'<span class="nolead-tag">⚠ falta líder</span>':'')+
+        (pend?'<span class="alv-pend">'+pend+' linha'+(pend===1?'':'s')+' a fazer</span>':'')+
+      '</div></div>'+
+      '<div class="aloc-zlabel">Na visita'+(salvando?' · gravando…':'')+'</div>'+
+      '<div class="aloc-drop '+(eq.length?'':'empty')+'" data-drop="alloc" data-alvcomp="'+c.id+'">'+
+        (eq.length? eq.map(p=>alvChipEquipe(c,p)).join('') : '<div class="aloc-empty-txt">Arraste quem vai para cá</div>')+
+      '</div>'+
+      '<div class="aloc-zlabel" style="margin-top:11px">Disponíveis</div>'+
+      '<div class="aloc-pool" data-drop="avail" data-alvcomp="'+c.id+'">'+
+        (livres.length? livres.map(f=>alvChipLivre(c,f)).join('') : '<div class="aloc-empty-txt" style="text-align:left">Todo mundo já está nesta visita.</div>')+
+      '</div>'+
+    '</div>';
+  });
+  box.innerHTML=h;
+  alvWireDrag(box);
+}
+function alvWireDrag(box){
+  box.querySelectorAll('.fch[data-alvrec]').forEach(ch=>ch.addEventListener('pointerdown',alvDown));
+}
+function alvZona(x,y){ const el=document.elementFromPoint(x,y); return el?el.closest('[data-drop]'):null; }
+function alvDown(e){
+  if(e.target.classList.contains('frm')) return;
+  const ch=e.currentTarget; if(ch.classList.contains('busy')) return;
+  const d={rec:ch.dataset.alvrec, comp:ch.dataset.alvcomp, aloc:ch.dataset.alvaloc||null, src:ch.dataset.src};
+  const start={x:e.clientX,y:e.clientY}; let moveu=false, ghost=null;
+  const mover=(ev)=>{
+    if(!moveu && Math.hypot(ev.clientX-start.x,ev.clientY-start.y)<6) return;
+    if(!moveu){ moveu=true; ch.classList.add('drag-src'); ghost=ch.cloneNode(true); ghost.classList.add('fch-ghost'); const rb=ghost.querySelector('.frm'); if(rb)rb.remove(); document.body.appendChild(ghost); document.body.style.cursor='grabbing'; }
+    ghost.style.left=ev.clientX+'px'; ghost.style.top=ev.clientY+'px';
+    document.querySelectorAll('#alvList .aloc-drop.over').forEach(z=>z.classList.remove('over'));
+    const z=alvZona(ev.clientX,ev.clientY); if(z&&z.dataset.drop==='alloc'&&d.src==='avail'&&z.dataset.alvcomp===d.comp) z.classList.add('over');
+  };
+  const soltar=(ev)=>{
+    document.removeEventListener('pointermove',mover); document.removeEventListener('pointerup',soltar);
+    document.body.style.cursor=''; if(ghost) ghost.remove(); ch.classList.remove('drag-src');
+    document.querySelectorAll('#alvList .aloc-drop.over').forEach(z=>z.classList.remove('over'));
+    const z=alvZona(ev.clientX,ev.clientY);
+    if(!moveu){ if(d.src==='avail') alvEscalar(d.comp,d.rec); else alvTocarNaEquipe(d.comp,d.rec,d.aloc); return; }
+    if(!z) return;
+    if(d.src==='avail' && z.dataset.drop==='alloc' && z.dataset.alvcomp===d.comp) alvEscalar(d.comp,d.rec);
+    else if(d.src==='alloc' && z.dataset.drop==='avail' && z.dataset.alvcomp===d.comp && d.aloc) alvRemover(d.aloc,d.comp);
+  };
+  document.addEventListener('pointermove',mover); document.addEventListener('pointerup',soltar);
+}
+async function alvEscalar(compId, recursoId){
+  const c=(ALV.lista||[]).find(x=>x.id===compId); if(!c) return;
+  const cf=alvConflito(recursoId,c);
+  if(cf && !confirm('Essa pessoa já está na visita '+(cf.numero||'')+' ('+(cf.contaNome||'')+') no mesmo horário. Escalar mesmo assim?')) return;
+  const primeiro=!(c.equipe||[]).length;
+  ALV.salvando=compId; alvRender();
+  try{
+    await bePost('/compromissos/'+compId+'/alocacoes', {recursoIds:[recursoId], liderId: primeiro?recursoId:undefined}, 'Escalar na visita '+(c.numero||''));
+    toast(primeiro?'Escalado como líder da visita':'Escalado na visita');
+    await alvCarregar(true);
+  }catch(e){ toast('Não deu certo: '+e.message); ALV.salvando=null; alvRender(); }
+  ALV.salvando=null;
+}
+async function alvRemover(alocId, compId){
+  ALV.salvando=compId; alvRender();
+  try{
+    await beDelete('/compromissos/alocacoes/'+alocId, 'Tirar da equipe');
+    toast('Tirado da equipe');
+    await alvCarregar(true);
+  }catch(e){ toast(e.message); ALV.salvando=null; alvRender(); }
+  ALV.salvando=null;
+}
+/* tocar em quem ja esta na equipe: vira lider (um por visita) */
+async function alvTocarNaEquipe(compId, recursoId, alocId){
+  const c=(ALV.lista||[]).find(x=>x.id===compId); if(!c||!alocId) return;
+  const p=(c.equipe||[]).find(x=>x.id===alocId);
+  if(p&&p.lider) return toast('Já é o líder desta visita');
+  if(!confirm('Tornar '+((p&&p.recursoNome)||'esta pessoa')+' o líder da visita?')) return;
+  ALV.salvando=compId; alvRender();
+  try{
+    await bePatch('/compromissos/alocacoes/'+alocId, {lider:true}, 'Trocar líder');
+    toast('Líder trocado');
+    await alvCarregar(true);
+  }catch(e){ toast('Não deu certo: '+e.message); ALV.salvando=null; alvRender(); }
+  ALV.salvando=null;
 }
 
 /* ===== VISITAS DO PLANO (Compromisso de Serviço) — 18/09/2026 =====
