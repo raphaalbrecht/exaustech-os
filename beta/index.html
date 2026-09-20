@@ -17928,8 +17928,27 @@ function visGeo(){
     }catch(e){ fim(null); }
   });
 }
-async function visCheckin(){ toast('Registrando chegada…'); const g=await visGeo(); visAcao('checkin', g?{lat:g.lat,lng:g.lng}:{}, 'Chegada registrada'); }
-async function visCheckout(){ toast('Registrando saída…'); const g=await visGeo(); visAcao('checkout', g?{lat:g.lat,lng:g.lng}:{}, 'Saída registrada'); }
+/* A hora e capturada NO APARELHO, no instante do toque, e vai no corpo da chamada. Sem isso, um
+   check-in que sobe depois (fila offline, tunel, elevador) chegaria com a hora do reenvio, e a
+   hora de chegada e justamente o fato que a visita existe para registrar. Os nomes sao os que o
+   backend le: efetivoInicio/efetivoTermino, geoCheckin/geoCheckout, presenca (compromissoRoutes).
+   Antes daqui o app mandava {lat,lng}, que o backend ignorava: a localizacao nunca era gravada. */
+async function visCheckin(){
+  toast('Registrando chegada…');
+  const quando=new Date().toISOString();
+  const g=await visGeo();
+  const corpo={efetivoInicio:quando, presenca:'Presente'};
+  if(g) corpo.geoCheckin=g.lat.toFixed(6)+','+g.lng.toFixed(6);
+  visAcao('checkin', corpo, 'Chegada registrada');
+}
+async function visCheckout(){
+  toast('Registrando saída…');
+  const quando=new Date().toISOString();
+  const g=await visGeo();
+  const corpo={efetivoTermino:quando};
+  if(g) corpo.geoCheckout=g.lat.toFixed(6)+','+g.lng.toFixed(6);
+  visAcao('checkout', corpo, 'Saída registrada');
+}
 async function visConcluir(){
   const d=VIS.aberta; if(!d) return;
   const pend=(d.itens||[]).filter(i=>(i.statusItem||'Pendente')==='Pendente').length;
