@@ -12731,10 +12731,13 @@ function finishQuiz(){
 }
 
 /* ===================== MÓDULO CADASTRO DE ATIVOS ===================== */
-const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
+/* Tipos de ativo que representam um SISTEMA do cliente (os mesmos do Salesforce). Saem da grade de equipamentos e nascem no passo do sistema. */
+const CAD_SIS_TIPOS=['Linha de exaustão de cozinha','Exaustão de ambiente','Insuflação mecânica','Pressurização de escada','Sistema'];
+const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so aparece para ativos antigos */
+function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipos:[],novoSisTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
@@ -12757,7 +12760,7 @@ async function renderCadastro(){
   if(!beTok()){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Entre para cadastrar.</div>'; return; }
   if(!cadSt.tipos.length){
     el.innerHTML='<div style="padding:24px;text-align:center;color:#686868"><span class="ld-spin"></span>Carregando…</div>';
-    try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipo=cadSt.tipos.find(t=>t.nome===CAD_SIS_TIPO)||null; }
+    try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipos=cadSt.tipos.filter(cadEhTipoSistema); }
     catch(e){ el.innerHTML='<div style="padding:24px;color:#C4451B">'+cadEsc(e.message)+'</div>'; return; }
   }
   if(cadSt.step==='conta') return cadStepConta();
@@ -12925,7 +12928,10 @@ async function cadPickConta(i){
   cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
   cadSt.sistemas=[];
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando sistemas…</div>';
-  try{ if(cadSt.sistemaTipo) cadSt.sistemas=await beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+cadSt.sistemaTipo.id); }catch(e){ toast(e.message); }
+  try{
+    const listas=await Promise.all(cadSt.sistemaTipos.map(t=>beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+t.id).then(l=>(l||[]).map(s=>Object.assign({},s,{tipoNome:t.nome})))));
+    cadSt.sistemas=[].concat(...listas);
+  }catch(e){ toast(e.message); }
   cadStepSistema();
 }
 function cadStepSistema(){
@@ -12934,12 +12940,15 @@ function cadStepSistema(){
   h+='<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar conta</button>';
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
   if(!cadSt.sistemas.length) h+='<div style="color:#686868;font-size:13px;margin-bottom:8px">Nenhum sistema cadastrado nesta conta ainda.</div>';
-  h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div>${s.nome?('<div style="font-size:11px;color:#686868">Ativo '+cadEsc(s.nome)+'</div>'):''}</button>`).join('');
+  h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div><div style="font-size:11px;color:#686868">${cadEsc(s.tipoNome||'Sistema')}${s.nome?(' · Ativo '+cadEsc(s.nome)):''}</div></button>`).join('');
   h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
   if(!cadSt.novoSis){
     h+='<button onclick="cadToggleNovoSis(true)" style="width:100%;background:#EAF1F7;border:1px solid #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">+ Cadastrar novo sistema</button>';
   } else {
-    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px"><div style="font-size:12px;color:#686868;margin-bottom:6px">Identificação do sistema</div>';
+    const escolhiveis=cadSt.sistemaTipos.filter(t=>CAD_SIS_ESCOLHIVEIS.includes(t.nome));
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px"><div style="font-size:12px;color:#686868;margin-bottom:6px">Tipo de sistema</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+escolhiveis.map(t=>`<button onclick="cadPickNovoSisTipo('${t.id}')" style="flex:1 1 45%;background:${cadSt.novoSisTipo===t.id?'#3E7EB0':'#fff'};color:${cadSt.novoSisTipo===t.id?'#fff':'#0B2239'};border:1px solid ${cadSt.novoSisTipo===t.id?'#3E7EB0':'#E2E5E9'};border-radius:10px;padding:11px 8px;font-size:13px;font-weight:600">${cadEsc(t.nome)}</button>`).join('')+'</div>';
+    h+='<div style="font-size:12px;color:#686868;margin-bottom:6px">Identificação do sistema</div>';
     h+='<input id="cadNovoSisNome" placeholder="Ex.: Sistema de exaustão principal" style="width:100%;padding:11px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;margin-bottom:8px">';
     h+='<div style="display:flex;gap:8px"><button onclick="cadCriarSistema()" style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e continuar</button>';
     h+='<button onclick="cadToggleNovoSis(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button></div>';
@@ -12947,19 +12956,20 @@ function cadStepSistema(){
   }
   h+='</div>'; el.innerHTML=h;
 }
-function cadToggleNovoSis(v){ cadSt.novoSis=v; cadStepSistema(); }
+function cadToggleNovoSis(v){ cadSt.novoSis=v; if(!v) cadSt.novoSisTipo=null; cadStepSistema(); }
+function cadPickNovoSisTipo(id){ const nome=(document.getElementById('cadNovoSisNome')||{}).value||''; cadSt.novoSisTipo=id; cadStepSistema(); const i=document.getElementById('cadNovoSisNome'); if(i) i.value=nome; }
 function cadPickSistema(i){ const s=cadSt.sistemas[i]; cadSt.sistema={id:s.id,nome:s.descricao||s.nome||'Sistema'}; cadSt.step='equip'; cadStepEquip(); }
 async function cadCriarSistema(){
   const nome=(document.getElementById('cadNovoSisNome').value||'').trim();
   if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
-  if(!cadSt.sistemaTipo){ toast('Tipo Sistema não encontrado.'); return; }
-  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:cadSt.sistemaTipo.id,descricao:nome});
+  if(!cadSt.novoSisTipo){ toast('Escolha o tipo de sistema.'); return; }
+  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:cadSt.novoSisTipo,descricao:nome});
     cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.step='equip'; cadStepEquip();
   }catch(e){ toast(e.message); }
 }
 function cadStepEquip(){
   const el=document.getElementById('cadBody');
-  const equip=cadSt.tipos.filter(t=>t.nome!==CAD_SIS_TIPO);
+  const equip=cadSt.tipos.filter(t=>!cadEhTipoSistema(t));
   let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
   h+='<button onclick="cadStep(\'sistema\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar sistema</button>';
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Escolha o equipamento</div>';
