@@ -12732,7 +12732,7 @@ function finishQuiz(){
 
 /* ===================== MÓDULO CADASTRO DE ATIVOS ===================== */
 /* Tipos de ativo que representam um SISTEMA do cliente (os mesmos do Salesforce). Saem da grade de equipamentos e nascem no passo do sistema. */
-const CAD_SIS_TIPOS=['Linha de exaustão de cozinha','Exaustão de ambiente','Insuflação mecânica','Pressurização de escada','Sistema'];
+const CAD_SIS_TIPOS=['Exaustão mecânica de cozinha','Exaustão de ambiente','Insuflação mecânica','Pressurização de escada','Sistema'];
 const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so aparece para ativos antigos */
 function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
