@@ -12737,18 +12737,19 @@ const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so a
 function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipos:[],novoSisTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
+function cadReset(){ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
   let h='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:12px">';
   h+='<div style="font-size:11px;color:#686868">Conta</div><div style="font-size:14px;font-weight:700;color:#0B2239">'+cadEsc(cadSt.conta.nome)+'</div>';
+  if(cadSt.local){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Local</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadLocalNome(cadSt.local))+'</div>'; }
   if(cadSt.sistema){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
   return h+'</div>';
 }
 /* breadcrumb dos passos do cadastro (orientação no topo do módulo) */
 function cadHead(step){
-  const S=[['conta','Conta'],['sistema','Sistema'],['equip','Equipamento'],['form','Ficha']];
+  const S=[['conta','Conta'],['local','Local'],['sistema','Sistema'],['equip','Equipamento'],['form','Ficha']];
   const idx=S.findIndex(s=>s[0]===step);
   const bc=S.map((s,i)=>`<span style="color:${i===idx?'#3E7EB0':(i<idx?'#0B2239':'#AEB8C2')};font-weight:${i===idx?'700':'500'}">${s[1]}</span>`).join('<span style="color:#C9D2DB;margin:0 5px">›</span>');
   return `<div style="font-size:11.5px;letter-spacing:.2px;padding:2px 0 12px">${bc}</div>`;
@@ -12764,6 +12765,7 @@ async function renderCadastro(){
     catch(e){ el.innerHTML='<div style="padding:24px;color:#C4451B">'+cadEsc(e.message)+'</div>'; return; }
   }
   if(cadSt.step==='conta') return cadStepConta();
+  if(cadSt.step==='local') return cadStepLocal();
   if(cadSt.step==='sistema') return cadStepSistema();
   if(cadSt.step==='equip') return cadStepEquip();
   if(cadSt.step==='form') return cadStepForm();
@@ -12924,9 +12926,76 @@ async function cadCriarConta(){
     if(btn){ btn.disabled=false; btn.textContent='Criar conta e continuar'; }
   }
 }
+/* LOCAL DO ATIVO (28/09/2026). Antes o assistente ia da Conta direto para o Sistema, e o ativo
+   nascia SEM local: o servidor aceita o campo, a tela nunca mandava. Ativo sem local nunca vira
+   ordem de trabalho, porque o gerador procura as tarefas dentro do local do plano. Nao avisava
+   nada, simplesmente nao acontecia nada de madrugada. Agora o local e um passo proprio; quando a
+   conta tem um local so, ele ja vem escolhido e a pessoa so confirma. */
+function cadLocalNome(l){ return (l && (l.nome || l.descricao)) || 'Local sem nome'; }
 async function cadPickConta(i){
-  cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
+  cadSt.conta=cadSt.contas[i]; cadSt.local=null; cadSt.locais=[]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='local';
   cadSt.sistemas=[];
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando locais…</div>';
+  try{
+    const r=await beGet('/locais?contaId='+cadSt.conta.id);
+    cadSt.locais=(r&&r.locais)||[];
+    if(cadSt.locais.length===1) cadSt.local=cadSt.locais[0];
+  }catch(e){ toast(e.message); }
+  cadStepLocal();
+}
+function cadStepLocal(){
+  const el=document.getElementById('cadBody');
+  let h='<div style="padding:14px 14px 90px">'+cadHead('local')+cadCtx();
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em que local do cliente?</div>';
+  if(!cadSt.locais.length){
+    h+='<div style="font-size:13px;color:#686868;margin-bottom:10px">Esta conta ainda não tem nenhum local cadastrado. Cadastre o primeiro para poder continuar.</div>';
+  }else{
+    const opts=cadSt.locais.map((l,i)=>'<option value="'+i+'"'+(cadSt.local&&cadSt.local.id===l.id?' selected':'')+'>'+cadEsc(cadLocalNome(l))+'</option>').join('');
+    h+='<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Local</label>'
+      +'<div style="position:relative"><select id="cadLocalSel" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">'
+      +(cadSt.local?'':'<option value="" disabled selected>Selecione o local…</option>')+opts
+      +'</select><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span></div>';
+    h+='<button onclick="cadConfirmarLocal()" style="width:100%;margin-top:12px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Continuar</button>';
+  }
+  h+='<button onclick="cadNovoLocal()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">＋ Cadastrar novo local</button>';
+  h+='<button onclick="cadStep(\'conta\')" style="width:100%;margin-top:10px;background:none;border:none;color:#3E7EB0;font-size:13px;padding:6px">‹ Voltar às contas</button>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+function cadConfirmarLocal(){
+  const sel=document.getElementById('cadLocalSel');
+  const v=sel?sel.value:'';
+  if(v===''||v==null) return toast('Escolha o local');
+  cadSt.local=cadSt.locais[parseInt(v,10)];
+  cadCarregarSistemas();
+}
+function cadNovoLocal(){
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local')+cadCtx()
+    +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
+    +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Nome do local</label>'
+    +'<input id="cadLocalNome" placeholder="Cozinha, casa de máquinas, mezanino…" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+    +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin:12px 0 5px">Endereço (opcional)</label>'
+    +'<input id="cadLocalEnd" placeholder="Rua, número, bairro" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+    +'<button onclick="cadSalvarLocal()" style="width:100%;margin-top:14px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Salvar local</button>'
+    +'<button onclick="cadStepLocal()" style="width:100%;margin-top:10px;background:none;border:none;color:#3E7EB0;font-size:13px;padding:6px">‹ Voltar</button>'
+    +'</div>';
+}
+async function cadSalvarLocal(){
+  const nome=((document.getElementById('cadLocalNome')||{}).value||'').trim();
+  if(!nome) return toast('Informe o nome do local');
+  const end=((document.getElementById('cadLocalEnd')||{}).value||'').trim();
+  try{
+    const r=await bePost('/locais',{contaId:cadSt.conta.id,descricao:nome,endereco:end||undefined});
+    const novo=(r&&r.local)||null;
+    if(!novo) throw new Error('O servidor não devolveu o local criado');
+    cadSt.locais.push(novo); cadSt.local=novo;
+    toast('Local cadastrado');
+    cadCarregarSistemas();
+  }catch(e){ toast('Não consegui cadastrar o local: '+e.message); }
+}
+async function cadCarregarSistemas(){
+  cadSt.step='sistema'; cadSt.sistemas=[];
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando sistemas…</div>';
   try{
     const listas=await Promise.all(cadSt.sistemaTipos.map(t=>beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+t.id).then(l=>(l||[]).map(s=>Object.assign({},s,{tipoNome:t.nome})))));
@@ -12963,7 +13032,7 @@ async function cadCriarSistema(){
   const nome=(document.getElementById('cadNovoSisNome').value||'').trim();
   if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
   if(!cadSt.novoSisTipo){ toast('Escolha o tipo de sistema.'); return; }
-  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:cadSt.novoSisTipo,descricao:nome});
+  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:cadSt.novoSisTipo,descricao:nome});
     cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.step='equip'; cadStepEquip();
   }catch(e){ toast(e.message); }
 }
@@ -12982,7 +13051,7 @@ async function cadPickEquip(i){
   const t=cadSt._equip[i];
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
-    const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:t.id,paiId:cadSt.sistema.id});
+    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
     cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={};
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
     cadSt.step='form'; cadStepForm();
