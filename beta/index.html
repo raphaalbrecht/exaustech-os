@@ -16919,6 +16919,14 @@ function plnProblemasPasso(p,pop){
   }
   if(nfc && !p.modoNFC) av('modoNfc','<b>NFC sem modo.</b> O app não sabe se é para confirmar presença no ponto ou para gravar o serial da peça, e assume confirmar presença.',{rotulo:'confirmar presença',patch:{modoNfc:'Confirmar presença'}});
 
+  /* 28/09/2026 — peso so existe em Condicao. CascataFichaService.recalibrar le apenas passos de
+     Tipo_Campo__c = 'Condicao', entao peso em Medicao fica guardado sem efeito nenhum. E peso NAO
+     e gravidade: a gravidade do achado vem da regra "Marcar como achado". Peso e quanto aquele
+     achado encurta o intervalo daquele equipamento: 0 nao mexe, 1 encurta 15%, 3 encurta 45%. */
+  const _peso=plnNum(p.peso);
+  if(_peso!=null && _peso!==0 && t!=='Condição') av('peso','<b>Peso só tem efeito em Condição.</b> Em '+motEsc(t||'outro tipo')+' o número fica guardado e a periodicidade não se mexe. Se a intenção era encurtar o intervalo, a pergunta precisa ser uma Condição.',{rotulo:'zerar',patch:{peso:0}});
+  if(_peso!=null && _peso!==0 && _peso!==1 && _peso!==3) av('peso','<b>Peso fora da escala.</b> A escala é 0, 1 ou 3: não encurta, encurta 15 por cento, encurta 45 por cento. Qualquer outro número entra na conta do mesmo jeito e ninguém consegue prever o resultado.');
+
   if(min!=null && max!=null && min>max) imp('valorMin','<b>A faixa está invertida:</b> o mínimo ('+min+') é maior que o máximo ('+max+'). Toda leitura cairia fora da faixa e todo passo viraria achado.',{rotulo:'trocar os dois',patch:{valorMin:max,valorMax:min}});
 
   if(p.codigo && !/^[A-Z][A-Z0-9_-]{0,19}$/.test(p.codigo)) av('codigo','<b>Código fora do padrão.</b> Só letras maiúsculas, números, _ e - , começando por letra. Do jeito que está, nenhuma fórmula consegue citar este passo.',{rotulo:'corrigir',patch:{codigo:String(p.codigo).toUpperCase().replace(/[^A-Z0-9_-]/g,'_').replace(/^[^A-Z]+/,'').slice(0,20)}});
@@ -17308,7 +17316,8 @@ function plnPassoEditHtml(p,pop){
   h+=plnMsgHtml(pr,'tipoCampo');
   h+=plnFld('Seção','Secao__c',plnInpHtml('secao',v.secao,'agrupa os passos'));
   h+=plnFld('Ordem','Ordem__c',plnInpHtml('ordem',v.ordem,'','number'));
-  h+=plnFld('Peso','Peso__c',plnInpHtml('peso',v.peso,'gravidade do passo','number'));
+  h+=plnFld('Peso','Peso__c',plnInpHtml('peso',v.peso,'0, 1 ou 3 — só vale em Condição','number'));
+  h+=plnMsgHtml(pr,'peso');
   h+=plnFld('Obrigatório','Obrigatorio__c','<label class="pln-chk"><input type="checkbox" data-p="obrigatorio"'+(v.obrigatorio?' checked':'')+'> o técnico responde ou justifica como não realizado</label>',true);
 
   if(faixa){
