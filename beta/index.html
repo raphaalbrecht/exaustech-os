@@ -4619,6 +4619,25 @@ function buildNotifs(){
       roles:[],_todosPapeis:true,
       go:()=>{ aprvReset(); estoqGo('aprovacoes'); aprvCarregarLista(); }});
   });
+  /* 02/10/2026 — avisos de contrato e propostas de periodicidade entram no SINO. As duas filas
+     ja contavam no selo da aba Aprovacoes, mas nao existiam aqui, entao quem nao abrisse a aba
+     por conta propria nunca sabia que tinha coisa esperando por ele. _todosPapeis porque a
+     permissao vem da funcao (canAprovarAviso / canAprovarProposta) e nao da lista de papeis
+     do notifs: a checagem ja foi feita aqui em cima, antes de entrar na lista. */
+  if(canAprovarAviso(ROLE)) _avPend.forEach(p=>{
+    list.push({ico:'doc',color:'#C25E0A',
+      tit:(p.tipo||'Alteração')+' de aviso aguarda sua aprovação',
+      sub:(p.tituloNovo||p.avisoTitulo||p.avisoName||'')+(p.solicitadoPorNome?(' · pedido por '+p.solicitadoPorNome):''),
+      roles:[],_todosPapeis:true, go:()=>go('approvals')});
+  });
+  if(canAprovarProposta(ROLE)) _propPend.forEach(p=>{
+    const de=(p.frequenciaVigenteDias!=null?p.frequenciaVigenteDias+'d':'—');
+    const para=(p.frequenciaPropostaDias!=null?p.frequenciaPropostaDias+'d':'—');
+    list.push({ico:'checklist',color:'#1D5A86',
+      tit:'Periodicidade proposta: '+de+' → '+para,
+      sub:(p.ativoNome||'—')+(p.localNome?(' · '+p.localNome):'')+(p.contaNome?(' · '+p.contaNome):''),
+      roles:[],_todosPapeis:true, go:()=>go('approvals')});
+  });
   return list;
 }
 function notifsForRole(){ const mgmt=ROLE==='Gerente'||ROLE==='Sócio'; return buildNotifs().filter(n=>n._todosPapeis||mgmt||n.roles.includes(ROLE)); }
@@ -13666,7 +13685,7 @@ function renderPropostasAppr(list){
     +'<div id="propPendList"></div>';
   list.appendChild(sec);
   paintPropPend();
-  fetchPropPendencias().then(()=>{ paintPropPend(); updateApprBadge(); });
+  fetchPropPendencias().then(()=>{ paintPropPend(); updateApprBadge(); updateBell(); });
 }
 function paintPropPend(){
   const el=document.getElementById('propPendList'); if(!el) return;
@@ -13713,7 +13732,7 @@ async function propDecidir(tarefaId,acao){
          :('✅ Periodicidade '+((r&&r.decisao)||'aprovada')+': '+((r&&r.frequenciaDias)||'')+'d'));
   }catch(e){ toast('Erro: '+e.message); }
   /* recarrega em qualquer caso: 409 = outra pessoa já decidiu, e a fila precisa refletir isso */
-  await fetchPropPendencias(); paintPropPend(); updateApprBadge();
+  await fetchPropPendencias(); paintPropPend(); updateApprBadge(); updateBell();
 }
 
 /* ===== GESTÃO DE AVISOS DE CONTRATO — fluxo de aprovação (v2, 11/07/2026) =====
@@ -13745,7 +13764,7 @@ function renderAvisosAppr(list){
     +'</div>';
   list.appendChild(sec);
   paintAvPend();
-  fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); });
+  fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); updateBell(); });
 }
 function paintAvPend(){
   const el=document.getElementById('avPendList'); if(!el) return;
@@ -13767,7 +13786,7 @@ async function avPendDecidir(avisoId,altId,aprovar){
   try{
     const r=await bePost('/avisos/'+avisoId+'/alteracoes/'+altId+'/'+(aprovar?'aprovar':'rejeitar'), aprovar?{}:{motivo});
     toast(aprovar?('✅ '+((r&&r.tipo)||'Alteração')+' aprovada'+(r&&r.leiturasResetadas?' — todos vão reler o aviso':'')):'Alteração rejeitada');
-    await fetchAvPendencias(); paintAvPend(); updateApprBadge();
+    await fetchAvPendencias(); paintAvPend(); updateApprBadge(); updateBell();
     if(_avGes&&_avGes.ctr) avGesAbrirContrato(_avGes.ctr); /* refresca a lista do modal, se aberto */
   }catch(e){ toast('Erro: '+e.message); }
 }
@@ -14733,7 +14752,12 @@ async function beHydrate(quiet){
     /* 05/08/2026 — fila de periodicidade no hydrate, não só ao abrir a aba: senão o selo do
        sino só apareceria DEPOIS de o Coordenador entrar em Aprovações, que é justamente o
        que ele não faria sem ver o selo. */
-    fetchPropPendencias().then(()=>updateApprBadge()).catch(()=>{});
+    fetchPropPendencias().then(()=>{ updateApprBadge(); updateBell(); }).catch(()=>{});
+    /* 02/10/2026 — a fila de avisos de contrato entra no hydrate pelo MESMO motivo da de
+       periodicidade, e ficou de fora em 05/08: ela ja contava no selo da aba, mas so era
+       carregada ao abrir Aprovacoes, entao o numero so aparecia depois de a pessoa ir ate
+       la por conta propria. */
+    fetchAvPendencias().then(()=>{ updateApprBadge(); updateBell(); }).catch(()=>{});
     pendenteEstocarAtualizarCount().catch(()=>{}); /* pendente estocar p/ home */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
