@@ -12864,6 +12864,7 @@ async function renderCadastro(){
   if(cadSt.step==='sistema') return cadStepSistema();
   if(cadSt.step==='equip') return cadStepEquip();
   if(cadSt.step==='form') return cadStepForm();
+  if(cadSt.step==='revisao') return cadStepRevisao();
   if(cadSt.step==='done') return cadStepDone();
 }
 async function cadStepConta(){
@@ -13362,7 +13363,7 @@ function cadStepForm(){
       }
     });
   });
-  if(!travado) h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
+  if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
 }
@@ -13491,7 +13492,9 @@ async function cadLoadImg(opcaoId){
     const u=URL.createObjectURL(await r.blob()); cadSt.img[opcaoId]=u; const el=document.getElementById('cadimg-'+opcaoId); if(el) el.src=u;
   }catch(e){}
 }
-async function cadSalvar(){
+/* coleta o que será gravado (mesma regra do salvar): só campos visíveis pelas dependências; foto e
+   assinatura só se o envio terminou. Usada pela conferência e pelo salvar, para as duas verem o mesmo. */
+function cadColetar(){
   const f=cadSt.form; const respostas=[]; const faltamFoto=[];
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>(s.campos||[]).filter(c=>cadDepOk(c.dependencia)).forEach(c=>{
     if(c.tipo==='Foto'||c.tipo==='Assinatura'){
@@ -13502,8 +13505,18 @@ async function cadSalvar(){
     }
     const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
   }));
-  if(faltamFoto.length){ toast('📷 Falta preencher: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
-  if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
+  return {respostas,faltamFoto};
+}
+function cadPodeSalvar(c){
+  if(c.faltamFoto.length){ toast('📷 Falta preencher: '+c.faltamFoto[0]+(c.faltamFoto.length>1?` (+${c.faltamFoto.length-1})`:'')); return false; }
+  if(!c.respostas.length){ toast('Responda ao menos um campo.'); return false; }
+  return true;
+}
+async function cadSalvar(){
+  if(cadSt.salvando) return; /* o botão fica na conferência; dois toques gravariam duas vezes */
+  const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  const respostas=col.respostas;
+  cadSt.salvando=true; if(cadSt.step==='revisao') cadStepRevisao();
   try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
     /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
        ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
@@ -13511,8 +13524,55 @@ async function cadSalvar(){
       try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
       catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
     }
-    cadSt.step='done'; cadStepDone(); }
-  catch(e){ toast(e.message); }
+    cadSt.salvando=false; cadSt.step='done'; cadStepDone(); }
+  catch(e){ cadSt.salvando=false; if(cadSt.step==='revisao') cadStepRevisao(); toast(e.message); }
+}
+/* CONFERÊNCIA ANTES DE SALVAR (06/10/2026, pedido do Raphael): depois de preencher qualquer ativo,
+   uma tela com todos os dados; só nela existe o "Salvar cadastro". Mostra todas as perguntas
+   visíveis da ficha, inclusive as em branco ("não informado"), para o técnico ver o que faltou.
+   Obrigatório em branco aparece em vermelho, mas não bloqueia (a regra de bloqueio continua a de
+   antes: foto ou assinatura obrigatória). "Editar" volta à ficha sem perder nada. */
+function cadIrRevisao(){
+  const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  cadSt.step='revisao'; cadStepRevisao();
+}
+function cadVoltarFicha(){ cadSt.step='form'; cadStepForm(); }
+function cadStepRevisao(){
+  cadTopo('revisao');
+  const el=document.getElementById('cadBody'); const f=cadSt.form;
+  const val=(c)=>{
+    if(c.tipo==='Foto'||c.tipo==='Assinatura'){ const up=cadSt.fotos[c.id];
+      if(up&&up.status==='ok') return (up.previewUrl?'<img src="'+up.previewUrl+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #E2E5E9;vertical-align:middle;margin-right:6px">':'')+(c.tipo==='Assinatura'?'Assinado':'Foto anexada');
+      return null; }
+    const v=cadSt.resp[c.id]; if(v==null||String(v).trim()==='') return null;
+    return cadEsc(c.tipo==='Multi-Picklist'?String(v).split(';').filter(Boolean).join(', '):v);
+  };
+  let h='<div style="padding:14px 14px 90px">'+cadHead('form',true)+cadCtx();
+  h+='<div style="font-size:17px;font-weight:800;color:#0B2239">Confira os dados antes de salvar</div>';
+  h+='<div style="font-size:12.5px;color:#686868;margin:2px 0 12px">'+cadEsc(cadSt.tipoNome||f.nome||'')+' · toque em Editar para corrigir</div>';
+  let vazios=0, obrigVazios=0;
+  (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
+    const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia)); if(!campos.length) return;
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">'+cadEsc(s.nome)+'</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
+    campos.forEach(c=>{
+      const v=val(c); if(v==null){ vazios++; if(c.obrigatorio||c.fotoObrigatoria) obrigVazios++; }
+      const selo=(cadSt.daBerliner&&cadSt.daBerliner[c.id])?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">da Berliner</span>'
+        :(cadSt.sugBerliner&&cadSt.sugBerliner[c.id])?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido</span>':'';
+      h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px">'
+        +'<div style="flex:0 0 44%;color:#686868">'+cadEsc(c.nome)+'</div>'
+        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?((c.obrigatorio||c.fotoObrigatoria)?'#C4451B':'#AEB8C2'):'#0B2239')+';word-break:break-word">'
+        +(v==null?((c.obrigatorio||c.fotoObrigatoria)?'obrigatório, não preenchido':'não informado'):v)+selo+'</div></div>';
+    });
+    h+='</div>';
+  });
+  if(cadSt.berliner&&cadSt.berliner.link) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 10px">🔗 O link da ficha do fabricante será guardado no ativo.</div>';
+  if(obrigVazios) h+='<div style="font-size:12.5px;color:#C4451B;margin:4px 2px 8px">'+obrigVazios+' campo'+(obrigVazios>1?'s obrigatórios':' obrigatório')+' em branco.</div>';
+  else if(vazios) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 8px">'+vazios+' campo'+(vazios>1?'s':'')+' sem resposta.</div>';
+  h+='<button onclick="cadSalvar()" '+(cadSt.salvando?'disabled':'')+' style="width:100%;background:#1B7A3D;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;margin-top:6px'+(cadSt.salvando?';opacity:.6':'')+'">'+(cadSt.salvando?'Salvando…':'✓ Salvar cadastro')+'</button>';
+  h+='<button onclick="cadVoltarFicha()" '+(cadSt.salvando?'disabled':'')+' style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#3E7EB0;margin-top:8px">‹ Voltar e corrigir</button>';
+  h+='</div>'; el.innerHTML=h;
 }
 function cadStepDone(){
   cadTopo('done');
