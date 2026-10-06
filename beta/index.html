@@ -12841,26 +12841,45 @@ async function cadStepConta(){
     +'<div id="cadContaWrap" style="color:#686868"><span class="ld-spin"></span>Carregando…</div></div>';
   try{
     if(!cadSt.contas.length) cadSt.contas=await beGet('/contas');
-    const opts=cadSt.contas.map((c,i)=>`<option value="${i}"${cadSt.conta&&cadSt.conta.id===c.id?' selected':''}>${cadEsc(c.nome)}</option>`).join('');
+    /* 06/10/2026 — busca por texto no lugar da lista suspensa (pedido do Raphael): com até 500
+       contas, rolar um <select> no celular não funciona. Filtra enquanto digita, sem acento nem
+       maiúscula, pedaços de palavra em qualquer ordem ("jazz leb"). Tocar no cliente já avança.
+       A lista é redesenhada sozinha (cadContaFiltrar), sem refazer a tela: refazer tiraria o foco
+       do campo e fecharia o teclado a cada letra. */
     document.getElementById('cadContaWrap').innerHTML=`
-      <label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Conta</label>
       <div style="position:relative">
-        <select id="cadContaSel" onchange="cadContaChosen(this.value)" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">
-          <option value="" disabled${cadSt.conta?'':' selected'}>Selecione a Conta…</option>
-          ${opts}
-        </select>
-        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span>
+        <input id="cadContaBusca" type="search" autocomplete="off" placeholder="Digite o nome do cliente…" oninput="cadContaFiltrar()" style="width:100%;padding:14px 14px 14px 40px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;color:#0B2239;background:#fff">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">🔍</span>
       </div>
-      ${/* 06/10/2026 — quem volta para cá com a conta já marcada segue pelo "Avançar ›" do topo
-           (escolher a mesma opção numa lista não dispara 'change' no celular, e foi assim que o
-           Raphael ficou sem saída no primeiro teste). */ ''}
+      <div id="cadContaLista" style="margin-top:8px"></div>
       <button onclick="cadNovaConta()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E;display:flex;align-items:center;justify-content:center;gap:8px">
         <span style="font-size:16px;line-height:1">＋</span> Cadastrar nova conta
       </button>
       <div style="font-size:11.5px;color:#7A8794;margin-top:8px">Não achou o cliente? Cadastre uma nova conta pelo CNPJ.</div>`;
+    cadContaFiltrar();
   }catch(e){ document.getElementById('cadContaWrap').innerHTML='<div style="color:#C4451B">'+cadEsc(e.message)+'</div>'; }
 }
-function cadContaChosen(i){ if(i===''||i==null) return; cadPickConta(parseInt(i,10)); }
+/* tocar no cliente que já é o atual retoma (local e sistema continuam), em vez de recarregar tudo */
+function cadContaChosen(i){ if(i===''||i==null) return; i=parseInt(i,10);
+  const c=cadSt.contas[i]; if(c&&cadSt.conta&&c.id===cadSt.conta.id) return cadIr('local');
+  cadPickConta(i); }
+const CAD_CONTA_MAX=40; /* acima disso a lista vira rolagem sem fim; pede para digitar mais */
+function cadContaFiltrar(){
+  const box=document.getElementById('cadContaLista'); if(!box) return;
+  const termos=String(((document.getElementById('cadContaBusca')||{}).value||'')).split(/\s+/).map(cadChave).filter(Boolean);
+  const todas=cadSt.contas.map((c,i)=>({c,i,k:cadChave(c.nome)}));
+  let lista=termos.length?todas.filter(x=>termos.every(t=>x.k.includes(t))):todas;
+  /* a conta já escolhida (quem voltou pelo Voltar/breadcrumb) aparece primeiro, marcada */
+  const atual=cadSt.conta&&cadSt.conta.id;
+  lista.sort((a,b)=>(b.c.id===atual)-(a.c.id===atual));
+  const total=lista.length; lista=lista.slice(0,CAD_CONTA_MAX);
+  let h='';
+  if(!total) h='<div style="font-size:13px;color:#686868;padding:10px 2px">Nenhum cliente com esse nome. Confira a grafia ou cadastre uma nova conta abaixo.</div>';
+  h+=lista.map(x=>{ const sel=x.c.id===atual;
+    return `<button onclick="cadContaChosen(${x.i})" style="display:block;width:100%;text-align:left;background:${sel?'#EAF1F7':'#fff'};border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:10px;padding:12px 13px;margin-bottom:6px;font-size:14px;font-weight:600;color:#0B2239">${cadEsc(x.c.nome)}${sel?' <span style="font-size:11px;color:#3E7EB0;font-weight:700">· atual</span>':''}</button>`; }).join('');
+  if(total>CAD_CONTA_MAX) h+=`<div style="font-size:12px;color:#7A8794;padding:4px 2px">Mostrando ${CAD_CONTA_MAX} de ${total}. Digite mais do nome para encontrar.</div>`;
+  box.innerHTML=h;
+}
 
 /* ---- cadastrar nova conta (CNPJ → Receita/Serpro no futuro pré-preenche o nome) ---- */
 function cadNovaConta(){
@@ -13150,12 +13169,33 @@ function cadStepEquip(){
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">';
   h+=equip.map((t,i)=>{ const marcado=cadSt.ativoId&&cadSt.tipoNome===t.nome;
     return `<button onclick="cadPickEquip(${i})" style="background:#fff;border:${marcado?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:14px;overflow:hidden;padding:0;display:flex;flex-direction:column">`
-      +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none"><span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span></span>`
+      +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none">${CAD_ICONE_TIPO[cadChave(t.nome)]?`<span id="cadtipoph-${t.id}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${CAD_ICONE_TIPO[cadChave(t.nome)]}</span>`:`<span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span>`}</span>`
       +`<span style="display:block;font-size:11.5px;line-height:1.25;font-weight:${marcado?'700':'600'};color:${marcado?'#3E7EB0':'#0B2239'};padding:7px 5px 8px;text-align:center">${cadEsc(t.nome)}</span></button>`; }).join('');
   h+='</div></div>'; el.innerHTML=h;
   cadSt._equip=equip;
   equip.forEach(t=>cadLoadTipoImg(t.id));
 }
+/* ÍCONES DE TRAÇO por tipo de equipamento (06/10/2026). As imagens de verdade (arquivo anexado no
+   TipoAtivo__c, GET /tipos/:id/imagem) ainda não existem, e o quadro tracejado vazio não deixava
+   escolher de relance (print do Raphael). O ícone é o padrão; a imagem anexada, quando houver,
+   aparece por cima dele sozinha. Chave = nome do tipo sem acento, espaço nem pontuação. */
+const CAD_ICONE_TIPO=(()=>{ const I=p=>'<svg viewBox="0 0 48 48" width="56%" height="56%" fill="none" stroke="#3E7EB0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+  return {
+    coifa:I('<path d="M10 30h28M14 30 20 14h8l6 16"/><path d="M8 30v6h32v-6M24 8v6"/>'),
+    exaustorcentrifugo:I('<circle cx="22" cy="26" r="12"/><path d="M22 26l8-8M34 10v8h-8M22 14v-4M10 26H6"/>'),
+    gabinetedeventilacao:I('<rect x="8" y="10" width="32" height="28" rx="3"/><circle cx="24" cy="24" r="8"/><path d="M18.3 18.3l11.4 11.4M29.7 18.3L18.3 29.7"/>'),
+    exaustoraxial:I('<circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="3"/><path d="M24 21c4-6 1-10-4-10M24 27c-4 6-1 10 4 10M21 24c-6-4-10-1-10 4M27 24c6 4 10 1 10-4"/>'),
+    lavadordegases:I('<path d="M14 10h20v10c0 10-4 18-10 18s-10-8-10-18z"/><path d="M20 16c1 2 3 2 4 0s3-2 4 0M24 40v-2"/>'),
+    filtroeletrostatico:I('<rect x="10" y="10" width="28" height="28" rx="3"/><path d="M17 14v20M24 14v20M31 14v20"/><path d="M26 19l-4 6h4l-4 6"/>'),
+    precipitadorhidrodinamico:I('<path d="M14 10h20l-6 18-4 10-4-10z"/><path d="M20 16h8M22 22h4"/>'),
+    motor:I('<rect x="6" y="16" width="26" height="18" rx="3"/><path d="M32 20h6l4 4v6h-10M10 34v4M28 34v4M6 22h-2M6 28h-2"/>'),
+    paineleletrico:I('<rect x="10" y="8" width="28" height="32" rx="2"/><path d="M16 14h16M16 20h16M25 25l-4 7h6l-4 7"/>'),
+    bombadagua:I('<circle cx="20" cy="28" r="10"/><path d="M20 18v-6h12v8M30 28h10M24 6c0 2-2 3-2 5a2 2 0 0 0 4 0c0-2-2-3-2-5z"/>'),
+    dampercortafogo:I('<rect x="8" y="14" width="32" height="20"/><path d="M14 30l20-12M24 8v6M24 34v6"/>'),
+    portadeinspecao:I('<rect x="12" y="8" width="24" height="32" rx="2"/><circle cx="30" cy="24" r="1.6" fill="#3E7EB0"/><path d="M12 14h24M12 34h24"/>'),
+    sistemauv:I('<path d="M16 8h16v22a8 8 0 0 1-16 0z"/><path d="M24 34v6M12 20l-4-2M36 20l4-2M14 12l-4-4M34 12l4-4"/>'),
+    componentes:I('<circle cx="18" cy="18" r="7"/><circle cx="32" cy="30" r="7"/><path d="M18 11v-3M18 28v-3M11 18H8M28 18h-3M32 23v-3M32 40v-3M25 30h-3M42 30h-3"/>'),
+  }; })();
 /* cache da sessão (sobrevive ao "Cadastrar outro", que zera o cadSt): blob da imagem, ou false
    quando o servidor disse que o tipo não tem imagem, para não perguntar de novo a cada volta. */
 const CAD_IMG_TIPO={};
