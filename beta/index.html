@@ -12834,6 +12834,7 @@ async function renderCadastro(){
   if(cadSt.step==='done') return cadStepDone();
 }
 async function cadStepConta(){
+  cadTopo('conta');
   const el=document.getElementById('cadBody');
   el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em qual conta você está?</div>'
@@ -12863,6 +12864,7 @@ function cadContaChosen(i){ if(i===''||i==null) return; cadPickConta(parseInt(i,
 
 /* ---- cadastrar nova conta (CNPJ → Receita/Serpro no futuro pré-preenche o nome) ---- */
 function cadNovaConta(){
+  cadTopo('novaConta');
   const el=document.getElementById('cadBody');
   el.innerHTML='<div class="cad-wide" style="padding:14px 14px 90px">'+cadHead('conta',true)
     +'<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Voltar às contas</button>'
@@ -13010,6 +13012,7 @@ async function cadPickConta(i){
   cadStepLocal();
 }
 function cadStepLocal(){
+  cadTopo('local');
   const el=document.getElementById('cadBody');
   let h='<div style="padding:14px 14px 90px">'+cadHead('local')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em que local do cliente?</div>';
@@ -13040,6 +13043,7 @@ function cadConfirmarLocal(){
   cadCarregarSistemas();
 }
 function cadNovoLocal(){
+  cadTopo('novoLocal');
   const el=document.getElementById('cadBody');
   el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local',true)+cadCtx()
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
@@ -13077,6 +13081,7 @@ async function cadCarregarSistemas(){
   cadStepSistema();
 }
 function cadStepSistema(){
+  cadTopo('sistema');
   const el=document.getElementById('cadBody');
   let h='<div style="padding:14px 14px 90px">'+cadHead('sistema')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
@@ -13133,14 +13138,45 @@ async function cadCriarSistema(){
   }catch(e){ toast(e.message); }
 }
 function cadStepEquip(){
+  cadTopo('equip');
   const el=document.getElementById('cadBody');
   const equip=cadSt.tipos.filter(t=>!cadEhTipoSistema(t));
   let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Escolha o equipamento</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:10px">';
-  h+=equip.map((t,i)=>`<button onclick="cadPickEquip(${i})" style="width:47%;background:#fff;border:1px solid #E2E5E9;border-radius:14px;padding:16px;min-height:70px;font-size:14px;font-weight:600;color:#0B2239;text-align:left">${cadEsc(t.nome)}</button>`).join('');
+  /* 06/10/2026 — grade com imagem, como a página 1 do Zoho (pedido do Raphael). A imagem é um
+     arquivo anexado no registro do TipoAtivo__c, servido por GET /tipos/:id/imagem. Tipo sem imagem
+     mostra um quadro neutro com o nome: nunca imagem quebrada. O card do equipamento já criado
+     nesta volta fica marcado, porque tocar nele retoma a ficha. */
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">';
+  h+=equip.map((t,i)=>{ const marcado=cadSt.ativoId&&cadSt.tipoNome===t.nome;
+    return `<button onclick="cadPickEquip(${i})" style="background:#fff;border:${marcado?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:14px;overflow:hidden;padding:0;display:flex;flex-direction:column">`
+      +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none"><span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span></span>`
+      +`<span style="display:block;font-size:11.5px;line-height:1.25;font-weight:${marcado?'700':'600'};color:${marcado?'#3E7EB0':'#0B2239'};padding:7px 5px 8px;text-align:center">${cadEsc(t.nome)}</span></button>`; }).join('');
   h+='</div></div>'; el.innerHTML=h;
   cadSt._equip=equip;
+  equip.forEach(t=>cadLoadTipoImg(t.id));
+}
+/* cache da sessão (sobrevive ao "Cadastrar outro", que zera o cadSt): blob da imagem, ou false
+   quando o servidor disse que o tipo não tem imagem, para não perguntar de novo a cada volta. */
+const CAD_IMG_TIPO={};
+async function cadLoadTipoImg(id){
+  const mostra=u=>{ const im=document.getElementById('cadtipo-'+id), ph=document.getElementById('cadtipoph-'+id);
+    if(im&&u){ im.src=u; im.style.display='block'; if(ph) ph.style.display='none'; } };
+  if(CAD_IMG_TIPO[id]===false) return;
+  if(CAD_IMG_TIPO[id]) return mostra(CAD_IMG_TIPO[id]);
+  try{ const r=await fetch(BACKEND+'/tipos/'+id+'/imagem',{headers:{Authorization:'Bearer '+beTok()}});
+    if(r.status===404){ CAD_IMG_TIPO[id]=false; return; }
+    if(!r.ok) return;
+    CAD_IMG_TIPO[id]=URL.createObjectURL(await r.blob()); mostra(CAD_IMG_TIPO[id]);
+  }catch(e){}
+}
+/* 06/10/2026 — a área que rola é o <main>, e trocar de passo não a devolvia ao topo: o passo novo
+   abria na altura do anterior, escondendo o breadcrumb e o Voltar/Avançar (print do Raphael).
+   Só volta ao topo na TROCA de tela; re-desenhar a mesma tela (marcar resposta na ficha, tocar um
+   atalho) não pode pular para cima. */
+function cadTopo(tela){
+  if(cadSt._tela===tela) return;
+  cadSt._tela=tela; const m=document.getElementById('main'); if(m) m.scrollTop=0;
 }
 async function cadPickEquip(i){
   const t=cadSt._equip[i];
@@ -13167,6 +13203,7 @@ function cadDepOk(dep){
   return atual===alvo;
 }
 function cadStepForm(){
+  cadTopo('form');
   const el=document.getElementById('cadBody'); const f=cadSt.form;
   let h='<div style="padding:14px 14px 90px">'+cadHead('form')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(f.nome||cadSt.tipoNome)+'</div>';
@@ -13287,6 +13324,7 @@ async function cadSalvar(){
   catch(e){ toast(e.message); }
 }
 function cadStepDone(){
+  cadTopo('done');
   const el=document.getElementById('cadBody');
   const et=cadSt.etiqueta||{status:'idle'};
   let h='<div style="padding:32px 18px 90px;text-align:center">'
