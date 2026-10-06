@@ -12795,7 +12795,7 @@ function cadIr(s){
 function cadAbandonoOk(){
   if(!cadSt.ativoId||cadSt.step==='done') return true;
   if(!confirm('O equipamento "'+(cadSt.tipoNome||'')+'" já foi criado no Salesforce e vai ficar sem ficha. Trocar mesmo assim?')) return false;
-  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={};
+  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null;
   return true;
 }
 function cadHead(step,sub){
@@ -13038,25 +13038,33 @@ function cadStepLocal(){
   if(!cadSt.locais.length){
     h+='<div style="font-size:13px;color:#686868;margin-bottom:10px">Esta conta ainda não tem nenhum local cadastrado. Cadastre o primeiro para poder continuar.</div>';
   }else{
-    const opts=cadSt.locais.map((l,i)=>'<option value="'+i+'"'+(cadSt.local&&cadSt.local.id===l.id?' selected':'')+'>'+cadEsc(cadLocalNome(l))+'</option>').join('');
-    h+='<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Local</label>'
-      +'<div style="position:relative"><select id="cadLocalSel" onchange="cadConfirmarLocal()" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">'
-      +(cadSt.local?'':'<option value="" disabled selected>Selecione o local…</option>')+opts
-      +'</select><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span></div>';
+    /* 06/10/2026 — locais como botões, no mesmo padrão do passo Sistema (pedido do Raphael): todos
+       à vista, um toque escolhe e avança. O local já escolhido (quem voltou) aparece marcado "atual";
+       tocar nele retoma sem recarregar. */
+    h+=cadSt.locais.map((l,i)=>{ const sel=cadSt.local&&cadSt.local.id===l.id;
+      return `<button onclick="cadEscolherLocal(${i})" style="display:block;width:100%;text-align:left;background:${sel?'#EAF1F7':'#fff'};border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;padding:14px;margin-bottom:8px">`
+        +`<div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(cadLocalNome(l))}${sel?' <span style="font-size:11px;color:#3E7EB0;font-weight:700">· atual</span>':''}</div>`
+        +(l.endereco?`<div style="font-size:11.5px;color:#686868;margin-top:2px">${cadEsc(l.endereco)}</div>`:'')+'</button>'; }).join('');
   }
   h+='<button onclick="cadNovoLocal()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">＋ Cadastrar novo local</button>';
   h+='</div>';
   el.innerHTML=h;
 }
-/* 06/10/2026 — escolher o local na lista já avança (toque-avança, preferência do Raphael). O botão
-   Continuar fica para o caso em que o local já vem marcado (conta com um local só, ou volta pelo
-   "Trocar local"), porque aí não há 'change' para disparar. */
+/* SEM CHAMADOR desde 06/10/2026: os locais viraram botões (cadEscolherLocal). Era a leitura da
+   antiga lista suspensa #cadLocalSel; mantida só até a próxima limpeza do arquivo. */
 function cadConfirmarLocal(){
   const sel=document.getElementById('cadLocalSel');
   const v=sel?sel.value:'';
   if(v===''||v==null) return toast('Escolha o local');
   const novo=cadSt.locais[parseInt(v,10)];
   if(cadSt.local && novo && novo.id===cadSt.local.id) return cadIr('sistema'); /* mesmo local: retoma */
+  if(!cadAbandonoOk()) return cadStepLocal();
+  cadSt.local=novo;
+  cadCarregarSistemas();
+}
+function cadEscolherLocal(i){
+  const novo=cadSt.locais[i]; if(!novo) return;
+  if(cadSt.local && novo.id===cadSt.local.id) return cadIr('sistema'); /* mesmo local: retoma */
   if(!cadAbandonoOk()) return cadStepLocal();
   cadSt.local=novo;
   cadCarregarSistemas();
@@ -13228,7 +13236,7 @@ async function cadPickEquip(i){
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
     const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
-    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={};
+    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.berlinerModo=null;
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
     cadSt.step='form'; cadStepForm();
   }catch(e){ toast(e.message); cadStepEquip(); }
@@ -13248,11 +13256,16 @@ function cadStepForm(){
   let h='<div style="padding:14px 14px 90px">'+cadHead('form')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(f.nome||cadSt.tipoNome)+'</div>';
   const imgs=[];
+  /* 06/10/2026 — com Berliner marcado, a ficha para no Fabricante até a pessoa escolher entre ler o
+     QR e inserir à mão (pedido do Raphael): os demais campos e o Salvar só aparecem depois. */
+  let travado=false;
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
+    if(travado) return;
     const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia));
     if(!campos.length) return;
     h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
     campos.forEach(c=>{
+      if(travado) return;
       h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
         +(cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
         +(cadSt.sugBerliner&&cadSt.sugBerliner[c.id]?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">sugerido · confira</span><div style="font-size:11px;color:#9A5A14;margin-top:2px">'+cadEsc(cadSt.sugBerliner[c.id])+'</div>':'')
@@ -13308,10 +13321,10 @@ function cadStepForm(){
         }
       }
       h+='</div>';
-      if(cadChave(c.nome)==='fabricante' && cadEhBerliner()) h+=cadPainelBerliner();
+      if(cadChave(c.nome)==='fabricante' && cadEhBerliner()){ h+=cadPainelBerliner(); if(cadBerlinerAguardando()) travado=true; }
     });
   });
-  h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
+  if(!travado) h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
 }
@@ -13341,6 +13354,8 @@ function cadAplicarPorNome(form,valores,marca,resp){
   });
   return n;
 }
+function cadBerlinerAguardando(){ return cadEhBerliner()&&!cadSt.berliner&&cadSt.berlinerModo!=='manual'; }
+function cadInserirManual(){ cadSt.berlinerModo='manual'; cadStepForm(); }
 function cadTiraSeloBerliner(campoId){ if(cadSt.daBerliner) delete cadSt.daBerliner[campoId]; if(cadSt.sugBerliner) delete cadSt.sugBerliner[campoId]; }
 function cadPainelBerliner(){
   const b=cadSt.berliner;
@@ -13356,9 +13371,14 @@ function cadPainelBerliner(){
     (x.pecas||[]).forEach(p=>itens.push('Peça: '+cadEsc(p.especificacao)+' ×'+cadEsc(p.quantidade)));
     if(itens.length) h+='<details style="margin-top:6px"><summary style="font-size:12px;color:#3E7EB0;cursor:pointer">Também na ficha da Berliner</summary><div style="font-size:11.5px;color:#686868;line-height:1.5;margin-top:4px">'+itens.join('<br>')+'</div></details>';
     h+='<button onclick="cadLerQrBerliner()" style="margin-top:8px;background:none;border:1px solid #BFD5E6;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:#2B5A7E">Ler outro QR</button>';
+  } else if(cadSt.berlinerModo==='manual'){
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:12.5px;color:#3A4552">✍️ Preenchendo à mão</span>'
+      +'<button onclick="cadLerQrBerliner()" style="background:none;border:1px solid #BFD5E6;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:#2B5A7E">📷 Ler QR mesmo assim</button></div>';
   } else {
-    h+='<button onclick="cadLerQrBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700">📷 Ler QR code do equipamento</button>';
-    h+='<div style="font-size:11.5px;color:#686868;margin-top:6px">Preenche modelo, série, TAG, vazão, pressão, rotação, potência, correia e o motor, direto da ficha do fabricante.</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">Como você quer preencher?</div>';
+    h+='<button onclick="cadLerQrBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">📷 Ler QR code do equipamento</button>';
+    h+='<div style="font-size:11.5px;color:#686868;margin:6px 0 10px">Preenche modelo, série, TAG, vazão, pressão, rotação, potência, correia e o motor, direto da ficha do fabricante.</div>';
+    h+='<button onclick="cadInserirManual()" style="width:100%;background:#fff;border:1.5px solid #BFD5E6;border-radius:10px;padding:12px;font-size:14px;font-weight:700;color:#2B5A7E">✍️ Inserir dados manualmente</button>';
   }
   return h+'</div>';
 }
