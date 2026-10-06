@@ -12807,6 +12807,10 @@ async function cadStepConta(){
         </select>
         <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span>
       </div>
+      ${/* 06/10/2026 — sem este botão, quem voltava para cá (Trocar conta, Voltar às contas) ficava
+           PRESO: a conta já vinha marcada, e escolher a mesma opção numa lista não dispara 'change'
+           no celular. Achado do Raphael no teste do cadastro de ativos. */ ''}
+      ${cadSt.conta?`<button onclick="cadContaChosen(document.getElementById('cadContaSel').value)" style="width:100%;margin-top:12px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Continuar</button>`:''}
       <button onclick="cadNovaConta()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E;display:flex;align-items:center;justify-content:center;gap:8px">
         <span style="font-size:16px;line-height:1">＋</span> Cadastrar nova conta
       </button>
@@ -12971,7 +12975,7 @@ function cadStepLocal(){
   }else{
     const opts=cadSt.locais.map((l,i)=>'<option value="'+i+'"'+(cadSt.local&&cadSt.local.id===l.id?' selected':'')+'>'+cadEsc(cadLocalNome(l))+'</option>').join('');
     h+='<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Local</label>'
-      +'<div style="position:relative"><select id="cadLocalSel" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">'
+      +'<div style="position:relative"><select id="cadLocalSel" onchange="cadConfirmarLocal()" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">'
       +(cadSt.local?'':'<option value="" disabled selected>Selecione o local…</option>')+opts
       +'</select><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span></div>';
     h+='<button onclick="cadConfirmarLocal()" style="width:100%;margin-top:12px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Continuar</button>';
@@ -12981,6 +12985,9 @@ function cadStepLocal(){
   h+='</div>';
   el.innerHTML=h;
 }
+/* 06/10/2026 — escolher o local na lista já avança (toque-avança, preferência do Raphael). O botão
+   Continuar fica para o caso em que o local já vem marcado (conta com um local só, ou volta pelo
+   "Trocar local"), porque aí não há 'change' para disparar. */
 function cadConfirmarLocal(){
   const sel=document.getElementById('cadLocalSel');
   const v=sel?sel.value:'';
@@ -13014,7 +13021,9 @@ async function cadSalvarLocal(){
   }catch(e){ toast('Não consegui cadastrar o local: '+e.message); }
 }
 async function cadCarregarSistemas(){
-  cadSt.step='sistema'; cadSt.sistemas=[];
+  /* 06/10/2026 — sistema=null: com a volta "Trocar local", o sistema escolhido antes ficava no
+     cabeçalho de contexto mesmo depois de trocar o local, valendo para nada. */
+  cadSt.step='sistema'; cadSt.sistemas=[]; cadSt.sistema=null; cadSt.novoSis=false;
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando sistemas…</div>';
   try{
     const listas=await Promise.all(cadSt.sistemaTipos.map(t=>beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+t.id).then(l=>(l||[]).map(s=>Object.assign({},s,{tipoNome:t.nome})))));
@@ -13025,7 +13034,9 @@ async function cadCarregarSistemas(){
 function cadStepSistema(){
   const el=document.getElementById('cadBody');
   let h='<div style="padding:14px 14px 90px">'+cadHead('sistema')+cadCtx();
-  h+='<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar conta</button>';
+  /* 06/10/2026 — antes a única volta daqui era "Trocar conta", que jogava fora o local e caía na
+     tela de Conta sem saída. A volta natural é um passo atrás: o local. A conta se troca de lá. */
+  h+='<button onclick="cadStep(\'local\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar local</button>';
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
   if(!cadSt.sistemas.length) h+='<div style="color:#686868;font-size:13px;margin-bottom:8px">Nenhum sistema cadastrado nesta conta ainda.</div>';
   h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div><div style="font-size:11px;color:#686868">${cadEsc(s.tipoNome||'Sistema')}${s.nome?(' · Ativo '+cadEsc(s.nome)):''}</div></button>`).join('');
@@ -13052,7 +13063,11 @@ async function cadCriarSistema(){
   if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
   if(!cadSt.novoSisTipo){ toast('Escolha o tipo de sistema.'); return; }
   try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:cadSt.novoSisTipo,descricao:nome});
-    cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.step='equip'; cadStepEquip();
+    /* 06/10/2026 — o sistema recém-criado entra na lista: antes, "Trocar sistema" voltava para uma
+       lista carregada ANTES dele existir, e o sistema novo sumia (só aparecia no cabeçalho). */
+    const tipoNovo=cadSt.sistemaTipos.find(t=>t.id===cadSt.novoSisTipo);
+    cadSt.sistemas.unshift({id:r.id,nome:'',descricao:nome,tipoNome:tipoNovo?tipoNovo.nome:'Sistema'});
+    cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.novoSisTipo=null; cadSt.step='equip'; cadStepEquip();
   }catch(e){ toast(e.message); }
 }
 function cadStepEquip(){
