@@ -13289,7 +13289,7 @@ function cadStepForm(){
   cadTopo('form');
   const el=document.getElementById('cadBody'); const f=cadSt.form;
   let h='<div style="padding:14px 14px 90px">'+cadHead('form')+cadCtx();
-  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(f.nome||cadSt.tipoNome)+'</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(cadTituloForm(f))+'</div>';
   const imgs=[];
   /* 06/10/2026 — com Berliner marcado, a ficha para no Fabricante até a pessoa escolher entre ler o
      QR e inserir à mão (pedido do Raphael): os demais campos e o Salvar só aparecem depois. */
@@ -13467,6 +13467,10 @@ async function cadCriarMotorBerliner(){
   }catch(e){ b.motorStatus='erro'; b.motorErro=e.message; }
   cadStepDone();
 }
+/* 06/10/2026 — o título mostra só "Cadastro de Exaustor Centrífugo" (pedido do Raphael). O código
+   "CAD-EXC — " continua no Name do FormularioAtivo__c de propósito: o servidor
+   (/formulario-ativo?codigo=) e os scripts de carga localizam o formulário por esse prefixo. */
+function cadTituloForm(f){ const n=String((f&&f.nome)||cadSt.tipoNome||''); return n.replace(/^[A-Z]{2,5}-[A-Z0-9]{2,6}\s*[—–-]\s*/,'')||n; }
 function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadTiraSeloBerliner(campoId); cadStepForm(); }
 function cadSetText(campoId,v){ cadSt.resp[campoId]=v; cadTiraSeloBerliner(campoId); }
 /* Multi-Picklist: alterna item no conjunto separado por ';' (mesmo formato que o backend/E2E já esperam) */
