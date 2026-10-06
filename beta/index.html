@@ -13296,7 +13296,10 @@ function cadStepForm(){
     h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
     campos.forEach(c=>{
       if(travado) return;
-      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
+      /* 06/10/2026 — pergunta com o mesmo nome da seção ("Fabricante" › "Fabricante") não repete o
+         rótulo (print do Raphael); asterisco e selos, se houver, continuam. */
+      const rotuloRepete=cadChave(c.nome)===cadChave(s.nome);
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px'+(rotuloRepete?';min-height:0':'')+'">'+(rotuloRepete?'':cadEsc(c.nome))+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
         +(cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
         +(cadSt.sugBerliner&&cadSt.sugBerliner[c.id]?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">sugerido · confira</span><div style="font-size:11px;color:#9A5A14;margin-top:2px">'+cadEsc(cadSt.sugBerliner[c.id])+'</div>':'')
         +'</div>';
