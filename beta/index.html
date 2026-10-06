@@ -1455,6 +1455,25 @@
   .pln-aviso{border-radius:8px;padding:8px 10px;font:600 .66rem inherit;background:#FFF6E8;color:#8a5a12;border:1px solid #F0D9B8}
   .pln-aviso.imp{background:#FBE9E9;color:#8f2020;border-color:#EFC7C7}
   .pln-legend b{color:var(--pln-text)}
+  /* OPÇÃO DE ESCOLHA (opc-*), 06/10/2026 — padrão "A" escolhido pelo Raphael para listas em que um
+     toque escolhe e já leva adiante: cartão branco com sombra, ícone à esquerda e seta › à direita.
+     A seta promete avanço; por isso NÃO usar onde o toque só marca e pede confirmação (ex.:
+     .sigloc-opt da assinatura, que dispara SMS). Mockup: prototipos/mockup-destaque-botoes-cadastro_06-10-2026.html */
+  .opc-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;background:var(--card);
+    border:1px solid var(--border2);border-radius:14px;padding:13px 14px;margin-bottom:10px;
+    box-shadow:0 2px 6px rgba(11,34,57,.08);cursor:pointer;transition:background .12s,border-color .12s}
+  .opc-card:active{background:var(--brand-l)}
+  .opc-card[disabled]{opacity:.55}
+  .opc-ic{width:38px;height:38px;border-radius:10px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .opc-ic svg{width:20px;height:20px;fill:none;stroke:var(--brand);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .opc-tx{flex:1;min-width:0}
+  .opc-tx b{display:block;font-size:15px;font-weight:700;color:var(--brand-dk);line-height:1.25}
+  .opc-tx small{display:block;font-size:11.5px;color:var(--logo-gray);margin-top:2px}
+  .opc-seta{font-size:30px;color:var(--brand);font-weight:400;line-height:1;flex-shrink:0;margin-top:-3px}
+  .opc-card.atual{border:2px solid var(--brand);background:var(--brand-l)}
+  .opc-card.atual .opc-ic{background:var(--brand)}
+  .opc-card.atual .opc-ic svg{stroke:#fff}
+  .opc-tag{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2722,11 +2741,25 @@ async function checkLocalInstalacao(){
   document.getElementById('liModal').classList.add('show');
   return false;
 }
+/* opcCard: monta uma opção de escolha no padrão opc-* (ver o CSS). onclick vem pronto e confiável;
+   título e linha de baixo são escapados aqui. */
+const OPC_ICONE={
+  local:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  conta:'<svg viewBox="0 0 24 24"><path d="M4 21V5l8-3 8 3v16"/><path d="M4 21h16M10 21v-4h4v4M8 8h2M14 8h2M8 12h2M14 12h2"/></svg>',
+  sistema:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="5" rx="1"/><rect x="14" y="4" width="7" height="5" rx="1"/><rect x="8.5" y="15" width="7" height="5" rx="1"/><path d="M6.5 9v3h11V9M12 12v3"/></svg>'
+};
+function opcCard(o){
+  const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return '<button type="button" class="opc-card'+(o.atual?' atual':'')+'" onclick="'+o.onclick+'"'+(o.disabled?' disabled':'')+'>'
+    +'<span class="opc-ic">'+(OPC_ICONE[o.icone]||OPC_ICONE.local)+'</span>'
+    +'<span class="opc-tx"><b>'+e(o.titulo)+(o.atual?'<span class="opc-tag">ATUAL</span>':'')+'</b>'+(o.sub?'<small>'+e(o.sub)+'</small>':'')+'</span>'
+    +'<span class="opc-seta" aria-hidden="true">›</span></button>';
+}
 function liEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderLiModal(){
   const el=document.getElementById('liBody'); let h='';
   if(LI.locais.length){
-    h+=LI.locais.map(l=>`<button onclick="liEscolher('${l.id}')" ${LI.busy?'disabled':''} style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${liEsc(l.descricao||l.nome)}</div>${l.endereco?('<div style="font-size:11px;color:#686868">'+liEsc(l.endereco)+'</div>'):''}</button>`).join('');
+    h+=LI.locais.map(l=>opcCard({onclick:"liEscolher('"+l.id+"')",icone:'local',titulo:l.descricao||l.nome,sub:l.endereco,disabled:LI.busy})).join(''); /* padrão opc-* (06/10/2026) */
     h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
   }
   if(!LI.novo){
@@ -12875,8 +12908,7 @@ function cadContaFiltrar(){
   const total=lista.length; lista=lista.slice(0,CAD_CONTA_MAX);
   let h='';
   if(!total) h='<div style="font-size:13px;color:#686868;padding:10px 2px">Nenhum cliente com esse nome. Confira a grafia ou cadastre uma nova conta abaixo.</div>';
-  h+=lista.map(x=>{ const sel=x.c.id===atual;
-    return `<button onclick="cadContaChosen(${x.i})" style="display:block;width:100%;text-align:left;background:${sel?'#EAF1F7':'#fff'};border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:10px;padding:12px 13px;margin-bottom:6px;font-size:14px;font-weight:600;color:#0B2239">${cadEsc(x.c.nome)}${sel?' <span style="font-size:11px;color:#3E7EB0;font-weight:700">· atual</span>':''}</button>`; }).join('');
+  h+=lista.map(x=>opcCard({onclick:'cadContaChosen('+x.i+')',icone:'conta',titulo:x.c.nome,atual:x.c.id===atual})).join(''); /* padrão opc-* (06/10/2026) */
   if(total>CAD_CONTA_MAX) h+=`<div style="font-size:12px;color:#7A8794;padding:4px 2px">Mostrando ${CAD_CONTA_MAX} de ${total}. Digite mais do nome para encontrar.</div>`;
   box.innerHTML=h;
 }
@@ -13041,10 +13073,7 @@ function cadStepLocal(){
     /* 06/10/2026 — locais como botões, no mesmo padrão do passo Sistema (pedido do Raphael): todos
        à vista, um toque escolhe e avança. O local já escolhido (quem voltou) aparece marcado "atual";
        tocar nele retoma sem recarregar. */
-    h+=cadSt.locais.map((l,i)=>{ const sel=cadSt.local&&cadSt.local.id===l.id;
-      return `<button onclick="cadEscolherLocal(${i})" style="display:block;width:100%;text-align:left;background:${sel?'#EAF1F7':'#fff'};border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;padding:14px;margin-bottom:8px">`
-        +`<div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(cadLocalNome(l))}${sel?' <span style="font-size:11px;color:#3E7EB0;font-weight:700">· atual</span>':''}</div>`
-        +(l.endereco?`<div style="font-size:11.5px;color:#686868;margin-top:2px">${cadEsc(l.endereco)}</div>`:'')+'</button>'; }).join('');
+    h+=cadSt.locais.map((l,i)=>opcCard({onclick:'cadEscolherLocal('+i+')',icone:'local',titulo:cadLocalNome(l),sub:l.endereco,atual:!!(cadSt.local&&cadSt.local.id===l.id)})).join(''); /* padrão opc-* (06/10/2026) */
   }
   h+='<button onclick="cadNovoLocal()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">＋ Cadastrar novo local</button>';
   h+='</div>';
@@ -13113,7 +13142,7 @@ function cadStepSistema(){
   let h='<div style="padding:14px 14px 90px">'+cadHead('sistema')+cadCtx();
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
   if(!cadSt.sistemas.length) h+='<div style="color:#686868;font-size:13px;margin-bottom:8px">Nenhum sistema cadastrado nesta conta ainda.</div>';
-  h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div><div style="font-size:11px;color:#686868">${cadEsc(s.tipoNome||'Sistema')}${s.nome?(' · Ativo '+cadEsc(s.nome)):''}</div></button>`).join('');
+  h+=cadSt.sistemas.map((s,i)=>opcCard({onclick:'cadPickSistema('+i+')',icone:'sistema',titulo:s.descricao||s.nome,sub:(s.tipoNome||'Sistema')+(s.nome?' · Ativo '+s.nome:''),atual:!!(cadSt.sistema&&cadSt.sistema.id===s.id)})).join(''); /* padrão opc-* (06/10/2026) */
   h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
   if(!cadSt.novoSis){
     h+='<button onclick="cadToggleNovoSis(true)" style="width:100%;background:#EAF1F7;border:1px solid #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">+ Cadastrar novo sistema</button>';
