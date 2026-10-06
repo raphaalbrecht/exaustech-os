@@ -12795,7 +12795,7 @@ function cadIr(s){
 function cadAbandonoOk(){
   if(!cadSt.ativoId||cadSt.step==='done') return true;
   if(!confirm('O equipamento "'+(cadSt.tipoNome||'')+'" já foi criado no Salesforce e vai ficar sem ficha. Trocar mesmo assim?')) return false;
-  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome='';
+  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={};
   return true;
 }
 function cadHead(step,sub){
@@ -13188,7 +13188,7 @@ async function cadPickEquip(i){
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
     const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
-    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={};
+    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={};
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
     cadSt.step='form'; cadStepForm();
   }catch(e){ toast(e.message); cadStepEquip(); }
@@ -13213,7 +13213,10 @@ function cadStepForm(){
     if(!campos.length) return;
     h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
     campos.forEach(c=>{
-      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')+'</div>';
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
+        +(cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
+        +(cadSt.sugBerliner&&cadSt.sugBerliner[c.id]?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">sugerido · confira</span><div style="font-size:11px;color:#9A5A14;margin-top:2px">'+cadEsc(cadSt.sugBerliner[c.id])+'</div>':'')
+        +'</div>';
       if(c.tipo==='Foto'){
         /* tipo Foto: sobe pro Drive via /midias-ativo, grava Foto_Drive_Id__c/Foto_URL__c em RespostaAtivo__c (campos já existiam, órfãos até aqui) */
         const foto=cadSt.fotos[c.id];
@@ -13265,14 +13268,96 @@ function cadStepForm(){
         }
       }
       h+='</div>';
+      if(cadChave(c.nome)==='fabricante' && cadEhBerliner()) h+=cadPainelBerliner();
     });
   });
   h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
 }
-function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadStepForm(); }
-function cadSetText(campoId,v){ cadSt.resp[campoId]=v; }
+/* QR DO FABRICANTE NA FICHA (06/10/2026, pedido do Raphael). Quando o Fabricante marcado é
+   Berliner Luft, aparece "Ler QR code do equipamento": a câmera (a mesma do Estoque) lê o QR da
+   plaqueta, o servidor busca a ficha pública da Berliner (GET /fabricante/berliner) e o app
+   preenche os campos. Regras: só preenche campo VAZIO (nunca passa por cima do técnico); opção
+   de lista só entra se existir na ficha; cada campo preenchido ganha o selo "da Berliner", e o ano
+   (deduzido do número de série) entra como "sugerido · confira". Editar o campo tira o selo.
+   Casa pelo NOME do campo: a ficha que o app recebe não traz Codigo__c. Ver
+   docs/09-CADASTROS/DECISAO_qr-do-fabricante-no-cadastro_06-10-2026.md */
+function cadChave(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function cadCamposDoForm(f){ const out=[]; ((f&&f.sessoes)||[]).forEach(s=>(s.campos||[]).forEach(c=>out.push(c))); return out; }
+function cadEhBerliner(){
+  const fab=cadCamposDoForm(cadSt.form).find(c=>cadChave(c.nome)==='fabricante'&&(c.opcoes||[]).some(o=>cadChave(o.label)==='berlinerluft'));
+  return !!(fab&&cadChave(cadSt.resp[fab.id])==='berlinerluft');
+}
+/* {nome do campo: valor} -> resp, só em campo vazio. marca[campoId]=true no que entrou. */
+function cadAplicarPorNome(form,valores,marca,resp){
+  const campos=cadCamposDoForm(form); let n=0; resp=resp||cadSt.resp;
+  Object.entries(valores||{}).forEach(([nome,v])=>{
+    const c=campos.find(x=>cadChave(x.nome)===cadChave(nome)); if(!c||v==null||v==='') return;
+    if(resp[c.id]!=null&&String(resp[c.id]).trim()!=='') return;
+    let val=String(v);
+    if((c.opcoes||[]).length){ const o=c.opcoes.find(o=>cadChave(o.label)===cadChave(val)); if(!o) return; val=o.label; }
+    resp[c.id]=val; if(marca) marca[c.id]=true; n++;
+  });
+  return n;
+}
+function cadTiraSeloBerliner(campoId){ if(cadSt.daBerliner) delete cadSt.daBerliner[campoId]; if(cadSt.sugBerliner) delete cadSt.sugBerliner[campoId]; }
+function cadPainelBerliner(){
+  const b=cadSt.berliner;
+  let h='<div style="background:#F4F7F9;border:1px solid #BFD5E6;border-radius:12px;padding:12px;margin:0 0 12px">';
+  if(cadSt.berlinerBusy){ h+='<div style="font-size:13px;color:#2B5A7E"><span class="ld-spin"></span>Buscando a ficha na Berliner…</div>'; }
+  else if(b){
+    const n=Object.keys(cadSt.daBerliner||{}).length+Object.keys(cadSt.sugBerliner||{}).length;
+    h+='<div style="font-size:13px;font-weight:700;color:#1B7A3D">✓ Ficha da Berliner lida'+(b.exaustor&&b.exaustor['Modelo']?': '+cadEsc(b.exaustor['Modelo']):'')+'</div>';
+    h+='<div style="font-size:12px;color:#3A4552;margin-top:3px">'+n+' campo'+(n===1?'':'s')+' preenchido'+(n===1?'':'s')+'. Os marcados <b>da Berliner</b> vieram do fabricante: confira com a plaqueta antes de salvar.</div>';
+    const x=b.extras||{}; const itens=[];
+    if(x.descricao) itens.push(cadEsc(x.descricao));
+    if(x.motorCarcaca||x.motorProtecao) itens.push('Motor: '+cadEsc([x.motorKw?x.motorKw+' kW':'',x.motorCarcaca?'carcaça '+x.motorCarcaca:'',x.motorProtecao].filter(Boolean).join(' · ')));
+    (x.pecas||[]).forEach(p=>itens.push('Peça: '+cadEsc(p.especificacao)+' ×'+cadEsc(p.quantidade)));
+    if(itens.length) h+='<details style="margin-top:6px"><summary style="font-size:12px;color:#3E7EB0;cursor:pointer">Também na ficha da Berliner</summary><div style="font-size:11.5px;color:#686868;line-height:1.5;margin-top:4px">'+itens.join('<br>')+'</div></details>';
+    h+='<button onclick="cadLerQrBerliner()" style="margin-top:8px;background:none;border:1px solid #BFD5E6;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:#2B5A7E">Ler outro QR</button>';
+  } else {
+    h+='<button onclick="cadLerQrBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700">📷 Ler QR code do equipamento</button>';
+    h+='<div style="font-size:11.5px;color:#686868;margin-top:6px">Preenche modelo, série, TAG, vazão, pressão, rotação, potência, correia e o motor, direto da ficha do fabricante.</div>';
+  }
+  return h+'</div>';
+}
+async function cadLerQrBerliner(){
+  if(cadSt.berlinerBusy) return;
+  if(navigator.onLine===false){ toast('📴 Sem sinal: a leitura da Berliner precisa de internet. Preencha à mão.'); return; }
+  await estoqScanCamAbrir(async (texto)=>{
+    cadSt.berlinerBusy=true; cadStepForm();
+    try{
+      const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(texto));
+      cadSt.berliner=r; cadSt.daBerliner=cadSt.daBerliner||{}; cadSt.sugBerliner=cadSt.sugBerliner||{};
+      const n=cadAplicarPorNome(cadSt.form,r.exaustor,cadSt.daBerliner);
+      let ns=0;
+      Object.entries(r.sugeridos||{}).forEach(([nome,o])=>{ const m={}; ns+=cadAplicarPorNome(cadSt.form,{[nome]:o.valor},m); Object.keys(m).forEach(id=>cadSt.sugBerliner[id]=o.motivo||'deduzido'); });
+      toast(n+ns?('✅ '+(n+ns)+' campos preenchidos pela Berliner — confira'):'A ficha da Berliner não trouxe nada novo para os campos vazios');
+    }catch(e){ toast('⚠️ '+e.message); }
+    cadSt.berlinerBusy=false; cadStepForm();
+  });
+}
+/* Motor junto (decisão do Raphael, 06/10/2026): depois de salvar o exaustor, oferece criar o Motor
+   já vinculado a ele (Ativo_Pai__c = exaustor), com a ficha preenchida pela Berliner. Um toque. */
+async function cadCriarMotorBerliner(){
+  const b=cadSt.berliner; if(!b||b.motorStatus==='criando'||b.motorStatus==='ok') return;
+  const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
+  if(!tipoMotor){ toast('Tipo de equipamento Motor não encontrado'); return; }
+  b.motorStatus='criando'; cadStepDone();
+  try{
+    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:tipoMotor.id,paiId:cadSt.ativoId});
+    b.motorId=r.id;
+    const form=await beGet('/formulario-ativo?ativoId='+r.id);
+    const resp={}; cadAplicarPorNome(form,b.motor,null,resp);
+    const respostas=Object.entries(resp).map(([campoId,resposta])=>({campoId,resposta}));
+    if(respostas.length) await bePost('/respostas',{ativoId:r.id,respostas});
+    b.motorStatus='ok'; b.motorN=respostas.length;
+  }catch(e){ b.motorStatus='erro'; b.motorErro=e.message; }
+  cadStepDone();
+}
+function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadTiraSeloBerliner(campoId); cadStepForm(); }
+function cadSetText(campoId,v){ cadSt.resp[campoId]=v; cadTiraSeloBerliner(campoId); }
 /* Multi-Picklist: alterna item no conjunto separado por ';' (mesmo formato que o backend/E2E já esperam) */
 function cadToggleMulti(campoId,label){
   const cur=String(cadSt.resp[campoId]||'').split(';').filter(Boolean);
@@ -13320,7 +13405,14 @@ async function cadSalvar(){
   }));
   if(faltamFoto.length){ toast('📷 Falta preencher: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
   if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
-  try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas}); cadSt.step='done'; cadStepDone(); }
+  try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
+    /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
+       ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
+    if(cadSt.berliner&&cadSt.berliner.link){
+      try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
+      catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
+    }
+    cadSt.step='done'; cadStepDone(); }
   catch(e){ toast(e.message); }
 }
 function cadStepDone(){
@@ -13353,6 +13445,22 @@ function cadStepDone(){
   }
   h+='</div>';
 
+  /* cartão do motor (06/10/2026): só quando a ficha da Berliner trouxe o motor */
+  const bm=cadSt.berliner; const mm=(bm&&bm.motor)||{};
+  /* com unidade: um "2" solto no meio da linha não diz que é potência */
+  const motorTxt=[mm['Fabricante'],mm['Potência (CV)']?mm['Potência (CV)']+' CV':'',(mm['Rotação / polos']||'').replace(/\s*\(.*\)/,''),mm['Fases'],mm['Tensão']].filter(Boolean).join(' · ');
+  if(motorTxt){
+    h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">⚙️ Motor deste equipamento</div>';
+    h+='<div style="font-size:12px;color:#686868;margin-bottom:8px">Da ficha da Berliner: '+cadEsc(motorTxt)+'</div>';
+    if(bm.motorStatus==='ok') h+='<div style="font-size:13px;color:#1D9E75;font-weight:600">✓ Motor criado e vinculado ('+bm.motorN+' campos preenchidos)</div>';
+    else if(bm.motorStatus==='criando') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Criando o motor…</div>';
+    else{
+      if(bm.motorStatus==='erro') h+='<div style="font-size:12px;color:#C4451B;margin-bottom:6px">'+cadEsc(bm.motorErro||'Falhou')+(bm.motorId?' (o motor foi criado; a ficha dele ficou incompleta)':'')+'</div>';
+      if(!(bm.motorStatus==='erro'&&bm.motorId)) h+='<button onclick="cadCriarMotorBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Criar o motor vinculado</button>';
+    }
+    h+='</div>';
+  }
   h+='<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
     +'<button onclick="go(\'schedule\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;color:#3A4552">Voltar à agenda</button></div>';
   el.innerHTML=h;
