@@ -1474,6 +1474,11 @@
   .opc-card.atual .opc-ic{background:var(--brand)}
   .opc-card.atual .opc-ic svg{stroke:#fff}
   .opc-tag{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
+  /* SEÇÃO DA FICHA EM CARTÃO (cad-sec), 06/10/2026 — opção B escolhida pelo Raphael: cada seção num
+     bloco branco com cabeçalho azul-claro, o mesmo visual da tela de conferência. */
+  .cad-sec{background:var(--card);border:1px solid #E2E5E9;border-radius:14px;margin:14px 0;overflow:hidden;box-shadow:0 1px 3px rgba(11,34,57,.05)}
+  .cad-sec-cab{background:#EAF1F7;border-bottom:1px solid #BFD5E6;padding:10px 14px;font-size:14px;font-weight:800;color:var(--brand-d)}
+  .cad-sec-cont{padding:12px 14px 4px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13293,7 +13298,9 @@ function cadStepForm(){
     if(travado) return;
     const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia));
     if(!campos.length) return;
-    h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
+    /* 06/10/2026 — cada seção num cartão com cabeçalho azul-claro (opção B do mockup
+       prototipos/mockup-separacao-secoes-ficha_06-10-2026.html, escolhida pelo Raphael). */
+    h+='<div class="cad-sec"><div class="cad-sec-cab">'+cadEsc(s.nome)+'</div><div class="cad-sec-cont">';
     campos.forEach(c=>{
       if(travado) return;
       /* 06/10/2026 — pergunta com o mesmo nome da seção ("Fabricante" › "Fabricante") não repete o
@@ -13365,6 +13372,7 @@ function cadStepForm(){
         }
       }
     });
+    h+='</div></div>'; /* fecha .cad-sec-cont e .cad-sec */
   });
   if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
