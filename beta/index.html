@@ -13350,7 +13350,16 @@ function cadStepForm(){
         }
       }
       h+='</div>';
-      if(cadChave(c.nome)==='fabricante' && cadEhBerliner()){ h+=cadPainelBerliner(); if(cadBerlinerAguardando()) travado=true; }
+      if(cadChave(c.nome)==='fabricante'){
+        if(cadEhBerliner()){ h+=cadPainelBerliner(); if(cadBerlinerAguardando()) travado=true; }
+        /* 06/10/2026 — onde o fabricante muda o caminho (ficha com Berliner), os dados técnicos só
+           abrem depois de escolher um fabricante (pedido do Raphael). Qualquer escolha libera,
+           inclusive "Outros" e "Sem identificação". */
+        else if(cadFabricanteDecideCaminho(c) && !String(cadSt.resp[c.id]||'').trim()){
+          travado=true;
+          h+='<div style="font-size:12.5px;color:#686868;background:#F4F7F9;border:1px dashed #BFD5E6;border-radius:10px;padding:10px 12px;margin:2px 0 10px">Escolha o fabricante para abrir os dados técnicos.</div>';
+        }
+      }
     });
   });
   if(!travado) h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
@@ -13383,6 +13392,7 @@ function cadAplicarPorNome(form,valores,marca,resp){
   });
   return n;
 }
+function cadFabricanteDecideCaminho(c){ return (c.opcoes||[]).some(o=>cadChave(o.label)==='berlinerluft'); }
 function cadBerlinerAguardando(){ return cadEhBerliner()&&!cadSt.berliner&&cadSt.berlinerModo!=='manual'; }
 function cadInserirManual(){ cadSt.berlinerModo='manual'; cadStepForm(); }
 function cadTiraSeloBerliner(campoId){ if(cadSt.daBerliner) delete cadSt.daBerliner[campoId]; if(cadSt.sugBerliner) delete cadSt.sugBerliner[campoId]; }
