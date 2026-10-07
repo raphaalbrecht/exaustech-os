@@ -2772,7 +2772,7 @@ function renderLiModal(){
   } else {
     h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px">';
     h+='<div class="field"><label>Descrição do local (obrigatório)</label><input id="liDescInput" placeholder="ex.: Cobertura — casa de máquinas"></div>';
-    h+='<div class="field"><label>Endereço (opcional)</label><input id="liEndInput" placeholder="ex.: Rua X, 123"></div>';
+    /* 07/10/2026 — sem campo de endereço: Local__c.Endereco__c foi removido; o endereço é da Conta. */
     h+='<div style="display:flex;gap:8px"><button onclick="liCriar()" '+(LI.busy?'disabled':'')+' style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e usar este local</button>';
     if(LI.locais.length) h+='<button onclick="liToggleNovo(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button>';
     h+='</div></div>';
@@ -2784,9 +2784,8 @@ function closeLiModal(){ document.getElementById('liModal').classList.remove('sh
 async function liCriar(){
   const descricao=(document.getElementById('liDescInput').value||'').trim();
   if(!descricao){ toast('Descreva o local.'); return; }
-  const endereco=(document.getElementById('liEndInput').value||'').trim();
   LI.busy=true; renderLiModal();
-  try{ const r=await bePost('/locais',{osId:curOS._wo,descricao,endereco}); await liAplicar(r.local.id); }
+  try{ const r=await bePost('/locais',{osId:curOS._wo,descricao}); await liAplicar(r.local.id); }
   catch(e){ LI.busy=false; renderLiModal(); toast('Erro ao criar local: '+e.message); }
 }
 async function liEscolher(localId){
@@ -13122,10 +13121,9 @@ async function cadSalvarLocal(){
   if(!nome) return toast('Informe o nome do local');
   if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo com rede lenta criava dois locais */
   if(!cadAbandonoOk()) return;
-  const end=((document.getElementById('cadLocalEnd')||{}).value||'').trim();
   cadSt.criando=true; cadBotaoOcupado('cadSalvarLocal()','Salvando…');
   try{
-    const r=await bePost('/locais',{contaId:cadSt.conta.id,descricao:nome,endereco:end||undefined});
+    const r=await bePost('/locais',{contaId:cadSt.conta.id,descricao:nome}) /* sem endereço desde 07/10/2026 */;
     const novo=(r&&r.local)||null;
     if(!novo) throw new Error('O servidor não devolveu o local criado');
     cadSt.locais.push(novo); cadSt.local=novo;
