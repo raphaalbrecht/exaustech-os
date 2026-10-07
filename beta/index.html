@@ -12833,7 +12833,7 @@ function cadIr(s){
 function cadAbandonoOk(){
   if(!cadSt.ativoId||cadSt.step==='done') return true;
   if(!confirm('O equipamento "'+(cadSt.tipoNome||'')+'" já foi criado no Salesforce e vai ficar sem ficha. Trocar mesmo assim?')) return false;
-  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null;
+  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
   return true;
 }
 function cadHead(step,sub){
@@ -13271,7 +13271,7 @@ async function cadPickEquip(i){
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
     const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
-    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.berlinerModo=null;
+    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
     cadSt.step='form'; cadStepForm();
   }catch(e){ toast(e.message); cadStepEquip(); }
@@ -13374,6 +13374,7 @@ function cadStepForm(){
     });
     h+='</div></div>'; /* fecha .cad-sec-cont e .cad-sec */
   });
+  if(!travado) h+='<div class="cad-sec"><div class="cad-sec-cab">Fotos do equipamento</div><div class="cad-sec-cont" id="cadGaleria">'+cadGaleriaHtml()+'</div></div>';
   if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
@@ -13473,6 +13474,71 @@ async function cadCriarMotorBerliner(){
    julho (apps/cadastro-de-ativos/*.apex) e a rota /formulario-ativo?codigo= procuram por ele:
    não renomear lá. */
 function cadTituloForm(f){ const n=String((f&&f.nome)||cadSt.tipoNome||''); return n.replace(/^[A-Z]{2,5}-[A-Z0-9]{2,6}\s*[—–-]\s*/,'')||n; }
+/* FOTOS DO EQUIPAMENTO (06/10/2026, pedido do Raphael): até 10 por equipamento, em toda ficha. Cada
+   foto é reduzida no aparelho (lado maior 1600 px, JPEG 0,82 — nítido para ler plaqueta, ~10x menor)
+   e sobe ao Drive na hora (POST /midias-ativo). No salvar, só as REFERÊNCIAS vão para o Salesforce
+   (POST /ativos/:id/fotos → FotoAtivo__c), depois das respostas, em chamada separada. Remover tira
+   da lista; o arquivo já enviado fica no Drive (regra: não apagar). A galeria redesenha só a si
+   mesma (#cadGaleria), para não tirar o foco de quem está digitando na ficha. */
+const CAD_FOTOS_MAX=10;
+function cadGaleria(){ if(!cadSt.galeria) cadSt.galeria=[]; return cadSt.galeria; }
+function cadGaleriaHtml(){
+  const g=cadGaleria(); let h='';
+  if(g.length){
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+    g.forEach(it=>{
+      h+='<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid #E2E5E9;background:#F4F7F9">'
+        +(it.previewUrl?'<img src="'+it.previewUrl+'" alt="" style="width:100%;height:100%;object-fit:cover">':'')
+        +(it.status==='uploading'?'<div style="position:absolute;inset:0;background:rgba(11,34,57,.45);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">Enviando…</div>':'')
+        +(it.status==='error'?'<button onclick="cadGaleriaTentar(\''+it.key+'\')" style="position:absolute;inset:0;background:rgba(196,69,27,.75);color:#fff;border:none;font-size:11px;font-weight:700">⚠️ Falhou<br>tocar p/ tentar</button>':'')
+        +'<button onclick="cadGaleriaRemover(\''+it.key+'\')" aria-label="Remover foto" style="position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(11,34,57,.7);color:#fff;font-size:14px;line-height:26px;padding:0">✕</button>'
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  const resta=CAD_FOTOS_MAX-g.length;
+  if(resta>0){
+    h+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#2B5A7E;cursor:pointer">📷 Adicionar fotos ('+g.length+'/'+CAD_FOTOS_MAX+')'
+      +'<input type="file" accept="image/*" multiple style="display:none" onchange="cadGaleriaAdd(this)"></label>';
+  } else h+='<div style="font-size:12.5px;color:#1B7A3D;font-weight:600">10 de 10 fotos. Remova uma para trocar.</div>';
+  h+='<div style="font-size:11.5px;color:#686868;margin:6px 0 8px">Até 10 fotos. Elas ficam guardadas no Drive da empresa.</div>';
+  return h;
+}
+function cadGaleriaPintar(){ const el=document.getElementById('cadGaleria'); if(el) el.innerHTML=cadGaleriaHtml(); }
+/* reduz a foto; se o aparelho não conseguir (formato estranho), manda a original */
+async function cadReduzirFoto(file){
+  try{
+    const url=URL.createObjectURL(file);
+    const img=await new Promise((ok,err)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=err; i.src=url; });
+    const L=1600, esc=Math.min(1,L/Math.max(img.naturalWidth,img.naturalHeight));
+    const cv=document.createElement('canvas'); cv.width=Math.round(img.naturalWidth*esc); cv.height=Math.round(img.naturalHeight*esc);
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); URL.revokeObjectURL(url);
+    const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.82));
+    return (blob&&blob.size<file.size)?blob:file;
+  }catch(e){ return file; }
+}
+async function cadGaleriaEnviar(it){
+  it.status='uploading'; cadGaleriaPintar();
+  try{
+    const blob=await cadReduzirFoto(it.file);
+    const fd=new FormData(); fd.append('file',blob,'foto.jpg'); fd.append('campoId','galeria');
+    const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+    it.driveId=j.driveId; it.url=j.url; it.status='ok';
+  }catch(e){ it.status='error'; toast('Erro ao enviar foto: '+e.message); }
+  cadGaleriaPintar();
+}
+async function cadGaleriaAdd(input){
+  const g=cadGaleria(); const files=[...(input.files||[])]; input.value='';
+  const cabe=Math.max(0,CAD_FOTOS_MAX-g.length);
+  if(files.length>cabe) toast('Só cabem mais '+cabe+' foto'+(cabe===1?'':'s')+' (máximo '+CAD_FOTOS_MAX+').');
+  const novos=files.slice(0,cabe).map(file=>({key:'g'+Date.now()+Math.random().toString(36).slice(2,7),file,previewUrl:URL.createObjectURL(file),nome:file.name||'foto.jpg',tiradaEm:new Date(file.lastModified||Date.now()).toISOString(),status:'uploading'}));
+  g.push(...novos); cadGaleriaPintar();
+  for(const it of novos) await cadGaleriaEnviar(it); /* um por vez: rede de campo é fraca */
+}
+function cadGaleriaTentar(key){ const it=cadGaleria().find(x=>x.key===key); if(it) cadGaleriaEnviar(it); }
+function cadGaleriaRemover(key){ cadSt.galeria=cadGaleria().filter(x=>x.key!==key); cadGaleriaPintar(); }
 function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadTiraSeloBerliner(campoId); cadStepForm(); }
 function cadSetText(campoId,v){ cadSt.resp[campoId]=v; cadTiraSeloBerliner(campoId); }
 /* Multi-Picklist: alterna item no conjunto separado por ';' (mesmo formato que o backend/E2E já esperam) */
@@ -13525,6 +13591,9 @@ function cadColetar(){
   return {respostas,faltamFoto};
 }
 function cadPodeSalvar(c){
+  const g=cadGaleria();
+  if(g.some(x=>x.status==='uploading')){ toast('Aguarde as fotos terminarem de enviar.'); return false; }
+  if(g.some(x=>x.status==='error')){ toast('Uma foto não foi enviada: toque nela para tentar de novo, ou remova.'); return false; }
   if(c.faltamFoto.length){ toast('📷 Falta preencher: '+c.faltamFoto[0]+(c.faltamFoto.length>1?` (+${c.faltamFoto.length-1})`:'')); return false; }
   if(!c.respostas.length){ toast('Responda ao menos um campo.'); return false; }
   return true;
@@ -13541,6 +13610,7 @@ async function cadSalvar(){
       try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
       catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
     }
+    await cadGaleriaVincular();
     cadSt.salvando=false; cadSt.step='done'; cadStepDone(); }
   catch(e){ cadSt.salvando=false; if(cadSt.step==='revisao') cadStepRevisao(); toast(e.message); }
 }
@@ -13549,6 +13619,17 @@ async function cadSalvar(){
    visíveis da ficha, inclusive as em branco ("não informado"), para o técnico ver o que faltou.
    Obrigatório em branco aparece em vermelho, mas não bloqueia (a regra de bloqueio continua a de
    antes: foto ou assinatura obrigatória). "Editar" volta à ficha sem perder nada. */
+/* grava as referências das fotos já enviadas; falha não desfaz o cadastro e pode ser repetida na
+   tela de conclusão */
+async function cadGaleriaVincular(){
+  const ok=cadGaleria().filter(x=>x.status==='ok'&&x.driveId&&!x.vinculada);
+  if(!ok.length){ cadSt.galeriaFalhou=false; return; }
+  try{
+    await bePost('/ativos/'+cadSt.ativoId+'/fotos',{fotos:ok.map(x=>({driveId:x.driveId,url:x.url,nome:x.nome,tiradaEm:x.tiradaEm}))});
+    ok.forEach(x=>x.vinculada=true); cadSt.galeriaFalhou=false;
+  }catch(e){ cadSt.galeriaFalhou=e.message||'erro'; toast('⚠️ Cadastro salvo, mas as fotos não foram vinculadas: '+(e.message||'')); }
+}
+async function cadGaleriaRepetir(){ await cadGaleriaVincular(); cadStepDone(); }
 function cadIrRevisao(){
   const col=cadColetar(); if(!cadPodeSalvar(col)) return;
   cadSt.step='revisao'; cadStepRevisao();
@@ -13584,6 +13665,12 @@ function cadStepRevisao(){
     });
     h+='</div>';
   });
+  { const g=cadGaleria().filter(x=>x.status==='ok');
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Fotos do equipamento ('+g.length+')</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>'
+      +(g.length?'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px 12px">'+g.map(x=>'<img src="'+x.previewUrl+'" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #E2E5E9">').join('')+'</div>'
+        :'<div style="padding:9px 12px;font-size:13px;font-weight:600;color:#AEB8C2">nenhuma foto</div>')+'</div>'; }
   if(cadSt.berliner&&cadSt.berliner.link) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 10px">🔗 O link da ficha do fabricante será guardado no ativo.</div>';
   if(obrigVazios) h+='<div style="font-size:12.5px;color:#C4451B;margin:4px 2px 8px">'+obrigVazios+' campo'+(obrigVazios>1?'s obrigatórios':' obrigatório')+' em branco.</div>';
   else if(vazios) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 8px">'+vazios+' campo'+(vazios>1?'s':'')+' sem resposta.</div>';
@@ -13621,6 +13708,9 @@ function cadStepDone(){
   }
   h+='</div>';
 
+  { const nf=cadGaleria().filter(x=>x.vinculada).length;
+    if(cadSt.galeriaFalhou) h+='<div style="text-align:left;background:#FCEBEB;border:1px solid #F3C1C1;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12.5px;color:#8e1b1b">⚠️ As fotos não foram vinculadas ao ativo ('+cadEsc(cadSt.galeriaFalhou)+').<button onclick="cadGaleriaRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
+    else if(nf) h+='<div style="font-size:12.5px;color:#1B7A3D;margin:-6px 0 14px">📷 '+nf+' foto'+(nf>1?'s':'')+' guardada'+(nf>1?'s':'')+' no Drive e vinculada'+(nf>1?'s':'')+' ao ativo.</div>'; }
   /* cartão do motor (06/10/2026): só quando a ficha da Berliner trouxe o motor */
   const bm=cadSt.berliner; const mm=(bm&&bm.motor)||{};
   /* com unidade: um "2" solto no meio da linha não diz que é potência */
