@@ -12794,7 +12794,7 @@ const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so a
 function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
+function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 function cadCtx(){
   if(!cadSt.conta) return '';
@@ -13120,16 +13120,19 @@ function cadNovoLocal(){
 async function cadSalvarLocal(){
   const nome=((document.getElementById('cadLocalNome')||{}).value||'').trim();
   if(!nome) return toast('Informe o nome do local');
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo com rede lenta criava dois locais */
   if(!cadAbandonoOk()) return;
   const end=((document.getElementById('cadLocalEnd')||{}).value||'').trim();
+  cadSt.criando=true; cadBotaoOcupado('cadSalvarLocal()','Salvando…');
   try{
     const r=await bePost('/locais',{contaId:cadSt.conta.id,descricao:nome,endereco:end||undefined});
     const novo=(r&&r.local)||null;
     if(!novo) throw new Error('O servidor não devolveu o local criado');
     cadSt.locais.push(novo); cadSt.local=novo;
     toast('Local cadastrado');
+    cadSt.criando=false;
     cadCarregarSistemas();
-  }catch(e){ toast('Não consegui cadastrar o local: '+e.message); }
+  }catch(e){ cadSt.criando=false; cadBotaoOcupado('cadSalvarLocal()',null); toast('Não consegui cadastrar o local: '+e.message); }
 }
 async function cadCarregarSistemas(){
   /* 06/10/2026 — sistema=null: com a volta "Trocar local", o sistema escolhido antes ficava no
@@ -13190,14 +13193,17 @@ async function cadCriarSistema(){
   const nome=(document.getElementById('cadNovoSisNome').value||'').trim();
   if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
   if(!cadSt.novoSisTipo){ toast('Escolha o tipo de sistema.'); return; }
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo criava dois sistemas */
   if(!cadAbandonoOk()) return;
+  cadSt.criando=true; cadBotaoOcupado('cadCriarSistema()','Criando…');
   try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:cadSt.novoSisTipo,descricao:nome});
+    cadSt.criando=false;
     /* 06/10/2026 — o sistema recém-criado entra na lista: antes, "Trocar sistema" voltava para uma
        lista carregada ANTES dele existir, e o sistema novo sumia (só aparecia no cabeçalho). */
     const tipoNovo=cadSt.sistemaTipos.find(t=>t.id===cadSt.novoSisTipo);
     cadSt.sistemas.unshift({id:r.id,nome:'',descricao:nome,tipoNome:tipoNovo?tipoNovo.nome:'Sistema'});
     cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.novoSisTipo=null; cadSt.novoSisNome=''; cadSt.step='equip'; cadStepEquip();
-  }catch(e){ toast(e.message); }
+  }catch(e){ cadSt.criando=false; cadBotaoOcupado('cadCriarSistema()',null); toast(e.message); }
 }
 function cadStepEquip(){
   cadTopo('equip');
@@ -13267,14 +13273,25 @@ async function cadPickEquip(i){
      deixava o primeiro sem ficha. Mesmo equipamento = retoma a ficha com as respostas; outro =
      pergunta antes (cadAbandonoOk). */
   if(cadSt.ativoId && cadSt.form && cadSt.tipoNome===t.nome) return cadStep('form');
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo no card criava dois ativos */
+  /* 06/10/2026 (revisão): o ativo foi criado mas a ficha não carregou (rede): tocar de novo no
+     mesmo card só busca a ficha outra vez, em vez de criar um segundo ativo e largar o primeiro. */
+  if(cadSt.ativoId && !cadSt.form && cadSt.tipoNome===t.nome){
+    cadSt.criando=true;
+    try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+cadSt.ativoId); cadSt.criando=false; cadSt.step='form'; cadStepForm(); }
+    catch(e){ cadSt.criando=false; toast('A ficha não carregou: '+e.message+' — toque no equipamento de novo.'); cadStepEquip(); }
+    return;
+  }
   if(!cadAbandonoOk()) return;
+  cadSt.criando=true;
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
     const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
     cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
+    cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
-    cadSt.step='form'; cadStepForm();
-  }catch(e){ toast(e.message); cadStepEquip(); }
+    cadSt.criando=false; cadSt.step='form'; cadStepForm();
+  }catch(e){ cadSt.criando=false; toast(e.message+(cadSt.ativoId&&!cadSt.form?' — toque no equipamento de novo para carregar a ficha.':'')); cadStepEquip(); }
 }
 function cadDepOk(dep){
   if(!dep||!dep.pergunta) return true;
@@ -13408,6 +13425,12 @@ function cadAplicarPorNome(form,valores,marca,resp){
 function cadFabricanteDecideCaminho(c){ return (c.opcoes||[]).some(o=>cadChave(o.label)==='berlinerluft'); }
 function cadBerlinerAguardando(){ return cadEhBerliner()&&!cadSt.berliner&&cadSt.berlinerModo!=='manual'; }
 function cadInserirManual(){ cadSt.berlinerModo='manual'; cadStepForm(); }
+/* desabilita (ou reabilita, com texto=null) o botão visível que chama `onclick`, durante uma gravação */
+function cadBotaoOcupado(onclick,texto){
+  const b=[...document.querySelectorAll('#cadBody button')].find(x=>x.getAttribute('onclick')===onclick); if(!b) return;
+  if(texto){ b.dataset.txt=b.textContent; b.disabled=true; b.style.opacity='.6'; b.textContent=texto; }
+  else { b.disabled=false; b.style.opacity=''; if(b.dataset.txt) b.textContent=b.dataset.txt; }
+}
 function cadTiraSeloBerliner(campoId){ if(cadSt.daBerliner) delete cadSt.daBerliner[campoId]; if(cadSt.sugBerliner) delete cadSt.sugBerliner[campoId]; }
 function cadPainelBerliner(){
   const b=cadSt.berliner;
@@ -13438,9 +13461,11 @@ async function cadLerQrBerliner(){
   if(cadSt.berlinerBusy) return;
   if(navigator.onLine===false){ toast('📴 Sem sinal: a leitura da Berliner precisa de internet. Preencha à mão.'); return; }
   await estoqScanCamAbrir(async (texto)=>{
+    const st=cadSt, aid=cadSt.ativoId; /* revisão 06/10: resposta atrasada não preenche outro equipamento */
     cadSt.berlinerBusy=true; cadStepForm();
     try{
       const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(texto));
+      if(cadSt!==st||cadSt.ativoId!==aid){ st.berlinerBusy=false; return; }
       cadSt.berliner=r; cadSt.daBerliner=cadSt.daBerliner||{}; cadSt.sugBerliner=cadSt.sugBerliner||{};
       const n=cadAplicarPorNome(cadSt.form,r.exaustor,cadSt.daBerliner);
       let ns=0;
@@ -13457,8 +13482,9 @@ async function cadCriarMotorBerliner(){
   const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
   if(!tipoMotor){ toast('Tipo de equipamento Motor não encontrado'); return; }
   b.motorStatus='criando'; cadStepDone();
+  const st=cadSt, contaId=cadSt.conta.id, localId=(cadSt.local&&cadSt.local.id)||undefined, paiId=cadSt.ativoId; /* revisão 06/10: fixa o contexto antes de esperar a rede */
   try{
-    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:tipoMotor.id,paiId:cadSt.ativoId});
+    const r=await bePost('/ativos',{contaId,localId,tipoId:tipoMotor.id,paiId});
     b.motorId=r.id;
     const form=await beGet('/formulario-ativo?ativoId='+r.id);
     const resp={}; cadAplicarPorNome(form,b.motor,null,resp);
@@ -13466,7 +13492,7 @@ async function cadCriarMotorBerliner(){
     if(respostas.length) await bePost('/respostas',{ativoId:r.id,respostas});
     b.motorStatus='ok'; b.motorN=respostas.length;
   }catch(e){ b.motorStatus='erro'; b.motorErro=e.message; }
-  cadStepDone();
+  if(cadSt===st&&cadSt.step==='done') cadStepDone(); /* saiu da conclusão: não redesenha por cima */
 }
 /* 06/10/2026 — o título mostra só "Cadastro de Exaustor Centrífugo" (pedido do Raphael). Só a TELA
    muda. O app acha a ficha pelo tipo do ativo (/formulario-ativo?ativoId=), não pelo nome. O código
@@ -13554,19 +13580,23 @@ function cadToggleMulti(campoId,label){
 async function cadFotoEscolhida(campoId,input){
   const file=input.files&&input.files[0]; if(!file) return;
   const previewUrl=URL.createObjectURL(file);
-  cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'uploading'};
+  /* 06/10/2026 (revisão): guarda a gaveta de fotos DESTE cadastro. Se a pessoa trocar de equipamento
+     ou começar outro cadastro antes do envio terminar, o resultado cai na gaveta antiga (inofensivo)
+     e a tela atual não é redesenhada por cima. */
+  const fotos=cadSt.fotos; const aindaAqui=()=>cadSt&&cadSt.fotos===fotos&&cadSt.step==='form';
+  fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'uploading'};
   cadStepForm();
   try{
     const fd=new FormData(); fd.append('file',file,file.name||'foto.jpg'); fd.append('campoId',campoId);
     const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
-    cadSt.fotos[campoId]={file,previewUrl,driveId:j.driveId,url:j.url,status:'ok'};
+    fotos[campoId]={file,previewUrl,driveId:j.driveId,url:j.url,status:'ok'};
   }catch(e){
-    cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'error'};
-    toast('Erro ao enviar foto: '+e.message);
+    fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'error'};
+    if(aindaAqui()) toast('Erro ao enviar foto: '+e.message);
   }
-  cadStepForm();
+  if(aindaAqui()) cadStepForm();
 }
 async function cadLoadImg(opcaoId){
   const img=document.getElementById('cadimg-'+opcaoId); if(!img) return;
@@ -13591,6 +13621,8 @@ function cadColetar(){
   return {respostas,faltamFoto};
 }
 function cadPodeSalvar(c){
+  /* 06/10/2026 (revisão): campo de foto ainda enviando era tratado como "não informado" e se perdia */
+  if(Object.values(cadSt.fotos||{}).some(x=>x&&x.status==='uploading')){ toast('Aguarde a foto terminar de enviar.'); return false; }
   const g=cadGaleria();
   if(g.some(x=>x.status==='uploading')){ toast('Aguarde as fotos terminarem de enviar.'); return false; }
   if(g.some(x=>x.status==='error')){ toast('Uma foto não foi enviada: toque nela para tentar de novo, ou remova.'); return false; }
@@ -13606,7 +13638,7 @@ async function cadSalvar(){
   try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
     /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
        ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
-    if(cadSt.berliner&&cadSt.berliner.link){
+    if(cadSt.berliner&&cadSt.berliner.link&&cadEhBerliner()){ /* 06/10/2026 (revisão): trocou o fabricante depois do QR → não grava o link da Berliner */
       try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
       catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
     }
@@ -13712,7 +13744,7 @@ function cadStepDone(){
     if(cadSt.galeriaFalhou) h+='<div style="text-align:left;background:#FCEBEB;border:1px solid #F3C1C1;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12.5px;color:#8e1b1b">⚠️ As fotos não foram vinculadas ao ativo ('+cadEsc(cadSt.galeriaFalhou)+').<button onclick="cadGaleriaRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
     else if(nf) h+='<div style="font-size:12.5px;color:#1B7A3D;margin:-6px 0 14px">📷 '+nf+' foto'+(nf>1?'s':'')+' guardada'+(nf>1?'s':'')+' no Drive e vinculada'+(nf>1?'s':'')+' ao ativo.</div>'; }
   /* cartão do motor (06/10/2026): só quando a ficha da Berliner trouxe o motor */
-  const bm=cadSt.berliner; const mm=(bm&&bm.motor)||{};
+  const bm=cadEhBerliner()?cadSt.berliner:null; const mm=(bm&&bm.motor)||{}; /* revisão 06/10: motor da Berliner só se o fabricante continua Berliner */
   /* com unidade: um "2" solto no meio da linha não diz que é potência */
   const motorTxt=[mm['Fabricante'],mm['Potência (CV)']?mm['Potência (CV)']+' CV':'',(mm['Rotação / polos']||'').replace(/\s*\(.*\)/,''),mm['Fases'],mm['Tensão']].filter(Boolean).join(' · ');
   if(motorTxt){
@@ -13759,17 +13791,19 @@ async function cadProvisionarEtiqueta(){
   if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
   if(cadNfcCtrl) return; /* trava contra toque duplo */
   cadSt.etiqueta={status:'lendo'}; cadStepDone();
+  const st=cadSt, ativoDaEtiqueta=cadSt.ativoId; /* a etiqueta é deste ativo, aconteça o que acontecer depois */
   try{
     const reader=new NDEFReader();
     const ctrl=new AbortController(); cadNfcCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     reader.onreading=async (e)=>{
+      if(cadSt!==st||cadSt.ativoId!==ativoDaEtiqueta){ cadNfcDesativar(); return; } /* saiu deste cadastro: não grava em outro */
       if(cadSt.etiqueta.status==='gravando'||cadSt.etiqueta.status==='ok') return; /* já processando/processado esta leitura */
       const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
       if(!uid || uid.length<8){ cadNfcDesativar(); cadSt.etiqueta={status:'erro',msg:'Esta tag não expõe um número de série utilizável — use outra.'}; cadStepDone(); return; }
       cadSt.etiqueta={status:'gravando'}; cadStepDone();
       try{
-        const r=await bePost('/etiquetas',{ativoId:cadSt.ativoId,uid});
+        const r=await bePost('/etiquetas',{ativoId:ativoDaEtiqueta,uid});
         const url=PORTAL_BASE+'/a/'+r.token;
         await reader.write({records:[{recordType:'url',data:url}]});
         cadNfcDesativar();
@@ -13862,7 +13896,8 @@ async function cadSigSalvar(){
   const cv=document.getElementById('cadSigPad');
   const dataUrl=cv.toDataURL('image/png');
   document.getElementById('cadSigModal').classList.remove('show');
-  cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'uploading'};
+  const fotos=cadSt.fotos; const aindaAqui=()=>cadSt&&cadSt.fotos===fotos&&cadSt.step==='form'; /* ver cadFotoEscolhida */
+  fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'uploading'};
   cadStepForm();
   try{
     const blob=await (await fetch(dataUrl)).blob();
@@ -13870,12 +13905,12 @@ async function cadSigSalvar(){
     const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
-    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:j.driveId,url:j.url,status:'ok'};
+    fotos[campoId]={file:null,previewUrl:dataUrl,driveId:j.driveId,url:j.url,status:'ok'};
   }catch(e){
-    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'error'};
-    toast('Erro ao enviar assinatura: '+e.message);
+    fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'error'};
+    if(aindaAqui()) toast('Erro ao enviar assinatura: '+e.message);
   }
-  cadStepForm();
+  if(aindaAqui()) cadStepForm();
 }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
