@@ -13111,8 +13111,8 @@ function cadNovoLocal(){
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
     +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Nome do local</label>'
     +'<input id="cadLocalNome" placeholder="Cozinha, casa de máquinas, mezanino…" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
-    +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin:12px 0 5px">Endereço (opcional)</label>'
-    +'<input id="cadLocalEnd" placeholder="Rua, número, bairro" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+    /* 07/10/2026 — campo "Endereço (opcional)" tirado da tela a pedido do Raphael. Só a tela: o campo
+       continua no Local__c e o servidor ainda aceita `endereco` (cadSalvarLocal manda vazio → não grava). */
     +'<button onclick="cadSalvarLocal()" style="width:100%;margin-top:14px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Salvar local</button>'
     +'<button onclick="cadStepLocal()" style="width:100%;margin-top:10px;background:none;border:none;color:#3E7EB0;font-size:13px;padding:6px">‹ Voltar</button>'
     +'</div>';
