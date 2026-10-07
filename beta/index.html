@@ -13470,9 +13470,13 @@ async function cadLerQrBerliner(){
       const n=cadAplicarPorNome(cadSt.form,r.exaustor,cadSt.daBerliner);
       let ns=0;
       Object.entries(r.sugeridos||{}).forEach(([nome,o])=>{ const m={}; ns+=cadAplicarPorNome(cadSt.form,{[nome]:o.valor},m); Object.keys(m).forEach(id=>cadSt.sugBerliner[id]=o.motivo||'deduzido'); });
-      toast(n+ns?('✅ '+(n+ns)+' campos preenchidos pela Berliner — confira'):'A ficha da Berliner não trouxe nada novo para os campos vazios');
-    }catch(e){ toast('⚠️ '+e.message); }
-    cadSt.berlinerBusy=false; cadStepForm();
+      if(cadSt.step==='form') toast(n+ns?('✅ '+(n+ns)+' campos preenchidos pela Berliner — confira'):'A ficha da Berliner não trouxe nada novo para os campos vazios');
+    }catch(e){ if(cadSt===st&&cadSt.step==='form') toast('⚠️ '+e.message); }
+    st.berlinerBusy=false;
+    /* 07/10/2026 (teste no Chrome): leitura demorada + "Voltar" para a lista de equipamentos fazia a
+       resposta redesenhar a FICHA por cima da lista, com o app achando que estava na lista. Os dados
+       continuam guardados (é o mesmo equipamento); só não redesenha se a pessoa saiu da ficha. */
+    if(cadSt===st&&cadSt.step==='form') cadStepForm();
   });
 }
 /* Motor junto (decisão do Raphael, 06/10/2026): depois de salvar o exaustor, oferece criar o Motor
