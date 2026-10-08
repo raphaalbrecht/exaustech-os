@@ -12795,12 +12795,15 @@ let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
-function cadCtx(){
+/* opc.soConta (07/10/2026, pedido do Raphael): na tela "Novo local" o quadro mostrava o local escolhido ANTES —
+   mas um local novo ainda não tem local. Só esconde; a escolha anterior continua guardada para o "Voltar". */
+function cadCtx(opc){
   if(!cadSt.conta) return '';
+  const soConta=!!(opc&&opc.soConta);
   let h='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:12px">';
   h+='<div style="font-size:11px;color:#686868">Conta</div><div style="font-size:14px;font-weight:700;color:#0B2239">'+cadEsc(cadSt.conta.nome)+'</div>';
-  if(cadSt.local){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Local</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadLocalNome(cadSt.local))+'</div>'; }
-  if(cadSt.sistema){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
+  if(cadSt.local&&!soConta){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Local</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadLocalNome(cadSt.local))+'</div>'; }
+  if(cadSt.sistema&&!soConta){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
   return h+'</div>';
 }
 /* breadcrumb dos passos do cadastro (orientação no topo do módulo) */
@@ -13114,7 +13117,7 @@ function cadAtalhoLocal(i){
 function cadNovoLocal(){
   cadTopo('novoLocal');
   const el=document.getElementById('cadBody');
-  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local',true)+cadCtx()
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local',true)+cadCtx({soConta:true})
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
     +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Nome do local</label>'
     /* 07/10/2026 — pedido do Raphael: botões com os nomes de local mais usados + "Outro" no fim, que abre o campo
