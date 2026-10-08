@@ -13103,13 +13103,29 @@ function cadEscolherLocal(i){
   cadSt.local=novo;
   cadCarregarSistemas();
 }
+/* 07/10/2026 — nomes de local mais comuns nos clientes (cozinha de restaurante/shopping). "Outro" abre o campo livre. */
+const CAD_LOCAL_ATALHOS=['Cozinha','Cozinha principal','Casa de máquinas','Cobertura','Mezanino','Copa / lavagem','Área técnica','Subsolo'];
+function cadAtalhoLocal(i){
+  if(i<0){ cadSt.novoLocalOutro=true; if(CAD_LOCAL_ATALHOS.includes(cadSt.novoLocalNome)) cadSt.novoLocalNome=''; }
+  else { cadSt.novoLocalOutro=false; cadSt.novoLocalNome=CAD_LOCAL_ATALHOS[i]; }
+  cadNovoLocal();
+  if(i<0){ const f=document.getElementById('cadLocalNome'); if(f) f.focus(); }
+}
 function cadNovoLocal(){
   cadTopo('novoLocal');
   const el=document.getElementById('cadBody');
   el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local',true)+cadCtx()
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
     +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Nome do local</label>'
-    +'<input id="cadLocalNome" placeholder="Cozinha, casa de máquinas, mezanino…" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+    /* 07/10/2026 — pedido do Raphael: botões com os nomes de local mais usados + "Outro" no fim, que abre o campo
+       para digitar. Mesmo padrão dos atalhos de sistema: o toque só ESCOLHE; quem cria é o "Salvar local". */
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+    +CAD_LOCAL_ATALHOS.map((n,i)=>{ const on=!cadSt.novoLocalOutro&&cadSt.novoLocalNome===n;
+        return `<button onclick="cadAtalhoLocal(${i})" style="border:1px solid ${on?'#3E7EB0':'#E2E5E9'};background:${on?'#EAF1F7':'#fff'};color:${on?'#2B5A7E':'#3A4552'};border-radius:16px;padding:9px 14px;font-size:14px;font-weight:600">${cadEsc(n)}</button>`; }).join('')
+    +`<button onclick="cadAtalhoLocal(-1)" style="border:1px ${cadSt.novoLocalOutro?'solid #3E7EB0':'dashed #9AA5B1'};background:${cadSt.novoLocalOutro?'#EAF1F7':'#fff'};color:${cadSt.novoLocalOutro?'#2B5A7E':'#3A4552'};border-radius:16px;padding:9px 14px;font-size:14px;font-weight:600">✎ Outro</button>`
+    +'</div>'
+    +(cadSt.novoLocalOutro?'<input id="cadLocalNome" value="'+cadEsc(cadSt.novoLocalNome||'')+'" oninput="cadSt.novoLocalNome=this.value" placeholder="Digite o nome do local" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+       :'<input id="cadLocalNome" type="hidden" value="'+cadEsc(cadSt.novoLocalNome||'')+'">')
     /* 07/10/2026 — campo "Endereço (opcional)" tirado da tela a pedido do Raphael. Só a tela: o campo
        continua no Local__c e o servidor ainda aceita `endereco` (cadSalvarLocal manda vazio → não grava). */
     +'<button onclick="cadSalvarLocal()" style="width:100%;margin-top:14px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Salvar local</button>'
@@ -13118,7 +13134,7 @@ function cadNovoLocal(){
 }
 async function cadSalvarLocal(){
   const nome=((document.getElementById('cadLocalNome')||{}).value||'').trim();
-  if(!nome) return toast('Informe o nome do local');
+  if(!nome) return toast('Escolha um nome ou toque em Outro para digitar');
   if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo com rede lenta criava dois locais */
   if(!cadAbandonoOk()) return;
   cadSt.criando=true; cadBotaoOcupado('cadSalvarLocal()','Salvando…');
@@ -13127,6 +13143,7 @@ async function cadSalvarLocal(){
     const novo=(r&&r.local)||null;
     if(!novo) throw new Error('O servidor não devolveu o local criado');
     cadSt.locais.push(novo); cadSt.local=novo;
+    cadSt.novoLocalNome=''; cadSt.novoLocalOutro=false; /* o próximo "novo local" começa sem escolha */
     toast('Local cadastrado');
     cadSt.criando=false;
     cadCarregarSistemas();
