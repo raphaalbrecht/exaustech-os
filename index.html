@@ -1455,6 +1455,30 @@
   .pln-aviso{border-radius:8px;padding:8px 10px;font:600 .66rem inherit;background:#FFF6E8;color:#8a5a12;border:1px solid #F0D9B8}
   .pln-aviso.imp{background:#FBE9E9;color:#8f2020;border-color:#EFC7C7}
   .pln-legend b{color:var(--pln-text)}
+  /* OPÇÃO DE ESCOLHA (opc-*), 06/10/2026 — padrão "A" escolhido pelo Raphael para listas em que um
+     toque escolhe e já leva adiante: cartão branco com sombra, ícone à esquerda e seta › à direita.
+     A seta promete avanço; por isso NÃO usar onde o toque só marca e pede confirmação (ex.:
+     .sigloc-opt da assinatura, que dispara SMS). Mockup: prototipos/mockup-destaque-botoes-cadastro_06-10-2026.html */
+  .opc-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;background:var(--card);
+    border:1px solid var(--border2);border-radius:14px;padding:13px 14px;margin-bottom:10px;
+    box-shadow:0 2px 6px rgba(11,34,57,.08);cursor:pointer;transition:background .12s,border-color .12s}
+  .opc-card:active{background:var(--brand-l)}
+  .opc-card[disabled]{opacity:.55}
+  .opc-ic{width:38px;height:38px;border-radius:10px;background:var(--brand-l);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .opc-ic svg{width:20px;height:20px;fill:none;stroke:var(--brand);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .opc-tx{flex:1;min-width:0}
+  .opc-tx b{display:block;font-size:15px;font-weight:700;color:var(--brand-dk);line-height:1.25}
+  .opc-tx small{display:block;font-size:11.5px;color:var(--logo-gray);margin-top:2px}
+  .opc-seta{font-size:30px;color:var(--brand);font-weight:400;line-height:1;flex-shrink:0;margin-top:-3px}
+  .opc-card.atual{border:2px solid var(--brand);background:var(--brand-l)}
+  .opc-card.atual .opc-ic{background:var(--brand)}
+  .opc-card.atual .opc-ic svg{stroke:#fff}
+  .opc-tag{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:2px;letter-spacing:.3px}
+  /* SEÇÃO DA FICHA EM CARTÃO (cad-sec), 06/10/2026 — opção B escolhida pelo Raphael: cada seção num
+     bloco branco com cabeçalho azul-claro, o mesmo visual da tela de conferência. */
+  .cad-sec{background:var(--card);border:1px solid #E2E5E9;border-radius:14px;margin:14px 0;overflow:hidden;box-shadow:0 1px 3px rgba(11,34,57,.05)}
+  .cad-sec-cab{background:#EAF1F7;border-bottom:1px solid #BFD5E6;padding:10px 14px;font-size:14px;font-weight:800;color:var(--brand-d)}
+  .cad-sec-cont{padding:12px 14px 4px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2722,11 +2746,25 @@ async function checkLocalInstalacao(){
   document.getElementById('liModal').classList.add('show');
   return false;
 }
+/* opcCard: monta uma opção de escolha no padrão opc-* (ver o CSS). onclick vem pronto e confiável;
+   título e linha de baixo são escapados aqui. */
+const OPC_ICONE={
+  local:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  conta:'<svg viewBox="0 0 24 24"><path d="M4 21V5l8-3 8 3v16"/><path d="M4 21h16M10 21v-4h4v4M8 8h2M14 8h2M8 12h2M14 12h2"/></svg>',
+  sistema:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="5" rx="1"/><rect x="14" y="4" width="7" height="5" rx="1"/><rect x="8.5" y="15" width="7" height="5" rx="1"/><path d="M6.5 9v3h11V9M12 12v3"/></svg>'
+};
+function opcCard(o){
+  const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return '<button type="button" class="opc-card'+(o.atual?' atual':'')+'" onclick="'+o.onclick+'"'+(o.disabled?' disabled':'')+'>'
+    +'<span class="opc-ic">'+(OPC_ICONE[o.icone]||OPC_ICONE.local)+'</span>'
+    +'<span class="opc-tx"><b>'+e(o.titulo)+(o.atual?'<span class="opc-tag">ATUAL</span>':'')+'</b>'+(o.sub?'<small>'+e(o.sub)+'</small>':'')+'</span>'
+    +'<span class="opc-seta" aria-hidden="true">›</span></button>';
+}
 function liEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderLiModal(){
   const el=document.getElementById('liBody'); let h='';
   if(LI.locais.length){
-    h+=LI.locais.map(l=>`<button onclick="liEscolher('${l.id}')" ${LI.busy?'disabled':''} style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${liEsc(l.descricao||l.nome)}</div>${l.endereco?('<div style="font-size:11px;color:#686868">'+liEsc(l.endereco)+'</div>'):''}</button>`).join('');
+    h+=LI.locais.map(l=>opcCard({onclick:"liEscolher('"+l.id+"')",icone:'local',titulo:l.descricao||l.nome,sub:l.endereco,disabled:LI.busy})).join(''); /* padrão opc-* (06/10/2026) */
     h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
   }
   if(!LI.novo){
@@ -2734,7 +2772,7 @@ function renderLiModal(){
   } else {
     h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px">';
     h+='<div class="field"><label>Descrição do local (obrigatório)</label><input id="liDescInput" placeholder="ex.: Cobertura — casa de máquinas"></div>';
-    h+='<div class="field"><label>Endereço (opcional)</label><input id="liEndInput" placeholder="ex.: Rua X, 123"></div>';
+    /* 07/10/2026 — sem campo de endereço: Local__c.Endereco__c foi removido; o endereço é da Conta. */
     h+='<div style="display:flex;gap:8px"><button onclick="liCriar()" '+(LI.busy?'disabled':'')+' style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e usar este local</button>';
     if(LI.locais.length) h+='<button onclick="liToggleNovo(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button>';
     h+='</div></div>';
@@ -2746,9 +2784,8 @@ function closeLiModal(){ document.getElementById('liModal').classList.remove('sh
 async function liCriar(){
   const descricao=(document.getElementById('liDescInput').value||'').trim();
   if(!descricao){ toast('Descreva o local.'); return; }
-  const endereco=(document.getElementById('liEndInput').value||'').trim();
   LI.busy=true; renderLiModal();
-  try{ const r=await bePost('/locais',{osId:curOS._wo,descricao,endereco}); await liAplicar(r.local.id); }
+  try{ const r=await bePost('/locais',{osId:curOS._wo,descricao}); await liAplicar(r.local.id); }
   catch(e){ LI.busy=false; renderLiModal(); toast('Erro ao criar local: '+e.message); }
 }
 async function liEscolher(localId){
@@ -4618,6 +4655,25 @@ function buildNotifs(){
       sub:(p.fornecedor||'')+' · '+aprvFmtMoeda(p.valorTotal)+' · '+espera,
       roles:[],_todosPapeis:true,
       go:()=>{ aprvReset(); estoqGo('aprovacoes'); aprvCarregarLista(); }});
+  });
+  /* 02/10/2026 — avisos de contrato e propostas de periodicidade entram no SINO. As duas filas
+     ja contavam no selo da aba Aprovacoes, mas nao existiam aqui, entao quem nao abrisse a aba
+     por conta propria nunca sabia que tinha coisa esperando por ele. _todosPapeis porque a
+     permissao vem da funcao (canAprovarAviso / canAprovarProposta) e nao da lista de papeis
+     do notifs: a checagem ja foi feita aqui em cima, antes de entrar na lista. */
+  if(canAprovarAviso(ROLE)) _avPend.forEach(p=>{
+    list.push({ico:'doc',color:'#C25E0A',
+      tit:(p.tipo||'Alteração')+' de aviso aguarda sua aprovação',
+      sub:(p.tituloNovo||p.avisoTitulo||p.avisoName||'')+(p.solicitadoPorNome?(' · pedido por '+p.solicitadoPorNome):''),
+      roles:[],_todosPapeis:true, go:()=>go('approvals')});
+  });
+  if(canAprovarProposta(ROLE)) _propPend.forEach(p=>{
+    const de=(p.frequenciaVigenteDias!=null?p.frequenciaVigenteDias+'d':'—');
+    const para=(p.frequenciaPropostaDias!=null?p.frequenciaPropostaDias+'d':'—');
+    list.push({ico:'checklist',color:'#1D5A86',
+      tit:'Periodicidade proposta: '+de+' → '+para,
+      sub:(p.ativoNome||'—')+(p.localNome?(' · '+p.localNome):'')+(p.contaNome?(' · '+p.contaNome):''),
+      roles:[],_todosPapeis:true, go:()=>go('approvals')});
   });
   return list;
 }
@@ -12731,24 +12787,88 @@ function finishQuiz(){
 }
 
 /* ===================== MÓDULO CADASTRO DE ATIVOS ===================== */
-const CAD_SIS_TIPO='Sistema de Exaustão'; /* o Sistema sai da grade — nasce no passo do sistema */
+/* Tipos de ativo que representam um SISTEMA do cliente (os mesmos do Salesforce). Saem da grade de equipamentos e nascem no passo do sistema. */
+const CAD_SIS_TIPOS=['Exaustão mecânica de cozinha','Exaustão de ambiente','Insuflação mecânica','Pressurização de escada','Sistema'];
+const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so aparece para ativos antigos */
+function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ cadSt={step:'conta',contas:[],conta:null,tipos:[],sistemaTipo:null,sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
+function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false,comuns:{}}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
-function cadCtx(){
+/* opc.soConta (07/10/2026, pedido do Raphael): na tela "Novo local" o quadro mostrava o local escolhido ANTES —
+   mas um local novo ainda não tem local. Só esconde; a escolha anterior continua guardada para o "Voltar". */
+function cadCtx(opc){
   if(!cadSt.conta) return '';
+  const soConta=!!(opc&&opc.soConta);
   let h='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:12px">';
   h+='<div style="font-size:11px;color:#686868">Conta</div><div style="font-size:14px;font-weight:700;color:#0B2239">'+cadEsc(cadSt.conta.nome)+'</div>';
-  if(cadSt.sistema){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
+  if(cadSt.local&&!soConta){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Local</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadLocalNome(cadSt.local))+'</div>'; }
+  if(cadSt.sistema&&!soConta){ h+='<div style="font-size:11px;color:#686868;margin-top:6px">Sistema</div><div style="font-size:13px;font-weight:600;color:#0B2239">'+cadEsc(cadSt.sistema.nome)+'</div>'; }
   return h+'</div>';
 }
 /* breadcrumb dos passos do cadastro (orientação no topo do módulo) */
-function cadHead(step){
-  const S=[['conta','Conta'],['sistema','Sistema'],['equip','Equipamento'],['form','Ficha']];
-  const idx=S.findIndex(s=>s[0]===step);
-  const bc=S.map((s,i)=>`<span style="color:${i===idx?'#3E7EB0':(i<idx?'#0B2239':'#AEB8C2')};font-weight:${i===idx?'700':'500'}">${s[1]}</span>`).join('<span style="color:#C9D2DB;margin:0 5px">›</span>');
-  return `<div style="font-size:11.5px;letter-spacing:.2px;padding:2px 0 12px">${bc}</div>`;
+/* NAVEGAÇÃO DO ASSISTENTE (06/10/2026, pedido do Raphael). Antes o breadcrumb era só desenho e
+   cada tela tinha a sua volta com nome diferente ("Voltar às contas", "Trocar local", "Trocar
+   sistema"), e foi numa dessas que ele ficou sem saída. Agora: breadcrumb tocável nos passos já
+   alcançáveis + linha fixa "‹ Voltar · Avançar ›" em todas as telas. Avançar só acende quando o
+   passo já tem escolha, e reaproveita o que foi carregado (voltar para conferir não perde nada).
+   `sub` = subtela (nova conta, novo local): mostra o breadcrumb e omite a linha, porque ali o
+   "Voltar" próprio da subtela é o que faz sentido. */
+const CAD_PASSOS=[['conta','Conta'],['local','Local'],['sistema','Sistema'],['equip','Equipamento'],['form','Ficha']];
+function cadAlcanca(s){
+  if(s==='conta') return true;
+  if(s==='local') return !!cadSt.conta;
+  if(s==='sistema') return !!cadSt.local;
+  if(s==='equip') return !!cadSt.sistema;
+  if(s==='form') return !!((cadSt.ativoId||cadSt.pendente)&&cadSt.form);
+  return false;
+}
+/* vai para um passo SEM jogar fora o que já foi escolhido; só recarrega o que ainda não veio */
+function cadIr(s){
+  if(!cadAlcanca(s)) return;
+  if(s==='local' && cadSt._locConta!==cadSt.conta.id){ const i=cadSt.contas.findIndex(c=>c.id===cadSt.conta.id); return cadPickConta(i); }
+  if(s==='sistema' && cadSt._sisLocal!==cadSt.local.id) return cadCarregarSistemas();
+  cadStep(s);
+}
+/* o equipamento é gravado no Salesforce ao tocar no card, antes da ficha. Trocar algo acima dele
+   depois disso deixaria esse ativo sem ficha: pergunta antes. Nada é apagado (regra do projeto). */
+/* 09/10/2026 — o equipamento só nasce no Salesforce no "Salvar cadastro" (cadSt.pendente guarda tipo e pai até
+   lá). Sair no meio não deixa mais registro órfão; o aviso agora é só de perder o que foi preenchido no celular
+   (Raphael: "pode seguir com a mudança"). Ver docs/09-CADASTROS/DECISAO_equipamento-so-nasce-no-salvar_09-10-2026.md */
+function cadPreencheuAlgo(){
+  return Object.values(cadSt.resp||{}).some(v=>String(v==null?'':v).trim()!=='')
+    || Object.values(cadSt.fotos||{}).some(f=>f&&f.status==='ok') || (cadSt.galeria||[]).some(x=>x.status==='ok')
+    || Object.values(cadSt.comuns||{}).some(v=>v!=null&&v!=='');
+}
+function cadAbandonoOk(){
+  if(cadSt.step==='done') return true;
+  if(!cadSt.ativoId&&!cadSt.pendente) return true;
+  if(cadPreencheuAlgo()){
+    const msg=cadSt.modoEdicao?'As alterações em "'+(cadSt.tipoNome||'')+'" ainda não foram salvas e serão perdidas. Sair mesmo assim?'
+      :'O que você preencheu em "'+(cadSt.tipoNome||'')+'" ainda não foi salvo e será perdido. Sair mesmo assim?';
+    if(!confirm(msg)) return false;
+  }
+  cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false;
+  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
+  return true;
+}
+function cadHead(step,sub){
+  const idx=CAD_PASSOS.findIndex(s=>s[0]===step);
+  const bc=CAD_PASSOS.map((s,i)=>{
+    if(i===idx) return `<span style="color:#3E7EB0;font-weight:700">${s[1]}</span>`;
+    if(cadAlcanca(s[0])) return `<button onclick="cadIr('${s[0]}')" style="background:none;border:none;padding:4px 0;font-size:inherit;color:#0B2239;font-weight:500;text-decoration:underline;text-decoration-color:#C9D2DB;text-underline-offset:3px">${s[1]}</button>`;
+    return `<span style="color:#AEB8C2;font-weight:500">${s[1]}</span>`;
+  }).join('<span style="color:#C9D2DB;margin:0 5px">›</span>');
+  let h=`<div style="font-size:11.5px;letter-spacing:.2px;padding:2px 0 ${sub?'12':'8'}px">${bc}</div>`;
+  if(!sub){
+    const ant=idx>0?CAD_PASSOS[idx-1][0]:null, prox=idx<CAD_PASSOS.length-1?CAD_PASSOS[idx+1][0]:null;
+    const podeProx=prox&&cadAlcanca(prox);
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+      +(ant?`<button onclick="cadIr('${ant}')" style="background:none;border:1px solid #E2E5E9;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;color:#3E7EB0">‹ Voltar</button>`:'<span></span>')
+      +(prox?`<button onclick="cadIr('${prox}')" ${podeProx?'':'disabled'} style="border:none;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;background:${podeProx?'#3E7EB0':'#E2E5E9'};color:${podeProx?'#fff':'#AEB8C2'}">Avançar ›</button>`:'<span></span>')
+      +'</div>';
+  }
+  return h;
 }
 async function renderCadastro(){
   if(!cadSt) cadReset();
@@ -12757,44 +12877,69 @@ async function renderCadastro(){
   if(!beTok()){ el.innerHTML='<div style="padding:24px;text-align:center;color:#686868">Entre para cadastrar.</div>'; return; }
   if(!cadSt.tipos.length){
     el.innerHTML='<div style="padding:24px;text-align:center;color:#686868"><span class="ld-spin"></span>Carregando…</div>';
-    try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipo=cadSt.tipos.find(t=>t.nome===CAD_SIS_TIPO)||null; }
+    try{ cadSt.tipos=await beGet('/tipos'); cadSt.sistemaTipos=cadSt.tipos.filter(cadEhTipoSistema); }
     catch(e){ el.innerHTML='<div style="padding:24px;color:#C4451B">'+cadEsc(e.message)+'</div>'; return; }
   }
   if(cadSt.step==='conta') return cadStepConta();
+  if(cadSt.step==='local') return cadStepLocal();
   if(cadSt.step==='sistema') return cadStepSistema();
   if(cadSt.step==='equip') return cadStepEquip();
   if(cadSt.step==='form') return cadStepForm();
+  if(cadSt.step==='revisao') return cadStepRevisao();
   if(cadSt.step==='done') return cadStepDone();
 }
 async function cadStepConta(){
+  cadTopo('conta');
   const el=document.getElementById('cadBody');
   el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('conta')
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em qual conta você está?</div>'
     +'<div id="cadContaWrap" style="color:#686868"><span class="ld-spin"></span>Carregando…</div></div>';
   try{
     if(!cadSt.contas.length) cadSt.contas=await beGet('/contas');
-    const opts=cadSt.contas.map((c,i)=>`<option value="${i}"${cadSt.conta&&cadSt.conta.id===c.id?' selected':''}>${cadEsc(c.nome)}</option>`).join('');
+    /* 06/10/2026 — busca por texto no lugar da lista suspensa (pedido do Raphael): com até 500
+       contas, rolar um <select> no celular não funciona. Filtra enquanto digita, sem acento nem
+       maiúscula, pedaços de palavra em qualquer ordem ("jazz leb"). Tocar no cliente já avança.
+       A lista é redesenhada sozinha (cadContaFiltrar), sem refazer a tela: refazer tiraria o foco
+       do campo e fecharia o teclado a cada letra. */
     document.getElementById('cadContaWrap').innerHTML=`
-      <label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Conta</label>
       <div style="position:relative">
-        <select id="cadContaSel" onchange="cadContaChosen(this.value)" style="width:100%;padding:14px 38px 14px 14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;font-weight:600;color:#0B2239;background:#fff;appearance:none;-webkit-appearance:none">
-          <option value="" disabled${cadSt.conta?'':' selected'}>Selecione a Conta…</option>
-          ${opts}
-        </select>
-        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">▾</span>
+        <input id="cadContaBusca" type="search" autocomplete="off" placeholder="Digite o nome do cliente…" oninput="cadContaFiltrar()" style="width:100%;padding:14px 14px 14px 40px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px;color:#0B2239;background:#fff">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#7A8794">🔍</span>
       </div>
+      <div id="cadContaLista" style="margin-top:8px"></div>
       <button onclick="cadNovaConta()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E;display:flex;align-items:center;justify-content:center;gap:8px">
         <span style="font-size:16px;line-height:1">＋</span> Cadastrar nova conta
       </button>
       <div style="font-size:11.5px;color:#7A8794;margin-top:8px">Não achou o cliente? Cadastre uma nova conta pelo CNPJ.</div>`;
+    cadContaFiltrar();
   }catch(e){ document.getElementById('cadContaWrap').innerHTML='<div style="color:#C4451B">'+cadEsc(e.message)+'</div>'; }
 }
-function cadContaChosen(i){ if(i===''||i==null) return; cadPickConta(parseInt(i,10)); }
+/* tocar no cliente que já é o atual retoma (local e sistema continuam), em vez de recarregar tudo */
+function cadContaChosen(i){ if(i===''||i==null) return; i=parseInt(i,10);
+  const c=cadSt.contas[i]; if(c&&cadSt.conta&&c.id===cadSt.conta.id) return cadIr('local');
+  cadPickConta(i); }
+const CAD_CONTA_MAX=40; /* acima disso a lista vira rolagem sem fim; pede para digitar mais */
+function cadContaFiltrar(){
+  const box=document.getElementById('cadContaLista'); if(!box) return;
+  const termos=String(((document.getElementById('cadContaBusca')||{}).value||'')).split(/\s+/).map(cadChave).filter(Boolean);
+  const todas=cadSt.contas.map((c,i)=>({c,i,k:cadChave(c.nome)}));
+  let lista=termos.length?todas.filter(x=>termos.every(t=>x.k.includes(t))):todas;
+  /* a conta já escolhida (quem voltou pelo Voltar/breadcrumb) aparece primeiro, marcada */
+  const atual=cadSt.conta&&cadSt.conta.id;
+  lista.sort((a,b)=>(b.c.id===atual)-(a.c.id===atual));
+  const total=lista.length; lista=lista.slice(0,CAD_CONTA_MAX);
+  let h='';
+  if(!total) h='<div style="font-size:13px;color:#686868;padding:10px 2px">Nenhum cliente com esse nome. Confira a grafia ou cadastre uma nova conta abaixo.</div>';
+  h+=lista.map(x=>opcCard({onclick:'cadContaChosen('+x.i+')',icone:'conta',titulo:x.c.nome,atual:x.c.id===atual})).join(''); /* padrão opc-* (06/10/2026) */
+  if(total>CAD_CONTA_MAX) h+=`<div style="font-size:12px;color:#7A8794;padding:4px 2px">Mostrando ${CAD_CONTA_MAX} de ${total}. Digite mais do nome para encontrar.</div>`;
+  box.innerHTML=h;
+}
 
 /* ---- cadastrar nova conta (CNPJ → Receita/Serpro no futuro pré-preenche o nome) ---- */
 function cadNovaConta(){
+  cadTopo('novaConta');
   const el=document.getElementById('cadBody');
-  el.innerHTML='<div class="cad-wide" style="padding:14px 14px 90px">'+cadHead('conta')
+  el.innerHTML='<div class="cad-wide" style="padding:14px 14px 90px">'+cadHead('conta',true)
     +'<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Voltar às contas</button>'
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Cadastrar nova conta</div>'
     +'<div style="font-size:12.5px;color:#7A8794;line-height:1.4;margin-bottom:12px">Digite o CNPJ e toque em "Buscar dados" — trazemos as informações da Receita Federal pra você conferir.</div>'
@@ -12921,62 +13066,298 @@ async function cadCriarConta(){
     if(btn){ btn.disabled=false; btn.textContent='Criar conta e continuar'; }
   }
 }
+/* LOCAL DO ATIVO (28/09/2026). Antes o assistente ia da Conta direto para o Sistema, e o ativo
+   nascia SEM local: o servidor aceita o campo, a tela nunca mandava. Ativo sem local nunca vira
+   ordem de trabalho, porque o gerador procura as tarefas dentro do local do plano. Nao avisava
+   nada, simplesmente nao acontecia nada de madrugada. Agora o local e um passo proprio; quando a
+   conta tem um local so, ele ja vem escolhido e a pessoa so confirma. */
+function cadLocalNome(l){ return (l && (l.nome || l.descricao)) || 'Local sem nome'; }
 async function cadPickConta(i){
-  cadSt.conta=cadSt.contas[i]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='sistema';
-  cadSt.sistemas=[];
+  if(!cadAbandonoOk()) return cadStepConta(); /* cancelou: a lista volta a mostrar a conta de antes */
+  cadSt.conta=cadSt.contas[i]; cadSt.local=null; cadSt.locais=[]; cadSt.sistema=null; cadSt.novoSis=false; cadSt.step='local';
+  cadSt.sistemas=[]; cadSt._sisLocal=null; cadSt._locConta=cadSt.conta.id;
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando locais…</div>';
+  try{
+    const r=await beGet('/locais?contaId='+cadSt.conta.id);
+    cadSt.locais=(r&&r.locais)||[];
+    if(cadSt.locais.length===1) cadSt.local=cadSt.locais[0];
+  }catch(e){ toast(e.message); }
+  cadStepLocal();
+}
+function cadStepLocal(){
+  cadTopo('local');
+  const el=document.getElementById('cadBody');
+  let h='<div style="padding:14px 14px 90px">'+cadHead('local')+cadCtx();
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em que local do cliente?</div>';
+  if(!cadSt.locais.length){
+    h+='<div style="font-size:13px;color:#686868;margin-bottom:10px">Esta conta ainda não tem nenhum local cadastrado. Cadastre o primeiro para poder continuar.</div>';
+  }else{
+    /* 06/10/2026 — locais como botões, no mesmo padrão do passo Sistema (pedido do Raphael): todos
+       à vista, um toque escolhe e avança. O local já escolhido (quem voltou) aparece marcado "atual";
+       tocar nele retoma sem recarregar. */
+    h+=cadSt.locais.map((l,i)=>opcCard({onclick:'cadEscolherLocal('+i+')',icone:'local',titulo:cadLocalNome(l),sub:l.endereco,atual:!!(cadSt.local&&cadSt.local.id===l.id)})).join(''); /* padrão opc-* (06/10/2026) */
+  }
+  h+='<button onclick="cadNovoLocal()" style="width:100%;margin-top:10px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">＋ Cadastrar novo local</button>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+/* SEM CHAMADOR desde 06/10/2026: os locais viraram botões (cadEscolherLocal). Era a leitura da
+   antiga lista suspensa #cadLocalSel; mantida só até a próxima limpeza do arquivo. */
+function cadConfirmarLocal(){
+  const sel=document.getElementById('cadLocalSel');
+  const v=sel?sel.value:'';
+  if(v===''||v==null) return toast('Escolha o local');
+  const novo=cadSt.locais[parseInt(v,10)];
+  if(cadSt.local && novo && novo.id===cadSt.local.id) return cadIr('sistema'); /* mesmo local: retoma */
+  if(!cadAbandonoOk()) return cadStepLocal();
+  cadSt.local=novo;
+  cadCarregarSistemas();
+}
+function cadEscolherLocal(i){
+  const novo=cadSt.locais[i]; if(!novo) return;
+  if(cadSt.local && novo.id===cadSt.local.id) return cadIr('sistema'); /* mesmo local: retoma */
+  if(!cadAbandonoOk()) return cadStepLocal();
+  cadSt.local=novo;
+  cadCarregarSistemas();
+}
+/* 07/10/2026 — nomes de local mais comuns nos clientes (cozinha de restaurante/shopping). "Outro" abre o campo livre. */
+const CAD_LOCAL_ATALHOS=['Cozinha','Cozinha principal','Casa de máquinas','Cobertura','Mezanino','Copa / lavagem','Área técnica','Subsolo'];
+function cadAtalhoLocal(i){
+  if(i<0){ cadSt.novoLocalOutro=true; if(CAD_LOCAL_ATALHOS.includes(cadSt.novoLocalNome)) cadSt.novoLocalNome=''; }
+  else { cadSt.novoLocalOutro=false; cadSt.novoLocalNome=CAD_LOCAL_ATALHOS[i]; }
+  cadNovoLocal();
+  if(i<0){ const f=document.getElementById('cadLocalNome'); if(f) f.focus(); }
+}
+function cadNovoLocal(){
+  cadTopo('novoLocal');
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('local',true)+cadCtx({soConta:true})
+    +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Novo local</div>'
+    +'<label style="font-size:12px;color:#686868;font-weight:600;display:block;margin-bottom:5px">Nome do local</label>'
+    /* 07/10/2026 — pedido do Raphael: botões com os nomes de local mais usados + "Outro" no fim, que abre o campo
+       para digitar. Mesmo padrão dos atalhos de sistema: o toque só ESCOLHE; quem cria é o "Salvar local". */
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+    +CAD_LOCAL_ATALHOS.map((n,i)=>{ const on=!cadSt.novoLocalOutro&&cadSt.novoLocalNome===n;
+        return `<button onclick="cadAtalhoLocal(${i})" style="border:1px solid ${on?'#3E7EB0':'#E2E5E9'};background:${on?'#EAF1F7':'#fff'};color:${on?'#2B5A7E':'#3A4552'};border-radius:16px;padding:9px 14px;font-size:14px;font-weight:600">${cadEsc(n)}</button>`; }).join('')
+    +`<button onclick="cadAtalhoLocal(-1)" style="border:1px ${cadSt.novoLocalOutro?'solid #3E7EB0':'dashed #9AA5B1'};background:${cadSt.novoLocalOutro?'#EAF1F7':'#fff'};color:${cadSt.novoLocalOutro?'#2B5A7E':'#3A4552'};border-radius:16px;padding:9px 14px;font-size:14px;font-weight:600">✎ Outro</button>`
+    +'</div>'
+    +(cadSt.novoLocalOutro?'<input id="cadLocalNome" value="'+cadEsc(cadSt.novoLocalNome||'')+'" oninput="cadSt.novoLocalNome=this.value" placeholder="Digite o nome do local" style="width:100%;padding:14px;border:1.5px solid #E2E5E9;border-radius:12px;font-size:15px">'
+       :'<input id="cadLocalNome" type="hidden" value="'+cadEsc(cadSt.novoLocalNome||'')+'">')
+    /* 07/10/2026 — campo "Endereço (opcional)" tirado da tela a pedido do Raphael. Só a tela: o campo
+       continua no Local__c e o servidor ainda aceita `endereco` (cadSalvarLocal manda vazio → não grava). */
+    +'<button onclick="cadSalvarLocal()" style="width:100%;margin-top:14px;background:#3E7EB0;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;color:#fff">Salvar local</button>'
+    +'<button onclick="cadStepLocal()" style="width:100%;margin-top:10px;background:none;border:none;color:#3E7EB0;font-size:13px;padding:6px">‹ Voltar</button>'
+    +'</div>';
+}
+async function cadSalvarLocal(){
+  const nome=((document.getElementById('cadLocalNome')||{}).value||'').trim();
+  if(!nome) return toast('Escolha um nome ou toque em Outro para digitar');
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo com rede lenta criava dois locais */
+  if(!cadAbandonoOk()) return;
+  cadSt.criando=true; cadBotaoOcupado('cadSalvarLocal()','Salvando…');
+  try{
+    const r=await bePost('/locais',{contaId:cadSt.conta.id,descricao:nome}) /* sem endereço desde 07/10/2026 */;
+    const novo=(r&&r.local)||null;
+    if(!novo) throw new Error('O servidor não devolveu o local criado');
+    cadSt.locais.push(novo); cadSt.local=novo;
+    cadSt.novoLocalNome=''; cadSt.novoLocalOutro=false; /* o próximo "novo local" começa sem escolha */
+    toast('Local cadastrado');
+    cadSt.criando=false;
+    cadCarregarSistemas();
+  }catch(e){ cadSt.criando=false; cadBotaoOcupado('cadSalvarLocal()',null); toast('Não consegui cadastrar o local: '+e.message); }
+}
+async function cadCarregarSistemas(){
+  /* 06/10/2026 — sistema=null: com a volta "Trocar local", o sistema escolhido antes ficava no
+     cabeçalho de contexto mesmo depois de trocar o local, valendo para nada. */
+  cadSt.step='sistema'; cadSt.sistemas=[]; cadSt.sistema=null; cadSt.novoSis=false; cadSt._sisLocal=cadSt.local&&cadSt.local.id;
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868"><span class="ld-spin"></span>Carregando sistemas…</div>';
-  try{ if(cadSt.sistemaTipo) cadSt.sistemas=await beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+cadSt.sistemaTipo.id); }catch(e){ toast(e.message); }
+  try{
+    const listas=await Promise.all(cadSt.sistemaTipos.map(t=>beGet('/ativos?contaId='+cadSt.conta.id+'&tipoId='+t.id).then(l=>(l||[]).map(s=>Object.assign({},s,{tipoNome:t.nome})))));
+    cadSt.sistemas=[].concat(...listas);
+  }catch(e){ toast(e.message); }
   cadStepSistema();
 }
 function cadStepSistema(){
+  cadTopo('sistema');
   const el=document.getElementById('cadBody');
   let h='<div style="padding:14px 14px 90px">'+cadHead('sistema')+cadCtx();
-  h+='<button onclick="cadStep(\'conta\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar conta</button>';
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Selecione o sistema</div>';
   if(!cadSt.sistemas.length) h+='<div style="color:#686868;font-size:13px;margin-bottom:8px">Nenhum sistema cadastrado nesta conta ainda.</div>';
-  h+=cadSt.sistemas.map((s,i)=>`<button onclick="cadPickSistema(${i})" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="font-size:15px;font-weight:600;color:#0B2239">${cadEsc(s.descricao||s.nome)}</div>${s.nome?('<div style="font-size:11px;color:#686868">Ativo '+cadEsc(s.nome)+'</div>'):''}</button>`).join('');
+  h+=cadSt.sistemas.map((s,i)=>opcCard({onclick:'cadPickSistema('+i+')',icone:'sistema',titulo:s.descricao||s.nome,sub:(s.tipoNome||'Sistema')+(s.nome?' · Ativo '+s.nome:''),atual:!!(cadSt.sistema&&cadSt.sistema.id===s.id)})).join(''); /* padrão opc-* (06/10/2026) */
   h+='<hr style="border:none;border-top:1px solid #E2E5E9;margin:10px 0">';
   if(!cadSt.novoSis){
     h+='<button onclick="cadToggleNovoSis(true)" style="width:100%;background:#EAF1F7;border:1px solid #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#2B5A7E">+ Cadastrar novo sistema</button>';
   } else {
-    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px"><div style="font-size:12px;color:#686868;margin-bottom:6px">Identificação do sistema</div>';
-    h+='<input id="cadNovoSisNome" placeholder="Ex.: Sistema de exaustão principal" style="width:100%;padding:11px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;margin-bottom:8px">';
+    const escolhiveis=cadSt.sistemaTipos.filter(t=>CAD_SIS_ESCOLHIVEIS.includes(t.nome));
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px"><div style="font-size:12px;color:#686868;margin-bottom:6px">Tipo de sistema</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+escolhiveis.map(t=>`<button onclick="cadPickNovoSisTipo('${t.id}')" style="flex:1 1 45%;background:${cadSt.novoSisTipo===t.id?'#3E7EB0':'#fff'};color:${cadSt.novoSisTipo===t.id?'#fff':'#0B2239'};border:1px solid ${cadSt.novoSisTipo===t.id?'#3E7EB0':'#E2E5E9'};border-radius:10px;padding:11px 8px;font-size:13px;font-weight:600">${cadEsc(t.nome)}</button>`).join('')+'</div>';
+    h+='<div style="font-size:12px;color:#686868;margin-bottom:6px">Identificação do sistema</div>';
+    /* 06/10/2026 — atalhos pedidos pelo Raphael: os nomes que mais se repetem em campo. O toque só
+       PREENCHE o campo (que continua editável, ex.: "Sistema lava-louças 2"); quem cria o registro
+       é o "Criar e continuar", porque criar no Salesforce com um toque sem confirmação é arriscado. */
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+CAD_SIS_ATALHOS.map((a,i)=>{ const on=(cadSt.novoSisNome||'')===a;
+      return `<button onclick="cadAtalhoSis(${i})" style="border:1px solid ${on?'#3E7EB0':'#E2E5E9'};background:${on?'#EAF1F7':'#fff'};color:${on?'#2B5A7E':'#3A4552'};border-radius:16px;padding:8px 13px;font-size:13px;font-weight:600">${cadEsc(a)}</button>`; }).join('')+'</div>';
+    h+='<input id="cadNovoSisNome" value="'+cadEsc(cadSt.novoSisNome||'')+'" oninput="cadSt.novoSisNome=this.value;cadMarcarAtalhoSis()" placeholder="Ou digite: Sistema da churrasqueira…" style="width:100%;padding:11px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;margin-bottom:8px">';
     h+='<div style="display:flex;gap:8px"><button onclick="cadCriarSistema()" style="flex:1;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700">Criar e continuar</button>';
     h+='<button onclick="cadToggleNovoSis(false)" style="background:none;border:none;color:#686868;padding:0 8px">Cancelar</button></div>';
     h+='<div style="font-size:11px;color:#686868;margin-top:6px">Você poderá completar o cadastro do sistema depois.</div></div>';
   }
   h+='</div>'; el.innerHTML=h;
 }
-function cadToggleNovoSis(v){ cadSt.novoSis=v; cadStepSistema(); }
-function cadPickSistema(i){ const s=cadSt.sistemas[i]; cadSt.sistema={id:s.id,nome:s.descricao||s.nome||'Sistema'}; cadSt.step='equip'; cadStepEquip(); }
+/* 06/10/2026 — os dois primeiros pedidos pelo Raphael; os quatro seguintes são os nomes frequentes
+   que o formulário do Zoho já listava, confirmados por ele no mesmo dia. */
+const CAD_SIS_ATALHOS=['Sistema principal','Sistema lava-louças','Sistema churrasqueira a carvão','Sistema forno a lenha','Sistema fritadeiras','Sistema insuflação principal'];
+function cadAtalhoSis(i){ cadSt.novoSisNome=CAD_SIS_ATALHOS[i]; cadStepSistema(); }
+/* repinta só os atalhos enquanto a pessoa digita (re-renderizar a tela inteira tiraria o foco do campo) */
+function cadMarcarAtalhoSis(){
+  const v=(cadSt.novoSisNome||'');
+  document.querySelectorAll('[onclick^="cadAtalhoSis("]').forEach((b,i)=>{ const on=v===CAD_SIS_ATALHOS[i];
+    b.style.borderColor=on?'#3E7EB0':'#E2E5E9'; b.style.background=on?'#EAF1F7':'#fff'; b.style.color=on?'#2B5A7E':'#3A4552'; });
+}
+function cadToggleNovoSis(v){ cadSt.novoSis=v; if(!v){ cadSt.novoSisTipo=null; cadSt.novoSisNome=''; } cadStepSistema(); }
+/* o nome digitado agora mora em cadSt.novoSisNome, então trocar o tipo não perde mais o que foi escrito */
+function cadPickNovoSisTipo(id){ cadSt.novoSisTipo=id; cadStepSistema(); }
+function cadPickSistema(i){ const s=cadSt.sistemas[i];
+  if(cadSt.sistema && cadSt.sistema.id===s.id) return cadStep('equip'); /* mesmo sistema: retoma */
+  if(!cadAbandonoOk()) return;
+  cadSt.sistema={id:s.id,nome:s.descricao||s.nome||'Sistema'}; cadSt.step='equip'; cadStepEquip(); }
 async function cadCriarSistema(){
   const nome=(document.getElementById('cadNovoSisNome').value||'').trim();
   if(!nome){ toast('Dê uma identificação ao sistema.'); return; }
-  if(!cadSt.sistemaTipo){ toast('Tipo Sistema não encontrado.'); return; }
-  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:cadSt.sistemaTipo.id,descricao:nome});
-    cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.step='equip'; cadStepEquip();
-  }catch(e){ toast(e.message); }
+  if(!cadSt.novoSisTipo){ toast('Escolha o tipo de sistema.'); return; }
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo criava dois sistemas */
+  if(!cadAbandonoOk()) return;
+  cadSt.criando=true; cadBotaoOcupado('cadCriarSistema()','Criando…');
+  try{ const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:cadSt.novoSisTipo,descricao:nome});
+    cadSt.criando=false;
+    /* 06/10/2026 — o sistema recém-criado entra na lista: antes, "Trocar sistema" voltava para uma
+       lista carregada ANTES dele existir, e o sistema novo sumia (só aparecia no cabeçalho). */
+    const tipoNovo=cadSt.sistemaTipos.find(t=>t.id===cadSt.novoSisTipo);
+    cadSt.sistemas.unshift({id:r.id,nome:'',descricao:nome,tipoNome:tipoNovo?tipoNovo.nome:'Sistema'});
+    cadSt.sistema={id:r.id,nome}; cadSt.novoSis=false; cadSt.novoSisTipo=null; cadSt.novoSisNome=''; cadSt.step='equip'; cadStepEquip();
+  }catch(e){ cadSt.criando=false; cadBotaoOcupado('cadCriarSistema()',null); toast(e.message); }
 }
 function cadStepEquip(){
+  cadTopo('equip');
   const el=document.getElementById('cadBody');
-  const equip=cadSt.tipos.filter(t=>t.nome!==CAD_SIS_TIPO);
+  const equip=cadSt.tipos.filter(t=>!cadEhTipoSistema(t));
   let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
-  h+='<button onclick="cadStep(\'sistema\')" style="background:none;border:none;color:#3E7EB0;font-size:13px;padding:0 0 8px">‹ Trocar sistema</button>';
   h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Escolha o equipamento</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:10px">';
-  h+=equip.map((t,i)=>`<button onclick="cadPickEquip(${i})" style="width:47%;background:#fff;border:1px solid #E2E5E9;border-radius:14px;padding:16px;min-height:70px;font-size:14px;font-weight:600;color:#0B2239;text-align:left">${cadEsc(t.nome)}</button>`).join('');
+  /* 06/10/2026 — grade com imagem, como a página 1 do Zoho (pedido do Raphael). A imagem é um
+     arquivo anexado no registro do TipoAtivo__c, servido por GET /tipos/:id/imagem. Tipo sem imagem
+     mostra um quadro neutro com o nome: nunca imagem quebrada. O card do equipamento já criado
+     nesta volta fica marcado, porque tocar nele retoma a ficha. */
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">';
+  h+=equip.map((t,i)=>{ const marcado=(cadSt.ativoId||cadSt.pendente)&&cadSt.tipoNome===t.nome;
+    return `<button onclick="cadPickEquip(${i})" style="background:#fff;border:${marcado?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:14px;overflow:hidden;padding:0;display:flex;flex-direction:column">`
+      +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none">${CAD_ICONE_TIPO[cadChave(t.nome)]?`<span id="cadtipoph-${t.id}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${CAD_ICONE_TIPO[cadChave(t.nome)]}</span>`:`<span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span>`}</span>`
+      +`<span style="display:block;font-size:11.5px;line-height:1.25;font-weight:${marcado?'700':'600'};color:${marcado?'#3E7EB0':'#0B2239'};padding:7px 5px 8px;text-align:center">${cadEsc(t.nome)}</span></button>`; }).join('');
   h+='</div></div>'; el.innerHTML=h;
   cadSt._equip=equip;
+  equip.forEach(t=>cadLoadTipoImg(t.id));
+}
+/* ÍCONES DE TRAÇO por tipo de equipamento (06/10/2026). As imagens de verdade (arquivo anexado no
+   TipoAtivo__c, GET /tipos/:id/imagem) ainda não existem, e o quadro tracejado vazio não deixava
+   escolher de relance (print do Raphael). O ícone é o padrão; a imagem anexada, quando houver,
+   aparece por cima dele sozinha. Chave = nome do tipo sem acento, espaço nem pontuação. */
+const CAD_ICONE_TIPO=(()=>{ const I=p=>'<svg viewBox="0 0 48 48" width="56%" height="56%" fill="none" stroke="#3E7EB0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+  return {
+    coifa:I('<path d="M10 30h28M14 30 20 14h8l6 16"/><path d="M8 30v6h32v-6M24 8v6"/>'),
+    exaustorcentrifugo:I('<circle cx="22" cy="26" r="12"/><path d="M22 26l8-8M34 10v8h-8M22 14v-4M10 26H6"/>'),
+    gabinetedeventilacao:I('<rect x="8" y="10" width="32" height="28" rx="3"/><circle cx="24" cy="24" r="8"/><path d="M18.3 18.3l11.4 11.4M29.7 18.3L18.3 29.7"/>'),
+    exaustoraxial:I('<circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="3"/><path d="M24 21c4-6 1-10-4-10M24 27c-4 6-1 10 4 10M21 24c-6-4-10-1-10 4M27 24c6 4 10 1 10-4"/>'),
+    lavadordegases:I('<path d="M14 10h20v10c0 10-4 18-10 18s-10-8-10-18z"/><path d="M20 16c1 2 3 2 4 0s3-2 4 0M24 40v-2"/>'),
+    filtroeletrostatico:I('<rect x="10" y="10" width="28" height="28" rx="3"/><path d="M17 14v20M24 14v20M31 14v20"/><path d="M26 19l-4 6h4l-4 6"/>'),
+    precipitadorhidrodinamico:I('<path d="M14 10h20l-6 18-4 10-4-10z"/><path d="M20 16h8M22 22h4"/>'),
+    motor:I('<rect x="6" y="16" width="26" height="18" rx="3"/><path d="M32 20h6l4 4v6h-10M10 34v4M28 34v4M6 22h-2M6 28h-2"/>'),
+    paineleletrico:I('<rect x="10" y="8" width="28" height="32" rx="2"/><path d="M16 14h16M16 20h16M25 25l-4 7h6l-4 7"/>'),
+    bombadagua:I('<circle cx="20" cy="28" r="10"/><path d="M20 18v-6h12v8M30 28h10M24 6c0 2-2 3-2 5a2 2 0 0 0 4 0c0-2-2-3-2-5z"/>'),
+    dampercortafogo:I('<rect x="8" y="14" width="32" height="20"/><path d="M14 30l20-12M24 8v6M24 34v6"/>'),
+    portadeinspecao:I('<rect x="12" y="8" width="24" height="32" rx="2"/><circle cx="30" cy="24" r="1.6" fill="#3E7EB0"/><path d="M12 14h24M12 34h24"/>'),
+    sistemauv:I('<path d="M16 8h16v22a8 8 0 0 1-16 0z"/><path d="M24 34v6M12 20l-4-2M36 20l4-2M14 12l-4-4M34 12l4-4"/>'),
+    componentes:I('<circle cx="18" cy="18" r="7"/><circle cx="32" cy="30" r="7"/><path d="M18 11v-3M18 28v-3M11 18H8M28 18h-3M32 23v-3M32 40v-3M25 30h-3M42 30h-3"/>'),
+  }; })();
+/* cache da sessão (sobrevive ao "Cadastrar outro", que zera o cadSt): blob da imagem, ou false
+   quando o servidor disse que o tipo não tem imagem, para não perguntar de novo a cada volta. */
+const CAD_IMG_TIPO={};
+async function cadLoadTipoImg(id){
+  const mostra=u=>{ const im=document.getElementById('cadtipo-'+id), ph=document.getElementById('cadtipoph-'+id);
+    if(im&&u){ im.src=u; im.style.display='block'; if(ph) ph.style.display='none'; } };
+  if(CAD_IMG_TIPO[id]===false) return;
+  if(CAD_IMG_TIPO[id]) return mostra(CAD_IMG_TIPO[id]);
+  try{ const r=await fetch(BACKEND+'/tipos/'+id+'/imagem',{headers:{Authorization:'Bearer '+beTok()}});
+    if(r.status===404){ CAD_IMG_TIPO[id]=false; return; }
+    if(!r.ok) return;
+    CAD_IMG_TIPO[id]=URL.createObjectURL(await r.blob()); mostra(CAD_IMG_TIPO[id]);
+  }catch(e){}
+}
+/* 06/10/2026 — a área que rola é o <main>, e trocar de passo não a devolvia ao topo: o passo novo
+   abria na altura do anterior, escondendo o breadcrumb e o Voltar/Avançar (print do Raphael).
+   Só volta ao topo na TROCA de tela; re-desenhar a mesma tela (marcar resposta na ficha, tocar um
+   atalho) não pode pular para cima. */
+function cadTopo(tela){
+  if(cadSt._tela===tela) return;
+  cadSt._tela=tela; const m=document.getElementById('main'); if(m) m.scrollTop=0;
 }
 async function cadPickEquip(i){
   const t=cadSt._equip[i];
-  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
+  /* 06/10/2026 — com o "Voltar" da ficha, tocar de novo no mesmo card criava um SEGUNDO ativo e
+     deixava o primeiro sem ficha. Mesmo equipamento = retoma a ficha com as respostas; outro =
+     pergunta antes (cadAbandonoOk). */
+  if((cadSt.ativoId||cadSt.pendente) && cadSt.form && cadSt.tipoNome===t.nome) return cadStep('form');
+  if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo no card criava dois ativos */
+  /* 06/10/2026 (revisão): o ativo foi criado mas a ficha não carregou (rede): tocar de novo no
+     mesmo card só busca a ficha outra vez, em vez de criar um segundo ativo e largar o primeiro. */
+  if((cadSt.ativoId||cadSt.pendente) && !cadSt.form && cadSt.tipoNome===t.nome){
+    cadSt.criando=true;
+    try{ cadSt.form=await beGet('/formulario-ativo?'+(cadSt.ativoId?'ativoId='+cadSt.ativoId:'tipoId='+cadSt.pendente.tipoId)); cadSt.criando=false; cadSt.step='form'; cadStepForm(); }
+    catch(e){ cadSt.criando=false; toast('A ficha não carregou: '+e.message+' — toque no equipamento de novo.'); cadStepEquip(); }
+    return;
+  }
+  if(!cadAbandonoOk()) return;
+  /* 09/10/2026 — UV e bomba são filhos da COIFA (decisão de 07/10; Raphael em 09/10: "um sistema UV precisa estar
+     atrelado a uma coifa obrigatoriamente" e "sempre um duto está associado a uma coifa ou mais"). Antes de criar,
+     pergunta de qual coifa é. UV: obrigatório. Bomba: pode ficar direto no sistema (ex.: bomba de lavador). */
+  const k=cadChave(t.nome);
+  if(k==='sistemauv'||k==='bombadagua') return cadEscolherCoifa(t,k==='sistemauv');
+  return cadCriarEquip(t,cadSt.sistema.id);
+}
+async function cadEscolherCoifa(t,obrig){
+  cadTopo('paiCoifa');
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx()+'<div style="color:#686868">Buscando as coifas do sistema…</div></div>';
+  const tc=(cadSt.tipos||[]).find(x=>cadChave(x.nome)==='coifa');
+  let coifas=[];
+  try{ if(tc) coifas=await beGet('/ativos?paiId='+cadSt.sistema.id+'&tipoId='+tc.id)||[]; }
+  catch(e){ toast('Não consegui buscar as coifas: '+e.message); return cadStepEquip(); }
+  cadSt._coifas=coifas; cadSt._tipoFilho=t;
+  let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+(obrig?'Este UV é de qual coifa?':'Esta bomba é de qual coifa?')+'</div>';
+  h+='<div style="font-size:12.5px;color:#686868;margin-bottom:12px">'+(obrig?'O sistema UV fica sempre ligado a uma coifa. Se atende mais de uma (UV no duto), escolha a coifa principal e informe a quantidade na ficha.':'Se a bomba é de uma coifa lavadora, escolha a coifa. Se não, deixe direto no sistema.')+'</div>';
+  if(!coifas.length){
+    h+='<div style="background:#FFF4E5;border:1px solid #F3D3A4;border-radius:10px;padding:12px;font-size:13px;color:#7A4A0E;margin-bottom:12px">Este sistema ainda não tem coifa cadastrada.'+(obrig?' Cadastre a coifa primeiro e depois o UV.':'')+'</div>';
+  }
+  coifas.forEach((c,i)=>{ h+=`<button onclick="cadPaiCoifa(${i})" style="width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px;margin-bottom:8px"><b style="font-size:14px;color:#0B2239">${cadEsc(c.nome)}</b>${c.descricao?'<div style="font-size:12px;color:#686868;margin-top:2px">'+cadEsc(c.descricao)+'</div>':''}</button>`; });
+  if(!obrig) h+='<button onclick="cadPaiCoifa(-1)" style="width:100%;background:none;border:1px dashed #BFD5E6;border-radius:12px;padding:12px;color:#3E7EB0;font-size:13px;font-weight:600;margin-bottom:8px">Não é de coifa — direto no sistema</button>';
+  h+='<button onclick="cadStepEquip()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:12px;color:#3A4552;font-size:13px;font-weight:600">‹ Voltar aos equipamentos</button>';
+  el.innerHTML=h+'</div>';
+}
+function cadPaiCoifa(i){ const t=cadSt._tipoFilho; if(!t) return cadStepEquip();
+  const pai=i<0?cadSt.sistema.id:(cadSt._coifas[i]&&cadSt._coifas[i].id); if(!pai) return;
+  return cadCriarEquip(t,pai); }
+/* 09/10/2026 — não cria mais no Salesforce aqui: só guarda o que vai ser criado (cadSt.pendente) e carrega a
+   ficha pelo TIPO. A criação acontece em cadSalvar. */
+async function cadCriarEquip(t,paiId){
+  if(cadSt.criando) return;
+  cadSt.criando=true;
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Abrindo a ficha…</div>';
   try{
-    const r=await bePost('/ativos',{contaId:cadSt.conta.id,tipoId:t.id,paiId:cadSt.sistema.id});
-    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={};
-    cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
-    cadSt.step='form'; cadStepForm();
-  }catch(e){ toast(e.message); cadStepEquip(); }
+    cadSt.ativoId=null; cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
+    cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
+    cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
+    cadSt.form=await beGet('/formulario-ativo?tipoId='+t.id);
+    cadSt.criando=false; cadSt.step='form'; cadStepForm();
+  }catch(e){ cadSt.criando=false; toast(e.message+(cadSt.pendente&&!cadSt.form?' — toque no equipamento de novo para carregar a ficha.':'')); cadStepEquip(); }
 }
 function cadDepOk(dep){
   if(!dep||!dep.pergunta) return true;
@@ -12987,17 +13368,58 @@ function cadDepOk(dep){
   if(op.indexOf('dif')>=0||op.indexOf('!=')>=0) return atual!==alvo;
   return atual===alvo;
 }
+/* DADOS GERAIS DO EQUIPAMENTO (09/10/2026, item 10 da proposta de campos; Raphael: "No próprio Ativo").
+   Valem para TODO tipo de equipamento e ficam em campos do Ativo (não na ficha), para dar filtro e relatório
+   ("ativos críticos", "acima de 2 m"). Seção fixa no fim da ficha, antes das fotos; grava em chamada própria
+   (POST /ativos/:id/dados-gerais) depois das respostas — se falhar, o cadastro já está salvo.
+   Ver docs/09-CADASTROS/DECISAO_dados-gerais-no-ativo_09-10-2026.md */
+const CAD_DG={
+  plaqueta:{rot:'Plaqueta legível?',ops:[['Sim','Sim'],['Parcial','Parcial'],['Ilegível','Ilegível'],['Sem plaqueta','Sem plaqueta']]},
+  criticidade:{rot:'Criticidade',ops:[['A','A — parada fecha a cozinha'],['B','B — reduz a operação'],['C','C — sem impacto imediato']]},
+  acesso:{rot:'Acesso / altura de trabalho',ops:[['Piso','Piso'],['Escada até 2 m','Escada até 2 m'],['Acima de 2 m (NR-35)','Acima de 2 m (NR-35)'],['Plataforma ou andaime','Plataforma ou andaime'],['Espaço confinado','Espaço confinado']]}
+};
+function cadDadosGeraisHtml(){
+  const g=cadSt.comuns||(cadSt.comuns={});
+  let h='<div class="cad-sec"><div class="cad-sec-cab">Dados gerais do equipamento</div><div class="cad-sec-cont">';
+  Object.keys(CAD_DG).forEach(k=>{ const d=CAD_DG[k];
+    h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(d.rot)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+    d.ops.forEach(([v,l])=>{ const sel=g[k]===v;
+      h+=`<button onclick="cadSetDG('${k}',this.getAttribute('data-v'))" data-v="${cadEsc(v)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(l)}</button>`; });
+    h+='</div></div>'; });
+  h+='<div style="margin-bottom:4px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">Ano de fabricação</div>'
+    +`<input type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear()+1}" placeholder="em branco = não disponível" value="${cadEsc(g.ano==null?'':g.ano)}" oninput="cadSetDGAno(this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px"></div>`;
+  return h+'</div></div>';
+}
+/* tocar de novo na opção marcada desmarca (volta a "não informado") */
+function cadSetDG(k,v){ const g=cadSt.comuns||(cadSt.comuns={}); g[k]=(g[k]===v)?null:v; cadSt.comunsMexeu=true; cadStepForm(); }
+function cadSetDGAno(v){ const g=cadSt.comuns||(cadSt.comuns={}); g.ano=String(v||'').trim()===''?null:v; cadSt.comunsMexeu=true; } /* sem re-render: não perde o foco do teclado */
+function cadDGRotulo(k,v){ if(k==='ano') return v==null||v===''?null:String(v); const o=(CAD_DG[k].ops||[]).find(x=>x[0]===v); return o?o[1]:null; }
+function cadDGAnoOk(){ const a=(cadSt.comuns||{}).ano; if(a==null||a==='') return true; const n=Number(a); return Number.isInteger(n)&&n>=1950&&n<=new Date().getFullYear()+1; }
 function cadStepForm(){
+  cadTopo('form');
   const el=document.getElementById('cadBody'); const f=cadSt.form;
   let h='<div style="padding:14px 14px 90px">'+cadHead('form')+cadCtx();
-  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(f.nome||cadSt.tipoNome)+'</div>';
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+cadEsc(cadTituloForm(f))+'</div>';
   const imgs=[];
+  /* 06/10/2026 — com Berliner marcado, a ficha para no Fabricante até a pessoa escolher entre ler o
+     QR e inserir à mão (pedido do Raphael): os demais campos e o Salvar só aparecem depois. */
+  let travado=false;
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
+    if(travado) return;
     const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia));
     if(!campos.length) return;
-    h+='<div style="font-size:13px;font-weight:700;color:#3E7EB0;margin:14px 0 6px">'+cadEsc(s.nome)+'</div>';
+    /* 06/10/2026 — cada seção num cartão com cabeçalho azul-claro (opção B do mockup
+       prototipos/mockup-separacao-secoes-ficha_06-10-2026.html, escolhida pelo Raphael). */
+    h+='<div class="cad-sec"><div class="cad-sec-cab">'+cadEsc(s.nome)+'</div><div class="cad-sec-cont">';
     campos.forEach(c=>{
-      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(c.nome)+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')+'</div>';
+      if(travado) return;
+      /* 06/10/2026 — pergunta com o mesmo nome da seção ("Fabricante" › "Fabricante") não repete o
+         rótulo (print do Raphael); asterisco e selos, se houver, continuam. */
+      const rotuloRepete=cadChave(c.nome)===cadChave(s.nome);
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px'+(rotuloRepete?';min-height:0':'')+'">'+(rotuloRepete?'':cadEsc(c.nome))+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
+        +(cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
+        +(cadSt.sugBerliner&&cadSt.sugBerliner[c.id]?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">sugerido · confira</span><div style="font-size:11px;color:#9A5A14;margin-top:2px">'+cadEsc(cadSt.sugBerliner[c.id])+'</div>':'')
+        +'</div>';
       if(c.tipo==='Foto'){
         /* tipo Foto: sobe pro Drive via /midias-ativo, grava Foto_Drive_Id__c/Foto_URL__c em RespostaAtivo__c (campos já existiam, órfãos até aqui) */
         const foto=cadSt.fotos[c.id];
@@ -13049,14 +13471,200 @@ function cadStepForm(){
         }
       }
       h+='</div>';
+      if(cadChave(c.nome)==='fabricante'){
+        if(cadEhBerliner()){ h+=cadPainelBerliner(); if(cadBerlinerAguardando()) travado=true; }
+        /* 06/10/2026 — onde o fabricante muda o caminho (ficha com Berliner), os dados técnicos só
+           abrem depois de escolher um fabricante (pedido do Raphael). Qualquer escolha libera,
+           inclusive "Outros" e "Sem identificação". */
+        else if(cadFabricanteDecideCaminho(c) && !String(cadSt.resp[c.id]||'').trim()){
+          travado=true;
+          h+='<div style="font-size:12.5px;color:#686868;background:#F4F7F9;border:1px dashed #BFD5E6;border-radius:10px;padding:10px 12px;margin:2px 0 10px">Escolha o fabricante para abrir os dados técnicos.</div>';
+        }
+      }
     });
+    h+='</div></div>'; /* fecha .cad-sec-cont e .cad-sec */
   });
-  h+='<button onclick="cadSalvar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Salvar cadastro</button>';
+  if(!travado) h+=cadDadosGeraisHtml();
+  if(!travado) h+='<div class="cad-sec"><div class="cad-sec-cab">Fotos do equipamento</div><div class="cad-sec-cont" id="cadGaleria">'+cadGaleriaHtml()+'</div></div>';
+  if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
 }
-function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadStepForm(); }
-function cadSetText(campoId,v){ cadSt.resp[campoId]=v; }
+/* QR DO FABRICANTE NA FICHA (06/10/2026, pedido do Raphael). Quando o Fabricante marcado é
+   Berliner Luft, aparece "Ler QR code do equipamento": a câmera (a mesma do Estoque) lê o QR da
+   plaqueta, o servidor busca a ficha pública da Berliner (GET /fabricante/berliner) e o app
+   preenche os campos. Regras: só preenche campo VAZIO (nunca passa por cima do técnico); opção
+   de lista só entra se existir na ficha; cada campo preenchido ganha o selo "da Berliner", e o ano
+   (deduzido do número de série) entra como "sugerido · confira". Editar o campo tira o selo.
+   Casa pelo NOME do campo: a ficha que o app recebe não traz Codigo__c. Ver
+   docs/09-CADASTROS/DECISAO_qr-do-fabricante-no-cadastro_06-10-2026.md */
+function cadChave(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function cadCamposDoForm(f){ const out=[]; ((f&&f.sessoes)||[]).forEach(s=>(s.campos||[]).forEach(c=>out.push(c))); return out; }
+function cadEhBerliner(){
+  const fab=cadCamposDoForm(cadSt.form).find(c=>cadChave(c.nome)==='fabricante'&&(c.opcoes||[]).some(o=>cadChave(o.label)==='berlinerluft'));
+  return !!(fab&&cadChave(cadSt.resp[fab.id])==='berlinerluft');
+}
+/* {nome do campo: valor} -> resp, só em campo vazio. marca[campoId]=true no que entrou. */
+function cadAplicarPorNome(form,valores,marca,resp){
+  const campos=cadCamposDoForm(form); let n=0; resp=resp||cadSt.resp;
+  Object.entries(valores||{}).forEach(([nome,v])=>{
+    const c=campos.find(x=>cadChave(x.nome)===cadChave(nome)); if(!c||v==null||v==='') return;
+    if(resp[c.id]!=null&&String(resp[c.id]).trim()!=='') return;
+    let val=String(v);
+    if((c.opcoes||[]).length){ const o=c.opcoes.find(o=>cadChave(o.label)===cadChave(val)); if(!o) return; val=o.label; }
+    resp[c.id]=val; if(marca) marca[c.id]=true; n++;
+  });
+  return n;
+}
+function cadFabricanteDecideCaminho(c){ return (c.opcoes||[]).some(o=>cadChave(o.label)==='berlinerluft'); }
+function cadBerlinerAguardando(){ return cadEhBerliner()&&!cadSt.berliner&&cadSt.berlinerModo!=='manual'; }
+function cadInserirManual(){ cadSt.berlinerModo='manual'; cadStepForm(); }
+/* desabilita (ou reabilita, com texto=null) o botão visível que chama `onclick`, durante uma gravação */
+function cadBotaoOcupado(onclick,texto){
+  const b=[...document.querySelectorAll('#cadBody button')].find(x=>x.getAttribute('onclick')===onclick); if(!b) return;
+  if(texto){ b.dataset.txt=b.textContent; b.disabled=true; b.style.opacity='.6'; b.textContent=texto; }
+  else { b.disabled=false; b.style.opacity=''; if(b.dataset.txt) b.textContent=b.dataset.txt; }
+}
+function cadTiraSeloBerliner(campoId){ if(cadSt.daBerliner) delete cadSt.daBerliner[campoId]; if(cadSt.sugBerliner) delete cadSt.sugBerliner[campoId]; }
+function cadPainelBerliner(){
+  const b=cadSt.berliner;
+  let h='<div style="background:#F4F7F9;border:1px solid #BFD5E6;border-radius:12px;padding:12px;margin:0 0 12px">';
+  if(cadSt.berlinerBusy){ h+='<div style="font-size:13px;color:#2B5A7E"><span class="ld-spin"></span>Buscando a ficha na Berliner…</div>'; }
+  else if(b){
+    const n=Object.keys(cadSt.daBerliner||{}).length+Object.keys(cadSt.sugBerliner||{}).length;
+    h+='<div style="font-size:13px;font-weight:700;color:#1B7A3D">✓ Ficha da Berliner lida'+(b.exaustor&&b.exaustor['Modelo']?': '+cadEsc(b.exaustor['Modelo']):'')+'</div>';
+    h+='<div style="font-size:12px;color:#3A4552;margin-top:3px">'+n+' campo'+(n===1?'':'s')+' preenchido'+(n===1?'':'s')+'. Os marcados <b>da Berliner</b> vieram do fabricante: confira com a plaqueta antes de salvar.</div>';
+    const x=b.extras||{}; const itens=[];
+    if(x.descricao) itens.push(cadEsc(x.descricao));
+    if(x.motorCarcaca||x.motorProtecao) itens.push('Motor: '+cadEsc([x.motorKw?x.motorKw+' kW':'',x.motorCarcaca?'carcaça '+x.motorCarcaca:'',x.motorProtecao].filter(Boolean).join(' · ')));
+    (x.pecas||[]).forEach(p=>itens.push('Peça: '+cadEsc(p.especificacao)+' ×'+cadEsc(p.quantidade)));
+    if(itens.length) h+='<details style="margin-top:6px"><summary style="font-size:12px;color:#3E7EB0;cursor:pointer">Também na ficha da Berliner</summary><div style="font-size:11.5px;color:#686868;line-height:1.5;margin-top:4px">'+itens.join('<br>')+'</div></details>';
+    h+='<button onclick="cadLerQrBerliner()" style="margin-top:8px;background:none;border:1px solid #BFD5E6;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:#2B5A7E">Ler outro QR</button>';
+  } else if(cadSt.berlinerModo==='manual'){
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:12.5px;color:#3A4552">✍️ Preenchendo à mão</span>'
+      +'<button onclick="cadLerQrBerliner()" style="background:none;border:1px solid #BFD5E6;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;color:#2B5A7E">📷 Ler QR mesmo assim</button></div>';
+  } else {
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">Como você quer preencher?</div>';
+    h+='<button onclick="cadLerQrBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">📷 Ler QR code do equipamento</button>';
+    h+='<div style="font-size:11.5px;color:#686868;margin:6px 0 10px">Preenche modelo, série, TAG, vazão, pressão, rotação, potência, correia e o motor, direto da ficha do fabricante.</div>';
+    h+='<button onclick="cadInserirManual()" style="width:100%;background:#fff;border:1.5px solid #BFD5E6;border-radius:10px;padding:12px;font-size:14px;font-weight:700;color:#2B5A7E">✍️ Inserir dados manualmente</button>';
+  }
+  return h+'</div>';
+}
+async function cadLerQrBerliner(){
+  if(cadSt.berlinerBusy) return;
+  if(navigator.onLine===false){ toast('📴 Sem sinal: a leitura da Berliner precisa de internet. Preencha à mão.'); return; }
+  await estoqScanCamAbrir(async (texto)=>{
+    const st=cadSt, aid=cadSt.ativoId||cadSt.pendente; /* 09/10: antes de salvar não há ativoId; o pendente identifica o equipamento */ /* revisão 06/10: resposta atrasada não preenche outro equipamento */
+    cadSt.berlinerBusy=true; cadStepForm();
+    try{
+      const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(texto));
+      if(cadSt!==st||(cadSt.ativoId||cadSt.pendente)!==aid){ st.berlinerBusy=false; return; }
+      cadSt.berliner=r; cadSt.daBerliner=cadSt.daBerliner||{}; cadSt.sugBerliner=cadSt.sugBerliner||{};
+      const n=cadAplicarPorNome(cadSt.form,r.exaustor,cadSt.daBerliner);
+      let ns=0;
+      Object.entries(r.sugeridos||{}).forEach(([nome,o])=>{ const m={}; ns+=cadAplicarPorNome(cadSt.form,{[nome]:o.valor},m); Object.keys(m).forEach(id=>cadSt.sugBerliner[id]=o.motivo||'deduzido'); });
+      if(cadSt.step==='form') toast(n+ns?('✅ '+(n+ns)+' campos preenchidos pela Berliner — confira'):'A ficha da Berliner não trouxe nada novo para os campos vazios');
+    }catch(e){ if(cadSt===st&&cadSt.step==='form') toast('⚠️ '+e.message); }
+    st.berlinerBusy=false;
+    /* 07/10/2026 (teste no Chrome): leitura demorada + "Voltar" para a lista de equipamentos fazia a
+       resposta redesenhar a FICHA por cima da lista, com o app achando que estava na lista. Os dados
+       continuam guardados (é o mesmo equipamento); só não redesenha se a pessoa saiu da ficha. */
+    if(cadSt===st&&cadSt.step==='form') cadStepForm();
+  });
+}
+/* Motor junto (decisão do Raphael, 06/10/2026): depois de salvar o exaustor, oferece criar o Motor
+   já vinculado a ele (Ativo_Pai__c = exaustor), com a ficha preenchida pela Berliner. Um toque. */
+async function cadCriarMotorBerliner(){
+  const b=cadSt.berliner; if(!b||b.motorStatus==='criando'||b.motorStatus==='ok') return;
+  const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
+  if(!tipoMotor){ toast('Tipo de equipamento Motor não encontrado'); return; }
+  b.motorStatus='criando'; cadStepDone();
+  const st=cadSt, contaId=cadSt.conta.id, localId=(cadSt.local&&cadSt.local.id)||undefined, paiId=cadSt.ativoId; /* revisão 06/10: fixa o contexto antes de esperar a rede */
+  try{
+    const r=await bePost('/ativos',{contaId,localId,tipoId:tipoMotor.id,paiId});
+    b.motorId=r.id;
+    const form=await beGet('/formulario-ativo?ativoId='+r.id);
+    const resp={}; cadAplicarPorNome(form,b.motor,null,resp);
+    const respostas=Object.entries(resp).map(([campoId,resposta])=>({campoId,resposta}));
+    if(respostas.length) await bePost('/respostas',{ativoId:r.id,respostas});
+    b.motorStatus='ok'; b.motorN=respostas.length;
+  }catch(e){ b.motorStatus='erro'; b.motorErro=e.message; }
+  if(cadSt===st&&cadSt.step==='done') cadStepDone(); /* saiu da conclusão: não redesenha por cima */
+}
+/* 06/10/2026 — o título mostra só "Cadastro de Exaustor Centrífugo" (pedido do Raphael). Só a TELA
+   muda. O app acha a ficha pelo tipo do ativo (/formulario-ativo?ativoId=), não pelo nome. O código
+   "CAD-EXC — " continua no Name do FormularioAtivo__c porque os scripts de carga e conferência de
+   julho (apps/cadastro-de-ativos/*.apex) e a rota /formulario-ativo?codigo= procuram por ele:
+   não renomear lá. */
+function cadTituloForm(f){ const n=String((f&&f.nome)||cadSt.tipoNome||''); return n.replace(/^[A-Z]{2,5}-[A-Z0-9]{2,6}\s*[—–-]\s*/,'')||n; }
+/* FOTOS DO EQUIPAMENTO (06/10/2026, pedido do Raphael): até 10 por equipamento, em toda ficha. Cada
+   foto é reduzida no aparelho (lado maior 1600 px, JPEG 0,82 — nítido para ler plaqueta, ~10x menor)
+   e sobe ao Drive na hora (POST /midias-ativo). No salvar, só as REFERÊNCIAS vão para o Salesforce
+   (POST /ativos/:id/fotos → FotoAtivo__c), depois das respostas, em chamada separada. Remover tira
+   da lista; o arquivo já enviado fica no Drive (regra: não apagar). A galeria redesenha só a si
+   mesma (#cadGaleria), para não tirar o foco de quem está digitando na ficha. */
+const CAD_FOTOS_MAX=10;
+function cadGaleria(){ if(!cadSt.galeria) cadSt.galeria=[]; return cadSt.galeria; }
+function cadGaleriaHtml(){
+  const g=cadGaleria(); let h='';
+  if(g.length){
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+    g.forEach(it=>{
+      h+='<div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid #E2E5E9;background:#F4F7F9">'
+        +(it.previewUrl?'<img src="'+it.previewUrl+'" alt="" style="width:100%;height:100%;object-fit:cover">':'')
+        +(it.status==='uploading'?'<div style="position:absolute;inset:0;background:rgba(11,34,57,.45);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">Enviando…</div>':'')
+        +(it.status==='error'?'<button onclick="cadGaleriaTentar(\''+it.key+'\')" style="position:absolute;inset:0;background:rgba(196,69,27,.75);color:#fff;border:none;font-size:11px;font-weight:700">⚠️ Falhou<br>tocar p/ tentar</button>':'')
+        +'<button onclick="cadGaleriaRemover(\''+it.key+'\')" aria-label="Remover foto" style="position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(11,34,57,.7);color:#fff;font-size:14px;line-height:26px;padding:0">✕</button>'
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  const resta=CAD_FOTOS_MAX-g.length;
+  if(resta>0){
+    h+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;background:#EAF1F7;border:1.5px dashed #BFD5E6;border-radius:12px;padding:13px;font-size:14px;font-weight:700;color:#2B5A7E;cursor:pointer">📷 Adicionar fotos ('+g.length+'/'+CAD_FOTOS_MAX+')'
+      +'<input type="file" accept="image/*" multiple style="display:none" onchange="cadGaleriaAdd(this)"></label>';
+  } else h+='<div style="font-size:12.5px;color:#1B7A3D;font-weight:600">10 de 10 fotos. Remova uma para trocar.</div>';
+  h+='<div style="font-size:11.5px;color:#686868;margin:6px 0 8px">Até 10 fotos. Elas ficam guardadas no Drive da empresa.</div>';
+  return h;
+}
+function cadGaleriaPintar(){ const el=document.getElementById('cadGaleria'); if(el) el.innerHTML=cadGaleriaHtml(); }
+/* reduz a foto; se o aparelho não conseguir (formato estranho), manda a original */
+async function cadReduzirFoto(file){
+  try{
+    const url=URL.createObjectURL(file);
+    const img=await new Promise((ok,err)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=err; i.src=url; });
+    const L=1600, esc=Math.min(1,L/Math.max(img.naturalWidth,img.naturalHeight));
+    const cv=document.createElement('canvas'); cv.width=Math.round(img.naturalWidth*esc); cv.height=Math.round(img.naturalHeight*esc);
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); URL.revokeObjectURL(url);
+    const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.82));
+    return (blob&&blob.size<file.size)?blob:file;
+  }catch(e){ return file; }
+}
+async function cadGaleriaEnviar(it){
+  it.status='uploading'; cadGaleriaPintar();
+  try{
+    const blob=await cadReduzirFoto(it.file);
+    const fd=new FormData(); fd.append('file',blob,'foto.jpg'); fd.append('campoId','galeria');
+    const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+    it.driveId=j.driveId; it.url=j.url; it.status='ok';
+  }catch(e){ it.status='error'; toast('Erro ao enviar foto: '+e.message); }
+  cadGaleriaPintar();
+}
+async function cadGaleriaAdd(input){
+  const g=cadGaleria(); const files=[...(input.files||[])]; input.value='';
+  const cabe=Math.max(0,CAD_FOTOS_MAX-g.length);
+  if(files.length>cabe) toast('Só cabem mais '+cabe+' foto'+(cabe===1?'':'s')+' (máximo '+CAD_FOTOS_MAX+').');
+  const novos=files.slice(0,cabe).map(file=>({key:'g'+Date.now()+Math.random().toString(36).slice(2,7),file,previewUrl:URL.createObjectURL(file),nome:file.name||'foto.jpg',tiradaEm:new Date(file.lastModified||Date.now()).toISOString(),status:'uploading'}));
+  g.push(...novos); cadGaleriaPintar();
+  for(const it of novos) await cadGaleriaEnviar(it); /* um por vez: rede de campo é fraca */
+}
+function cadGaleriaTentar(key){ const it=cadGaleria().find(x=>x.key===key); if(it) cadGaleriaEnviar(it); }
+function cadGaleriaRemover(key){ cadSt.galeria=cadGaleria().filter(x=>x.key!==key); cadGaleriaPintar(); }
+function cadSet(campoId,label){ cadSt.resp[campoId]=(cadSt.resp[campoId]===label)?'':label; cadTiraSeloBerliner(campoId); cadStepForm(); }
+function cadSetText(campoId,v){ cadSt.resp[campoId]=v; cadTiraSeloBerliner(campoId); }
 /* Multi-Picklist: alterna item no conjunto separado por ';' (mesmo formato que o backend/E2E já esperam) */
 function cadToggleMulti(campoId,label){
   const cur=String(cadSt.resp[campoId]||'').split(';').filter(Boolean);
@@ -13070,19 +13678,23 @@ function cadToggleMulti(campoId,label){
 async function cadFotoEscolhida(campoId,input){
   const file=input.files&&input.files[0]; if(!file) return;
   const previewUrl=URL.createObjectURL(file);
-  cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'uploading'};
+  /* 06/10/2026 (revisão): guarda a gaveta de fotos DESTE cadastro. Se a pessoa trocar de equipamento
+     ou começar outro cadastro antes do envio terminar, o resultado cai na gaveta antiga (inofensivo)
+     e a tela atual não é redesenhada por cima. */
+  const fotos=cadSt.fotos; const aindaAqui=()=>cadSt&&cadSt.fotos===fotos&&cadSt.step==='form';
+  fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'uploading'};
   cadStepForm();
   try{
     const fd=new FormData(); fd.append('file',file,file.name||'foto.jpg'); fd.append('campoId',campoId);
     const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
-    cadSt.fotos[campoId]={file,previewUrl,driveId:j.driveId,url:j.url,status:'ok'};
+    fotos[campoId]={file,previewUrl,driveId:j.driveId,url:j.url,status:'ok'};
   }catch(e){
-    cadSt.fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'error'};
-    toast('Erro ao enviar foto: '+e.message);
+    fotos[campoId]={file,previewUrl,driveId:null,url:null,status:'error'};
+    if(aindaAqui()) toast('Erro ao enviar foto: '+e.message);
   }
-  cadStepForm();
+  if(aindaAqui()) cadStepForm();
 }
 async function cadLoadImg(opcaoId){
   const img=document.getElementById('cadimg-'+opcaoId); if(!img) return;
@@ -13091,7 +13703,9 @@ async function cadLoadImg(opcaoId){
     const u=URL.createObjectURL(await r.blob()); cadSt.img[opcaoId]=u; const el=document.getElementById('cadimg-'+opcaoId); if(el) el.src=u;
   }catch(e){}
 }
-async function cadSalvar(){
+/* coleta o que será gravado (mesma regra do salvar): só campos visíveis pelas dependências; foto e
+   assinatura só se o envio terminou. Usada pela conferência e pelo salvar, para as duas verem o mesmo. */
+function cadColetar(){
   const f=cadSt.form; const respostas=[]; const faltamFoto=[];
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>(s.campos||[]).filter(c=>cadDepOk(c.dependencia)).forEach(c=>{
     if(c.tipo==='Foto'||c.tipo==='Assinatura'){
@@ -13102,12 +13716,123 @@ async function cadSalvar(){
     }
     const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
   }));
-  if(faltamFoto.length){ toast('📷 Falta preencher: '+faltamFoto[0]+(faltamFoto.length>1?` (+${faltamFoto.length-1})`:'')); return; }
-  if(!respostas.length){ toast('Responda ao menos um campo.'); return; }
-  try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas}); cadSt.step='done'; cadStepDone(); }
-  catch(e){ toast(e.message); }
+  return {respostas,faltamFoto};
+}
+function cadPodeSalvar(c){
+  /* 06/10/2026 (revisão): campo de foto ainda enviando era tratado como "não informado" e se perdia */
+  if(Object.values(cadSt.fotos||{}).some(x=>x&&x.status==='uploading')){ toast('Aguarde a foto terminar de enviar.'); return false; }
+  const g=cadGaleria();
+  if(g.some(x=>x.status==='uploading')){ toast('Aguarde as fotos terminarem de enviar.'); return false; }
+  if(g.some(x=>x.status==='error')){ toast('Uma foto não foi enviada: toque nela para tentar de novo, ou remova.'); return false; }
+  if(c.faltamFoto.length){ toast('📷 Falta preencher: '+c.faltamFoto[0]+(c.faltamFoto.length>1?` (+${c.faltamFoto.length-1})`:'')); return false; }
+  if(!c.respostas.length){ toast('Responda ao menos um campo.'); return false; }
+  return true;
+}
+async function cadSalvar(){
+  if(cadSt.salvando) return; /* o botão fica na conferência; dois toques gravariam duas vezes */
+  const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  const respostas=col.respostas;
+  cadSt.salvando=true; if(cadSt.step==='revisao') cadStepRevisao();
+  try{
+    /* 09/10/2026 — o equipamento nasce AQUI. Se as respostas falharem depois, o ativoId fica guardado e o próximo
+       "Salvar" só regrava as respostas (não cria um segundo). */
+    if(!cadSt.ativoId&&cadSt.pendente){
+      const p=cadSt.pendente;
+      const r=await bePost('/ativos',{contaId:p.contaId,localId:p.localId,tipoId:p.tipoId,paiId:p.paiId});
+      cadSt.ativoId=r.id; cadSt.pendente=null;
+    }
+    await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
+    /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
+       ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
+    if(cadSt.berliner&&cadSt.berliner.link&&cadEhBerliner()){ /* 06/10/2026 (revisão): trocou o fabricante depois do QR → não grava o link da Berliner */
+      try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
+      catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
+    }
+    /* dados gerais: só manda se alguém mexeu (na edição, não regrava o que veio do servidor sem mudança) */
+    if(cadSt.comunsMexeu){
+      try{ await bePost('/ativos/'+cadSt.ativoId+'/dados-gerais',cadSt.comuns||{}); cadSt.comunsMexeu=false; }
+      catch(e){ toast('⚠️ Cadastro salvo, mas os dados gerais não foram gravados: '+e.message); }
+    }
+    await cadGaleriaVincular();
+    cadSt.salvando=false; cadSt.step='done'; cadStepDone(); }
+  catch(e){ cadSt.salvando=false; if(cadSt.step==='revisao') cadStepRevisao(); toast(e.message); }
+}
+/* CONFERÊNCIA ANTES DE SALVAR (06/10/2026, pedido do Raphael): depois de preencher qualquer ativo,
+   uma tela com todos os dados; só nela existe o "Salvar cadastro". Mostra todas as perguntas
+   visíveis da ficha, inclusive as em branco ("não informado"), para o técnico ver o que faltou.
+   Obrigatório em branco aparece em vermelho, mas não bloqueia (a regra de bloqueio continua a de
+   antes: foto ou assinatura obrigatória). "Editar" volta à ficha sem perder nada. */
+/* grava as referências das fotos já enviadas; falha não desfaz o cadastro e pode ser repetida na
+   tela de conclusão */
+async function cadGaleriaVincular(){
+  const ok=cadGaleria().filter(x=>x.status==='ok'&&x.driveId&&!x.vinculada);
+  if(!ok.length){ cadSt.galeriaFalhou=false; return; }
+  try{
+    await bePost('/ativos/'+cadSt.ativoId+'/fotos',{fotos:ok.map(x=>({driveId:x.driveId,url:x.url,nome:x.nome,tiradaEm:x.tiradaEm}))});
+    ok.forEach(x=>x.vinculada=true); cadSt.galeriaFalhou=false;
+  }catch(e){ cadSt.galeriaFalhou=e.message||'erro'; toast('⚠️ Cadastro salvo, mas as fotos não foram vinculadas: '+(e.message||'')); }
+}
+async function cadGaleriaRepetir(){ await cadGaleriaVincular(); cadStepDone(); }
+function cadIrRevisao(){
+  const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  if(!cadDGAnoOk()){ toast('Ano de fabricação inválido: use 4 dígitos (1950 a '+(new Date().getFullYear()+1)+') ou deixe em branco.'); return; }
+  cadSt.step='revisao'; cadStepRevisao();
+}
+function cadVoltarFicha(){ cadSt.step='form'; cadStepForm(); }
+function cadStepRevisao(){
+  cadTopo('revisao');
+  const el=document.getElementById('cadBody'); const f=cadSt.form;
+  const val=(c)=>{
+    if(c.tipo==='Foto'||c.tipo==='Assinatura'){ const up=cadSt.fotos[c.id];
+      if(up&&up.status==='ok') return (up.previewUrl?'<img src="'+up.previewUrl+'" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #E2E5E9;vertical-align:middle;margin-right:6px">':'')+(c.tipo==='Assinatura'?'Assinado':'Foto anexada');
+      return null; }
+    const v=cadSt.resp[c.id]; if(v==null||String(v).trim()==='') return null;
+    return cadEsc(c.tipo==='Multi-Picklist'?String(v).split(';').filter(Boolean).join(', '):v);
+  };
+  let h='<div style="padding:14px 14px 90px">'+cadHead('form',true)+cadCtx();
+  h+='<div style="font-size:17px;font-weight:800;color:#0B2239">Confira os dados antes de salvar</div>';
+  h+='<div style="font-size:12.5px;color:#686868;margin:2px 0 12px">'+cadEsc(cadSt.tipoNome||f.nome||'')+' · toque em Editar para corrigir</div>';
+  let vazios=0, obrigVazios=0;
+  (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
+    const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia)); if(!campos.length) return;
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">'+cadEsc(s.nome)+'</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
+    campos.forEach(c=>{
+      const v=val(c); if(v==null){ vazios++; if(c.obrigatorio||c.fotoObrigatoria) obrigVazios++; }
+      const selo=(cadSt.daBerliner&&cadSt.daBerliner[c.id])?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">da Berliner</span>'
+        :(cadSt.sugBerliner&&cadSt.sugBerliner[c.id])?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido</span>':'';
+      h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px">'
+        +'<div style="flex:0 0 44%;color:#686868">'+cadEsc(c.nome)+'</div>'
+        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?((c.obrigatorio||c.fotoObrigatoria)?'#C4451B':'#AEB8C2'):'#0B2239')+';word-break:break-word">'
+        +(v==null?((c.obrigatorio||c.fotoObrigatoria)?'obrigatório, não preenchido':'não informado'):v)+selo+'</div></div>';
+    });
+    h+='</div>';
+  });
+  { const g=cadSt.comuns||{};
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Dados gerais do equipamento</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
+    [['plaqueta','Plaqueta legível?'],['criticidade','Criticidade'],['acesso','Acesso / altura de trabalho'],['ano','Ano de fabricação']].forEach(([k,r])=>{
+      const v=cadDGRotulo(k,g[k]); if(v==null) vazios++;
+      h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px"><div style="flex:0 0 44%;color:#686868">'+cadEsc(r)+'</div>'
+        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?'#AEB8C2':'#0B2239')+'">'+(v==null?'não informado':cadEsc(v))+'</div></div>'; });
+    h+='</div>'; }
+  { const g=cadGaleria().filter(x=>x.status==='ok');
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Fotos do equipamento ('+g.length+')</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>'
+      +(g.length?'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px 12px">'+g.map(x=>'<img src="'+x.previewUrl+'" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #E2E5E9">').join('')+'</div>'
+        :'<div style="padding:9px 12px;font-size:13px;font-weight:600;color:#AEB8C2">nenhuma foto</div>')+'</div>'; }
+  if(cadSt.berliner&&cadSt.berliner.link) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 10px">🔗 O link da ficha do fabricante será guardado no ativo.</div>';
+  if(obrigVazios) h+='<div style="font-size:12.5px;color:#C4451B;margin:4px 2px 8px">'+obrigVazios+' campo'+(obrigVazios>1?'s obrigatórios':' obrigatório')+' em branco.</div>';
+  else if(vazios) h+='<div style="font-size:12px;color:#686868;margin:4px 2px 8px">'+vazios+' campo'+(vazios>1?'s':'')+' sem resposta.</div>';
+  h+='<button onclick="cadSalvar()" '+(cadSt.salvando?'disabled':'')+' style="width:100%;background:#1B7A3D;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:700;margin-top:6px'+(cadSt.salvando?';opacity:.6':'')+'">'+(cadSt.salvando?'Salvando…':'✓ Salvar cadastro')+'</button>';
+  h+='<button onclick="cadVoltarFicha()" '+(cadSt.salvando?'disabled':'')+' style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#3E7EB0;margin-top:8px">‹ Voltar e corrigir</button>';
+  h+='</div>'; el.innerHTML=h;
 }
 function cadStepDone(){
+  cadTopo('done');
   const el=document.getElementById('cadBody');
   const et=cadSt.etiqueta||{status:'idle'};
   let h='<div style="padding:32px 18px 90px;text-align:center">'
@@ -13136,6 +13861,25 @@ function cadStepDone(){
   }
   h+='</div>';
 
+  { const nf=cadGaleria().filter(x=>x.vinculada).length;
+    if(cadSt.galeriaFalhou) h+='<div style="text-align:left;background:#FCEBEB;border:1px solid #F3C1C1;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12.5px;color:#8e1b1b">⚠️ As fotos não foram vinculadas ao ativo ('+cadEsc(cadSt.galeriaFalhou)+').<button onclick="cadGaleriaRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
+    else if(nf) h+='<div style="font-size:12.5px;color:#1B7A3D;margin:-6px 0 14px">📷 '+nf+' foto'+(nf>1?'s':'')+' guardada'+(nf>1?'s':'')+' no Drive e vinculada'+(nf>1?'s':'')+' ao ativo.</div>'; }
+  /* cartão do motor (06/10/2026): só quando a ficha da Berliner trouxe o motor */
+  const bm=cadEhBerliner()?cadSt.berliner:null; const mm=(bm&&bm.motor)||{}; /* revisão 06/10: motor da Berliner só se o fabricante continua Berliner */
+  /* com unidade: um "2" solto no meio da linha não diz que é potência */
+  const motorTxt=[mm['Fabricante'],mm['Potência (CV)']?mm['Potência (CV)']+' CV':'',(mm['Rotação / polos']||'').replace(/\s*\(.*\)/,''),mm['Fases'],mm['Tensão']].filter(Boolean).join(' · ');
+  if(motorTxt){
+    h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">⚙️ Motor deste equipamento</div>';
+    h+='<div style="font-size:12px;color:#686868;margin-bottom:8px">Da ficha da Berliner: '+cadEsc(motorTxt)+'</div>';
+    if(bm.motorStatus==='ok') h+='<div style="font-size:13px;color:#1D9E75;font-weight:600">✓ Motor criado e vinculado ('+bm.motorN+' campos preenchidos)</div>';
+    else if(bm.motorStatus==='criando') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Criando o motor…</div>';
+    else{
+      if(bm.motorStatus==='erro') h+='<div style="font-size:12px;color:#C4451B;margin-bottom:6px">'+cadEsc(bm.motorErro||'Falhou')+(bm.motorId?' (o motor foi criado; a ficha dele ficou incompleta)':'')+'</div>';
+      if(!(bm.motorStatus==='erro'&&bm.motorId)) h+='<button onclick="cadCriarMotorBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Criar o motor vinculado</button>';
+    }
+    h+='</div>';
+  }
   h+='<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
     +'<button onclick="go(\'schedule\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;color:#3A4552">Voltar à agenda</button></div>';
   el.innerHTML=h;
@@ -13168,17 +13912,19 @@ async function cadProvisionarEtiqueta(){
   if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
   if(cadNfcCtrl) return; /* trava contra toque duplo */
   cadSt.etiqueta={status:'lendo'}; cadStepDone();
+  const st=cadSt, ativoDaEtiqueta=cadSt.ativoId; /* a etiqueta é deste ativo, aconteça o que acontecer depois */
   try{
     const reader=new NDEFReader();
     const ctrl=new AbortController(); cadNfcCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     reader.onreading=async (e)=>{
+      if(cadSt!==st||cadSt.ativoId!==ativoDaEtiqueta){ cadNfcDesativar(); return; } /* saiu deste cadastro: não grava em outro */
       if(cadSt.etiqueta.status==='gravando'||cadSt.etiqueta.status==='ok') return; /* já processando/processado esta leitura */
       const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
       if(!uid || uid.length<8){ cadNfcDesativar(); cadSt.etiqueta={status:'erro',msg:'Esta tag não expõe um número de série utilizável — use outra.'}; cadStepDone(); return; }
       cadSt.etiqueta={status:'gravando'}; cadStepDone();
       try{
-        const r=await bePost('/etiquetas',{ativoId:cadSt.ativoId,uid});
+        const r=await bePost('/etiquetas',{ativoId:ativoDaEtiqueta,uid});
         const url=PORTAL_BASE+'/a/'+r.token;
         await reader.write({records:[{recordType:'url',data:url}]});
         cadNfcDesativar();
@@ -13239,6 +13985,7 @@ async function ativoDetEditar(){
   try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+d.id); }
   catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
+  cadSt.comuns=Object.assign({},d.dadosGerais||{}); cadSt.comunsMexeu=false;
   cadSt.step='form';
   go('cadastro');
 }
@@ -13271,7 +14018,8 @@ async function cadSigSalvar(){
   const cv=document.getElementById('cadSigPad');
   const dataUrl=cv.toDataURL('image/png');
   document.getElementById('cadSigModal').classList.remove('show');
-  cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'uploading'};
+  const fotos=cadSt.fotos; const aindaAqui=()=>cadSt&&cadSt.fotos===fotos&&cadSt.step==='form'; /* ver cadFotoEscolhida */
+  fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'uploading'};
   cadStepForm();
   try{
     const blob=await (await fetch(dataUrl)).blob();
@@ -13279,12 +14027,12 @@ async function cadSigSalvar(){
     const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok) throw new Error((j&&j.error)||('Erro '+r.status));
-    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:j.driveId,url:j.url,status:'ok'};
+    fotos[campoId]={file:null,previewUrl:dataUrl,driveId:j.driveId,url:j.url,status:'ok'};
   }catch(e){
-    cadSt.fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'error'};
-    toast('Erro ao enviar assinatura: '+e.message);
+    fotos[campoId]={file:null,previewUrl:dataUrl,driveId:null,url:null,status:'error'};
+    if(aindaAqui()) toast('Erro ao enviar assinatura: '+e.message);
   }
-  cadStepForm();
+  if(aindaAqui()) cadStepForm();
 }
 const FUNCIONARIOS=[
   {nome:'João Silva',matricula:'F-1042',cargo:'Técnico Líder',cor:'#0B5CAB',lojas:['Outback · Botafogo','Outback · Barra Shopping','Madero · Leblon']},
@@ -13587,7 +14335,7 @@ function renderPropostasAppr(list){
     +'<div id="propPendList"></div>';
   list.appendChild(sec);
   paintPropPend();
-  fetchPropPendencias().then(()=>{ paintPropPend(); updateApprBadge(); });
+  fetchPropPendencias().then(()=>{ paintPropPend(); updateApprBadge(); updateBell(); });
 }
 function paintPropPend(){
   const el=document.getElementById('propPendList'); if(!el) return;
@@ -13634,7 +14382,7 @@ async function propDecidir(tarefaId,acao){
          :('✅ Periodicidade '+((r&&r.decisao)||'aprovada')+': '+((r&&r.frequenciaDias)||'')+'d'));
   }catch(e){ toast('Erro: '+e.message); }
   /* recarrega em qualquer caso: 409 = outra pessoa já decidiu, e a fila precisa refletir isso */
-  await fetchPropPendencias(); paintPropPend(); updateApprBadge();
+  await fetchPropPendencias(); paintPropPend(); updateApprBadge(); updateBell();
 }
 
 /* ===== GESTÃO DE AVISOS DE CONTRATO — fluxo de aprovação (v2, 11/07/2026) =====
@@ -13666,7 +14414,7 @@ function renderAvisosAppr(list){
     +'</div>';
   list.appendChild(sec);
   paintAvPend();
-  fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); });
+  fetchAvPendencias().then(()=>{ paintAvPend(); updateApprBadge(); updateBell(); });
 }
 function paintAvPend(){
   const el=document.getElementById('avPendList'); if(!el) return;
@@ -13688,7 +14436,7 @@ async function avPendDecidir(avisoId,altId,aprovar){
   try{
     const r=await bePost('/avisos/'+avisoId+'/alteracoes/'+altId+'/'+(aprovar?'aprovar':'rejeitar'), aprovar?{}:{motivo});
     toast(aprovar?('✅ '+((r&&r.tipo)||'Alteração')+' aprovada'+(r&&r.leiturasResetadas?' — todos vão reler o aviso':'')):'Alteração rejeitada');
-    await fetchAvPendencias(); paintAvPend(); updateApprBadge();
+    await fetchAvPendencias(); paintAvPend(); updateApprBadge(); updateBell();
     if(_avGes&&_avGes.ctr) avGesAbrirContrato(_avGes.ctr); /* refresca a lista do modal, se aberto */
   }catch(e){ toast('Erro: '+e.message); }
 }
@@ -14654,7 +15402,12 @@ async function beHydrate(quiet){
     /* 05/08/2026 — fila de periodicidade no hydrate, não só ao abrir a aba: senão o selo do
        sino só apareceria DEPOIS de o Coordenador entrar em Aprovações, que é justamente o
        que ele não faria sem ver o selo. */
-    fetchPropPendencias().then(()=>updateApprBadge()).catch(()=>{});
+    fetchPropPendencias().then(()=>{ updateApprBadge(); updateBell(); }).catch(()=>{});
+    /* 02/10/2026 — a fila de avisos de contrato entra no hydrate pelo MESMO motivo da de
+       periodicidade, e ficou de fora em 05/08: ela ja contava no selo da aba, mas so era
+       carregada ao abrir Aprovacoes, entao o numero so aparecia depois de a pessoa ir ate
+       la por conta propria. */
+    fetchAvPendencias().then(()=>{ updateApprBadge(); updateBell(); }).catch(()=>{});
     pendenteEstocarAtualizarCount().catch(()=>{}); /* pendente estocar p/ home */
     offBadge(); if(!_snapT) offDrain();
   }catch(e){ if(!quiet) toast('Erro: '+e.message); else console.log('[beHydrate quiet] falhou:',e.message); }
@@ -16840,6 +17593,14 @@ function plnProblemasPasso(p,pop){
   }
   if(nfc && !p.modoNFC) av('modoNfc','<b>NFC sem modo.</b> O app não sabe se é para confirmar presença no ponto ou para gravar o serial da peça, e assume confirmar presença.',{rotulo:'confirmar presença',patch:{modoNfc:'Confirmar presença'}});
 
+  /* 28/09/2026 — peso so existe em Condicao. CascataFichaService.recalibrar le apenas passos de
+     Tipo_Campo__c = 'Condicao', entao peso em Medicao fica guardado sem efeito nenhum. E peso NAO
+     e gravidade: a gravidade do achado vem da regra "Marcar como achado". Peso e quanto aquele
+     achado encurta o intervalo daquele equipamento: 0 nao mexe, 1 encurta 15%, 3 encurta 45%. */
+  const _peso=plnNum(p.peso);
+  if(_peso!=null && _peso!==0 && t!=='Condição') av('peso','<b>Peso só tem efeito em Condição.</b> Em '+motEsc(t||'outro tipo')+' o número fica guardado e a periodicidade não se mexe. Se a intenção era encurtar o intervalo, a pergunta precisa ser uma Condição.',{rotulo:'zerar',patch:{peso:0}});
+  if(_peso!=null && _peso!==0 && _peso!==1 && _peso!==3) av('peso','<b>Peso fora da escala.</b> A escala é 0, 1 ou 3: não encurta, encurta 15 por cento, encurta 45 por cento. Qualquer outro número entra na conta do mesmo jeito e ninguém consegue prever o resultado.');
+
   if(min!=null && max!=null && min>max) imp('valorMin','<b>A faixa está invertida:</b> o mínimo ('+min+') é maior que o máximo ('+max+'). Toda leitura cairia fora da faixa e todo passo viraria achado.',{rotulo:'trocar os dois',patch:{valorMin:max,valorMax:min}});
 
   if(p.codigo && !/^[A-Z][A-Z0-9_-]{0,19}$/.test(p.codigo)) av('codigo','<b>Código fora do padrão.</b> Só letras maiúsculas, números, _ e - , começando por letra. Do jeito que está, nenhuma fórmula consegue citar este passo.',{rotulo:'corrigir',patch:{codigo:String(p.codigo).toUpperCase().replace(/[^A-Z0-9_-]/g,'_').replace(/^[^A-Z]+/,'').slice(0,20)}});
@@ -17229,7 +17990,8 @@ function plnPassoEditHtml(p,pop){
   h+=plnMsgHtml(pr,'tipoCampo');
   h+=plnFld('Seção','Secao__c',plnInpHtml('secao',v.secao,'agrupa os passos'));
   h+=plnFld('Ordem','Ordem__c',plnInpHtml('ordem',v.ordem,'','number'));
-  h+=plnFld('Peso','Peso__c',plnInpHtml('peso',v.peso,'gravidade do passo','number'));
+  h+=plnFld('Peso','Peso__c',plnInpHtml('peso',v.peso,'0, 1 ou 3 — só vale em Condição','number'));
+  h+=plnMsgHtml(pr,'peso');
   h+=plnFld('Obrigatório','Obrigatorio__c','<label class="pln-chk"><input type="checkbox" data-p="obrigatorio"'+(v.obrigatorio?' checked':'')+'> o técnico responde ou justifica como não realizado</label>',true);
 
   if(faixa){
