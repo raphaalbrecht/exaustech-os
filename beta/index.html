@@ -13301,10 +13301,42 @@ async function cadPickEquip(i){
     return;
   }
   if(!cadAbandonoOk()) return;
+  /* 09/10/2026 — UV e bomba são filhos da COIFA (decisão de 07/10; Raphael em 09/10: "um sistema UV precisa estar
+     atrelado a uma coifa obrigatoriamente" e "sempre um duto está associado a uma coifa ou mais"). Antes de criar,
+     pergunta de qual coifa é. UV: obrigatório. Bomba: pode ficar direto no sistema (ex.: bomba de lavador). */
+  const k=cadChave(t.nome);
+  if(k==='sistemauv'||k==='bombadagua') return cadEscolherCoifa(t,k==='sistemauv');
+  return cadCriarEquip(t,cadSt.sistema.id);
+}
+async function cadEscolherCoifa(t,obrig){
+  cadTopo('paiCoifa');
+  const el=document.getElementById('cadBody');
+  el.innerHTML='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx()+'<div style="color:#686868">Buscando as coifas do sistema…</div></div>';
+  const tc=(cadSt.tipos||[]).find(x=>cadChave(x.nome)==='coifa');
+  let coifas=[];
+  try{ if(tc) coifas=await beGet('/ativos?paiId='+cadSt.sistema.id+'&tipoId='+tc.id)||[]; }
+  catch(e){ toast('Não consegui buscar as coifas: '+e.message); return cadStepEquip(); }
+  cadSt._coifas=coifas; cadSt._tipoFilho=t;
+  let h='<div style="padding:14px 14px 90px">'+cadHead('equip')+cadCtx();
+  h+='<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">'+(obrig?'Este UV é de qual coifa?':'Esta bomba é de qual coifa?')+'</div>';
+  h+='<div style="font-size:12.5px;color:#686868;margin-bottom:12px">'+(obrig?'O sistema UV fica sempre ligado a uma coifa. Se atende mais de uma (UV no duto), escolha a coifa principal e informe a quantidade na ficha.':'Se a bomba é de uma coifa lavadora, escolha a coifa. Se não, deixe direto no sistema.')+'</div>';
+  if(!coifas.length){
+    h+='<div style="background:#FFF4E5;border:1px solid #F3D3A4;border-radius:10px;padding:12px;font-size:13px;color:#7A4A0E;margin-bottom:12px">Este sistema ainda não tem coifa cadastrada.'+(obrig?' Cadastre a coifa primeiro e depois o UV.':'')+'</div>';
+  }
+  coifas.forEach((c,i)=>{ h+=`<button onclick="cadPaiCoifa(${i})" style="width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:12px;margin-bottom:8px"><b style="font-size:14px;color:#0B2239">${cadEsc(c.nome)}</b>${c.descricao?'<div style="font-size:12px;color:#686868;margin-top:2px">'+cadEsc(c.descricao)+'</div>':''}</button>`; });
+  if(!obrig) h+='<button onclick="cadPaiCoifa(-1)" style="width:100%;background:none;border:1px dashed #BFD5E6;border-radius:12px;padding:12px;color:#3E7EB0;font-size:13px;font-weight:600;margin-bottom:8px">Não é de coifa — direto no sistema</button>';
+  h+='<button onclick="cadStepEquip()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:12px;color:#3A4552;font-size:13px;font-weight:600">‹ Voltar aos equipamentos</button>';
+  el.innerHTML=h+'</div>';
+}
+function cadPaiCoifa(i){ const t=cadSt._tipoFilho; if(!t) return cadStepEquip();
+  const pai=i<0?cadSt.sistema.id:(cadSt._coifas[i]&&cadSt._coifas[i].id); if(!pai) return;
+  return cadCriarEquip(t,pai); }
+async function cadCriarEquip(t,paiId){
+  if(cadSt.criando) return;
   cadSt.criando=true;
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
   try{
-    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId:cadSt.sistema.id});
+    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId});
     cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
     cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
     cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
