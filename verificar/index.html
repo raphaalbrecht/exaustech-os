@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Verificação de documento · Exaustech</title>
+<!-- 09/10/2026 — página pública do QR de autenticidade do PMOC. Decisão: docs/07-MANUTENCAO/DECISAO_assinaturas-e-fluxo-do-pmoc_08-10-2026.md
+     Sem login e sem service worker. Lê ?t=<código> e pergunta ao servidor (GET /publico/pmoc/:t), que só responde a um
+     código válido e devolve dados mínimos (nada de CNPJ, endereço, contato ou valores). -->
+<style>
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f5f8;color:#0B2239}
+  .w{max-width:560px;margin:0 auto;padding:24px 16px}
+  .cab{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #3E7EB0;padding-bottom:12px}
+  .cab img{height:36px}.cab span{font-size:12px;color:#6b6b6b;letter-spacing:.12em;text-transform:uppercase}
+  .st{margin:18px 0 12px;padding:12px 14px;color:#fff;font-weight:700;font-size:15px}
+  .ok{background:#2E844A}.at{background:#FE9339;color:#2a1600}.er{background:#BA0517}.neu{background:#747474}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}
+  td{padding:9px 12px;border-bottom:1px solid #e1e5ea;vertical-align:top}
+  td:first-child{width:38%;color:#6b6b6b;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .hash{font-family:Menlo,Consolas,monospace;font-size:11px;word-break:break-all}
+  a.bt{display:block;text-align:center;margin-top:14px;background:#0B2239;color:#fff;text-decoration:none;padding:13px;font-weight:700}
+  p.obs{font-size:12px;color:#6b6b6b;line-height:1.5}
+</style></head><body><div class="w">
+<div class="cab"><img src="../logo-exaustech.png" alt="Exaustech"><span>Verificação de documento</span></div>
+<div id="r"><p class="obs">Consultando…</p></div>
+<p class="obs">Esta página confirma que o documento foi emitido pela Exaustech. Para conferir um arquivo que você recebeu,
+compare a impressão digital (SHA-256) dele com a mostrada aqui, ou baixe o original abaixo.</p>
+</div>
+<script>
+(function(){
+  var BACKEND='https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
+  var t=new URLSearchParams(location.search).get('t')||'';
+  var el=document.getElementById('r');
+  function e(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function dt(x){ if(!x) return '—'; var d=new Date(x); return isNaN(d)?'—':d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+  if(!/^[A-Za-z0-9_-]{32,64}$/.test(t)){ el.innerHTML='<div class="st er">Código inválido</div><p class="obs">Leia de novo o QR Code impresso no documento.</p>'; return; }
+  fetch(BACKEND+'/publico/pmoc/'+encodeURIComponent(t)).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); }).then(function(x){
+    if(!x.ok){ el.innerHTML='<div class="st er">Documento não encontrado</div><p class="obs">Este código não corresponde a nenhum documento emitido pela Exaustech.</p>'; return; }
+    var j=x.j, h='';
+    if(j.substituido) h+='<div class="st at">Documento autêntico — mas existe revisão mais nova'+(j.revisaoMaisNova&&j.revisaoMaisNova.revisao!=null?' (Rev. '+e(j.revisaoMaisNova.revisao)+')':'')+'. Peça a versão atual.</div>';
+    else h+='<div class="st ok">Documento autêntico — revisão vigente</div>';
+    h+='<table>'
+      +'<tr><td>Documento</td><td>'+e(j.tipo)+(j.revisao!=null?' · Rev. '+e(j.revisao):'')+'</td></tr>'
+      +'<tr><td>Cliente</td><td>'+e(j.cliente||'—')+'</td></tr>'
+      +'<tr><td>Local</td><td>'+e(j.local||'—')+'</td></tr>'
+      +(j.ordemDeServico?'<tr><td>Ordem de serviço</td><td>'+e(j.ordemDeServico)+'</td></tr>':'')
+      +'<tr><td>Emitido em</td><td>'+e(dt(j.geradoEm))+'</td></tr>'
+      +'<tr><td>Emitido por</td><td>'+e(j.emitidoPor)+'</td></tr>'
+      +'<tr><td>SHA-256 do PDF</td><td class="hash">'+e(j.hash||'—')+'</td></tr>'
+      +'</table>';
+    if(j.pdf) h+='<a class="bt" href="'+BACKEND+'/publico/pmoc/'+encodeURIComponent(t)+'/pdf" target="_blank" rel="noopener">Baixar o PDF original</a>';
+    el.innerHTML=h;
+  }).catch(function(){ el.innerHTML='<div class="st neu">Não foi possível consultar agora</div><p class="obs">Verifique a conexão e tente de novo.</p>'; });
+})();
+</script>
+</body></html>
