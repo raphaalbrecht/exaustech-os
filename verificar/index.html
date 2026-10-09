@@ -21,8 +21,10 @@
 </style></head><body><div class="w">
 <div class="cab"><img src="../logo-exaustech.png" alt="Exaustech"><span>Verificação de documento</span></div>
 <div id="r"><p class="obs">Consultando…</p></div>
-<p class="obs">Esta página confirma que o documento foi emitido pela Exaustech. Para conferir um arquivo que você recebeu,
-compare a impressão digital (SHA-256) dele com a mostrada aqui, ou baixe o original abaixo.</p>
+<p class="obs">Esta página confirma que o documento foi emitido pela Exaustech. Em caso de dúvida sobre um arquivo
+recebido, baixe o original abaixo.</p>
+<!-- 09/10/2026 — a impressão digital (SHA-256) NÃO aparece aqui por decisão do Raphael ("prefiro não exibir"). Ela
+     continua gravada no Salesforce (Documento_Cliente__c.Hash_SHA256__c) para conferência interna. -->
 </div>
 <script>
 (function(){
@@ -44,7 +46,6 @@ compare a impressão digital (SHA-256) dele com a mostrada aqui, ou baixe o orig
       +(j.ordemDeServico?'<tr><td>Ordem de serviço</td><td>'+e(j.ordemDeServico)+'</td></tr>':'')
       +'<tr><td>Emitido em</td><td>'+e(dt(j.geradoEm))+'</td></tr>'
       +'<tr><td>Emitido por</td><td>'+e(j.emitidoPor)+'</td></tr>'
-      +'<tr><td>SHA-256 do PDF</td><td class="hash">'+e(j.hash||'—')+'</td></tr>'
       +'</table>';
     if(j.pdf) h+='<a class="bt" href="'+BACKEND+'/publico/pmoc/'+encodeURIComponent(t)+'/pdf" target="_blank" rel="noopener">Baixar o PDF original</a>';
     el.innerHTML=h;
