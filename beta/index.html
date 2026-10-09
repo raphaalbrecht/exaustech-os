@@ -18935,11 +18935,70 @@ async function visCheckout(){
   if(g) corpo.geoCheckout=g.lat.toFixed(6)+','+g.lng.toFixed(6);
   visAcao('checkout', corpo, 'Saída registrada');
 }
+/* ASSINATURA DO LÍDER AO ENCERRAR A VISITA (09/10/2026). Decisão: docs/07-MANUTENCAO/DECISAO_assinaturas-e-fluxo-do-pmoc_08-10-2026.md
+   (Raphael: "ao encerrar a visita" e "usar o texto da OS (v1)"). O líder assina UMA vez por visita, com o dedo, sob a
+   declaração da equipe (SIG_LEGAL v1); a assinatura vai para Assinatura_OS__c ligada ao compromisso e sai impressa no
+   PMOC da OT. Precisa de conexão (envio direto, sem fila): o servidor só conclui a visita depois de ter a assinatura —
+   fila offline aqui inverteria a ordem. Quem não é o líder não conclui a visita (o servidor confere); Coordenador para
+   cima pode concluir sem a assinatura, para não travar uma visita cujo líder não está. */
 async function visConcluir(){
   const d=VIS.aberta; if(!d) return;
   const pend=(d.itens||[]).filter(i=>(i.statusItem||'Pendente')==='Pendente').length;
-  if(pend && !confirm('Ainda há '+pend+' linha(s) sem desfecho nesta OT. Concluir a visita mesmo assim?')) return;
-  visAcao('concluir', {}, 'Visita concluída');
+  if(pend){ toast('Ainda há '+pend+' linha(s) sem desfecho nesta OT: execute ou marque "Não executado" com motivo antes de concluir.'); return visAcao('concluir', {}, 'Visita concluída'); } /* o servidor recusa e lista as linhas; sem assinar à toa */
+  const minha=(d.equipe||[]).find(x=>x.recursoId===myRid());
+  if(minha&&minha.lider) return visSigAbrir(minha);
+  if(['Coordenador','Gerente','Sócio'].includes(ROLE)){
+    if(!confirm('Você não é o líder desta visita. Concluir SEM a assinatura do líder? O PMOC sairá sem ela.')) return;
+    return visAcao('concluir', {semAssinatura:true}, 'Visita concluída');
+  }
+  toast('Quem conclui a visita é o líder da equipe, com a assinatura dele.');
+}
+let visSigCtx=null, visSigSujo=false, visSigDesenhando=false, visSigLider=null;
+function visSigModal(){
+  let m=document.getElementById('visSigModal'); if(m) return m;
+  m=document.createElement('div'); m.id='visSigModal';
+  m.style.cssText='position:fixed;inset:0;z-index:100010;display:none;align-items:center;justify-content:center;background:rgba(8,18,38,.6);padding:16px';
+  m.innerHTML='<div style="background:#fff;border-radius:14px;width:100%;max-width:440px;padding:16px">'
+    +'<div style="font-size:16px;font-weight:800;color:#0B2239">✍️ Assinatura do líder</div>'
+    +'<div id="visSigQuem" style="font-size:12.5px;color:#686868;margin:2px 0 8px"></div>'
+    +'<div id="visSigLegal" style="font-size:12px;color:#3A4552;background:#F4F7F9;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.45"></div>'
+    +'<canvas id="visSigPad" width="320" height="170" style="width:100%;height:170px;border:1px solid #E2E5E9;border-radius:8px;background:#fff;touch-action:none"></canvas>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-neutral" style="flex:1" onclick="visSigLimpar()">Limpar</button>'
+    +'<button class="btn btn-neutral" style="flex:1" onclick="visSigFechar()">Cancelar</button>'
+    +'<button class="btn btn-brand" id="visSigOk" style="flex:1.4" onclick="visSigConfirmar()">Assinar e concluir</button></div></div>';
+  document.body.appendChild(m); return m;
+}
+function visSigAbrir(lider){
+  visSigLider=lider; visSigSujo=false;
+  const m=visSigModal(); m.style.display='flex';
+  document.getElementById('visSigQuem').textContent=(lider.recursoNome||lider.nomeAbreviado||'Líder')+' · Líder de equipe · '+new Date().toLocaleString('pt-BR');
+  document.getElementById('visSigLegal').innerHTML=cadEsc(SIG_LEGAL.equipe)+'<br><span style="color:#686868">'+cadEsc(SIG_LEGAL.base)+'</span>';
+  const cv=document.getElementById('visSigPad'); const r=cv.getBoundingClientRect();
+  cv.width=Math.max(320,r.width||320); cv.height=170;
+  visSigCtx=cv.getContext('2d'); visSigCtx.lineWidth=2.4; visSigCtx.lineCap='round'; visSigCtx.strokeStyle='#0B2239';
+  visSigCtx.clearRect(0,0,cv.width,cv.height);
+  const pos=e=>{ const b=cv.getBoundingClientRect(); const t=(e.touches&&e.touches[0])||e; return {x:t.clientX-b.left,y:t.clientY-b.top}; };
+  const ini=e=>{ e.preventDefault(); visSigDesenhando=true; const p=pos(e); visSigCtx.beginPath(); visSigCtx.moveTo(p.x,p.y); };
+  const mov=e=>{ if(!visSigDesenhando) return; e.preventDefault(); const p=pos(e); visSigCtx.lineTo(p.x,p.y); visSigCtx.stroke(); visSigSujo=true; };
+  const fim=()=>{ visSigDesenhando=false; };
+  cv.onmousedown=ini; cv.onmousemove=mov; cv.onmouseup=fim; cv.onmouseleave=fim; cv.ontouchstart=ini; cv.ontouchmove=mov; cv.ontouchend=fim;
+}
+function visSigLimpar(){ const cv=document.getElementById('visSigPad'); if(visSigCtx) visSigCtx.clearRect(0,0,cv.width,cv.height); visSigSujo=false; }
+function visSigFechar(){ const m=document.getElementById('visSigModal'); if(m) m.style.display='none'; }
+async function visSigConfirmar(){
+  if(!visSigSujo){ toast('Assine antes de confirmar'); return; }
+  const d=VIS.aberta, l=visSigLider; if(!d||!l) return visSigFechar();
+  const bt=document.getElementById('visSigOk'); bt.disabled=true; bt.textContent='Enviando…';
+  try{
+    const meta=_sigMeta();
+    await beUploadAssinatura(dataURLtoBlob(document.getElementById('visSigPad').toDataURL('image/png')),{
+      compromissoId:d.compromisso.id, tipo:'Equipe', alocCompromissoId:l.id||'', nome:l.recursoNome||l.nomeAbreviado||'',
+      cargo:'Líder de equipe', declaracaoVersao:SIG_LEGAL.versao, assinadoEm:new Date().toISOString(),
+      geo:_geoStr(meta), dispositivo:(navigator.userAgent||'').slice(0,200)}, true);
+    visSigFechar();
+    visAcao('concluir', {}, 'Assinatura registrada · visita concluída');
+  }catch(e){ toast('A assinatura não foi enviada: '+(e.message||'sem conexão')+'. Tente de novo com sinal.'); }
+  finally{ bt.disabled=false; bt.textContent='Assinar e concluir'; }
 }
 async function visEnviarNaoConcluir(){
   const mot=(document.getElementById('visNcMotivo')||{}).value;
