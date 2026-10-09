@@ -12820,7 +12820,7 @@ function cadAlcanca(s){
   if(s==='local') return !!cadSt.conta;
   if(s==='sistema') return !!cadSt.local;
   if(s==='equip') return !!cadSt.sistema;
-  if(s==='form') return !!(cadSt.ativoId&&cadSt.form);
+  if(s==='form') return !!((cadSt.ativoId||cadSt.pendente)&&cadSt.form);
   return false;
 }
 /* vai para um passo SEM jogar fora o que já foi escolhido; só recarrega o que ainda não veio */
@@ -12832,9 +12832,23 @@ function cadIr(s){
 }
 /* o equipamento é gravado no Salesforce ao tocar no card, antes da ficha. Trocar algo acima dele
    depois disso deixaria esse ativo sem ficha: pergunta antes. Nada é apagado (regra do projeto). */
+/* 09/10/2026 — o equipamento só nasce no Salesforce no "Salvar cadastro" (cadSt.pendente guarda tipo e pai até
+   lá). Sair no meio não deixa mais registro órfão; o aviso agora é só de perder o que foi preenchido no celular
+   (Raphael: "pode seguir com a mudança"). Ver docs/09-CADASTROS/DECISAO_equipamento-so-nasce-no-salvar_09-10-2026.md */
+function cadPreencheuAlgo(){
+  return Object.values(cadSt.resp||{}).some(v=>String(v==null?'':v).trim()!=='')
+    || Object.values(cadSt.fotos||{}).some(f=>f&&f.status==='ok') || (cadSt.galeria||[]).some(x=>x.status==='ok')
+    || Object.values(cadSt.comuns||{}).some(v=>v!=null&&v!=='');
+}
 function cadAbandonoOk(){
-  if(!cadSt.ativoId||cadSt.step==='done') return true;
-  if(!confirm('O equipamento "'+(cadSt.tipoNome||'')+'" já foi criado no Salesforce e vai ficar sem ficha. Trocar mesmo assim?')) return false;
+  if(cadSt.step==='done') return true;
+  if(!cadSt.ativoId&&!cadSt.pendente) return true;
+  if(cadPreencheuAlgo()){
+    const msg=cadSt.modoEdicao?'As alterações em "'+(cadSt.tipoNome||'')+'" ainda não foram salvas e serão perdidas. Sair mesmo assim?'
+      :'O que você preencheu em "'+(cadSt.tipoNome||'')+'" ainda não foi salvo e será perdido. Sair mesmo assim?';
+    if(!confirm(msg)) return false;
+  }
+  cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false;
   cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
   return true;
 }
@@ -13234,7 +13248,7 @@ function cadStepEquip(){
      mostra um quadro neutro com o nome: nunca imagem quebrada. O card do equipamento já criado
      nesta volta fica marcado, porque tocar nele retoma a ficha. */
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">';
-  h+=equip.map((t,i)=>{ const marcado=cadSt.ativoId&&cadSt.tipoNome===t.nome;
+  h+=equip.map((t,i)=>{ const marcado=(cadSt.ativoId||cadSt.pendente)&&cadSt.tipoNome===t.nome;
     return `<button onclick="cadPickEquip(${i})" style="background:#fff;border:${marcado?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:14px;overflow:hidden;padding:0;display:flex;flex-direction:column">`
       +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none">${CAD_ICONE_TIPO[cadChave(t.nome)]?`<span id="cadtipoph-${t.id}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${CAD_ICONE_TIPO[cadChave(t.nome)]}</span>`:`<span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span>`}</span>`
       +`<span style="display:block;font-size:11.5px;line-height:1.25;font-weight:${marcado?'700':'600'};color:${marcado?'#3E7EB0':'#0B2239'};padding:7px 5px 8px;text-align:center">${cadEsc(t.nome)}</span></button>`; }).join('');
@@ -13290,13 +13304,13 @@ async function cadPickEquip(i){
   /* 06/10/2026 — com o "Voltar" da ficha, tocar de novo no mesmo card criava um SEGUNDO ativo e
      deixava o primeiro sem ficha. Mesmo equipamento = retoma a ficha com as respostas; outro =
      pergunta antes (cadAbandonoOk). */
-  if(cadSt.ativoId && cadSt.form && cadSt.tipoNome===t.nome) return cadStep('form');
+  if((cadSt.ativoId||cadSt.pendente) && cadSt.form && cadSt.tipoNome===t.nome) return cadStep('form');
   if(cadSt.criando) return; /* 06/10/2026 (revisão): toque duplo no card criava dois ativos */
   /* 06/10/2026 (revisão): o ativo foi criado mas a ficha não carregou (rede): tocar de novo no
      mesmo card só busca a ficha outra vez, em vez de criar um segundo ativo e largar o primeiro. */
-  if(cadSt.ativoId && !cadSt.form && cadSt.tipoNome===t.nome){
+  if((cadSt.ativoId||cadSt.pendente) && !cadSt.form && cadSt.tipoNome===t.nome){
     cadSt.criando=true;
-    try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+cadSt.ativoId); cadSt.criando=false; cadSt.step='form'; cadStepForm(); }
+    try{ cadSt.form=await beGet('/formulario-ativo?'+(cadSt.ativoId?'ativoId='+cadSt.ativoId:'tipoId='+cadSt.pendente.tipoId)); cadSt.criando=false; cadSt.step='form'; cadStepForm(); }
     catch(e){ cadSt.criando=false; toast('A ficha não carregou: '+e.message+' — toque no equipamento de novo.'); cadStepEquip(); }
     return;
   }
@@ -13331,17 +13345,19 @@ async function cadEscolherCoifa(t,obrig){
 function cadPaiCoifa(i){ const t=cadSt._tipoFilho; if(!t) return cadStepEquip();
   const pai=i<0?cadSt.sistema.id:(cadSt._coifas[i]&&cadSt._coifas[i].id); if(!pai) return;
   return cadCriarEquip(t,pai); }
+/* 09/10/2026 — não cria mais no Salesforce aqui: só guarda o que vai ser criado (cadSt.pendente) e carrega a
+   ficha pelo TIPO. A criação acontece em cadSalvar. */
 async function cadCriarEquip(t,paiId){
   if(cadSt.criando) return;
   cadSt.criando=true;
-  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Criando…</div>';
+  const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Abrindo a ficha…</div>';
   try{
-    const r=await bePost('/ativos',{contaId:cadSt.conta.id,localId:(cadSt.local&&cadSt.local.id)||undefined,tipoId:t.id,paiId});
-    cadSt.ativoId=r.id; cadSt.tipoNome=t.nome; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
+    cadSt.ativoId=null; cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
+    cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
     cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
-    cadSt.form=await beGet('/formulario-ativo?ativoId='+r.id);
+    cadSt.form=await beGet('/formulario-ativo?tipoId='+t.id);
     cadSt.criando=false; cadSt.step='form'; cadStepForm();
-  }catch(e){ cadSt.criando=false; toast(e.message+(cadSt.ativoId&&!cadSt.form?' — toque no equipamento de novo para carregar a ficha.':'')); cadStepEquip(); }
+  }catch(e){ cadSt.criando=false; toast(e.message+(cadSt.pendente&&!cadSt.form?' — toque no equipamento de novo para carregar a ficha.':'')); cadStepEquip(); }
 }
 function cadDepOk(dep){
   if(!dep||!dep.pergunta) return true;
@@ -13539,11 +13555,11 @@ async function cadLerQrBerliner(){
   if(cadSt.berlinerBusy) return;
   if(navigator.onLine===false){ toast('📴 Sem sinal: a leitura da Berliner precisa de internet. Preencha à mão.'); return; }
   await estoqScanCamAbrir(async (texto)=>{
-    const st=cadSt, aid=cadSt.ativoId; /* revisão 06/10: resposta atrasada não preenche outro equipamento */
+    const st=cadSt, aid=cadSt.ativoId||cadSt.pendente; /* 09/10: antes de salvar não há ativoId; o pendente identifica o equipamento */ /* revisão 06/10: resposta atrasada não preenche outro equipamento */
     cadSt.berlinerBusy=true; cadStepForm();
     try{
       const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(texto));
-      if(cadSt!==st||cadSt.ativoId!==aid){ st.berlinerBusy=false; return; }
+      if(cadSt!==st||(cadSt.ativoId||cadSt.pendente)!==aid){ st.berlinerBusy=false; return; }
       cadSt.berliner=r; cadSt.daBerliner=cadSt.daBerliner||{}; cadSt.sugBerliner=cadSt.sugBerliner||{};
       const n=cadAplicarPorNome(cadSt.form,r.exaustor,cadSt.daBerliner);
       let ns=0;
@@ -13717,7 +13733,15 @@ async function cadSalvar(){
   const col=cadColetar(); if(!cadPodeSalvar(col)) return;
   const respostas=col.respostas;
   cadSt.salvando=true; if(cadSt.step==='revisao') cadStepRevisao();
-  try{ await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
+  try{
+    /* 09/10/2026 — o equipamento nasce AQUI. Se as respostas falharem depois, o ativoId fica guardado e o próximo
+       "Salvar" só regrava as respostas (não cria um segundo). */
+    if(!cadSt.ativoId&&cadSt.pendente){
+      const p=cadSt.pendente;
+      const r=await bePost('/ativos',{contaId:p.contaId,localId:p.localId,tipoId:p.tipoId,paiId:p.paiId});
+      cadSt.ativoId=r.id; cadSt.pendente=null;
+    }
+    await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
     /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
        ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
     if(cadSt.berliner&&cadSt.berliner.link&&cadEhBerliner()){ /* 06/10/2026 (revisão): trocou o fabricante depois do QR → não grava o link da Berliner */
