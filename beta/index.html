@@ -12793,7 +12793,7 @@ const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so a
 function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false}; }
+function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false,comuns:{}}; }
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 /* opc.soConta (07/10/2026, pedido do Raphael): na tela "Novo local" o quadro mostrava o local escolhido ANTES —
    mas um local novo ainda não tem local. Só esconde; a escolha anterior continua guardada para o "Voltar". */
@@ -13320,6 +13320,33 @@ function cadDepOk(dep){
   if(op.indexOf('dif')>=0||op.indexOf('!=')>=0) return atual!==alvo;
   return atual===alvo;
 }
+/* DADOS GERAIS DO EQUIPAMENTO (09/10/2026, item 10 da proposta de campos; Raphael: "No próprio Ativo").
+   Valem para TODO tipo de equipamento e ficam em campos do Ativo (não na ficha), para dar filtro e relatório
+   ("ativos críticos", "acima de 2 m"). Seção fixa no fim da ficha, antes das fotos; grava em chamada própria
+   (POST /ativos/:id/dados-gerais) depois das respostas — se falhar, o cadastro já está salvo.
+   Ver docs/09-CADASTROS/DECISAO_dados-gerais-no-ativo_09-10-2026.md */
+const CAD_DG={
+  plaqueta:{rot:'Plaqueta legível?',ops:[['Sim','Sim'],['Parcial','Parcial'],['Ilegível','Ilegível'],['Sem plaqueta','Sem plaqueta']]},
+  criticidade:{rot:'Criticidade',ops:[['A','A — parada fecha a cozinha'],['B','B — reduz a operação'],['C','C — sem impacto imediato']]},
+  acesso:{rot:'Acesso / altura de trabalho',ops:[['Piso','Piso'],['Escada até 2 m','Escada até 2 m'],['Acima de 2 m (NR-35)','Acima de 2 m (NR-35)'],['Plataforma ou andaime','Plataforma ou andaime'],['Espaço confinado','Espaço confinado']]}
+};
+function cadDadosGeraisHtml(){
+  const g=cadSt.comuns||(cadSt.comuns={});
+  let h='<div class="cad-sec"><div class="cad-sec-cab">Dados gerais do equipamento</div><div class="cad-sec-cont">';
+  Object.keys(CAD_DG).forEach(k=>{ const d=CAD_DG[k];
+    h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">'+cadEsc(d.rot)+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+    d.ops.forEach(([v,l])=>{ const sel=g[k]===v;
+      h+=`<button onclick="cadSetDG('${k}',this.getAttribute('data-v'))" data-v="${cadEsc(v)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(l)}</button>`; });
+    h+='</div></div>'; });
+  h+='<div style="margin-bottom:4px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">Ano de fabricação</div>'
+    +`<input type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear()+1}" placeholder="em branco = não disponível" value="${cadEsc(g.ano==null?'':g.ano)}" oninput="cadSetDGAno(this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px"></div>`;
+  return h+'</div></div>';
+}
+/* tocar de novo na opção marcada desmarca (volta a "não informado") */
+function cadSetDG(k,v){ const g=cadSt.comuns||(cadSt.comuns={}); g[k]=(g[k]===v)?null:v; cadSt.comunsMexeu=true; cadStepForm(); }
+function cadSetDGAno(v){ const g=cadSt.comuns||(cadSt.comuns={}); g.ano=String(v||'').trim()===''?null:v; cadSt.comunsMexeu=true; } /* sem re-render: não perde o foco do teclado */
+function cadDGRotulo(k,v){ if(k==='ano') return v==null||v===''?null:String(v); const o=(CAD_DG[k].ops||[]).find(x=>x[0]===v); return o?o[1]:null; }
+function cadDGAnoOk(){ const a=(cadSt.comuns||{}).ano; if(a==null||a==='') return true; const n=Number(a); return Number.isInteger(n)&&n>=1950&&n<=new Date().getFullYear()+1; }
 function cadStepForm(){
   cadTopo('form');
   const el=document.getElementById('cadBody'); const f=cadSt.form;
@@ -13409,6 +13436,7 @@ function cadStepForm(){
     });
     h+='</div></div>'; /* fecha .cad-sec-cont e .cad-sec */
   });
+  if(!travado) h+=cadDadosGeraisHtml();
   if(!travado) h+='<div class="cad-sec"><div class="cad-sec-cab">Fotos do equipamento</div><div class="cad-sec-cont" id="cadGaleria">'+cadGaleriaHtml()+'</div></div>';
   if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
@@ -13664,6 +13692,11 @@ async function cadSalvar(){
       try{ await bePost('/ativos/'+cadSt.ativoId+'/link-fabricante',{url:cadSt.berliner.link}); }
       catch(e){ toast('⚠️ Cadastro salvo, mas o link da Berliner não foi gravado: '+e.message); }
     }
+    /* dados gerais: só manda se alguém mexeu (na edição, não regrava o que veio do servidor sem mudança) */
+    if(cadSt.comunsMexeu){
+      try{ await bePost('/ativos/'+cadSt.ativoId+'/dados-gerais',cadSt.comuns||{}); cadSt.comunsMexeu=false; }
+      catch(e){ toast('⚠️ Cadastro salvo, mas os dados gerais não foram gravados: '+e.message); }
+    }
     await cadGaleriaVincular();
     cadSt.salvando=false; cadSt.step='done'; cadStepDone(); }
   catch(e){ cadSt.salvando=false; if(cadSt.step==='revisao') cadStepRevisao(); toast(e.message); }
@@ -13686,6 +13719,7 @@ async function cadGaleriaVincular(){
 async function cadGaleriaRepetir(){ await cadGaleriaVincular(); cadStepDone(); }
 function cadIrRevisao(){
   const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  if(!cadDGAnoOk()){ toast('Ano de fabricação inválido: use 4 dígitos (1950 a '+(new Date().getFullYear()+1)+') ou deixe em branco.'); return; }
   cadSt.step='revisao'; cadStepRevisao();
 }
 function cadVoltarFicha(){ cadSt.step='form'; cadStepForm(); }
@@ -13719,6 +13753,15 @@ function cadStepRevisao(){
     });
     h+='</div>';
   });
+  { const g=cadSt.comuns||{};
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Dados gerais do equipamento</b>'
+      +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
+    [['plaqueta','Plaqueta legível?'],['criticidade','Criticidade'],['acesso','Acesso / altura de trabalho'],['ano','Ano de fabricação']].forEach(([k,r])=>{
+      const v=cadDGRotulo(k,g[k]); if(v==null) vazios++;
+      h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px"><div style="flex:0 0 44%;color:#686868">'+cadEsc(r)+'</div>'
+        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?'#AEB8C2':'#0B2239')+'">'+(v==null?'não informado':cadEsc(v))+'</div></div>'; });
+    h+='</div>'; }
   { const g=cadGaleria().filter(x=>x.status==='ok');
     h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Fotos do equipamento ('+g.length+')</b>'
@@ -13886,6 +13929,7 @@ async function ativoDetEditar(){
   try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+d.id); }
   catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
+  cadSt.comuns=Object.assign({},d.dadosGerais||{}); cadSt.comunsMexeu=false;
   cadSt.step='form';
   go('cadastro');
 }
