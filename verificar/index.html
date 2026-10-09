@@ -16,6 +16,7 @@
   td{padding:9px 12px;border-bottom:1px solid #e1e5ea;vertical-align:top}
   td:first-child{width:38%;color:#6b6b6b;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
   .hash{font-family:Menlo,Consolas,monospace;font-size:11px;word-break:break-all}
+  label.bt2{display:block;text-align:center;margin-top:10px;border:1px solid #0B2239;color:#0B2239;padding:12px;font-weight:700;cursor:pointer;background:#fff}
   a.bt{display:block;text-align:center;margin-top:14px;background:#0B2239;color:#fff;text-decoration:none;padding:13px;font-weight:700}
   p.obs{font-size:12px;color:#6b6b6b;line-height:1.5}
 </style></head><body><div class="w">
@@ -33,6 +34,22 @@ recebido, baixe o original abaixo.</p>
   var el=document.getElementById('r');
   function e(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function dt(x){ if(!x) return '—'; var d=new Date(x); return isNaN(d)?'—':d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+  function conferir(ev){
+    var f=ev.target.files&&ev.target.files[0], c=document.getElementById('conf'); if(!f) return;
+    if(!(window.crypto&&crypto.subtle)){ c.innerHTML='<div class="st neu">Este navegador não consegue conferir arquivos.</div>'; return; }
+    c.innerHTML='<p class="obs">Conferindo '+e(f.name)+'…</p>';
+    f.arrayBuffer().then(function(buf){ return crypto.subtle.digest('SHA-256',buf); }).then(function(d){
+      var hex=Array.prototype.map.call(new Uint8Array(d),function(b){return ('0'+b.toString(16)).slice(-2);}).join('');
+      return fetch(BACKEND+'/publico/pmoc/'+encodeURIComponent(t)+'/conferir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sha256:hex})});
+    }).then(function(r){ return r.json(); }).then(function(j){
+      var m={original:['ok','É o original — o arquivo é idêntico ao emitido pela Exaustech.'],
+             outra_revisao:['at','É um original da Exaustech, mas de outra revisão'+(j.revisao!=null?' (Rev. '+e(j.revisao)+')':'')+'. Confira se é a versão atual.'],
+             alterado:['er','Este arquivo NÃO é igual ao emitido: foi alterado ou é outro documento.'],
+             sem_referencia:['neu','Este documento não tem referência para conferência.']}[j.resultado]||['neu','Não foi possível conferir.'];
+      c.innerHTML='<div class="st '+m[0]+'">'+m[1]+'</div>';
+    }).catch(function(){ c.innerHTML='<div class="st neu">Não foi possível conferir agora.</div>'; });
+    ev.target.value='';
+  }
   if(!/^[A-Za-z0-9_-]{32,64}$/.test(t)){ el.innerHTML='<div class="st er">Código inválido</div><p class="obs">Leia de novo o QR Code impresso no documento.</p>'; return; }
   fetch(BACKEND+'/publico/pmoc/'+encodeURIComponent(t)).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); }).then(function(x){
     if(!x.ok){ el.innerHTML='<div class="st er">Documento não encontrado</div><p class="obs">Este código não corresponde a nenhum documento emitido pela Exaustech.</p>'; return; }
@@ -48,7 +65,11 @@ recebido, baixe o original abaixo.</p>
       +'<tr><td>Emitido por</td><td>'+e(j.emitidoPor)+'</td></tr>'
       +'</table>';
     if(j.pdf) h+='<a class="bt" href="'+BACKEND+'/publico/pmoc/'+encodeURIComponent(t)+'/pdf" target="_blank" rel="noopener">Baixar o PDF original</a>';
+    /* 09/10/2026 — conferir um arquivo recebido: a impressão digital é calculada AQUI, no aparelho; só ela vai ao
+       servidor, que responde original / outra revisão / alterado. O PDF não sai do celular. */
+    h+='<label class="bt2">Conferir um arquivo que recebi<input type="file" accept="application/pdf,.pdf" id="arq" hidden></label><div id="conf"></div>';
     el.innerHTML=h;
+    document.getElementById('arq').addEventListener('change', conferir);
   }).catch(function(){ el.innerHTML='<div class="st neu">Não foi possível consultar agora</div><p class="obs">Verifique a conexão e tente de novo.</p>'; });
 })();
 </script>
