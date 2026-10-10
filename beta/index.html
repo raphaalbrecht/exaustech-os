@@ -15946,6 +15946,7 @@ async function motAbrirOtId(){
     const j=await beGet('/motor/execucao/'+v);
     MOT.ot=j.ot; MOT.tarefas=(j.tarefas||[]).map(motNormalizarTarefa);
     MOT.otId=v; MOT.atual=-1; MOT.rev=null; MOT.edit=false; MOT.vista='lista'; MOT.filtro=0; MOT.ordem=[]; MOT._shellOtId=null;
+    MOT.visitaId=null; /* 10/10/2026: OT aberta por Id não veio de visita — sem botão "Voltar à visita" */
     MOT.tarefas.forEach((t,i)=>{ if(t.statusItem!=='Pendente') MOT.ordem.push(i); });
     toast('OT '+(MOT.ot.name||v)+' carregada — '+MOT.tarefas.length+' tarefa'+(MOT.tarefas.length===1?'':'s'));
   }catch(e){ MOT._erro='Não foi possível abrir a OT: '+e.message; }
@@ -15970,6 +15971,7 @@ function motRenderShell(root){
     '<div class="mot-main">'+
       '<div class="mot-vista on" id="mot-vista-lista">'+
         '<div class="mot-fimchip" id="mot-fimchip">✓ OT concluída</div>'+
+        (MOT.visitaId?'<div style="margin:10px 14px 0"><button class="mot-abrirlista" id="mot-shvoltar">‹ Voltar à visita</button></div>':'')+
         '<div class="mot-sechd">Tarefas da visita</div>'+
         '<div class="mot-dlist" id="mot-lista">'+MOT.tarefas.map((t,i)=>motRowHtml(t,i)).join('')+'</div>'+
         '<div class="mot-fvazio" id="mot-fvazio">nenhuma tarefa neste filtro</div>'+
@@ -15990,6 +15992,7 @@ function motRenderShell(root){
   document.getElementById('mot-vbTl').addEventListener('click',()=>motSetVista('tl'));
   document.getElementById('mot-fsel').addEventListener('change',function(){ motSetFiltro(this.value); });
   document.getElementById('mot-heroProgCard').addEventListener('click',motAlternarFiltro);
+  const sv=document.getElementById('mot-shvoltar'); if(sv) sv.addEventListener('click',motVoltarVisita);
   MOT.tarefas.forEach((t,i)=>{
     const row=document.getElementById('mot-row-'+i);
     if(row) row.addEventListener('click',()=>{ if(motDesfecho(t)) motAbrirLeitura(i); else motAbrir(i); });
@@ -16043,6 +16046,7 @@ function motAtualizarProgresso(){
   if(psub) psub.textContent=(total&&done>=total)?'':('concluídas: '+done+(skips?' · '+skips+' não executada'+(skips>1?'s':''):''));
   const hp=document.getElementById('mot-heroProg'); if(hp) hp.textContent=done+' de '+total;
   const fc=document.getElementById('mot-fimchip'); if(fc) fc.style.display=(total&&done>=total)?'block':'none';
+  const sv=document.getElementById('mot-shvoltar'); if(sv) sv.textContent=(total&&done>=total)?'Voltar à visita e encerrar ›':'‹ Voltar à visita';
   motAplicarFiltro();
 }
 
@@ -16092,9 +16096,21 @@ function motResumo(){
     (skips.length?'<span class="mot-pill">⊘ '+skips.length+' não executada'+(skips.length>1?'s':'')+'</span>':'')+'</div>'+
     (crit?'<div class="mot-critban">⚠ '+crit+' achado CRÍTICO — coordenador notificado.</div>':'')+
     (skips.length?'<div class="mot-skiplist"><b>⊘ Não executadas</b> — serão reprogramadas:'+skips.map(s=>'<br>• '+motEsc(s.nome)+' — '+motEsc(s.motivo||'')).join('')+'</div>':'')+
-    '<div class="mot-justsub" style="margin-top:12px">A OT fecha automaticamente no servidor quando todas as tarefas saem de "Pendente".</div>'+
-    '<button class="mot-okbig" id="mot-fecharfim">Fechar</button></div>';
+    '<div class="mot-justsub" style="margin-top:12px">'+(MOT.visitaId
+      ?'Agora volte à visita para encerrá-la — é lá que o líder assina e a visita é concluída.'
+      :'A OT fecha automaticamente no servidor quando todas as tarefas saem de "Pendente".')+'</div>'+
+    (MOT.visitaId?'<button class="mot-okbig" id="mot-voltarvisita">Voltar à visita e encerrar</button>':'')+
+    (MOT.visitaId?'<button class="mot-voltalink" id="mot-fecharfim">Fechar e ficar na lista</button>':'<button class="mot-okbig" id="mot-fecharfim">Fechar</button>')+'</div>';
   document.getElementById('mot-fecharfim').addEventListener('click',motFecharSheet);
+  const vv=document.getElementById('mot-voltarvisita'); if(vv) vv.addEventListener('click',motVoltarVisita);
+}
+/* 10/10/2026: volta para a folha da visita que abriu o checklist ("Concluir visita" + assinatura do líder ficam lá).
+   visCarregar(true) atualiza também o card da agenda, que senão mostrava "0 de 3" até o próximo ciclo de 90 s. */
+function motVoltarVisita(){
+  clearTimeout(MOT.timer);
+  motFecharSheet();
+  go('schedule');
+  if(MOT.visitaId){ try{ visCarregar(true); }catch(e){} visAbrir(MOT.visitaId); }
 }
 
 /* ---------- fase machine (chips Antes/Execução/Depois/Desfecho + revisão) ---------- */
@@ -18862,6 +18878,7 @@ function visPintarSheet(){
     h+='<div style="background:#F4F7FA;border-radius:10px;padding:12px;margin-top:12px;font:500 12.5px system-ui;color:#4A5560">'+
       'Visita '+motEsc(c.status)+(c.motivoNaoConclusao?': '+motEsc(c.motivoNaoConclusao):'')+(c.detalheMotivo?' — '+motEsc(c.detalheMotivo):'')+'</div>';
     h+='<button class="vis-btn sec" onclick="visAbrirChecklist()">Ver o checklist da '+motEsc((c.ot&&c.ot.name)||'OT')+'</button>';
+    h+='<button class="vis-btn sec" onclick="visFechar()">Voltar à agenda</button>'; /* 10/10/2026: saída explícita, não só o × */
   }
   if((d.retornos||[]).length){
     h+='<div style="font:800 11.5px system-ui;letter-spacing:.6px;color:#5A6B7B;text-transform:uppercase;margin:14px 0 4px">Retorno</div>';
@@ -19020,6 +19037,9 @@ async function visAbrirChecklist(){
     const j=await beGet('/motor/execucao/'+otId);
     MOT.ot=j.ot; MOT.tarefas=(j.tarefas||[]).map(motNormalizarTarefa);
     MOT.otId=otId; MOT.atual=-1; MOT.rev=null; MOT.edit=false; MOT.vista='lista'; MOT.filtro=0; MOT.ordem=[]; MOT._shellOtId=null;
+    /* 10/10/2026: o motor guarda de qual visita veio. "Concluir visita" e a assinatura do líder moram na folha da
+       visita, e sem este Id o fim da última atividade era um beco sem saída (relato do Raphael no teste da OT). */
+    MOT.visitaId=d.compromisso.id;
     MOT.tarefas.forEach((t,i)=>{ if(t.statusItem!=='Pendente') MOT.ordem.push(i); });
     go('motor');
     toast('OT '+(MOT.ot.name||'')+' — '+MOT.tarefas.length+' tarefa'+(MOT.tarefas.length===1?'':'s'));
