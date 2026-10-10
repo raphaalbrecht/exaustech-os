@@ -16507,12 +16507,17 @@ function motTypedStepHtml(t,p,aff){
     const min=p.valorMinVigente!=null?p.valorMinVigente:0;
     const max=p.valorMaxVigente;
     const v=p.valorNumerico!=null?p.valorNumerico:min;
+    /* 10/10/2026: antes da 1ª resposta o contador mostrava o mínimo ("0") e parecia respondido, mas só
+       conta como feito depois de um toque — no teste da OT-1931 isso travou a tarefa sem aviso. Agora
+       mostra "—" e um botão para confirmar o valor inicial, quando ele é a resposta certa. */
+    const resp=p.statusPasso==='Feito';
     h+='<div class="mot-cntrow">'+
       '<button class="mot-cntbtn" data-cnt="-" data-pid="'+p.id+'"'+(v<=min?' disabled':'')+'>−</button>'+
-      '<span class="mot-cntval">'+motFmt(v)+'</span>'+
+      '<span class="mot-cntval">'+(resp?motFmt(v):'—')+'</span>'+
       (p.unidade?'<span class="mot-cntun">'+motEsc(p.unidade)+'</span>':'')+
       '<button class="mot-cntbtn" data-cnt="+" data-pid="'+p.id+'"'+(max!=null&&v>=max?' disabled':'')+'>+</button>'+
       '</div>'+
+      (resp?'':'<button class="mot-copt" style="margin-top:6px" data-cntok="'+p.id+'">✓ confirmar '+motFmt(min)+'</button>')+
       (max!=null?'<div class="mot-mopthint">faixa vigente do ativo: '+motFmt(min)+'–'+motFmt(max)+'</div>':'');
   }else if(p.tipoCampo==='Data'){
     h+='<input type="date" class="mot-datein" data-pid="'+p.id+'" value="'+motEsc((p.valorData||'').slice(0,10))+'">';
@@ -16669,6 +16674,18 @@ function motWireNovosTipos(cont,t){
       motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
     });
   });
+  /* 10/10/2026: "✓ confirmar N" grava o valor inicial do contador como resposta */
+  cont.querySelectorAll('[data-cntok]').forEach(b=>{
+    b.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const p=motAcharPassoPorId(t,b.dataset.cntok); if(!p) return;
+      clearTimeout(MOT.timer);
+      const v=p.valorMinVigente!=null?p.valorMinVigente:0;
+      p.valorNumerico=v; p._dec=null; p.horaRegistro=new Date().toISOString(); p.statusPasso='Feito';
+      motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:v});
+      motMarcarEdicao(t); motRenderAtual(); motMaybeAvancaChecklist(t);
+    });
+  });
   /* NFC: o botao so aparece onde o Web NFC existe; o campo manual aparece sempre. */
   cont.querySelectorAll('.mot-nfcin').forEach(inp=>{
     inp.addEventListener('change',()=>{
@@ -16777,7 +16794,18 @@ function motRenderCheck(){
      jogado de volta pro item 1. O usuário lê isso como "travou/pulou" — e ainda deixava
      scrollTop=0, que rearmava o arrasto-fecha do onMove. Guardar e devolver resolve os dois. */
   const scrollAntes = body.scrollTop;
-  body.innerHTML=motAvisosHtml(t)+'<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true);
+  /* 10/10/2026: o checklist avança sozinho quando tudo está resolvido, mas não dizia o que faltava — com um
+     item pendente a tela ficava sem botão nenhum ("tudo feito mas não tem fluxo", teste da OT-1931). Este
+     rodapé lista o que falta; tocar no nome leva até a pergunta. */
+  const falta=(t.passos||[]).filter(p=>!motItemResolvido(t,p));
+  const rodape=falta.length?('<div class="mot-ckhd" style="margin-top:14px"><b>Falta responder '+falta.length+':</b> '+
+      falta.map(p=>'<a href="#" data-irpasso="'+p.id+'">'+motEsc(p.descricao)+'</a>').join(' · ')+
+      '<br>Texto e código só contam ao sair do campo. Se um item não pôde ser feito, toque no ⊘ ao lado dele.</div>'):'';
+  body.innerHTML=motAvisosHtml(t)+'<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true)+rodape;
+  body.querySelectorAll('[data-irpasso]').forEach(a=>a.addEventListener('click',ev=>{
+    ev.preventDefault(); const el=body.querySelector('.mot-ckstep[data-pid="'+a.dataset.irpasso+'"],.mot-ckrow[data-pid="'+a.dataset.irpasso+'"]');
+    if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+  }));
   motWireTyped(body,t); motWireCkRows(body,t);
   motHidratarThumbs(body);
   body.scrollTop = scrollAntes;
