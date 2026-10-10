@@ -15927,7 +15927,8 @@ async function motProcessFoto(file,info){
   const t=info&&info.t;
   const marca={rotulo:info&&info.rotulo,
     ot:(MOT.ot&&MOT.ot.name)||'',
-    equip:t?[t.ativoNome,t.ativoDescricao].filter(Boolean).join(' · '):''};
+    /* 10/10/2026: Raphael, vendo a 1ª foto real: "remover: 00025 · Linha 01" — a faixa fica logo + ANTES + OT + data/GPS */
+    equip:''};
   ctx.drawImage(bmp,0,0,W,H); motDrawWatermark(ctx,W,H,new Date(),geo,marca);
   return new Promise(res=>cv.toBlob(b=>res(b||file),'image/jpeg',0.82));
 }
