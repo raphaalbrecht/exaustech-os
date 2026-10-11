@@ -12861,6 +12861,7 @@ function cadAbandonoOk(){
   }
   cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false;
   cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
+  cadSt.motorConf=null; /* 11/10/2026: saiu da ficha do motor conferido → o próximo equipamento não herda a conferência */
   return true;
 }
 function cadHead(step,sub){
@@ -13365,6 +13366,7 @@ async function cadCriarEquip(t,paiId){
   try{
     cadSt.ativoId=null; cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
     cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
+    cadSt.motorConf=null; /* 11/10/2026: equipamento escolhido na grade não é o motor conferido pelo QR */
     cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
     cadSt.form=await beGet('/formulario-ativo?tipoId='+t.id);
     cadSt.criando=false; cadSt.step='form'; cadStepForm();
@@ -13415,6 +13417,11 @@ function cadStepForm(){
   /* 06/10/2026 — com Berliner marcado, a ficha para no Fabricante até a pessoa escolher entre ler o
      QR e inserir à mão (pedido do Raphael): os demais campos e o Salvar só aparecem depois. */
   let travado=false;
+  /* 11/10/2026 — motor vindo do QR Berliner: painel de conferência no topo; sem resposta, a ficha fica travada */
+  if(cadSt.motorConf){
+    if(cadSt.motorConf.exaustorNome) h+='<div style="font-size:12px;color:#686868;margin:0 2px 10px">Motor do '+cadEsc(cadSt.motorConf.exaustorNome)+'</div>';
+    h+=cadPainelMotor(); if(!cadSt.motorConf.resultado) travado=true;
+  }
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
     if(travado) return;
     const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia));
@@ -13427,8 +13434,8 @@ function cadStepForm(){
       /* 06/10/2026 — pergunta com o mesmo nome da seção ("Fabricante" › "Fabricante") não repete o
          rótulo (print do Raphael); asterisco e selos, se houver, continuam. */
       const rotuloRepete=cadChave(c.nome)===cadChave(s.nome);
-      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px'+(rotuloRepete?';min-height:0':'')+'">'+(rotuloRepete?'':cadEsc(c.nome))+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(c.fotoObrigatoria?' <span style="color:#C4451B">(foto obrigatória)</span>':'')
-        +(cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px'+(rotuloRepete?';min-height:0':'')+'">'+(rotuloRepete?'':cadEsc(c.nome))+(c.obrigatorio?' <span style="color:#C4451B">*</span>':'')+(cadFotoObrig(c)?' <span style="color:#C4451B">(foto obrigatória)</span>':'') /* 11/10: ficha OU plaqueta do motor conferido */
+        +(cadMotorSelo(c)!=null?cadMotorSelo(c):cadSt.daBerliner&&cadSt.daBerliner[c.id]?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>':'')
         +(cadSt.sugBerliner&&cadSt.sugBerliner[c.id]?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">sugerido · confira</span><div style="font-size:11px;color:#9A5A14;margin-top:2px">'+cadEsc(cadSt.sugBerliner[c.id])+'</div>':'')
         +'</div>';
       if(c.tipo==='Foto'){
@@ -13464,7 +13471,8 @@ function cadStepForm(){
           ops.forEach(o=>{
             const sel=multi?selecionados.includes(o.label):(cadSt.resp[c.id]===o.label);
             const fn=multi?`cadToggleMulti('${c.id}',this.getAttribute('data-l'))`:`cadSet('${c.id}',this.getAttribute('data-l'))`;
-            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="width:31%;border:${sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;overflow:hidden;background:#fff;padding:0">`;
+            const dif=sel&&cadMotorDifere(c.id); /* 11/10/2026: valor diferente do de fábrica em laranja */
+            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="width:31%;border:${dif?'2px solid #E8730C':sel?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:12px;overflow:hidden;background:#fff;padding:0">`;
             if(o.imagemUrl){ h+=`<span style="display:block;aspect-ratio:1;background:#fff"><img id="cadimg-${o.id}" style="width:100%;height:100%;object-fit:contain" alt=""></span>`; imgs.push(o.id); }
             else h+='<span style="display:block;aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:10px">sem img</span>';
             h+=`<span style="display:block;font-size:11px;text-align:center;padding:5px;font-weight:${sel?'700':'500'};color:${sel?'#3E7EB0':'#3A4552'}">${cadEsc(o.label)}</span></button>`;
@@ -13474,13 +13482,15 @@ function cadStepForm(){
           h+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
           ops.forEach(o=>{ const sel=multi?selecionados.includes(o.label):(cadSt.resp[c.id]===o.label);
             const fn=multi?`cadToggleMulti('${c.id}',this.getAttribute('data-l'))`:`cadSet('${c.id}',this.getAttribute('data-l'))`;
-            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(o.label)}</button>`; });
+            const dif=sel&&cadMotorDifere(c.id); /* 11/10/2026: valor diferente do de fábrica em laranja */
+            h+=`<button onclick="${fn}" data-l="${cadEsc(o.label)}" style="border:1px solid ${dif?'#E8730C':sel?'#3E7EB0':'#E2E5E9'};background:${dif?'#FFF4E5':sel?'#EAF1F7':'#fff'};color:${dif?'#9A5A14':sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(o.label)}</button>`; });
           h+='</div>';
         } else {
           const num=(c.tipo==='Número');
-          h+=`<input type="${num?'number':'text'}" value="${cadEsc(cadSt.resp[c.id]||'')}" oninput="cadSetText('${c.id}',this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px">`;
+          h+=`<input type="${num?'number':'text'}" value="${cadEsc(cadSt.resp[c.id]||'')}" oninput="cadSetText('${c.id}',this.value)" style="width:100%;padding:10px;border:1px solid ${cadMotorDifere(c.id)?'#E8730C':'#E2E5E9'};border-radius:8px;font-size:14px">`;
         }
       }
+      h+=cadMotorDefab(c); /* 11/10/2026: "de fábrica: X → instalado: Y" no motor conferido */
       h+='</div>';
       if(cadChave(c.nome)==='fabricante'){
         if(cadEhBerliner()){ h+=cadPainelBerliner(); if(cadBerlinerAguardando()) travado=true; }
@@ -13497,6 +13507,7 @@ function cadStepForm(){
   });
   if(!travado) h+=cadDadosGeraisHtml();
   if(!travado) h+='<div class="cad-sec"><div class="cad-sec-cab">Fotos do equipamento</div><div class="cad-sec-cont" id="cadGaleria">'+cadGaleriaHtml()+'</div></div>';
+  if(!travado) h+=cadMotorAvisoPe(); /* 11/10/2026 */
   if(!travado) h+='<button onclick="cadIrRevisao()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;margin-top:10px">Conferir dados ›</button>'; /* 06/10/2026: salvar só na conferência */
   h+='</div>'; el.innerHTML=h;
   imgs.forEach(id=>cadLoadImg(id));
@@ -13602,6 +13613,165 @@ async function cadCriarMotorBerliner(){
     b.motorStatus='ok'; b.motorN=respostas.length;
   }catch(e){ b.motorStatus='erro'; b.motorErro=e.message; }
   if(cadSt===st&&cadSt.step==='done') cadStepDone(); /* saiu da conclusão: não redesenha por cima */
+}
+/* CONFERÊNCIA DO MOTOR × FÁBRICA (11/10/2026, decisão do Raphael). Antes, "Criar o motor vinculado" (função acima,
+   mantida sem uso) gravava o motor em silêncio com os dados do QR — e o motor instalado pode não ser o de fábrica
+   (trocado, rebobinado). Agora o botão abre a ficha do MOTOR com o painel "Motor previsto pelo fabricante" e a
+   pergunta "O motor instalado é este?"; o resto da ficha fica travado até responder (mesmo padrão do painel
+   Berliner do exaustor). O motor continua nascendo só no "Salvar cadastro" (cadSt.pendente, decisão de 09/10):
+   sair no meio não deixa motor órfão. Vale o motor REAL (resposta da ficha); o de fábrica vai junto em
+   Valor_Fabricante__c, e o resultado em POST /ativos/:id/conferencia-motor.
+   Ver docs/09-CADASTROS/DECISAO_conferencia-motor-berliner_11-10-2026.md */
+const CAD_MOTOR_MOTIVOS=['Motor trocado','Rebobinado/alterado','Ficha do fabricante errada','Não sei']; /* valores exatos da picklist da org */
+const CAD_MOTOR_PREVISTO=[['Fabricante','Fabricante'],['Potência (CV)','Potência'],['Rotação / polos','Rotação / polos'],['Fases','Fases'],['Tensão','Tensão'],['Carcaça IEC','Carcaça IEC']];
+async function cadAbrirMotorBerliner(){
+  const b=cadEhBerliner()?cadSt.berliner:null; if(!b||!b.motor||cadSt.criando||!cadSt.ativoId) return;
+  const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
+  if(!tipoMotor){ toast('Tipo de equipamento Motor não encontrado'); return; }
+  if(navigator.onLine===false){ toast('📴 Sem sinal: a conferência do motor precisa de internet.'); return; }
+  /* a tela de conclusão do exaustor é substituída pela ficha do motor: a etiqueta dele precisa ser gravada antes */
+  const et=cadSt.etiqueta||{};
+  if(et.status!=='ok'&&estoqNfcSuportado()&&!confirm('A etiqueta NFC deste exaustor ainda não foi gravada e esta tela vai fechar. Conferir o motor mesmo assim?')) return;
+  const st=cadSt; cadSt.criando=true; b.motorStatus='abrindo'; cadStepDone();
+  try{
+    const form=await beGet('/formulario-ativo?tipoId='+tipoMotor.id);
+    if(cadSt!==st||cadSt.step!=='done'){ st.criando=false; return; }
+    const fab={}; cadAplicarPorNome(form,b.motor,null,fab); /* {campoId: valor de fábrica}, só o que existe na lista da ficha */
+    cadNfcDesativar();
+    cadSt.motorConf={exaustorId:cadSt.ativoId,exaustorNome:[cadSt.tipoNome,b.exaustor&&b.exaustor['Modelo']].filter(Boolean).join(' '),
+      previsto:Object.assign({},b.motor),kw:(b.extras&&b.extras.motorKw)||null,fab,resultado:null,motivo:null,gravada:null,erro:null};
+    cadSt.pendente={tipoId:tipoMotor.id,paiId:cadSt.ativoId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
+    cadSt.ativoId=null; cadSt.tipoNome=tipoMotor.nome; cadSt.form=form; cadSt.resp={}; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false;
+    cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
+    cadSt.etiqueta={status:'idle'}; cadSt.modoEdicao=false;
+    cadSt.criando=false; cadSt.step='form'; cadStepForm();
+  }catch(e){ st.criando=false; b.motorStatus='erro'; b.motorErro='A ficha do motor não abriu: '+e.message; if(cadSt===st&&cadSt.step==='done') cadStepDone(); }
+}
+/* responder a pergunta. Confere / não vejo: a ficha fica com o de fábrica (escolher "Confere" depois de mexer
+   desfaz a mexida). Não confere: parte do de fábrica e o técnico muda só o que difere. */
+function cadMotorResponder(r){
+  const m=cadSt.motorConf; if(!m) return;
+  m.resultado=r; if(r!=='diferente') m.motivo=null;
+  Object.entries(m.fab).forEach(([id,v])=>{
+    if(r!=='diferente'||cadSt.resp[id]==null||String(cadSt.resp[id]).trim()==='') cadSt.resp[id]=v;
+    cadSt.daBerliner[id]=true;
+  });
+  cadStepForm();
+}
+function cadMotorMudar(){ if(cadSt.motorConf){ cadSt.motorConf.resultado=null; cadStepForm(); } }
+function cadMotorMotivo(v){ const m=cadSt.motorConf; if(!m) return; m.motivo=(m.motivo===v)?null:v; cadStepForm(); }
+/* campo em branco não conta como diferença: "não sei" não é "é outro" */
+function cadMotorDifere(campoId){ const m=cadSt.motorConf; if(!m||m.fab[campoId]==null) return false;
+  const v=String(cadSt.resp[campoId]==null?'':cadSt.resp[campoId]).trim(); return v!==''&&v!==String(m.fab[campoId]); }
+function cadMotorDiferencas(){ const m=cadSt.motorConf; if(!m) return [];
+  return cadCamposDoForm(cadSt.form).filter(c=>cadMotorDifere(c.id)).map(c=>({nome:c.nome,de:m.fab[c.id],para:cadSt.resp[c.id]})); }
+/* foto da plaqueta do motor (MOT-06) vira obrigatória em Confere e Não confere (decisão do Raphael); na ficha ela
+   continua opcional (Obrigatorio__c=false) para não travar o cadastro manual de motor */
+function cadFotoObrig(c){
+  if(c.fotoObrigatoria) return true;
+  const m=cadSt&&cadSt.motorConf;
+  return !!(m&&(m.resultado==='confere'||m.resultado==='diferente')&&c.tipo==='Foto'&&cadChave(c.nome)==='fotodaplaqueta');
+}
+/* regra do salvar; devolve o texto do aviso ou null */
+function cadMotorChecar(){
+  const m=cadSt.motorConf; if(!m) return null;
+  if(!m.resultado) return 'Responda se o motor instalado é o de fábrica.';
+  const d=cadMotorDiferencas();
+  if(m.resultado==='diferente'){
+    if(!d.length) return 'Nenhum dado foi alterado: marque "Confere" ou mude o que está diferente.';
+    if(!m.motivo) return 'Escolha o motivo da diferença do motor.';
+    return null;
+  }
+  if(d.length) return 'Você mudou '+d.map(x=>x.nome).join(', ')+': toque em "Mudar resposta" e marque "Não confere".';
+  return null;
+}
+function cadPainelMotor(){
+  const m=cadSt.motorConf; const p=m.previsto||{};
+  let h='<div style="background:#F4F7F9;border:1px solid #BFD5E6;border-radius:12px;padding:12px;margin:0 0 12px">';
+  if(!m.resultado){
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239">⚙️ Motor previsto pelo fabricante</div>';
+    h+='<div style="font-size:12px;color:#3A4552;margin-top:3px">Lido do QR da plaqueta do exaustor (ficha da Berliner).</div>';
+    h+='<div style="margin:8px 0 10px;border-top:1px solid #BFD5E6;padding-top:8px">';
+    CAD_MOTOR_PREVISTO.forEach(([k,r])=>{ let v=p[k]; if(v==null||v==='') return;
+      if(k==='Potência (CV)') v=v+' CV'+(m.kw?' ('+m.kw+' kW)':'');
+      h+='<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0"><span style="color:#686868">'+cadEsc(r)+'</span><span style="font-weight:600;color:#0B2239;text-align:right">'+cadEsc(v)+'</span></div>'; });
+    h+='</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin:10px 0 8px">O motor instalado é este? Confira na plaqueta do motor.</div>';
+    h+='<button onclick="cadMotorResponder(\'confere\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;margin-top:8px">✓ Confere — é este motor</button>';
+    h+='<button onclick="cadMotorResponder(\'diferente\')" style="width:100%;background:#fff;border:1.5px solid #BFD5E6;border-radius:10px;padding:12px;font-size:14px;font-weight:700;color:#2B5A7E;margin-top:8px">✗ Não confere — o motor é outro ou tem dado diferente</button>';
+    h+='<button onclick="cadMotorResponder(\'nao_visivel\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:12px;font-size:13px;font-weight:600;color:#3A4552;margin-top:8px">Não consigo ver a plaqueta do motor</button>';
+    h+='<div style="font-size:11.5px;color:#686868;margin-top:6px">Corrente nominal não vem da Berliner: leia na plaqueta. As demais perguntas do motor aparecem depois da resposta.</div>';
+    return h+'</div>';
+  }
+  const tit={confere:'✓ Motor confere com o de fábrica',diferente:'✗ Motor instalado é diferente do de fábrica',nao_visivel:'Plaqueta do motor não visível'}[m.resultado];
+  const sub={confere:'Os dados de fábrica já estão na ficha. Tire a foto da plaqueta do motor.',diferente:'Altere só o que está diferente na plaqueta. O de fábrica fica guardado.',nao_visivel:'O motor fica com os dados de fábrica, marcado como não conferido.'}[m.resultado];
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-size:13px;font-weight:700;color:'+(m.resultado==='confere'?'#1B7A3D':'#0B2239')+'">'+tit+'</div><div style="font-size:12px;color:#3A4552;margin-top:3px">'+sub+'</div></div>'
+    +'<button onclick="cadMotorMudar()" style="white-space:nowrap;border:1px solid #E2E5E9;background:#fff;color:#3A4552;border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">Mudar resposta</button></div>';
+  if(m.resultado==='nao_visivel') h+='<div style="background:#FFF4E5;border:1px solid #F9C77F;border-radius:10px;padding:9px 11px;font-size:12px;color:#9A5A14;margin-top:10px">Fica pendente: conferir na próxima visita.</div>';
+  if(m.resultado==='diferente'){
+    h+='<div style="font-size:13px;color:#3A4552;margin:10px 0 5px">Por que é diferente? <span style="color:#C4451B">*</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+    CAD_MOTOR_MOTIVOS.forEach(v=>{ const sel=m.motivo===v;
+      h+=`<button onclick="cadMotorMotivo(this.getAttribute('data-v'))" data-v="${cadEsc(v)}" style="border:1px solid ${sel?'#3E7EB0':'#E2E5E9'};background:${sel?'#EAF1F7':'#fff'};color:${sel?'#2B5A7E':'#3A4552'};border-radius:16px;padding:7px 12px;font-size:12px;font-weight:600">${cadEsc(v)}</button>`; });
+    h+='</div>';
+  }
+  return h+'</div>';
+}
+/* selo no rótulo de um campo que veio da fábrica (substitui o "da Berliner" comum nesta ficha) */
+function cadMotorSelo(c){
+  const m=cadSt.motorConf; if(!m||!m.resultado) return null;
+  if(m.fab[c.id]!=null) return cadMotorDifere(c.id)?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">difere da fábrica</span>'
+    :' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">da Berliner</span>';
+  if(cadChave(c.nome)==='correntenominala'&&m.resultado!=='nao_visivel') return ' <span style="background:#EAF7EE;color:#1B7A3D;border-radius:8px;padding:1px 7px;font-size:10.5px;font-weight:700">leia na plaqueta</span>';
+  return null;
+}
+/* linha embaixo do campo: "de fábrica: X → instalado: Y" */
+function cadMotorDefab(c){
+  const m=cadSt.motorConf; if(!m||!m.resultado) return '';
+  if(m.fab[c.id]!=null&&m.resultado==='diferente'){
+    const v=String(cadSt.resp[c.id]==null?'':cadSt.resp[c.id]).trim();
+    if(cadMotorDifere(c.id)) return '<div style="font-size:11px;color:#9A5A14;margin-top:3px">de fábrica: '+cadEsc(m.fab[c.id])+' → instalado: '+cadEsc(v)+'</div>';
+    return '<div style="font-size:11px;color:#686868;margin-top:3px">de fábrica: '+cadEsc(m.fab[c.id])+(v===''?' · em branco':'')+'</div>';
+  }
+  if(cadChave(c.nome)==='correntenominala'&&m.resultado!=='nao_visivel') return '<div style="font-size:11px;color:#686868;margin-top:3px">não vem da Berliner — é o que a manutenção usa para medir</div>';
+  return '';
+}
+/* aviso no pé da ficha, acima do "Conferir dados" */
+function cadMotorAvisoPe(){
+  const m=cadSt.motorConf; if(!m||m.resultado!=='diferente') return '';
+  const d=cadMotorDiferencas();
+  if(!d.length) return '<div style="background:#FCEBEB;border:1px solid #F3C1C1;border-radius:10px;padding:9px 11px;font-size:12px;color:#8e1b1b;margin:10px 0 0">Nenhum dado foi alterado: marque "Confere" ou mude o que está diferente.</div>';
+  return '<div style="background:#FFF4E5;border:1px solid #F9C77F;border-radius:10px;padding:9px 11px;font-size:12px;color:#9A5A14;margin:10px 0 0">'+d.length+' dado'+(d.length>1?'s diferem':' difere')+' do motor de fábrica ('+cadEsc(d.map(x=>x.nome).join(', '))+'). A foto da plaqueta é a prova — sem ela não salva.</div>';
+}
+/* chamada própria depois das respostas (mesmo padrão de /dados-gerais): se falhar, o motor já está salvo e a
+   conclusão oferece tentar de novo */
+async function cadMotorGravarConferencia(){
+  const m=cadSt.motorConf; if(!m||!m.resultado||!cadSt.ativoId) return;
+  try{ await bePost('/ativos/'+cadSt.ativoId+'/conferencia-motor',{resultado:m.resultado,motivo:m.resultado==='diferente'?m.motivo:undefined}); m.gravada=true; m.erro=null; }
+  catch(e){ m.gravada=false; m.erro=e.message||'erro'; toast('⚠️ Motor salvo, mas a conferência não foi gravada: '+(e.message||'')); }
+}
+async function cadMotorRepetir(){ await cadMotorGravarConferencia(); if(cadSt.step==='done') cadStepDone(); }
+/* cartão da conclusão do motor (estado C do mockup) */
+function cadMotorCartaoDone(){
+  const m=cadSt.motorConf; if(!m||!m.resultado) return '';
+  const d=cadMotorDiferencas(); const campos=cadCamposDoForm(cadSt.form);
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const cor={confere:'#1D9E75',diferente:'#9A5A14',nao_visivel:'#686868'}[m.resultado];
+  const tit={confere:'⚙️ Motor conferido · igual ao de fábrica',diferente:'⚙️ Motor real registrado · diferente do de fábrica',nao_visivel:'⚙️ Motor registrado com dados de fábrica · plaqueta não conferida'}[m.resultado];
+  const st={confere:'Conferido na plaqueta em '+hoje,diferente:'Conferido na plaqueta em '+hoje,nao_visivel:'Fica pendente: conferir a plaqueta do motor na próxima visita.'}[m.resultado];
+  let h='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
+  h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">'+tit+'</div>';
+  h+='<div style="font-size:13px;font-weight:600;color:'+cor+';margin-bottom:8px">'+cadEsc(st)+'</div>';
+  const linha=(k,v)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #E2E5E9"><span style="color:#686868">'+k+'</span><span style="font-weight:600;color:#0B2239;text-align:right">'+v+'</span></div>';
+  h+='<div style="font-size:12px;line-height:1.55">';
+  d.forEach(x=>{ h+=linha(cadEsc(x.nome),'<s style="color:#686868;font-weight:400;margin-right:6px">'+cadEsc(x.de)+'</s><span style="color:#9A5A14">'+cadEsc(x.para)+'</span>'); });
+  campos.filter(c=>m.fab[c.id]!=null&&!cadMotorDifere(c.id)).forEach(c=>{ const v=String(cadSt.resp[c.id]==null?'':cadSt.resp[c.id]).trim(); h+=linha(cadEsc(c.nome),v?cadEsc(v):'<span style="color:#AEB8C2">em branco</span>'); });
+  const corr=campos.find(c=>cadChave(c.nome)==='correntenominala'); const cv=corr&&String(cadSt.resp[corr.id]==null?'':cadSt.resp[corr.id]).trim();
+  if(cv) h+=linha('Corrente nominal',cadEsc(cv)+' A <span style="font-weight:400;color:#686868">(plaqueta)</span>');
+  if(m.resultado==='diferente'&&m.motivo) h+=linha('Motivo',cadEsc(m.motivo));
+  h+='</div>';
+  if(m.resultado!=='nao_visivel') h+='<div style="font-size:11.5px;color:#686868;margin-top:8px">📷 Foto da plaqueta guardada no Drive. O valor de fábrica fica registrado ao lado de cada campo; para manutenção e PMOC vale o motor real.</div>';
+  if(m.gravada===false) h+='<div style="background:#FCEBEB;border:1px solid #F3C1C1;border-radius:10px;padding:10px;margin-top:10px;font-size:12.5px;color:#8e1b1b">⚠️ O resultado da conferência não foi gravado ('+cadEsc(m.erro)+').<button onclick="cadMotorRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
+  return h+'</div>';
 }
 /* 06/10/2026 — o título mostra só "Cadastro de Exaustor Centrífugo" (pedido do Raphael). Só a TELA
    muda. O app acha a ficha pelo tipo do ativo (/formulario-ativo?ativoId=), não pelo nome. O código
@@ -13722,7 +13892,7 @@ function cadColetar(){
     if(c.tipo==='Foto'||c.tipo==='Assinatura'){
       const up=cadSt.fotos[c.id];
       if(up&&up.status==='ok') respostas.push({campoId:c.id,resposta:(c.tipo==='Assinatura'?'Assinado':'Foto anexada'),fotoDriveId:up.driveId,fotoUrl:up.url});
-      else if(c.fotoObrigatoria||(c.tipo==='Assinatura'&&c.obrigatorio)) faltamFoto.push(c.nome);
+      else if(cadFotoObrig(c)||(c.tipo==='Assinatura'&&c.obrigatorio)) faltamFoto.push(c.nome); /* 11/10: inclui a plaqueta do motor conferido */
       return;
     }
     const v=cadSt.resp[c.id]; if(v!=null && String(v).trim()!=='') respostas.push({campoId:c.id,resposta:String(v)});
@@ -13742,7 +13912,14 @@ function cadPodeSalvar(c){
 async function cadSalvar(){
   if(cadSt.salvando) return; /* o botão fica na conferência; dois toques gravariam duas vezes */
   const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  { const aviso=cadMotorChecar(); if(aviso){ toast(aviso); return; } } /* 11/10/2026 */
   const respostas=col.respostas;
+  /* 11/10/2026 — motor conferido: cada resposta que veio do QR leva o valor de fábrica ao lado (Valor_Fabricante__c).
+     Campo de fábrica deixado em branco ainda guarda o de fábrica, com a resposta vazia. */
+  if(cadSt.motorConf){ const fab=cadSt.motorConf.fab||{};
+    respostas.forEach(r=>{ if(fab[r.campoId]!=null) r.valorFabricante=fab[r.campoId]; });
+    Object.keys(fab).forEach(id=>{ if(!respostas.some(r=>r.campoId===id)) respostas.push({campoId:id,resposta:'',valorFabricante:fab[id]}); });
+  }
   cadSt.salvando=true; if(cadSt.step==='revisao') cadStepRevisao();
   try{
     /* 09/10/2026 — o equipamento nasce AQUI. Se as respostas falharem depois, o ativoId fica guardado e o próximo
@@ -13753,6 +13930,7 @@ async function cadSalvar(){
       cadSt.ativoId=r.id; cadSt.pendente=null;
     }
     await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
+    if(cadSt.motorConf&&cadSt.motorConf.gravada!==true) await cadMotorGravarConferencia(); /* 11/10/2026: depois das respostas; falha só avisa */
     /* 06/10/2026 — link da ficha do fabricante em chamada própria: se o permission set do campo
        ainda não estiver no usuário do backend, só isto falha, e o cadastro já está salvo. */
     if(cadSt.berliner&&cadSt.berliner.link&&cadEhBerliner()){ /* 06/10/2026 (revisão): trocou o fabricante depois do QR → não grava o link da Berliner */
@@ -13786,6 +13964,7 @@ async function cadGaleriaVincular(){
 async function cadGaleriaRepetir(){ await cadGaleriaVincular(); cadStepDone(); }
 function cadIrRevisao(){
   const col=cadColetar(); if(!cadPodeSalvar(col)) return;
+  { const aviso=cadMotorChecar(); if(aviso){ toast(aviso); return; } } /* 11/10/2026: conferência do motor */
   if(!cadDGAnoOk()){ toast('Ano de fabricação inválido: use 4 dígitos (1950 a '+(new Date().getFullYear()+1)+') ou deixe em branco.'); return; }
   cadSt.step='revisao'; cadStepRevisao();
 }
@@ -13803,6 +13982,9 @@ function cadStepRevisao(){
   let h='<div style="padding:14px 14px 90px">'+cadHead('form',true)+cadCtx();
   h+='<div style="font-size:17px;font-weight:800;color:#0B2239">Confira os dados antes de salvar</div>';
   h+='<div style="font-size:12.5px;color:#686868;margin:2px 0 12px">'+cadEsc(cadSt.tipoNome||f.nome||'')+' · toque em Editar para corrigir</div>';
+  if(cadSt.motorConf&&cadSt.motorConf.resultado){ const m=cadSt.motorConf; /* 11/10/2026: resultado da conferência do motor */
+    const t={confere:'Confere com a fábrica',diferente:'Diferente da fábrica'+(m.motivo?' · '+m.motivo:''),nao_visivel:'Plaqueta do motor não visível · fica pendente'}[m.resultado];
+    h+='<div style="background:#F4F7F9;border:1px solid #BFD5E6;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px"><span style="color:#686868">Conferência do motor: </span><b style="color:#0B2239">'+cadEsc(t)+'</b></div>'; }
   let vazios=0, obrigVazios=0;
   (f.sessoes||[]).filter(s=>cadDepOk(s.dependencia)).forEach(s=>{
     const campos=(s.campos||[]).filter(c=>cadDepOk(c.dependencia)); if(!campos.length) return;
@@ -13810,13 +13992,14 @@ function cadStepRevisao(){
     h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">'+cadEsc(s.nome)+'</b>'
       +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
     campos.forEach(c=>{
-      const v=val(c); if(v==null){ vazios++; if(c.obrigatorio||c.fotoObrigatoria) obrigVazios++; }
-      const selo=(cadSt.daBerliner&&cadSt.daBerliner[c.id])?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">da Berliner</span>'
+      const v=val(c); if(v==null){ vazios++; if(c.obrigatorio||cadFotoObrig(c)) obrigVazios++; }
+      const selo=cadMotorDifere(c.id)?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">de fábrica: '+cadEsc(cadSt.motorConf.fab[c.id])+'</span>' /* 11/10/2026 */
+        :(cadSt.daBerliner&&cadSt.daBerliner[c.id])?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">da Berliner</span>'
         :(cadSt.sugBerliner&&cadSt.sugBerliner[c.id])?' <span style="background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido</span>':'';
       h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px">'
         +'<div style="flex:0 0 44%;color:#686868">'+cadEsc(c.nome)+'</div>'
-        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?((c.obrigatorio||c.fotoObrigatoria)?'#C4451B':'#AEB8C2'):'#0B2239')+';word-break:break-word">'
-        +(v==null?((c.obrigatorio||c.fotoObrigatoria)?'obrigatório, não preenchido':'não informado'):v)+selo+'</div></div>';
+        +'<div style="flex:1;min-width:0;font-weight:600;color:'+(v==null?((c.obrigatorio||cadFotoObrig(c))?'#C4451B':'#AEB8C2'):'#0B2239')+';word-break:break-word">'
+        +(v==null?((c.obrigatorio||cadFotoObrig(c))?'obrigatório, não preenchido':'não informado'):v)+selo+'</div></div>';
     });
     h+='</div>';
   });
@@ -13851,11 +14034,13 @@ function cadStepDone(){
     +'<div style="font-size:17px;font-weight:700;color:#0B2239">'+(cadSt.modoEdicao?'Cadastro atualizado':'Ativo cadastrado')+'</div>'
     +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>'
     +'<button onclick="verAtivo(\''+cadSt.ativoId+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:12px;color:#3A4552;font-size:13px;font-weight:600;margin-bottom:14px">🔍 Ver / editar este ativo</button>';
+  if(cadSt.motorConf) h+=cadMotorCartaoDone(); /* 11/10/2026: motor conferido contra a ficha da Berliner (estado C do mockup) */
 
   h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
   h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
   if(et.status==='ok'){
     h+='<div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:8px">Gravada — versão '+et.versao+'</div>';
+    if(cadNfcCtrl) h+='<div style="font-size:12px;color:#3E7EB0;background:#EAF2FB;border-radius:8px;padding:8px 10px;margin-bottom:8px">📶 Leitor ligado: encoste a etiqueta para testar. O portal não abre.</div>';
     h+='<img id="cadNfcQr" style="width:120px;height:120px;display:block;margin:0 auto 8px;border:1px solid #E2E5E9;border-radius:6px">';
     h+='<div style="font-size:11px;color:#686868;text-align:center;word-break:break-all">'+cadEsc(et.url)+'</div>';
     h+='<button onclick="etqTestar(\''+cadSt.ativoId+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Testar esta etiqueta</button>';
@@ -13886,9 +14071,12 @@ function cadStepDone(){
     h+='<div style="font-size:12px;color:#686868;margin-bottom:8px">Da ficha da Berliner: '+cadEsc(motorTxt)+'</div>';
     if(bm.motorStatus==='ok') h+='<div style="font-size:13px;color:#1D9E75;font-weight:600">✓ Motor criado e vinculado ('+bm.motorN+' campos preenchidos)</div>';
     else if(bm.motorStatus==='criando') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Criando o motor…</div>';
+    else if(bm.motorStatus==='abrindo') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Abrindo a ficha do motor…</div>';
     else{
       if(bm.motorStatus==='erro') h+='<div style="font-size:12px;color:#C4451B;margin-bottom:6px">'+cadEsc(bm.motorErro||'Falhou')+(bm.motorId?' (o motor foi criado; a ficha dele ficou incompleta)':'')+'</div>';
-      if(!(bm.motorStatus==='erro'&&bm.motorId)) h+='<button onclick="cadCriarMotorBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Criar o motor vinculado</button>';
+      /* 11/10/2026 — não cria mais em silêncio: abre a ficha do motor com a conferência (cadAbrirMotorBerliner) */
+      if(!(bm.motorStatus==='erro'&&bm.motorId)) h+='<div style="font-size:11.5px;color:#686868;margin-bottom:8px">O motor instalado pode não ser o de fábrica: confira na plaqueta antes de registrar.</div>'
+        +'<button onclick="cadAbrirMotorBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Conferir o motor na plaqueta</button>';
     }
     h+='</div>';
   }
@@ -13939,7 +14127,16 @@ async function cadProvisionarEtiqueta(){
         const r=await bePost('/etiquetas',{ativoId:ativoDaEtiqueta,uid});
         const url=PORTAL_BASE+'/a/'+r.token;
         await reader.write({records:[{recordType:'url',data:url}]});
-        cadNfcDesativar();
+        /* 11/10/2026: NÃO desliga o leitor depois de gravar. Desligar com a etiqueta ainda encostada (ou encostada de
+           novo para testar) devolvia a leitura ao Android, que abria o portal pedindo senha. O mesmo leitor passa a
+           TESTAR: encostar a etiqueta mostra o teste no app. Desliga ao sair do cadastro (go/cadReset). Os 2 s
+           iniciais ignoram o eco da própria gravação. */
+        const gravadaEm=Date.now();
+        reader.onreading=(ev)=>{
+          if(cadSt!==st){ cadNfcDesativar(); return; }
+          if(Date.now()-gravadaEm<2000) return;
+          etqProcessar(ev,ativoDaEtiqueta);
+        };
         cadSt.etiqueta={status:'ok',token:r.token,versao:r.versao,url};
         cadStepDone();
         toast('🏷️ Etiqueta gravada — versão '+r.versao);
@@ -13993,6 +14190,8 @@ function etqRender(st){
     }
     if(st.token&&st.okEtiqueta) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">👁️ Ver como o cliente vê</button>';
     h+='<div id="etqPrevia"></div>';
+    /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
+    if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
     h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Testar outra vez</button>';
   } else if(st.fase==='erro'){
     h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
@@ -14000,23 +14199,31 @@ function etqRender(st){
   }
   c.innerHTML=h;
 }
-async function etqTestar(ativoEsperadoId){
-  if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
-  if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* um leitor por vez: o de gravação não pode pegar esta leitura */
-  etqFechar();
+function etqAbrirModal(){
+  const velho=document.getElementById('etqModal'); if(velho) velho.remove();
   const ov=document.createElement('div'); ov.id='etqModal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:100012;display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML='<div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box"><div id="etqCorpo"></div></div>';
   ov.addEventListener('click',ev=>{ if(ev.target===ov) etqFechar(); });
   document.body.appendChild(ov);
+}
+async function etqTestar(ativoEsperadoId){
+  if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
+  if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* um leitor por vez: o de gravação não pode pegar esta leitura */
+  etqFechar();
+  etqAbrirModal();
   const esperado=ativoEsperadoId||'';
   etqRender({fase:'lendo'});
   try{
     const reader=new NDEFReader(); const ctrl=new AbortController(); etqCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     reader.onreadingerror=()=>etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'});
-    reader.onreading=async(e)=>{
-      etqParar();
+    reader.onreading=(e)=>{ etqParar(); etqProcessar(e,esperado); };
+  }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
+}
+/* confere UMA leitura (usada pelo botão de teste e pelo leitor que fica ligado depois de gravar, no cadastro) */
+async function etqProcessar(e,esperado){
+      if(!document.getElementById('etqModal')) etqAbrirModal();
       etqRender({fase:'conferindo'});
       const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
       let url='';
@@ -14024,7 +14231,7 @@ async function etqTestar(ativoEsperadoId){
       const linhas=[]; const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
       const enderecoOk=!!token&&url.indexOf(PORTAL_BASE+'/a/')===0;
       linhas.push(etqLinha(enderecoOk, enderecoOk?'Endereço do portal gravado':'A etiqueta não tem o endereço do portal Exaustech', url||'(nenhum endereço gravado)'));
-      if(!token){ etqRender({fase:'resultado',linhas,esperado}); return; }
+      if(!token){ etqRender({fase:'resultado',linhas,esperado,url}); return; }
       try{
         const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):''));
         linhas.push(etqLinha(true,'Etiqueta ativa no sistema','É a etiqueta atual deste equipamento.'));
@@ -14033,17 +14240,15 @@ async function etqTestar(ativoEsperadoId){
         const a=r.ativo||null;
         if(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15)) linhas.push(etqLinha(false,'Esta etiqueta é de OUTRO equipamento','Ela aponta para '+(a.descricao||a.nome||'outro ativo')+'.'));
         else if(a) linhas.push(etqLinha(true,'Equipamento certo', esperado?'É o equipamento deste cadastro.':''));
-        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado});
+        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado,url});
       }catch(err){
         const msg=err.status===404?['Etiqueta não encontrada no sistema','O código gravado não existe — etiqueta de teste antiga ou gravada fora do app.']
           :err.status===410?['Etiqueta desativada','Foi substituída por outra. Use a etiqueta atual do equipamento.']
           :err.status===403?['Chip NÃO confere','O endereço é válido, mas o chip físico é outro — possível cópia.']
           :['Não consegui conferir',err.message];
         linhas.push(etqLinha(false,msg[0],msg[1]));
-        etqRender({fase:'resultado',linhas,esperado});
+        etqRender({fase:'resultado',linhas,esperado,url});
       }
-    };
-  }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
 }
 /* o que o cliente vê depois de entrar no portal (mesmos dados de /portal/api/ativo/:token) */
 async function etqPrevia(token){
