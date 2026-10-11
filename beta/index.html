@@ -13858,6 +13858,7 @@ function cadStepDone(){
     h+='<div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:8px">Gravada — versão '+et.versao+'</div>';
     h+='<img id="cadNfcQr" style="width:120px;height:120px;display:block;margin:0 auto 8px;border:1px solid #E2E5E9;border-radius:6px">';
     h+='<div style="font-size:11px;color:#686868;text-align:center;word-break:break-all">'+cadEsc(et.url)+'</div>';
+    h+='<button onclick="etqTestar(\''+cadSt.ativoId+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Testar esta etiqueta</button>';
     h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Gravar outra etiqueta</button>';
   } else if(et.status==='lendo'||et.status==='gravando'){
     h+='<div style="font-size:13px;color:#3E7EB0">'+(et.status==='lendo'?'📶 Aproxime a etiqueta NFC em branco…':'Gravando…')+'</div>';
@@ -13954,6 +13955,119 @@ async function cadProvisionarEtiqueta(){
     cadStepDone();
   }
 }
+/* ===== Teste da etiqueta NFC (11/10/2026) =====
+   Raphael: "acabei de gravar uma etiqueta; quero aproximar do tablet e fazer a leitura que o cliente fará — hoje
+   ela me joga para o portal e exige senha". Com o app aberto e lendo, o Chrome entrega a etiqueta à página e NÃO
+   abre o navegador. O app confere: endereço gravado (portal certo), etiqueta ativa/versão, chip físico (anticlonagem)
+   e a qual equipamento ela pertence (GET /etiquetas/:token?uid=, rota que já existia). "Ver como o cliente vê" usa
+   GET /ativos/previa-portal/:token — mesma busca do portal, mas pela sessão do TÉCNICO; o portal do cliente continua
+   exigindo login. Ver docs/09-CADASTROS/DECISAO_teste-etiqueta-nfc_11-10-2026.md */
+let etqCtrl=null;
+function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
+function etqFechar(){ etqParar(); const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqLinha(ok,titulo,detalhe){
+  const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
+  return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
+    +'<span style="flex:0 0 22px;height:22px;border-radius:50%;background:'+cor+';color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">'+ic+'</span>'
+    +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;color:#0B2239">'+cadEsc(titulo)+'</div>'
+    +(detalhe?'<div style="font-size:12px;color:#686868;margin-top:2px;word-break:break-all">'+cadEsc(detalhe)+'</div>':'')+'</div></div>';
+}
+function etqRender(st){
+  const c=document.getElementById('etqCorpo'); if(!c) return;
+  let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +'<div style="font-size:15px;font-weight:700;color:#0B2239">📶 Teste da etiqueta NFC</div>'
+    +'<button onclick="etqFechar()" style="background:none;border:none;font-size:22px;color:#686868;line-height:1;padding:0 4px">×</button></div>';
+  if(st.fase==='lendo'){
+    h+='<div style="text-align:center;padding:22px 6px"><div style="font-size:34px">📶</div>'
+      +'<div style="font-size:14px;font-weight:600;color:#0B2239;margin-top:6px">Aproxime a etiqueta do tablet</div>'
+      +'<div style="font-size:12px;color:#686868;margin-top:4px">Enquanto esta tela estiver aberta, o tablet lê a etiqueta aqui, sem abrir o portal.</div>'
+      +(st.aviso?'<div style="font-size:12px;color:#C4451B;margin-top:10px">'+cadEsc(st.aviso)+'</div>':'')+'</div>';
+  } else if(st.fase==='conferindo'){
+    h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
+  } else if(st.fase==='resultado'){
+    h+=st.linhas.join('');
+    if(st.ativo){
+      h+='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#3A4552">'
+        +'<div style="font-weight:700;color:#0B2239">'+cadEsc(st.ativo.descricao||st.ativo.nome||'Equipamento')+'</div>'
+        +'<div style="font-size:12px;color:#686868;margin-top:2px">'+cadEsc([st.ativo.nome,st.ativo.tipo,st.ativo.local,st.ativo.conta].filter(Boolean).join(' · '))+'</div></div>';
+    }
+    if(st.token&&st.okEtiqueta) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">👁️ Ver como o cliente vê</button>';
+    h+='<div id="etqPrevia"></div>';
+    h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Testar outra vez</button>';
+  } else if(st.fase==='erro'){
+    h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
+      +'<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar de novo</button>';
+  }
+  c.innerHTML=h;
+}
+async function etqTestar(ativoEsperadoId){
+  if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
+  if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* um leitor por vez: o de gravação não pode pegar esta leitura */
+  etqFechar();
+  const ov=document.createElement('div'); ov.id='etqModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:100012;display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box"><div id="etqCorpo"></div></div>';
+  ov.addEventListener('click',ev=>{ if(ev.target===ov) etqFechar(); });
+  document.body.appendChild(ov);
+  const esperado=ativoEsperadoId||'';
+  etqRender({fase:'lendo'});
+  try{
+    const reader=new NDEFReader(); const ctrl=new AbortController(); etqCtrl=ctrl;
+    await reader.scan({signal:ctrl.signal});
+    reader.onreadingerror=()=>etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'});
+    reader.onreading=async(e)=>{
+      etqParar();
+      etqRender({fase:'conferindo'});
+      const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
+      let url='';
+      try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url'){ url=new TextDecoder().decode(rec.data); break; } } }catch(_){}
+      const linhas=[]; const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
+      const enderecoOk=!!token&&url.indexOf(PORTAL_BASE+'/a/')===0;
+      linhas.push(etqLinha(enderecoOk, enderecoOk?'Endereço do portal gravado':'A etiqueta não tem o endereço do portal Exaustech', url||'(nenhum endereço gravado)'));
+      if(!token){ etqRender({fase:'resultado',linhas,esperado}); return; }
+      try{
+        const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):''));
+        linhas.push(etqLinha(true,'Etiqueta ativa no sistema','É a etiqueta atual deste equipamento.'));
+        linhas.push(r.uidConferido?etqLinha(true,'Chip confere','O número físico do chip é o registrado — não é cópia.')
+                                  :etqLinha(null,'Chip não conferido','Este aparelho não informou o número do chip.'));
+        const a=r.ativo||null;
+        if(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15)) linhas.push(etqLinha(false,'Esta etiqueta é de OUTRO equipamento','Ela aponta para '+(a.descricao||a.nome||'outro ativo')+'.'));
+        else if(a) linhas.push(etqLinha(true,'Equipamento certo', esperado?'É o equipamento deste cadastro.':''));
+        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado});
+      }catch(err){
+        const msg=err.status===404?['Etiqueta não encontrada no sistema','O código gravado não existe — etiqueta de teste antiga ou gravada fora do app.']
+          :err.status===410?['Etiqueta desativada','Foi substituída por outra. Use a etiqueta atual do equipamento.']
+          :err.status===403?['Chip NÃO confere','O endereço é válido, mas o chip físico é outro — possível cópia.']
+          :['Não consegui conferir',err.message];
+        linhas.push(etqLinha(false,msg[0],msg[1]));
+        etqRender({fase:'resultado',linhas,esperado});
+      }
+    };
+  }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
+}
+/* o que o cliente vê depois de entrar no portal (mesmos dados de /portal/api/ativo/:token) */
+async function etqPrevia(token){
+  const box=document.getElementById('etqPrevia'); if(!box) return;
+  box.innerHTML='<div style="font-size:13px;color:#3E7EB0;padding:10px 0">Carregando a página do cliente…</div>';
+  try{
+    const d=await beGet('/ativos/previa-portal/'+encodeURIComponent(token));
+    const a=d.ativo||{}, ins=d.inspecoes||[];
+    const dt=s=>{ try{ return new Date(s).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return s||''; } };
+    let h='<div style="margin-top:12px;border:1px dashed #9FB3C8;border-radius:12px;padding:12px;background:#F4F6F8">'
+      +'<div style="font-size:11px;color:#686868;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Como o cliente vê (depois de entrar no portal)</div>'
+      +'<div style="background:#fff;border:1px solid #E4E9EE;border-radius:12px;padding:12px">'
+      +'<div style="font-size:12px;color:#8A97A5">'+cadEsc(a.cliente||'')+'</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin:2px 0 6px">'+cadEsc(a.nome||a.codigo||'Equipamento')+'</div>'
+      +[['Tipo',a.tipo],['Local',a.local],['Código',a.codigo]].map(x=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #EEF1F4;font-size:13px"><span style="color:#8A97A5">'+x[0]+'</span><span style="font-weight:600;text-align:right">'+cadEsc(x[1]||'-')+'</span></div>').join('')
+      +'</div><div style="background:#fff;border:1px solid #E4E9EE;border-radius:12px;padding:12px;margin-top:8px">'
+      +'<div style="font-size:14px;font-weight:700;color:#0B2239;margin-bottom:4px">Histórico de inspeções</div>'
+      +(ins.length?ins.slice(0,3).map(g=>'<div style="font-size:13px;padding:6px 0;border-top:1px solid #EEF1F4"><b>'+dt(g.data)+'</b> <span style="color:#8A97A5">· '+g.total+' itens</span></div>').join('')
+        +(ins.length>3?'<div style="font-size:12px;color:#8A97A5;padding-top:4px">+ '+(ins.length-3)+' inspeções anteriores</div>':'')
+        :'<div style="font-size:13px;color:#8A97A5">Ainda não há inspeções registradas para este equipamento.</div>')
+      +'</div></div>';
+    box.innerHTML=h;
+  }catch(err){ box.innerHTML='<div style="font-size:12.5px;color:#C4451B;padding:10px 0">Não consegui montar a prévia: '+cadEsc(err.message)+'</div>'; }
+}
 function cadNfcCancelar(){ cadNfcDesativar(); cadSt.etiqueta={status:'idle'}; cadStepDone(); }
 function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} cadNfcCtrl=null; } }
 /* Tela de detalhe do Ativo — GET /ativos/:id já devolvia respostas+etiquetas prontos, órfão no front
@@ -13978,6 +14092,7 @@ async function verAtivo(ativoId){
     if(!(d.respostas||[]).length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
     const etAtiva=(d.etiquetas||[]).find(e=>e.ativa);
     if(etAtiva) h+='<div style="font-size:12px;color:#1D9E75;margin-top:10px">🏷️ Etiqueta ativa — versão '+etAtiva.versao+'</div>';
+    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="etqTestar(\''+ativoId+'\')" style="width:100%;background:none;border:1px solid #3E7EB0;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px;font-weight:600">📶 Testar a etiqueta deste equipamento</button>';
     document.getElementById('ativoDetBody').innerHTML=h;
     document.getElementById('ativoDetModal').classList.add('show');
   }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
