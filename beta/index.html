@@ -14343,7 +14343,11 @@ let etqCtrl=null;
 let etqTravado=false;
 function etqLeituraBloqueada(){
   if(!etqTravado||!document.getElementById('etqModal')) return false;
-  toast('Para ler outra etiqueta, toque em "Testar outra vez".');
+  /* 11/10/2026 (2º relato): o aviso era só um toast que sumia, e parecia que a 2ª leitura tinha mostrado o resultado
+     errado. Agora o aviso fica DENTRO do resultado, fixo, até o técnico tocar em "Ler outra etiqueta". */
+  const av=document.getElementById('etqAvisoOutra');
+  if(av){ av.style.display='block'; av.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  try{ if(navigator.vibrate) navigator.vibrate([60,60,60]); }catch(e){}
   return true;
 }
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
@@ -14369,6 +14373,9 @@ function etqRender(st){
   } else if(st.fase==='conferindo'){
     h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
   } else if(st.fase==='resultado'){
+    const hr=new Date(), p2=n=>String(n).padStart(2,'0');
+    h+='<div style="font-size:12px;color:#686868;margin:-4px 0 6px">Etiqueta lida às '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+'</div>';
+    h+='<div id="etqAvisoOutra" style="display:none;background:#FEF5E8;border:1px solid #F9C77F;color:#8C4B02;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:8px">⚠ Outra etiqueta foi encostada e <u>não</u> foi lida. Para consultar, toque em "Ler outra etiqueta".</div>';
     h+=st.linhas.join('');
     if(st.ativo){
       h+='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#3A4552">'
@@ -14379,7 +14386,7 @@ function etqRender(st){
     h+='<div id="etqPrevia"></div>';
     /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
-    h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Testar outra vez</button>';
+    h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Ler outra etiqueta</button>';
   } else if(st.fase==='erro'){
     h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
       +'<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar de novo</button>';
