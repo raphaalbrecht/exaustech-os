@@ -14383,7 +14383,7 @@ function etqRender(st){
   } else if(st.fase==='resultado'){
     const hr=new Date(), p2=n=>String(n).padStart(2,'0');
     /* faixa "Leitura nº X" pisca ao trocar: sem isso, ler duas etiquetas parecidas dá a impressão de que nada mudou */
-    h+='<div id="etqFaixa" style="font-size:12.5px;font-weight:700;color:#0B2239;background:#E6F1FB;border-radius:8px;padding:6px 10px;margin:-4px 0 8px;transition:background .8s">Leitura nº '+etqSeq+' · '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+(st.uid?' · chip '+cadEsc(st.uid.slice(-6)):'')+'</div>';
+    h+='<div id="etqFaixa" style="font-size:12.5px;font-weight:700;color:#0B2239;background:#E6F1FB;border-radius:8px;padding:6px 10px;margin:-4px 0 8px;transition:background .8s">Leitura nº '+etqSeq+' · '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+(st.uid?' · chip '+cadEsc(st.uid.match(/.{1,2}/g).join(':')):'') /* 11/10/2026: número INTEIRO — cartões do mesmo lote terminam iguais (…0289) e os últimos 6 dígitos pareciam o mesmo chip. Qualquer app de NFC lê esse número; não é segredo. */+'</div>';
     h+=st.linhas.join('');
     if(st.ativo){
       h+='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#3A4552">'
@@ -14550,6 +14550,17 @@ async function tagNfcLigar(){
   }
 }
 function tagNfcDesligar(){ if(tagNfcCtrl){ try{tagNfcCtrl.abort();}catch(e){} tagNfcCtrl=null; } }
+/* 11/10/2026 — Raphael: "agora quando escolho NFC e leio, abre o portal". O código guardava "leitor ligado" numa variável
+   (tagNfcCtrl) e nunca conferia se o Chrome ainda estava mesmo lendo. Quando o app sai da frente (tela apaga, troca de
+   app, o portal abriu uma vez), o Chrome suspende o leitor e pode não retomar — a variável continuava dizendo "ligado",
+   o ícone NFC não religava nada e a etiqueta caía no Android → portal. Agora o leitor é RELIGADO de verdade: ao tocar
+   em NFC ou QR × NFC (dentro do toque, que é quando o Chrome sempre permite) e quando o app volta para a frente. */
+async function tagNfcReligar(){ tagNfcDesligar(); return tagNfcLigar(); }
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  const scr=document.getElementById('scr-tag');
+  if(scr&&scr.classList.contains('active')&&estoqNfcSuportado()) tagNfcReligar();
+});
 /* ===== QR × NFC (11/10/2026) =====
    Raphael: "uma opção dentro de Consultar TAG para confirmar se uma etiqueta QR corresponde ao cartão na qual está
    colada". O QR impresso e o chip carregam o MESMO endereço (PORTAL_BASE/a/<token>) — ver cadDesenharQrPreview e a
@@ -14559,7 +14570,7 @@ function tagNfcDesligar(){ if(tagNfcCtrl){ try{tagNfcCtrl.abort();}catch(e){} ta
    etiqueta). Não grava nada. */
 function tagParIniciar(){
   etqFechar(); tagPar={qr:null,nfc:null}; etqAbrirModal(); tagParRender();
-  tagNfcLigar();
+  tagNfcReligar();
 }
 function etqTokenDe(url){ const m=(url||'').match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); return m&&url.indexOf(PORTAL_BASE+'/a/')===0?m[1]:null; }
 function tagParLido(lado,url,uid){
@@ -14628,7 +14639,7 @@ async function tagParComparar(){
   tagParRender(res);
 }
 async function tagNfcAbrir(){
-  if(!await tagNfcLigar()) return;
+  if(!await tagNfcReligar()) return;
   etqFechar(); tagNfcEscolhido=true; etqAbrirModal(); etqRender({fase:'lendo'});
 }
 let tagCamStream=null, tagCamRAF=null;
