@@ -14310,7 +14310,7 @@ async function cadProvisionarEtiqueta(){
         reader.onreading=(ev)=>{
           if(cadSt!==st){ cadNfcDesativar(); return; }
           if(Date.now()-gravadaEm<2000) return;
-          if(etqLeituraBloqueada()) return;
+          if(etqLeituraBloqueada(etqUid(ev))) return;
           etqProcessar(ev,ativoDaEtiqueta);
         };
         cadSt.etiqueta={status:'ok',token:r.token,versao:r.versao,url};
@@ -14341,17 +14341,23 @@ let etqCtrl=null;
    na tela, novas leituras são IGNORADAS (o leitor continua ligado só para o Android não abrir o portal); só
    "Testar outra vez" — ou fechar a janela — libera a próxima leitura. */
 let etqTravado=false;
-function etqLeituraBloqueada(){
-  if(!etqTravado||!document.getElementById('etqModal')) return false;
-  /* 11/10/2026 (2º relato): o aviso era só um toast que sumia, e parecia que a 2ª leitura tinha mostrado o resultado
-     errado. Agora o aviso fica DENTRO do resultado, fixo, até o técnico tocar em "Ler outra etiqueta". */
-  const av=document.getElementById('etqAvisoOutra');
-  if(av){ av.style.display='block'; av.scrollIntoView({behavior:'smooth',block:'nearest'}); }
-  try{ if(navigator.vibrate) navigator.vibrate([60,60,60]); }catch(e){}
-  return true;
+/* 11/10/2026 (3º relato) — TRAVA SUBSTITUÍDA. Raphael: "outra forma é o leitor dar refresh na tela de resultado a cada
+   leitura, obrigatoriamente". A trava confundia (encostava B e a tela continuava em A). Agora TODA leitura apaga o
+   resultado anterior e confere de novo. O que impedia isso antes — resposta atrasada da leitura A sobrescrever a B —
+   é resolvido pelo contador etqSeq: só a leitura mais recente pode desenhar o resultado. O nº da leitura e a hora
+   aparecem no topo, para ficar evidente que a tela mudou. Única exceção: o MESMO chip lido de novo em menos de
+   1,5 s (o Android repete o evento enquanto a etiqueta está encostada) é ignorado, para a tela não piscar. */
+let etqSeq=0, etqUltUid='', etqUltEm=0;
+function etqLeituraBloqueada(uid){
+  const agora=Date.now();
+  if(uid&&uid===etqUltUid&&agora-etqUltEm<1500) return true;
+  etqUltUid=uid||''; etqUltEm=agora;
+  try{ if(navigator.vibrate) navigator.vibrate(80); }catch(e){}
+  return false;
 }
+function etqUid(e){ return ((e&&e.serialNumber)||'').replace(/:/g,'').toUpperCase(); }
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
-function etqFechar(){ etqParar(); etqTravado=false; const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqFechar(){ etqParar(); etqTravado=false; etqSeq=0; etqUltUid=''; const m=document.getElementById('etqModal'); if(m) m.remove(); }
 function etqLinha(ok,titulo,detalhe){
   const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
@@ -14374,8 +14380,8 @@ function etqRender(st){
     h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
   } else if(st.fase==='resultado'){
     const hr=new Date(), p2=n=>String(n).padStart(2,'0');
-    h+='<div style="font-size:12px;color:#686868;margin:-4px 0 6px">Etiqueta lida às '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+'</div>';
-    h+='<div id="etqAvisoOutra" style="display:none;background:#FEF5E8;border:1px solid #F9C77F;color:#8C4B02;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:8px">⚠ Outra etiqueta foi encostada e <u>não</u> foi lida. Para consultar, toque em "Ler outra etiqueta".</div>';
+    /* faixa "Leitura nº X" pisca ao trocar: sem isso, ler duas etiquetas parecidas dá a impressão de que nada mudou */
+    h+='<div id="etqFaixa" style="font-size:12.5px;font-weight:700;color:#0B2239;background:#E6F1FB;border-radius:8px;padding:6px 10px;margin:-4px 0 8px;transition:background .8s">Leitura nº '+etqSeq+' · '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+(st.uid?' · chip '+cadEsc(st.uid.slice(-6)):'')+'</div>';
     h+=st.linhas.join('');
     if(st.ativo){
       h+='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#3A4552">'
@@ -14386,7 +14392,10 @@ function etqRender(st){
     h+='<div id="etqPrevia"></div>';
     /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
-    h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Ler outra etiqueta</button>';
+    /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
+    const lendo=!!etqCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
+    if(lendo) h+='<div style="text-align:center;font-size:12.5px;color:#3E7EB0;margin-top:12px">📶 Encoste outra etiqueta a qualquer momento — o resultado é trocado na hora.</div>';
+    else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
   } else if(st.fase==='erro'){
     h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
       +'<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar de novo</button>';
@@ -14413,7 +14422,7 @@ async function etqTestar(ativoEsperadoId){
     const reader=new NDEFReader(); const ctrl=new AbortController(); etqCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     reader.onreadingerror=()=>etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'});
-    reader.onreading=(e)=>{ if(etqLeituraBloqueada()) return; etqProcessar(e,esperado); };
+    reader.onreading=(e)=>{ if(etqLeituraBloqueada(etqUid(e))) return; etqProcessar(e,esperado); };
   }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
 }
 /* confere UMA leitura (usada pelo botão de teste e pelo leitor que fica ligado depois de gravar, no cadastro) */
@@ -14426,27 +14435,30 @@ async function etqProcessar(e,esperado){
 /* confere um endereço de etiqueta (lido do chip, ou recebido do portal — ver etqDoPortal) */
 async function etqConferir(url,uid,esperado){
       if(!document.getElementById('etqModal')) etqAbrirModal();
+      const minha=++etqSeq; /* se outra leitura começar enquanto esta consulta o servidor, esta desiste de desenhar */
       etqRender({fase:'conferindo'});
       const linhas=[]; const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
       const enderecoOk=!!token&&url.indexOf(PORTAL_BASE+'/a/')===0;
       linhas.push(etqLinha(enderecoOk, enderecoOk?'Endereço do portal gravado':'A etiqueta não tem o endereço do portal Exaustech', url||'(nenhum endereço gravado)'));
-      if(!token){ etqRender({fase:'resultado',linhas,esperado,url}); return; }
+      if(!token){ etqRender({fase:'resultado',linhas,esperado,url,uid}); return; }
       try{
         const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):''));
+        if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         linhas.push(etqLinha(true,'Etiqueta ativa no sistema','É a etiqueta atual deste equipamento.'));
         linhas.push(r.uidConferido?etqLinha(true,'Chip confere','O número físico do chip é o registrado — não é cópia.')
                                   :etqLinha(null,'Chip não conferido','Este aparelho não informou o número do chip.'));
         const a=r.ativo||null;
         if(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15)) linhas.push(etqLinha(false,'Esta etiqueta é de OUTRO equipamento','Ela aponta para '+(a.descricao||a.nome||'outro ativo')+'.'));
         else if(a) linhas.push(etqLinha(true,'Equipamento certo', esperado?'É o equipamento deste cadastro.':''));
-        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado,url});
+        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado,url,uid});
       }catch(err){
+        if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         const msg=err.status===404?['Etiqueta não encontrada no sistema','O código gravado não existe — etiqueta de teste antiga ou gravada fora do app.']
           :err.status===410?['Etiqueta desativada','Foi substituída por outra. Use a etiqueta atual do equipamento.']
           :err.status===403?['Chip NÃO confere','O endereço é válido, mas o chip físico é outro — possível cópia.']
           :['Não consegui conferir',err.message];
         linhas.push(etqLinha(false,msg[0],msg[1]));
-        etqRender({fase:'resultado',linhas,esperado,url});
+        etqRender({fase:'resultado',linhas,esperado,url,uid});
       }
 }
 /* 11/10/2026 — volta do portal. Raphael: "no teste do NFC continua abrindo o portal automaticamente". Com endereço
@@ -14523,8 +14535,10 @@ function tagCamLoop(){
 async function etqPrevia(token){
   const box=document.getElementById('etqPrevia'); if(!box) return;
   box.innerHTML='<div style="font-size:13px;color:#3E7EB0;padding:10px 0">Carregando a página do cliente…</div>';
+  const minha=etqSeq; /* 11/10/2026: se outra etiqueta for lida antes de a prévia chegar, a prévia velha é descartada */
   try{
     const d=await beGet('/ativos/previa-portal/'+encodeURIComponent(token));
+    if(minha!==etqSeq||!document.body.contains(box)) return;
     const a=d.ativo||{}, ins=d.inspecoes||[];
     const dt=s=>{ try{ return new Date(s).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return s||''; } };
     let h='<div style="margin-top:12px;border:1px dashed #9FB3C8;border-radius:12px;padding:12px;background:#F4F6F8">'
@@ -14540,7 +14554,7 @@ async function etqPrevia(token){
         :'<div style="font-size:13px;color:#8A97A5">Ainda não há inspeções registradas para este equipamento.</div>')
       +'</div></div>';
     box.innerHTML=h;
-  }catch(err){ box.innerHTML='<div style="font-size:12.5px;color:#C4451B;padding:10px 0">Não consegui montar a prévia: '+cadEsc(err.message)+'</div>'; }
+  }catch(err){ if(minha!==etqSeq||!document.body.contains(box)) return; box.innerHTML='<div style="font-size:12.5px;color:#C4451B;padding:10px 0">Não consegui montar a prévia: '+cadEsc(err.message)+'</div>'; }
 }
 function cadNfcCancelar(){ cadNfcDesativar(); cadSt.etiqueta={status:'idle'}; cadStepDone(); }
 function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} cadNfcCtrl=null; } }
