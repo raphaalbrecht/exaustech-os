@@ -1656,6 +1656,18 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       <div id="cadBody"></div>
     </section>
 
+    <!-- CONSULTAR TAG (11/10/2026): ler o QR ou o NFC de uma etiqueta de equipamento e ver a quem ela pertence -->
+    <section class="screen" id="scr-tag">
+      <div id="tagBody"></div>
+      <div id="tagCamOv" style="display:none;position:fixed;inset:0;background:#000;z-index:100013">
+        <video id="tagCamVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+        <canvas id="tagCamCanvas" style="display:none"></canvas>
+        <div style="position:absolute;left:0;right:0;top:18px;text-align:center;color:#fff;font-size:14px;font-weight:600">Aponte para o QR code da etiqueta</div>
+        <div style="position:absolute;left:50%;top:50%;width:62vmin;height:62vmin;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:16px"></div>
+        <button onclick="tagCamFechar()" style="position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#0B2239;border:none;border-radius:24px;padding:12px 28px;font-weight:700;font-size:14px">Cancelar</button>
+      </div>
+    </section>
+
     <!-- ALOCAÇÃO (board do supervisor) -->
     <section class="screen" id="scr-aloc">
       <div class="sched-top"><div class="sched-title">Alocação de Equipe</div>
@@ -1754,6 +1766,7 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     <button id="nav-cadastro" data-grp="mais" data-scr="cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
     <button id="nav-trein" data-grp="mais" data-scr="treinamentos" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
     <button id="nav-plano" data-grp="mais" data-scr="plano" onclick="go('plano')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/><circle cx="18" cy="12" r="2"/></svg>Plano</button>
+    <button id="nav-tag" data-grp="mais" data-scr="tag" onclick="go('tag')"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Consultar TAG</button>
     <button id="nav-exp" data-grp="mais" data-scr="exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
     <button id="nav-mais" onclick="abrirMais()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>Mais<span class="nbadge" id="maisBadge" style="display:none">0</span></button>
   </nav></div>
@@ -2370,7 +2383,7 @@ function navLimparPermitido(){ document.querySelectorAll('.botnav button[data-gr
 /* A ordem da folha e a do mockup aprovado, nao a do DOM: Plano na frente, porque e o que a
    retaguarda abre mais, e EXP no fim. Uma aba que aparecer depois e nao estiver nesta lista
    entra no fim, nunca some. */
-const MAIS_ORDEM=['plano','approvals','producao','aloc','cadastro','treinamentos','exp'];
+const MAIS_ORDEM=['tag','plano','approvals','producao','aloc','cadastro','treinamentos','exp']; /* 11/10/2026: Consultar TAG primeiro (pedido do Raphael) */
 function navItensMais(){
   const out=[];
   const botoes=[...document.querySelectorAll('.botnav button[data-grp="mais"]')].sort((a,b)=>{
@@ -2454,6 +2467,7 @@ function go(scr){
   }
   /* idem pro NFC de provisionamento de etiqueta no Cadastro de Ativos */
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadNfcDesativar==='function') cadNfcDesativar();
+  if(_prevScr && _prevScr.id==='scr-tag' && scr!=='tag'){ try{ tagCamFechar(); etqFechar(); }catch(e){} }
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadSigCancelar==='function') cadSigCancelar();
   /* navegar (troca de aba/tela) fecha qualquer modal aberto — evita modal órfão flutuando sobre uma tela que não é mais a dele */
   document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
@@ -2467,7 +2481,7 @@ function go(scr){
   document.getElementById('hdr').style.display=internal?'flex':'none';
   document.getElementById('main').style.display=internal?'block':'none';
   document.getElementById('footer').style.display=(scr==='appt')?'block':'none';
-  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor'||scr==='plano');
+  const topLevel=(scr==='schedule'||scr==='approvals'||scr==='producao'||scr==='estoque'||scr==='aloc'||scr==='cadastro'||scr==='exp'||scr==='treinamentos'||scr==='bipar'||scr==='motor'||scr==='plano'||scr==='tag');
   document.getElementById('botnav').style.display=topLevel?'flex':'none';
   const bnw=document.getElementById('botnav-wrap'); if(bnw){ bnw.style.display=topLevel?'block':'none'; if(topLevel) setTimeout(botnavSombra,0); }
   document.getElementById('backBtn').style.display=(scr==='appt'||scr==='sub'||scr==='notifs'||scr==='trilha')?'block':'none';
@@ -2482,6 +2496,7 @@ function go(scr){
   else if(scr==='bipar'){ tt.textContent='Bipar'; ts.textContent='Retirada/recebimento por QR'; }
   else if(scr==='producao'){ tt.textContent='Produção'; ts.textContent='Fabricação própria'; }
   else if(scr==='motor'){ tt.textContent='Execução da OT'; ts.textContent='Checklist e registro de campo'; }
+  else if(scr==='tag'){ tt.textContent='Consultar TAG'; ts.textContent='Leia o QR code ou o NFC da etiqueta'; }
   else if(scr==='plano'){ tt.textContent='Plano de Manutenção'; ts.textContent='Retaguarda — ficha, biblioteca e agenda'; }
   else { tt.textContent='Field Service'; ts.textContent='Exaustech'+(SF_LIVE?' · ao vivo':''); }
   if(topLevel){ curTab=scr; document.getElementById('nav-schedule').classList.toggle('on',scr==='schedule'); document.getElementById('nav-approvals').classList.toggle('on',scr==='approvals'); document.getElementById('nav-aloc').classList.toggle('on',scr==='aloc'); document.getElementById('nav-estoque').classList.toggle('on',scr==='estoque'); document.getElementById('nav-cadastro').classList.toggle('on',scr==='cadastro'); document.getElementById('nav-exp').classList.toggle('on',scr==='exp'); const nt=document.getElementById('nav-trein'); if(nt) nt.classList.toggle('on',scr==='treinamentos'); const nb=document.getElementById('nav-bipar'); if(nb) nb.classList.toggle('on',scr==='bipar'); const np=document.getElementById('nav-producao'); if(np) np.classList.toggle('on',scr==='producao'); const nm=document.getElementById('nav-motor'); if(nm) nm.classList.toggle('on',scr==='motor'); const npl=document.getElementById('nav-plano'); if(npl) npl.classList.toggle('on',scr==='plano'); }
@@ -2494,6 +2509,7 @@ function go(scr){
   if(scr==='exp') renderExp();
   if(scr==='treinamentos') renderTreino();
   if(scr==='cadastro') renderCadastro();
+  if(scr==='tag') renderTag();
   if(scr==='notifs') renderNotifs();
   if(scr==='appt') renderAppt();
   if(scr==='bipar') renderBipar();
@@ -14294,6 +14310,7 @@ async function cadProvisionarEtiqueta(){
         reader.onreading=(ev)=>{
           if(cadSt!==st){ cadNfcDesativar(); return; }
           if(Date.now()-gravadaEm<2000) return;
+          if(etqLeituraBloqueada()) return;
           etqProcessar(ev,ativoDaEtiqueta);
         };
         cadSt.etiqueta={status:'ok',token:r.token,versao:r.versao,url};
@@ -14319,8 +14336,18 @@ async function cadProvisionarEtiqueta(){
    GET /ativos/previa-portal/:token — mesma busca do portal, mas pela sessão do TÉCNICO; o portal do cliente continua
    exigindo login. Ver docs/09-CADASTROS/DECISAO_teste-etiqueta-nfc_11-10-2026.md */
 let etqCtrl=null;
+/* 11/10/2026 — Raphael: "enquanto a pessoa não clica em 'Testar outra vez', deve inibir a leitura do NFC, porque está
+   aproveitando a página de resultado da consulta original mesmo lendo um segundo cartão diferente". Com o resultado
+   na tela, novas leituras são IGNORADAS (o leitor continua ligado só para o Android não abrir o portal); só
+   "Testar outra vez" — ou fechar a janela — libera a próxima leitura. */
+let etqTravado=false;
+function etqLeituraBloqueada(){
+  if(!etqTravado||!document.getElementById('etqModal')) return false;
+  toast('Para ler outra etiqueta, toque em "Testar outra vez".');
+  return true;
+}
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
-function etqFechar(){ etqParar(); const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqFechar(){ etqParar(); etqTravado=false; const m=document.getElementById('etqModal'); if(m) m.remove(); }
 function etqLinha(ok,titulo,detalhe){
   const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
@@ -14330,6 +14357,7 @@ function etqLinha(ok,titulo,detalhe){
 }
 function etqRender(st){
   const c=document.getElementById('etqCorpo'); if(!c) return;
+  etqTravado=(st.fase==='resultado'||st.fase==='conferindo');
   let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     +'<div style="font-size:15px;font-weight:700;color:#0B2239">📶 Teste da etiqueta NFC</div>'
     +'<button onclick="etqFechar()" style="background:none;border:none;font-size:22px;color:#686868;line-height:1;padding:0 4px">×</button></div>';
@@ -14347,7 +14375,7 @@ function etqRender(st){
         +'<div style="font-weight:700;color:#0B2239">'+cadEsc(st.ativo.descricao||st.ativo.nome||'Equipamento')+'</div>'
         +'<div style="font-size:12px;color:#686868;margin-top:2px">'+cadEsc([st.ativo.nome,st.ativo.tipo,st.ativo.local,st.ativo.conta].filter(Boolean).join(' · '))+'</div></div>';
     }
-    if(st.token&&st.okEtiqueta) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">👁️ Ver como o cliente vê</button>';
+    if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">👁️ Ver como o cliente vê</button>';
     h+='<div id="etqPrevia"></div>';
     /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
@@ -14371,22 +14399,27 @@ async function etqTestar(ativoEsperadoId){
   if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* um leitor por vez: o de gravação não pode pegar esta leitura */
   etqFechar();
   etqAbrirModal();
+  etqTravado=false;
   const esperado=ativoEsperadoId||'';
   etqRender({fase:'lendo'});
   try{
     const reader=new NDEFReader(); const ctrl=new AbortController(); etqCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     reader.onreadingerror=()=>etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'});
-    reader.onreading=(e)=>{ etqParar(); etqProcessar(e,esperado); };
+    reader.onreading=(e)=>{ if(etqLeituraBloqueada()) return; etqProcessar(e,esperado); };
   }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
 }
 /* confere UMA leitura (usada pelo botão de teste e pelo leitor que fica ligado depois de gravar, no cadastro) */
 async function etqProcessar(e,esperado){
-      if(!document.getElementById('etqModal')) etqAbrirModal();
-      etqRender({fase:'conferindo'});
       const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
       let url='';
       try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url'){ url=new TextDecoder().decode(rec.data); break; } } }catch(_){}
+      return etqConferir(url,uid,esperado);
+}
+/* confere um endereço de etiqueta (lido do chip, ou recebido do portal — ver etqDoPortal) */
+async function etqConferir(url,uid,esperado){
+      if(!document.getElementById('etqModal')) etqAbrirModal();
+      etqRender({fase:'conferindo'});
       const linhas=[]; const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
       const enderecoOk=!!token&&url.indexOf(PORTAL_BASE+'/a/')===0;
       linhas.push(etqLinha(enderecoOk, enderecoOk?'Endereço do portal gravado':'A etiqueta não tem o endereço do portal Exaustech', url||'(nenhum endereço gravado)'));
@@ -14408,6 +14441,76 @@ async function etqProcessar(e,esperado){
         linhas.push(etqLinha(false,msg[0],msg[1]));
         etqRender({fase:'resultado',linhas,esperado,url});
       }
+}
+/* 11/10/2026 — volta do portal. Raphael: "no teste do NFC continua abrindo o portal automaticamente". Com endereço
+   de internet gravado no chip, o Android pode abrir o navegador mesmo com o app lendo NFC (o sistema decide antes do
+   app). A etiqueta PRECISA ter o endereço (é o do cliente), então o portal ganhou o link "Técnico Exaustech? Testar
+   esta etiqueta no app", que abre o app com ?etiqueta=<código>. Aqui o app pega o código, limpa a URL e, assim que
+   houver sessão de técnico, mostra o teste daquela etiqueta (sem o login do cliente). O chip não é lido nesse
+   caminho, então a linha "Chip não conferido" é esperada. */
+(function(){ try{
+  const q=new URLSearchParams(location.search), t=q.get('etiqueta');
+  if(t&&/^[A-Za-z0-9-]{16,64}$/.test(t)){
+    sessionStorage.setItem('etq_portal',t);
+    q.delete('etiqueta'); const resto=q.toString();
+    history.replaceState(null,'',location.pathname+(resto?'?'+resto:'')+location.hash);
+  }
+}catch(e){} })();
+function etqDoPortal(){
+  let t=null; try{ t=sessionStorage.getItem('etq_portal'); }catch(e){}
+  if(!t) return true;
+  if(!beTok()) return false;                       /* ainda sem login: tenta de novo daqui a pouco */
+  try{ sessionStorage.removeItem('etq_portal'); }catch(e){}
+  etqAbrirModal(); etqConferir(PORTAL_BASE+'/a/'+t,'','');
+  return true;
+}
+document.addEventListener('DOMContentLoaded',()=>{ let n=0; const iv=setInterval(()=>{ if(etqDoPortal()||++n>120) clearInterval(iv); },1000); });
+/* ===== CONSULTAR TAG (11/10/2026) =====
+   Raphael: "opção no menu chamada Consultar TAG. Ela vai permitir ler QR code ou NFC, clicando em 2 ícones grandes
+   na tela com o símbolo de cada um". Reaproveita a conferência do teste da etiqueta (etqConferir/etqTestar): mostra
+   a quem a etiqueta pertence, se está ativa e, pelo NFC, se o chip confere. A câmera tem overlay PRÓPRIO desta tela:
+   o do Estoque fica dentro da tela do Estoque e some quando ela não está aberta. */
+function renderTag(){
+  const el=document.getElementById('tagBody'); if(!el) return;
+  const nfc=estoqNfcSuportado();
+  const ic=(svg,tit,sub,on,dis)=>'<button '+(dis?'disabled ':'')+'onclick="'+on+'" style="flex:1 1 0;min-width:0;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:22px 10px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;'+(dis?'opacity:.45;':'')+'">'
+    +'<span style="width:96px;height:96px;border-radius:20px;background:#EAF2FB;display:flex;align-items:center;justify-content:center">'+svg+'</span>'
+    +'<span style="font-size:15px;font-weight:700;color:#0B2239">'+tit+'</span><span style="font-size:12px;color:#686868;text-align:center">'+sub+'</span></button>';
+  const svgQr='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M6.5 6.5h1M16.5 6.5h1M6.5 16.5h1"/><path d="M14 14h2v2M18 14h2M14 18v2h2M18 18h2v2"/></svg>';
+  const svgNfc='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M12 8a6 6 0 0 1 0 8"/><path d="M14.5 6.5a8.2 8.2 0 0 1 0 11"/></svg>';
+  el.innerHTML='<div style="padding:18px 14px 90px">'
+    +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Como você quer ler a etiqueta?</div>'
+    +'<div style="font-size:13px;color:#686868;margin-bottom:16px">Mostra a qual equipamento ela pertence e se está ativa.</div>'
+    +'<div style="display:flex;gap:12px">'
+    +ic(svgQr,'QR code','Use a câmera','tagLerQr()',false)
+    +ic(svgNfc,'NFC',nfc?'Encoste a etiqueta':'Este aparelho não tem NFC','etqTestar(\'\')',!nfc)
+    +'</div></div>';
+}
+let tagCamStream=null, tagCamRAF=null;
+async function tagLerQr(){
+  if(tagCamStream) return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste aparelho'); return; }
+  try{ tagCamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
+  catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
+  const v=document.getElementById('tagCamVideo'); v.srcObject=tagCamStream; await v.play().catch(()=>{});
+  document.getElementById('tagCamOv').style.display='block';
+  tagCamLoop();
+}
+function tagCamFechar(){
+  if(tagCamRAF) cancelAnimationFrame(tagCamRAF); tagCamRAF=null;
+  if(tagCamStream){ tagCamStream.getTracks().forEach(t=>t.stop()); tagCamStream=null; }
+  const ov=document.getElementById('tagCamOv'); if(ov) ov.style.display='none';
+}
+function tagCamLoop(){
+  const v=document.getElementById('tagCamVideo'), c=document.getElementById('tagCamCanvas'); if(!v||!tagCamStream) return;
+  if(v.readyState===v.HAVE_ENOUGH_DATA){
+    c.width=v.videoWidth; c.height=v.videoHeight;
+    const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(v,0,0,c.width,c.height);
+    let img=null; try{ img=ctx.getImageData(0,0,c.width,c.height); }catch(e){}
+    const code=img?jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
+    if(code&&code.data){ tagCamFechar(); etqAbrirModal(); etqConferir(code.data.trim(),'',''); return; }
+  }
+  tagCamRAF=requestAnimationFrame(tagCamLoop);
 }
 /* o que o cliente vê depois de entrar no portal (mesmos dados de /portal/api/ativo/:token) */
 async function etqPrevia(token){
