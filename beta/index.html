@@ -78,6 +78,17 @@
   .cad-cnpj-pill{background:var(--brand-l);color:var(--brand-d);border:1.5px solid #9fc6f0;border-radius:999px;padding:0 20px;font-weight:700;font-size:13.5px;white-space:nowrap;cursor:pointer}
   .cad-cnpj-pill:hover{background:#dcebf9}
   .phone.fullbleed{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
+  /* 11/10/2026: Raphael no Galaxy Tab Active5: "a tela nao fica otimizada, aparecendo espacos nao usados — o app sera
+     usado em celulares e tablets". A moldura de 420px (acima) existe para o navegador do COMPUTADOR mostrar o app
+     como celular. Em aparelho de TOQUE com tela larga (tablet, celular deitado) ou instalado como app, ela so desperdica
+     tela: aqui o app ocupa a tela toda. Computador (mouse) continua com a moldura. Folhas que sobem de baixo
+     (Mais, tarefa) ganham um pouco mais de largura, sem esticar a tela inteira. Layout proprio de tablet
+     (lista + detalhe lado a lado) fica para depois, tela por tela. */
+  @media (pointer:coarse) and (min-width:600px), (display-mode:standalone) and (min-width:600px){
+    .phone{max-width:none;margin:0;height:100vh;height:100dvh;border-radius:0;box-shadow:none}
+    .mais-sheet{max-width:640px}
+    #mot-sheet{max-width:680px}
+  }
   header{background:var(--brand);color:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;flex-shrink:0}
   .brandmark{display:flex;align-items:center;gap:8px;min-width:0}
   .cloud{width:26px;height:26px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
