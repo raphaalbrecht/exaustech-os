@@ -12804,7 +12804,7 @@ const CAD_SIS_ESCOLHIVEIS=CAD_SIS_TIPOS.slice(0,4); /* o generico 'Sistema' so a
 function cadEhTipoSistema(t){ return CAD_SIS_TIPOS.includes(t.nome); }
 let cadSt=null;
 function cadEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false,comuns:{}}; }
+function cadReset(){ if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* 06/10/2026 (revisão): "Cadastrar outro" deixava o leitor NFC ligado e uma tag encostada caía no cadastro seguinte */ cadSt={step:'conta',contas:[],conta:null,locais:[],local:null,tipos:[],sistemaTipos:[],novoSisTipo:null,novoSisNome:'',sistemas:[],sistema:null,novoSis:false,ativoId:null,ativoNome:null,tipoNome:'',form:null,resp:{},img:{},busy:false,fotos:{},fotoBusy:null,etiqueta:{status:'idle'},modoEdicao:false,comuns:{}}; } /* 11/10/2026: ativoNome = número do ativo (Name), mostrado na tela de sucesso */
 function cadBtn(txt,onclick,style){ return `<button onclick="${onclick}" style="${style||''}">${cadEsc(txt)}</button>`; }
 /* opc.soConta (07/10/2026, pedido do Raphael): na tela "Novo local" o quadro mostrava o local escolhido ANTES —
    mas um local novo ainda não tem local. Só esconde; a escolha anterior continua guardada para o "Voltar". */
@@ -12860,7 +12860,8 @@ function cadAbandonoOk(){
     if(!confirm(msg)) return false;
   }
   cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false;
-  cadSt.ativoId=null; cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
+  cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026: número e dados do ativo retomado não passam para o próximo */
+  cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
   cadSt.motorConf=null; /* 11/10/2026: saiu da ficha do motor conferido → o próximo equipamento não herda a conferência */
   return true;
 }
@@ -13264,9 +13265,12 @@ function cadStepEquip(){
     return `<button onclick="cadPickEquip(${i})" style="background:#fff;border:${marcado?'2px solid #3E7EB0':'1px solid #E2E5E9'};border-radius:14px;overflow:hidden;padding:0;display:flex;flex-direction:column">`
       +`<span style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;background:#F4F7F9;width:100%"><img id="cadtipo-${t.id}" alt="" style="width:100%;height:100%;object-fit:contain;display:none">${CAD_ICONE_TIPO[cadChave(t.nome)]?`<span id="cadtipoph-${t.id}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${CAD_ICONE_TIPO[cadChave(t.nome)]}</span>`:`<span id="cadtipoph-${t.id}" aria-hidden="true" style="width:38%;aspect-ratio:1;border:2px dashed #D5DEE7;border-radius:10px"></span>`}</span>`
       +`<span style="display:block;font-size:11.5px;line-height:1.25;font-weight:${marcado?'700':'600'};color:${marcado?'#3E7EB0':'#0B2239'};padding:7px 5px 8px;text-align:center">${cadEsc(t.nome)}</span></button>`; }).join('');
-  h+='</div></div>'; el.innerHTML=h;
+  h+='</div>';
+  h+='<div id="cadJaCad"></div>'; /* 11/10/2026: lista "Já cadastrados neste sistema" (cadCarregarJaCadastrados), carrega depois */
+  h+='</div>'; el.innerHTML=h;
   cadSt._equip=equip;
   equip.forEach(t=>cadLoadTipoImg(t.id));
+  cadCarregarJaCadastrados();
 }
 /* ÍCONES DE TRAÇO por tipo de equipamento (06/10/2026). As imagens de verdade (arquivo anexado no
    TipoAtivo__c, GET /tipos/:id/imagem) ainda não existem, e o quadro tracejado vazio não deixava
@@ -13364,7 +13368,8 @@ async function cadCriarEquip(t,paiId){
   cadSt.criando=true;
   const el=document.getElementById('cadBody'); el.innerHTML=cadCtx()+'<div style="padding:0 14px;color:#686868">Abrindo a ficha…</div>';
   try{
-    cadSt.ativoId=null; cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
+    cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026 */
+    cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
     cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
     cadSt.motorConf=null; /* 11/10/2026: equipamento escolhido na grade não é o motor conferido pelo QR */
     cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
@@ -13625,7 +13630,9 @@ async function cadCriarMotorBerliner(){
 const CAD_MOTOR_MOTIVOS=['Motor trocado','Rebobinado/alterado','Ficha do fabricante errada','Não sei']; /* valores exatos da picklist da org */
 const CAD_MOTOR_PREVISTO=[['Fabricante','Fabricante'],['Potência (CV)','Potência'],['Rotação / polos','Rotação / polos'],['Fases','Fases'],['Tensão','Tensão'],['Carcaça IEC','Carcaça IEC']];
 async function cadAbrirMotorBerliner(){
-  const b=cadEhBerliner()?cadSt.berliner:null; if(!b||!b.motor||cadSt.criando||!cadSt.ativoId) return;
+  /* 11/10/2026: exaustor RETOMADO pela lista "Já cadastrados" não tem a ficha carregada (cadEhBerliner precisa dela);
+     ali a origem Berliner já foi conferida pelas respostas gravadas (cadRetomarAtivo) */
+  const b=(cadEhBerliner()||cadSt.retomada)?cadSt.berliner:null; if(!b||!b.motor||cadSt.criando||!cadSt.ativoId) return;
   const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
   if(!tipoMotor){ toast('Tipo de equipamento Motor não encontrado'); return; }
   if(navigator.onLine===false){ toast('📴 Sem sinal: a conferência do motor precisa de internet.'); return; }
@@ -13641,7 +13648,8 @@ async function cadAbrirMotorBerliner(){
     cadSt.motorConf={exaustorId:cadSt.ativoId,exaustorNome:[cadSt.tipoNome,b.exaustor&&b.exaustor['Modelo']].filter(Boolean).join(' '),
       previsto:Object.assign({},b.motor),kw:(b.extras&&b.extras.motorKw)||null,fab,resultado:null,motivo:null,gravada:null,erro:null};
     cadSt.pendente={tipoId:tipoMotor.id,paiId:cadSt.ativoId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
-    cadSt.ativoId=null; cadSt.tipoNome=tipoMotor.nome; cadSt.form=form; cadSt.resp={}; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false;
+    cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026: o motor terá número próprio */
+    cadSt.tipoNome=tipoMotor.nome; cadSt.form=form; cadSt.resp={}; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false;
     cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
     cadSt.etiqueta={status:'idle'}; cadSt.modoEdicao=false;
     cadSt.criando=false; cadSt.step='form'; cadStepForm();
@@ -13750,28 +13758,25 @@ async function cadMotorGravarConferencia(){
   catch(e){ m.gravada=false; m.erro=e.message||'erro'; toast('⚠️ Motor salvo, mas a conferência não foi gravada: '+(e.message||'')); }
 }
 async function cadMotorRepetir(){ await cadMotorGravarConferencia(); if(cadSt.step==='done') cadStepDone(); }
-/* cartão da conclusão do motor (estado C do mockup) */
+/* miolo do passo "Motor" da tela de sucesso (estado C do mockup da conferência). 11/10/2026 — antes era um cartão
+   próprio com título e situação; na tela de sucesso nova (docs/09-CADASTROS/DECISAO_tela-sucesso-cadastro_11-10-2026.md)
+   o título e a situação vão no cabeçalho do passo (cadPassoMotor), e aqui fica só a tabela fábrica → real. */
 function cadMotorCartaoDone(){
   const m=cadSt.motorConf; if(!m||!m.resultado) return '';
   const d=cadMotorDiferencas(); const campos=cadCamposDoForm(cadSt.form);
-  const hoje=new Date().toLocaleDateString('pt-BR');
-  const cor={confere:'#1D9E75',diferente:'#9A5A14',nao_visivel:'#686868'}[m.resultado];
-  const tit={confere:'⚙️ Motor conferido · igual ao de fábrica',diferente:'⚙️ Motor real registrado · diferente do de fábrica',nao_visivel:'⚙️ Motor registrado com dados de fábrica · plaqueta não conferida'}[m.resultado];
-  const st={confere:'Conferido na plaqueta em '+hoje,diferente:'Conferido na plaqueta em '+hoje,nao_visivel:'Fica pendente: conferir a plaqueta do motor na próxima visita.'}[m.resultado];
-  let h='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
-  h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">'+tit+'</div>';
-  h+='<div style="font-size:13px;font-weight:600;color:'+cor+';margin-bottom:8px">'+cadEsc(st)+'</div>';
   const linha=(k,v)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #E2E5E9"><span style="color:#686868">'+k+'</span><span style="font-weight:600;color:#0B2239;text-align:right">'+v+'</span></div>';
-  h+='<div style="font-size:12px;line-height:1.55">';
+  let h='';
+  if(m.resultado==='nao_visivel') h+='<div style="font-size:12px;color:#3A4552;margin-top:4px;line-height:1.45">Fica pendente: conferir a plaqueta do motor na próxima visita.</div>';
+  h+='<div style="font-size:12px;line-height:1.55;margin:6px 0 2px">';
   d.forEach(x=>{ h+=linha(cadEsc(x.nome),'<s style="color:#686868;font-weight:400;margin-right:6px">'+cadEsc(x.de)+'</s><span style="color:#9A5A14">'+cadEsc(x.para)+'</span>'); });
   campos.filter(c=>m.fab[c.id]!=null&&!cadMotorDifere(c.id)).forEach(c=>{ const v=String(cadSt.resp[c.id]==null?'':cadSt.resp[c.id]).trim(); h+=linha(cadEsc(c.nome),v?cadEsc(v):'<span style="color:#AEB8C2">em branco</span>'); });
   const corr=campos.find(c=>cadChave(c.nome)==='correntenominala'); const cv=corr&&String(cadSt.resp[corr.id]==null?'':cadSt.resp[corr.id]).trim();
   if(cv) h+=linha('Corrente nominal',cadEsc(cv)+' A <span style="font-weight:400;color:#686868">(plaqueta)</span>');
   if(m.resultado==='diferente'&&m.motivo) h+=linha('Motivo',cadEsc(m.motivo));
   h+='</div>';
-  if(m.resultado!=='nao_visivel') h+='<div style="font-size:11.5px;color:#686868;margin-top:8px">📷 Foto da plaqueta guardada no Drive. O valor de fábrica fica registrado ao lado de cada campo; para manutenção e PMOC vale o motor real.</div>';
-  if(m.gravada===false) h+='<div style="background:#FCEBEB;border:1px solid #F3C1C1;border-radius:10px;padding:10px;margin-top:10px;font-size:12.5px;color:#8e1b1b">⚠️ O resultado da conferência não foi gravado ('+cadEsc(m.erro)+').<button onclick="cadMotorRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
-  return h+'</div>';
+  if(m.resultado!=='nao_visivel') h+='<div style="font-size:12px;color:#686868;margin-top:4px;line-height:1.45">Foto da plaqueta guardada. O valor de fábrica fica registrado ao lado de cada campo; para manutenção e PMOC vale o motor real.</div>';
+  if(m.gravada===false) h+='<div style="background:#FCEBEB;border:1px solid #F3C1C1;border-radius:10px;padding:10px;margin-top:8px;font-size:12.5px;color:#8e1b1b">O resultado da conferência não foi gravado ('+cadEsc(m.erro)+').<button onclick="cadMotorRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
+  return h;
 }
 /* 06/10/2026 — o título mostra só "Cadastro de Exaustor Centrífugo" (pedido do Raphael). Só a TELA
    muda. O app acha a ficha pelo tipo do ativo (/formulario-ativo?ativoId=), não pelo nome. O código
@@ -13927,7 +13932,7 @@ async function cadSalvar(){
     if(!cadSt.ativoId&&cadSt.pendente){
       const p=cadSt.pendente;
       const r=await bePost('/ativos',{contaId:p.contaId,localId:p.localId,tipoId:p.tipoId,paiId:p.paiId});
-      cadSt.ativoId=r.id; cadSt.pendente=null;
+      cadSt.ativoId=r.id; cadSt.ativoNome=r.nome||null; cadSt.pendente=null; /* 11/10/2026: o servidor devolve o número (Name); se não vier, a tela diz "Número indisponível" */
     }
     await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
     if(cadSt.motorConf&&cadSt.motorConf.gravada!==true) await cadMotorGravarConferencia(); /* 11/10/2026: depois das respostas; falha só avisa */
@@ -14025,65 +14030,219 @@ function cadStepRevisao(){
   h+='<button onclick="cadVoltarFicha()" '+(cadSt.salvando?'disabled':'')+' style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;font-size:14px;font-weight:600;color:#3E7EB0;margin-top:8px">‹ Voltar e corrigir</button>';
   h+='</div>'; el.innerHTML=h;
 }
+/* TELA DE SUCESSO DO CADASTRO (11/10/2026, mockup aprovado pelo Raphael: prototipos/mockup-sucesso-cadastro-ativo_11-10-2026.html;
+   decisão em docs/09-CADASTROS/DECISAO_tela-sucesso-cadastro_11-10-2026.md). Hierarquia de cima para baixo:
+   (1) confirmação + NÚMERO do ativo (o que o técnico anota ou fala ao telefone — sem botão Copiar, decisão do Raphael);
+   (2) o que foi cadastrado (tipo, conta, local, sistema, fotos) com "Ver / editar";
+   (3) o que falta neste equipamento: um passo por linha, selo laranja numerado (pendente) ou check verde (feito), e o
+       botão de cada passo DENTRO do passo — antes o que já estava feito (motor conferido) ficava acima do que faltava;
+   (4) saída. A mesma tela serve à edição ("Cadastro atualizado") e ao equipamento RETOMADO pela lista "Já cadastrados
+   neste sistema" (cadRetomarAtivo). As funções de etiqueta, motor e fotos são as mesmas de antes; só mudaram de lugar. */
+function cadEtiquetaDoAtivo(d){ /* etiqueta ATIVA que o ativo já tem → mesmo formato que cadProvisionarEtiqueta grava */
+  const e=((d&&d.etiquetas)||[]).find(x=>x.ativa&&x.token);
+  return e?{status:'ok',token:e.token,versao:e.versao,url:PORTAL_BASE+'/a/'+e.token}:{status:'idle'};
+}
+/* conferência gravada no PRÓPRIO ativo, quando ele é um motor (GET /ativos/:id → conferenciaPlaqueta). Motor cadastrado à mão,
+   sem conferência, não ganha o passo: não há o que conferir contra a fábrica. */
+function cadMotorDoProprio(d){
+  if(!d||cadChave(d.tipo)!=='motor') return null;
+  const c=d.conferenciaPlaqueta; if(!c||c==='Não conferido') return null;
+  return {origem:'proprio',conf:c,motivo:d.motivoDivergencia||null};
+}
+/* passo "Motor" da lista do que falta; null = este equipamento não tem o passo */
+function cadPassoMotor(){
+  const m=cadSt.motorConf;
+  if(m&&m.resultado){ /* acabou de salvar o motor conferido (fluxo cadAbrirMotorBerliner → cadSalvar) */
+    const st={confere:'Conferido na plaqueta · igual ao de fábrica',diferente:'Conferido na plaqueta · diferente do de fábrica',nao_visivel:'Plaqueta não conferida'}[m.resultado];
+    return {feito:m.resultado!=='nao_visivel'&&m.gravada!==false,st,corpo:cadMotorCartaoDone()};
+  }
+  const im=cadSt.ident&&cadSt.ident.motor;
+  if(im&&(im.origem==='proprio'||im.origem==='filho')){ /* retomado / edição: o que está gravado no Salesforce */
+    if(im.conf==='Confere com a fábrica') return {feito:true,st:'Conferido na plaqueta · igual ao de fábrica',corpo:''};
+    if(im.conf==='Diferente da fábrica') return {feito:true,st:'Conferido na plaqueta · diferente do de fábrica',corpo:im.motivo?'<div style="font-size:12px;color:#3A4552;margin-top:4px">Motivo: '+cadEsc(im.motivo)+'</div>':''};
+    if(im.conf==='Plaqueta do motor não visível') return {feito:false,st:'Plaqueta não conferida',corpo:'<div style="font-size:12px;color:#3A4552;margin-top:4px;line-height:1.45">Fica pendente: conferir a plaqueta do motor na próxima visita.</div>'};
+    return {feito:false,st:'Não conferido',corpo:'<div style="font-size:12px;color:#3A4552;margin-top:4px;line-height:1.45">O motor'+(im.nome?' '+cadEsc(im.nome):'')+' foi cadastrado sem a conferência da plaqueta.</div>'};
+  }
+  /* exaustor Berliner com o motor da ficha do fabricante ainda não registrado (lógica de antes de 11/10, inalterada) */
+  const bm=(cadEhBerliner()||(im&&im.origem==='falta'))?cadSt.berliner:null;
+  const mm=(bm&&bm.motor)||{};
+  /* com unidade: um "2" solto no meio da linha não diz que é potência */
+  const motorTxt=[mm['Fabricante'],mm['Potência (CV)']?mm['Potência (CV)']+' CV':'',(mm['Rotação / polos']||'').replace(/\s*\(.*\)/,''),mm['Fases'],mm['Tensão']].filter(Boolean).join(' · ');
+  if(!motorTxt&&!(im&&im.origem==='falta')) return null;
+  const fab=motorTxt?'<div style="font-size:12px;color:#686868;margin-top:4px;line-height:1.45">Da ficha do fabricante: '+cadEsc(motorTxt)+'</div>':'';
+  const ms=bm&&bm.motorStatus;
+  if(ms==='ok') return {feito:true,st:'Motor criado e vinculado ('+bm.motorN+' campos preenchidos)',corpo:fab}; /* caminho antigo cadCriarMotorBerliner, sem uso desde 11/10 */
+  if(ms==='criando') return {feito:false,st:'Criando o motor…',stCor:'#3E7EB0',corpo:fab};
+  if(ms==='abrindo') return {feito:false,st:'Abrindo a ficha do motor…',stCor:'#3E7EB0',corpo:fab};
+  let corpo='';
+  if(ms==='erro') corpo+='<div style="font-size:12px;color:#C4451B;margin-top:4px">'+cadEsc(bm.motorErro||'Falhou')+(bm.motorId?' (o motor foi criado; a ficha dele ficou incompleta)':'')+'</div>';
+  corpo+='<div style="font-size:12px;color:#3A4552;margin-top:4px;line-height:1.45">Confira na plaqueta se o motor instalado é o de fábrica.</div>'+fab;
+  if(!(ms==='erro'&&bm.motorId)) corpo+=cadBtnDone('Conferir o motor na plaqueta',(im&&im.origem==='falta')?'cadRetomarMotor()':'cadAbrirMotorBerliner()','s');
+  return {feito:false,st:'Pendente',corpo};
+}
+/* botões no padrão do mockup: p = principal (azul), s = secundário (contorno azul), l = contorno neutro */
+function cadBtnDone(txt,onclick,tipo,extra){
+  const est={p:'background:#3E7EB0;color:#fff;border:none',s:'background:#fff;border:1px solid #BFD5E6;color:#2B5A7E',l:'background:none;border:1px solid #E2E5E9;color:#3A4552;font-weight:600'}[tipo||'p'];
+  return '<button onclick="'+onclick+'" style="display:block;width:100%;border-radius:10px;padding:11px;font-size:13px;font-weight:700;margin-top:8px;text-align:center;'+est+';'+(extra||'')+'">'+cadEsc(txt)+'</button>';
+}
+/* passo "Etiqueta NFC": TODOS os estados de antes (gravar, lendo, gravando, ok com QR/URL, leitor ligado, testar, gravar
+   outra, erro, sem NFC), só reorganizados dentro da linha. "Provisionar" virou "Gravar" (jargão, decisão de 11/10). */
+function cadPassoEtiqueta(){
+  const et=cadSt.etiqueta||{status:'idle'};
+  const d=(t,cor)=>'<div style="font-size:12px;color:'+(cor||'#3A4552')+';margin-top:4px;line-height:1.45">'+t+'</div>';
+  if(et.status==='ok'){
+    let c='';
+    if(cadNfcCtrl) c+='<div style="font-size:12px;color:#3E7EB0;background:#EAF2FB;border-radius:8px;padding:8px 10px;margin-top:8px">Leitor ligado: encoste a etiqueta para testar. O portal não abre.</div>';
+    c+='<div style="display:flex;gap:12px;align-items:center;margin-top:10px"><img id="cadNfcQr" alt="" style="width:84px;height:84px;flex:0 0 84px;border:1px solid #E2E5E9;border-radius:6px;background:#fff">'
+      +'<div style="font-size:11px;color:#686868;word-break:break-all;line-height:1.4">'+cadEsc(et.url)+'<br><span style="color:#AEB8C2">endereço gravado na etiqueta</span></div></div>';
+    c+=cadBtnDone('Testar esta etiqueta','etqTestar(\''+cadSt.ativoId+'\')','p');
+    c+=cadBtnDone('Gravar outra etiqueta','cadProvisionarEtiqueta()','l');
+    return {feito:true,st:'Gravada · versão '+cadEsc(et.versao),corpo:c};
+  }
+  if(et.status==='lendo'||et.status==='gravando')
+    return {feito:false,st:et.status==='lendo'?'Aproxime a etiqueta NFC em branco…':'Gravando…',stCor:'#3E7EB0',corpo:cadBtnDone('Cancelar','cadNfcCancelar()','l')};
+  if(et.status==='erro') return {feito:false,st:'Pendente',corpo:d(cadEsc(et.msg),'#C4451B')+cadBtnDone('Tentar novamente','cadProvisionarEtiqueta()','p')};
+  if(estoqNfcSuportado()) return {feito:false,st:'Pendente',corpo:d('Grave uma etiqueta em branco e cole no equipamento.')+cadBtnDone('Gravar etiqueta NFC','cadProvisionarEtiqueta()','p')};
+  return {feito:false,st:'Pendente',corpo:d('Exige aparelho Android com NFC (Chrome) — não disponível neste aparelho.','#686868')};
+}
 function cadStepDone(){
   cadTopo('done');
   const el=document.getElementById('cadBody');
   const et=cadSt.etiqueta||{status:'idle'};
-  let h='<div style="padding:32px 18px 90px;text-align:center">'
-    +'<div style="font-size:40px;margin-bottom:8px">✅</div>'
-    +'<div style="font-size:17px;font-weight:700;color:#0B2239">'+(cadSt.modoEdicao?'Cadastro atualizado':'Ativo cadastrado')+'</div>'
-    +'<div style="font-size:13px;color:#686868;margin:6px 0 18px">'+cadEsc(cadSt.tipoNome)+' · '+cadEsc(cadSt.conta.nome)+'</div>'
-    +'<button onclick="verAtivo(\''+cadSt.ativoId+'\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:12px;color:#3A4552;font-size:13px;font-weight:600;margin-bottom:14px">🔍 Ver / editar este ativo</button>';
-  if(cadSt.motorConf) h+=cadMotorCartaoDone(); /* 11/10/2026: motor conferido contra a ficha da Berliner (estado C do mockup) */
-
-  h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
-  h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:8px">🏷️ Etiqueta NFC</div>';
-  if(et.status==='ok'){
-    h+='<div style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:8px">Gravada — versão '+et.versao+'</div>';
-    if(cadNfcCtrl) h+='<div style="font-size:12px;color:#3E7EB0;background:#EAF2FB;border-radius:8px;padding:8px 10px;margin-bottom:8px">📶 Leitor ligado: encoste a etiqueta para testar. O portal não abre.</div>';
-    h+='<img id="cadNfcQr" style="width:120px;height:120px;display:block;margin:0 auto 8px;border:1px solid #E2E5E9;border-radius:6px">';
-    h+='<div style="font-size:11px;color:#686868;text-align:center;word-break:break-all">'+cadEsc(et.url)+'</div>';
-    h+='<button onclick="etqTestar(\''+cadSt.ativoId+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Testar esta etiqueta</button>';
-    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3A4552;font-size:13px">Gravar outra etiqueta</button>';
-  } else if(et.status==='lendo'||et.status==='gravando'){
-    h+='<div style="font-size:13px;color:#3E7EB0">'+(et.status==='lendo'?'📶 Aproxime a etiqueta NFC em branco…':'Gravando…')+'</div>';
-    h+='<button onclick="cadNfcCancelar()" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#686868;font-size:13px">Cancelar</button>';
-  } else if(et.status==='erro'){
-    h+='<div style="font-size:12px;color:#C4451B;margin-bottom:8px">'+cadEsc(et.msg)+'</div>';
-    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar novamente</button>';
-  } else if(estoqNfcSuportado()){
-    h+='<button onclick="cadProvisionarEtiqueta()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">🏷️ Provisionar etiqueta NFC</button>';
-  } else {
-    h+='<div style="font-size:12px;color:#686868">Exige aparelho Android com NFC (Chrome) — não disponível neste aparelho.</div>';
-  }
-  h+='</div>';
-
+  const id=cadSt.ident||{};
+  const cardSt='background:#fff;border:1px solid #E2E5E9;border-radius:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(11,34,57,.05)';
+  let h='<div style="padding:14px 14px 90px">';
+  /* (1) confirmação + número */
+  const tit=cadSt.modoEdicao?'Cadastro atualizado':(cadSt.retomada?'Ativo já cadastrado':'Ativo cadastrado');
+  h+='<div style="'+cardSt+';padding:14px">'
+    +'<div style="display:flex;align-items:center;gap:10px"><div style="flex:0 0 26px;height:26px;border-radius:50%;background:#1B7A3D;color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center">✓</div>'
+    +'<div style="font-size:17px;font-weight:700;color:#0B2239">'+tit+'</div></div>'
+    +'<div style="margin-top:12px;border-top:1px solid #E2E5E9;padding-top:10px">'
+    +'<div style="font-size:11px;color:#686868;text-transform:uppercase;letter-spacing:.04em">Número do ativo</div>'
+    +(cadSt.ativoNome
+      ?'<div style="font-size:24px;font-weight:800;color:#0B2239;letter-spacing:.06em;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:2px">'+cadEsc(cadSt.ativoNome)+'</div>'
+       +'<div style="font-size:12px;color:#686868;margin-top:4px">Use este número para identificar o equipamento.</div>'
+      :'<div style="font-size:15px;font-weight:700;color:#686868;margin-top:2px">Número indisponível</div>'
+       +'<div style="font-size:12px;color:#686868;margin-top:4px">Abra "Ver / editar este ativo" para ver o número.</div>')
+    +'</div></div>';
+  /* (2) identificação */
+  const kv=[]; const lin=(k,v)=>kv.push('<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #EEF1F4;font-size:13px"><span style="color:#686868;flex:0 0 72px">'+k+'</span><span style="font-weight:600;color:#0B2239;text-align:right">'+cadEsc(v)+'</span></div>');
+  if(cadSt.conta&&cadSt.conta.nome) lin('Conta',cadSt.conta.nome);
+  { const l=cadSt.local?cadLocalNome(cadSt.local):id.local; if(l) lin('Local',l); }
+  if(cadSt.sistema&&cadSt.sistema.nome) lin('Sistema',cadSt.sistema.nome);
   { const nf=cadGaleria().filter(x=>x.vinculada).length;
-    if(cadSt.galeriaFalhou) h+='<div style="text-align:left;background:#FCEBEB;border:1px solid #F3C1C1;border-radius:12px;padding:12px;margin-bottom:14px;font-size:12.5px;color:#8e1b1b">⚠️ As fotos não foram vinculadas ao ativo ('+cadEsc(cadSt.galeriaFalhou)+').<button onclick="cadGaleriaRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
-    else if(nf) h+='<div style="font-size:12.5px;color:#1B7A3D;margin:-6px 0 14px">📷 '+nf+' foto'+(nf>1?'s':'')+' guardada'+(nf>1?'s':'')+' no Drive e vinculada'+(nf>1?'s':'')+' ao ativo.</div>'; }
-  /* cartão do motor (06/10/2026): só quando a ficha da Berliner trouxe o motor */
-  const bm=cadEhBerliner()?cadSt.berliner:null; const mm=(bm&&bm.motor)||{}; /* revisão 06/10: motor da Berliner só se o fabricante continua Berliner */
-  /* com unidade: um "2" solto no meio da linha não diz que é potência */
-  const motorTxt=[mm['Fabricante'],mm['Potência (CV)']?mm['Potência (CV)']+' CV':'',(mm['Rotação / polos']||'').replace(/\s*\(.*\)/,''),mm['Fases'],mm['Tensão']].filter(Boolean).join(' · ');
-  if(motorTxt){
-    h+='<div style="text-align:left;background:#F4F7F9;border:1px solid #E2E5E9;border-radius:12px;padding:14px;margin-bottom:14px">';
-    h+='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-bottom:4px">⚙️ Motor deste equipamento</div>';
-    h+='<div style="font-size:12px;color:#686868;margin-bottom:8px">Da ficha da Berliner: '+cadEsc(motorTxt)+'</div>';
-    if(bm.motorStatus==='ok') h+='<div style="font-size:13px;color:#1D9E75;font-weight:600">✓ Motor criado e vinculado ('+bm.motorN+' campos preenchidos)</div>';
-    else if(bm.motorStatus==='criando') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Criando o motor…</div>';
-    else if(bm.motorStatus==='abrindo') h+='<div style="font-size:13px;color:#3E7EB0"><span class="ld-spin"></span>Abrindo a ficha do motor…</div>';
-    else{
-      if(bm.motorStatus==='erro') h+='<div style="font-size:12px;color:#C4451B;margin-bottom:6px">'+cadEsc(bm.motorErro||'Falhou')+(bm.motorId?' (o motor foi criado; a ficha dele ficou incompleta)':'')+'</div>';
-      /* 11/10/2026 — não cria mais em silêncio: abre a ficha do motor com a conferência (cadAbrirMotorBerliner) */
-      if(!(bm.motorStatus==='erro'&&bm.motorId)) h+='<div style="font-size:11.5px;color:#686868;margin-bottom:8px">O motor instalado pode não ser o de fábrica: confira na plaqueta antes de registrar.</div>'
-        +'<button onclick="cadAbrirMotorBerliner()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Conferir o motor na plaqueta</button>';
-    }
-    h+='</div>';
-  }
-  h+='<button onclick="cadReset();renderCadastro()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;margin-bottom:8px">Cadastrar outro</button>'
-    +'<button onclick="go(\'schedule\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:12px;padding:13px;color:#3A4552">Voltar à agenda</button></div>';
+    /* retomado: total gravado no ativo; novo: as desta volta; edição: só as acrescentadas agora (as antigas não vêm na edição) */
+    const n=id.fotosN!=null?id.fotosN:(cadSt.modoEdicao?(nf||null):nf);
+    if(n!=null) lin('Fotos',n?n+' guardada'+(n>1?'s':'')+' no Drive':'Nenhuma'); }
+  if(kv.length) kv[kv.length-1]=kv[kv.length-1].replace('border-bottom:1px solid #EEF1F4;','');
+  h+='<div style="'+cardSt+';overflow:hidden">'
+    +'<div style="padding:10px 14px;font-size:13px;font-weight:700;color:#0B2239;border-bottom:1px solid #E2E5E9">'+cadEsc(cadSt.tipoNome||'Equipamento')+'</div>'
+    +'<div style="padding:4px 14px 6px">'+kv.join('')+'</div><div style="padding:8px 14px 12px">';
+  if(cadSt.galeriaFalhou) h+='<div style="background:#FCEBEB;border:1px solid #F3C1C1;border-radius:10px;padding:10px;margin-bottom:8px;font-size:12.5px;color:#8e1b1b">As fotos não foram vinculadas ao ativo ('+cadEsc(cadSt.galeriaFalhou)+').<button onclick="cadGaleriaRepetir()" style="display:block;width:100%;margin-top:8px;background:#C4451B;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700">Tentar de novo</button></div>';
+  h+=cadBtnDone('Ver / editar este ativo','verAtivo(\''+cadSt.ativoId+'\')','l','margin-top:0')+'</div></div>';
+  /* (3) o que falta */
+  const passos=[Object.assign({tt:'Etiqueta NFC'},cadPassoEtiqueta())];
+  { const pm=cadPassoMotor(); if(pm) passos.push(Object.assign({tt:'Motor'},pm)); }
+  const feitos=passos.filter(p=>p.feito).length, tudo=feitos===passos.length;
+  h+='<div style="'+cardSt+';overflow:hidden">'
+    +'<div style="padding:10px 14px;font-size:13px;font-weight:700;color:#0B2239;border-bottom:1px solid #E2E5E9;display:flex;justify-content:space-between;align-items:center">'
+    +(tudo?'Tudo feito neste equipamento':'O que falta neste equipamento')+'<small style="font-size:11px;font-weight:600;color:#686868">'+feitos+' de '+passos.length+'</small></div>';
+  passos.forEach((p,i)=>{
+    const selo=p.feito?'<div style="flex:0 0 22px;height:22px;border-radius:50%;background:#1D9E75;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px">✓</div>'
+      :'<div style="flex:0 0 22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid #F9C77F;background:#FFF4E5;color:#9A5A14;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px">'+(i+1)+'</div>';
+    h+='<div style="padding:12px 14px;'+(i<passos.length-1?'border-bottom:1px solid #E2E5E9':'')+'"><div style="display:flex;align-items:flex-start;gap:10px">'+selo
+      +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:#0B2239">'+p.tt+'</div>'
+      +'<div style="font-size:12px;font-weight:600;margin-top:1px;color:'+(p.stCor||(p.feito?'#1D9E75':'#9A5A14'))+'">'+p.st+'</div>'
+      +(p.corpo||'')+'</div></div></div>';
+  });
+  h+='</div>';
+  /* (4) saída: "Cadastrar outro" é o azul só quando não falta nada (com pendência, o azul é o do passo) */
+  h+='<button onclick="cadOutroEquip()" style="display:block;width:100%;border-radius:12px;padding:14px;font-size:14px;font-weight:700;margin-top:4px;'+(tudo?'background:#3E7EB0;color:#fff;border:none':'background:none;border:1px solid #E2E5E9;color:#3A4552')+'">Cadastrar outro equipamento</button>'
+    +'<button onclick="go(\'schedule\')" style="display:block;width:100%;border:none;background:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;margin-top:8px;color:#3E7EB0">Voltar à agenda</button></div>';
   el.innerHTML=h;
   if(et.status==='ok') cadDesenharQrPreview(et.url);
+}
+/* "CADASTRAR OUTRO EQUIPAMENTO" (11/10/2026, decisão do Raphael): volta já na MESMA conta/local/sistema, na escolha do
+   equipamento — o técnico costuma cadastrar vários equipamentos do mesmo sistema seguidos. Todo o resto é zerado pelo
+   cadReset (ativo, número, ficha, respostas, fotos, etiqueta, motor, leitor NFC). Sem conta/local/sistema conhecidos
+   (vindo da edição, que só sabe o nome da conta), volta ao início como antes. */
+function cadOutroEquip(){
+  const ant=cadSt;
+  if(!(ant&&ant.conta&&ant.conta.id&&ant.local&&ant.sistema&&ant.sistema.id)){ cadReset(); renderCadastro(); return; }
+  cadReset(); /* desliga o leitor NFC e zera o estado do equipamento */
+  Object.assign(cadSt,{contas:ant.contas,conta:ant.conta,locais:ant.locais,local:ant.local,tipos:ant.tipos,sistemaTipos:ant.sistemaTipos,
+    sistemas:ant.sistemas,sistema:ant.sistema,_locConta:ant._locConta,_sisLocal:ant._sisLocal,step:'equip'});
+  renderCadastro();
+}
+/* LISTA "JÁ CADASTRADOS NESTE SISTEMA" (11/10/2026, decisão do Raphael): no passo Equipamento, abaixo da grade. Serve para
+   RETOMAR o que ficou pendente (etiqueta, motor) num equipamento já salvo. Só lê (GET /ativos?paiId=); tocar abre a mesma
+   tela de sucesso para aquele ativo. Equipamentos pendurados em outro equipamento (UV e bomba na coifa, motor no exaustor)
+   não aparecem aqui: a lista é dos filhos diretos do sistema. */
+async function cadCarregarJaCadastrados(){
+  const box=document.getElementById('cadJaCad'); if(!box||!cadSt.sistema) return;
+  const st=cadSt, sis=cadSt.sistema.id;
+  const pinta=()=>{ const b=document.getElementById('cadJaCad'); if(!b||cadSt!==st||!cadSt.sistema||cadSt.sistema.id!==sis) return;
+    const j=cadSt._jaCad;
+    if(j.erro){ b.innerHTML='<div style="font-size:12px;color:#686868;margin-top:14px">Não consegui carregar os equipamentos já cadastrados.</div>'; return; }
+    if(!j.lista.length){ b.innerHTML=''; return; }
+    b.innerHTML='<div style="font-size:13px;font-weight:700;color:#0B2239;margin:18px 0 8px">Já cadastrados neste sistema</div>'
+      +j.lista.map((a,i)=>'<button onclick="cadRetomarAtivo('+i+')" style="width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'
+        +'<span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0B2239">'+cadEsc(a.nome||'Sem número')+' <span style="font-weight:600;color:#3A4552">· '+cadEsc(a.tipo||'Equipamento')+'</span></span>'
+        +(a.descricao?'<span style="display:block;font-size:12px;color:#686868;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cadEsc(String(a.descricao).slice(0,80))+'</span>':'')+'</span>'
+        +(a.etiquetaAtiva===false?'<span style="flex:0 0 auto;background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:2px 8px;font-size:10.5px;font-weight:700">sem etiqueta</span>':'')
+        +'<span aria-hidden="true" style="color:#AEB8C2;font-size:18px">›</span></button>').join('');
+  };
+  if(cadSt._jaCad&&cadSt._jaCad.sis===sis&&!cadSt._jaCad.erro) return pinta();
+  box.innerHTML='<div style="font-size:12px;color:#686868;margin-top:14px"><span class="ld-spin"></span>Carregando…</div>';
+  try{ const l=await beGet('/ativos?paiId='+sis+'&comEtiqueta=1'); if(cadSt!==st) return; cadSt._jaCad={sis,lista:(l||[]).filter(a=>!cadEhTipoSistema({nome:a.tipo}))}; }
+  catch(e){ if(cadSt!==st) return; cadSt._jaCad={sis,lista:[],erro:true}; }
+  pinta();
+}
+/* abre a tela de sucesso para um equipamento JÁ salvo. Não cria nem grava nada: GET /ativos/:id (etiquetas, conferência,
+   respostas) e GET /ativos/:id/fotos. Exaustor Berliner: procura o motor filho; se não há, o passo Motor fica pendente e
+   usa o link da ficha do fabricante já gravado para buscar o motor de fábrica (sem pedir outro QR). */
+async function cadRetomarAtivo(i){
+  const a=((cadSt._jaCad&&cadSt._jaCad.lista)||[])[i]; if(!a||cadSt.criando) return;
+  if(navigator.onLine===false){ toast('📴 Sem sinal: abrir um equipamento já cadastrado precisa de internet.'); return; }
+  if(!cadAbandonoOk()) return;
+  const st=cadSt; cadSt.criando=true;
+  const el=document.getElementById('cadBody'); el.innerHTML='<div style="padding:14px 14px 90px">'+cadCtx()+'<div style="color:#686868"><span class="ld-spin"></span>Abrindo o equipamento…</div></div>';
+  try{
+    const [d,fotos]=await Promise.all([beGet('/ativos/'+a.id),beGet('/ativos/'+a.id+'/fotos').catch(()=>null)]);
+    let motor=cadMotorDoProprio(d), berliner=null;
+    const fab=(d.respostas||[]).find(r=>cadChave(r.campo)==='fabricante');
+    if(!motor&&cadChave(d.tipo)!=='motor'&&fab&&cadChave(fab.resposta)==='berlinerluft'){
+      const tipoMotor=(cadSt.tipos||[]).find(t=>cadChave(t.nome)==='motor');
+      const filhos=tipoMotor?(await beGet('/ativos?paiId='+d.id+'&tipoId='+tipoMotor.id))||[]:[];
+      if(filhos.length){ const md=await beGet('/ativos/'+filhos[0].id); motor={origem:'filho',conf:md.conferenciaPlaqueta||null,motivo:md.motivoDivergencia||null,nome:filhos[0].nome}; }
+      else{
+        motor={origem:'falta'};
+        if(d.linkFabricante){ try{ const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(d.linkFabricante)); if(r&&r.motor&&Object.keys(r.motor).length) berliner=r; }catch(e){} }
+      }
+    }
+    if(cadSt!==st){ st.criando=false; return; }
+    cadNfcDesativar();
+    Object.assign(cadSt,{ativoId:d.id,ativoNome:d.nome||null,tipoNome:d.tipo||a.tipo||'',pendente:null,form:null,resp:{},fotos:{},comuns:{},comunsMexeu:false,
+      berliner,daBerliner:{},sugBerliner:{},berlinerModo:null,galeria:[],galeriaFalhou:false,motorConf:null,modoEdicao:false,
+      etiqueta:cadEtiquetaDoAtivo(d),retomada:true,ident:{local:d.local||null,fotosN:fotos?fotos.length:null,motor},criando:false,step:'done'});
+    cadStepDone();
+  }catch(e){ st.criando=false; toast('Não consegui abrir o equipamento: '+e.message); if(cadSt===st) cadStepEquip(); }
+}
+/* "Conferir o motor na plaqueta" num exaustor RETOMADO: com o link do fabricante já lido, segue o fluxo normal; sem ele,
+   pede o QR da plaqueta do exaustor de novo (o mesmo leitor da ficha) */
+async function cadRetomarMotor(){
+  if(cadSt.berliner&&cadSt.berliner.motor) return cadAbrirMotorBerliner();
+  if(navigator.onLine===false){ toast('📴 Sem sinal: a leitura da Berliner precisa de internet.'); return; }
+  toast('Leia o QR da plaqueta do exaustor.');
+  await estoqScanCamAbrir(async (texto)=>{
+    const st=cadSt, aid=cadSt.ativoId;
+    try{
+      const r=await beGet('/fabricante/berliner?qr='+encodeURIComponent(texto));
+      if(cadSt!==st||cadSt.ativoId!==aid||cadSt.step!=='done') return;
+      if(!r||!r.motor||!Object.keys(r.motor).length){ toast('A ficha da Berliner não trouxe o motor.'); return; }
+      cadSt.berliner=r; cadStepDone(); cadAbrirMotorBerliner();
+    }catch(e){ if(cadSt===st) toast('⚠️ '+e.message); }
+  });
 }
 function cadStep(s){ cadSt.step=s; renderCadastro(); }
 /* desenha o QR (mesma lib qrcode-generator já vendorizada pro PDF de etiqueta do Estoque) num canvas
@@ -14313,6 +14472,9 @@ async function ativoDetEditar(){
   closeAtivoDet();
   cadReset();
   cadSt.ativoId=d.id; cadSt.tipoNome=d.tipo||''; cadSt.conta={id:null,nome:d.conta||''}; cadSt.modoEdicao=true;
+  /* 11/10/2026 — a tela "Cadastro atualizado" usa o mesmo layout da de sucesso: número, local e a etiqueta que o ativo
+     JÁ tem (sem isto o passo Etiqueta NFC apareceria como pendente num equipamento etiquetado) */
+  cadSt.ativoNome=d.nome||null; cadSt.etiqueta=cadEtiquetaDoAtivo(d); cadSt.ident={local:d.local||null,fotosN:null,motor:cadMotorDoProprio(d)};
   try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+d.id); }
   catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
