@@ -2467,7 +2467,7 @@ function go(scr){
   }
   /* idem pro NFC de provisionamento de etiqueta no Cadastro de Ativos */
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadNfcDesativar==='function') cadNfcDesativar();
-  if(_prevScr && _prevScr.id==='scr-tag' && scr!=='tag'){ try{ tagCamFechar(); etqFechar(); }catch(e){} }
+  if(_prevScr && _prevScr.id==='scr-tag' && scr!=='tag'){ try{ tagCamFechar(); etqFechar(); tagNfcDesligar(); }catch(e){} }
   if(_prevScr && _prevScr.id==='scr-cadastro' && scr!=='cadastro' && typeof cadSigCancelar==='function') cadSigCancelar();
   /* navegar (troca de aba/tela) fecha qualquer modal aberto — evita modal órfão flutuando sobre uma tela que não é mais a dele */
   document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
@@ -14356,8 +14356,10 @@ function etqLeituraBloqueada(uid){
   return false;
 }
 function etqUid(e){ return ((e&&e.serialNumber)||'').replace(/:/g,'').toUpperCase(); }
+function etqUrlDoChip(e){ try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url') return new TextDecoder().decode(rec.data); } }catch(_){} return ''; }
+let tagPar=null; /* modo "QR × NFC" de Consultar TAG — ver tagParIniciar */
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
-function etqFechar(){ etqParar(); etqTravado=false; etqSeq=0; etqUltUid=''; const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqFechar(){ etqParar(); etqTravado=false; etqSeq=0; etqUltUid=''; tagPar=null; tagNfcEscolhido=false; tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); const m=document.getElementById('etqModal'); if(m) m.remove(); }
 function etqLinha(ok,titulo,detalhe){
   const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
@@ -14393,7 +14395,7 @@ function etqRender(st){
     /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
-    const lendo=!!etqCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
+    const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
     if(lendo) h+='<div style="text-align:center;font-size:12.5px;color:#3E7EB0;margin-top:12px">📶 Encoste outra etiqueta a qualquer momento — o resultado é trocado na hora.</div>';
     else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
   } else if(st.fase==='erro'){
@@ -14412,6 +14414,7 @@ function etqAbrirModal(){
 }
 async function etqTestar(ativoEsperadoId){
   if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
+  if(tagNfcCtrl){ tagNfcAbrir(); return; } /* em Consultar TAG o leitor da tela já está ligado: não criar um 2º */
   if(typeof cadNfcDesativar==='function') cadNfcDesativar(); /* um leitor por vez: o de gravação não pode pegar esta leitura */
   etqFechar();
   etqAbrirModal();
@@ -14502,8 +14505,131 @@ function renderTag(){
     +'<div style="font-size:13px;color:#686868;margin-bottom:16px">Mostra a qual equipamento ela pertence e se está ativa.</div>'
     +'<div style="display:flex;gap:12px">'
     +ic(svgQr,'QR code','Use a câmera','tagLerQr()',false)
-    +ic(svgNfc,'NFC',nfc?'Encoste a etiqueta':'Este aparelho não tem NFC','etqTestar(\'\')',!nfc)
-    +'</div></div>';
+    +ic(svgNfc,'NFC',nfc?'Encoste a etiqueta':'Este aparelho não tem NFC','tagNfcAbrir()',!nfc)
+    +'</div>'
+    +(nfc?'<button onclick="tagParIniciar()" style="width:100%;margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer">'
+      +'<span style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#EAF2FB;border-radius:12px;padding:8px">'+svgQr.replace(/60/g,'28')+'<span style="font-weight:700;color:#3E7EB0;font-size:14px">×</span>'+svgNfc.replace(/60/g,'28')+'</span>'
+      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;color:#0B2239">QR × NFC</span>'
+      +'<span style="display:block;font-size:12px;color:#686868;margin-top:2px">Confere se o QR impresso é do mesmo cartão em que está colado</span></span></button>':'')
+    +(nfc?'<div id="tagNfcStatus" style="margin-top:14px;font-size:12.5px;text-align:center;color:#686868">Ligando o leitor NFC…</div>':'')
+    +'</div>';
+  if(nfc) tagNfcLigar();
+}
+/* 11/10/2026 — Raphael: "Consultar TAG continua abrindo portal! bloqueia isso" / "ocorre quando leio na página antes de
+   escolher QR ou NFC". O leitor só ligava ao tocar no ícone NFC; antes disso (e depois de fechar o resultado) o tablet
+   não tinha leitor ativo e o Android entregava a etiqueta ao navegador → portal. Agora o leitor liga ASSIM QUE A TELA
+   ABRE e fica ligado enquanto ela estiver aberta (inclusive com a câmera do QR aberta e depois de fechar o resultado).
+   Com leitor ativo e o app na frente, o Chrome segura a etiqueta e o Android não abre nada. Desliga ao sair da tela
+   (go). Um leitor só: o ícone NFC e o "Tentar de novo" reaproveitam este, não criam outro (dois leitores = leitura dupla). */
+let tagNfcCtrl=null;
+/* 11/10/2026 — Raphael: "tem como desabilitar o NFC quando está na tela de Consultar TAG e ainda não escolheu QR ou NFC?"
+   O app não tem como desligar o NFC do tablet, e DESLIGAR o leitor da página devolve a etiqueta ao Android, que abre o
+   portal (o problema de antes). Então o leitor fica ligado, mas EM ESPERA: a leitura é engolida e descartada até o
+   técnico escolher NFC (tagNfcEscolhido) ou QR × NFC (tagPar). Fechar o resultado volta à espera. */
+let tagNfcEscolhido=false;
+function tagNfcStatus(ok,txt){ const s=document.getElementById('tagNfcStatus'); if(s){ s.style.color=ok?'#1D9E75':'#C4451B'; s.innerHTML=txt; } }
+async function tagNfcLigar(){
+  if(tagNfcCtrl) { tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); return true; }
+  try{
+    const reader=new NDEFReader(), ctrl=new AbortController(); tagNfcCtrl=ctrl;
+    await reader.scan({signal:ctrl.signal});
+    if(tagNfcCtrl!==ctrl) return false; /* saiu da tela enquanto ligava */
+    reader.onreadingerror=()=>{ if(!document.getElementById('etqModal')) etqAbrirModal(); etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'}); };
+    reader.onreading=(e)=>{ if(tagNfcCtrl!==ctrl) return;
+      if(!tagPar&&!tagNfcEscolhido){ tagNfcStatus(false,'Etiqueta ignorada — escolha <b>NFC</b> ou <b>QR × NFC</b> antes de encostar.'); return; }
+      if(etqLeituraBloqueada(etqUid(e))) return;
+      if(tagPar){ tagParLido('nfc',etqUrlDoChip(e),etqUid(e)); return; } /* modo "QR × NFC": a leitura é a 2ª metade do par */
+      etqProcessar(e,''); };
+    tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).');
+    return true;
+  }catch(err){
+    tagNfcCtrl=null;
+    /* sem permissão ainda (1ª vez) o Chrome exige um toque: o ícone NFC tenta de novo */
+    tagNfcStatus(false,'⚠ Leitor NFC desligado — toque no ícone NFC para ligar. Até lá, encostar a etiqueta abre o portal.');
+    return false;
+  }
+}
+function tagNfcDesligar(){ if(tagNfcCtrl){ try{tagNfcCtrl.abort();}catch(e){} tagNfcCtrl=null; } }
+/* ===== QR × NFC (11/10/2026) =====
+   Raphael: "uma opção dentro de Consultar TAG para confirmar se uma etiqueta QR corresponde ao cartão na qual está
+   colada". O QR impresso e o chip carregam o MESMO endereço (PORTAL_BASE/a/<token>) — ver cadDesenharQrPreview e a
+   gravação em cadNfcAtivar. Então: lê os dois (em qualquer ordem) e compara o código. Iguais → confere, e o chip ainda
+   passa pela conferência normal (ativa + anticlonagem). Diferentes → consulta os dois e diz de qual equipamento é cada
+   um, distinguindo "QR de versão antiga do mesmo equipamento" (reimprimir) de "QR de outro equipamento" (troca de
+   etiqueta). Não grava nada. */
+function tagParIniciar(){
+  etqFechar(); tagPar={qr:null,nfc:null}; etqAbrirModal(); tagParRender();
+  tagNfcLigar();
+}
+function etqTokenDe(url){ const m=(url||'').match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); return m&&url.indexOf(PORTAL_BASE+'/a/')===0?m[1]:null; }
+function tagParLido(lado,url,uid){
+  if(!tagPar) return;
+  if(!document.getElementById('etqModal')) etqAbrirModal();
+  tagPar[lado]={url,uid,token:etqTokenDe(url)};
+  tagParRender();
+  if(tagPar.qr&&tagPar.nfc) tagParComparar();
+}
+function tagParRender(res){
+  const c=document.getElementById('etqCorpo'); if(!c||!tagPar) return;
+  const p=tagPar;
+  const passo=(n,feito,svgTit,titulo,txtFeito,acao)=>'<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #EEF1F4">'
+    +'<span style="flex:0 0 28px;height:28px;border-radius:50%;background:'+(feito?'#1D9E75':'#fff')+';border:2px solid '+(feito?'#1D9E75':'#3E7EB0')+';color:'+(feito?'#fff':'#3E7EB0')+';font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">'+(feito?'✓':n)+'</span>'
+    +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:#0B2239">'+svgTit+' '+titulo+'</div>'
+    +'<div style="font-size:12px;color:'+(feito?'#1D9E75':'#686868')+';margin-top:2px;word-break:break-all">'+txtFeito+'</div></div>'+(acao||'')+'</div>';
+  const fim=t=>t?'código …'+cadEsc(t.slice(-6)):'sem endereço Exaustech';
+  let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +'<div style="font-size:15px;font-weight:700;color:#0B2239">QR × NFC — o QR é deste cartão?</div>'
+    +'<button onclick="etqFechar()" style="background:none;border:none;font-size:22px;color:#686868;line-height:1;padding:0 4px">×</button></div>'
+    +'<div style="font-size:12px;color:#686868;margin-bottom:4px">Leia os dois, em qualquer ordem.</div>';
+  h+=passo(1,!!p.qr,'▣','QR code impresso',p.qr?'Lido · '+fim(p.qr.token):'Aponte a câmera para o QR colado no cartão',
+      p.qr?'':'<button onclick="tagLerQr()" style="flex:0 0 auto;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-weight:700;font-size:13px">Abrir câmera</button>');
+  h+=passo(2,!!p.nfc,'📶','Chip NFC do cartão',p.nfc?'Lido · '+fim(p.nfc.token):'Encoste o cartão no tablet');
+  if(p.qr&&p.nfc){
+    if(!res) h+='<div style="text-align:center;padding:16px 6px;font-size:14px;color:#3E7EB0">Comparando…</div>';
+    else{
+      const cor=res.ok?'#1D9E75':'#C4451B', bg=res.ok?'#E8F6EF':'#FDECEA';
+      h+='<div style="margin-top:12px;background:'+bg+';border:1px solid '+cor+';border-radius:12px;padding:12px 14px">'
+        +'<div style="font-size:16px;font-weight:800;color:'+cor+'">'+(res.ok?'✓ ':'✗ ')+cadEsc(res.titulo)+'</div>'
+        +'<div style="font-size:13px;color:#3A4552;margin-top:4px">'+cadEsc(res.texto)+'</div></div>'
+        +(res.linhas||[]).join('');
+    }
+    h+='<button onclick="tagParIniciar()" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">Conferir outro cartão</button>';
+  }
+  c.innerHTML=h;
+}
+async function tagParConsultar(token,uid){
+  try{ const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):'')); return {ok:true,ativo:r.ativo||null,uidConferido:!!r.uidConferido}; }
+  catch(err){ return {ok:false,status:err.status,msg:err.message}; }
+}
+async function tagParComparar(){
+  const par=tagPar, q=par.qr, n=par.nfc;
+  const nomeA=a=>a?(a.descricao||a.nome||'equipamento')+(a.nome&&a.descricao?' ('+a.nome+')':''):'equipamento não identificado';
+  const motivo=s=>s.status===404?'código não existe no sistema':s.status===410?'etiqueta desativada (substituída)':s.status===403?'chip físico não confere — possível cópia':'não consegui consultar ('+(s.msg||'erro')+')';
+  let res;
+  if(!q.token||!n.token){
+    res={ok:false,titulo:'Não dá para comparar',texto:(!q.token?'O QR lido não é uma etiqueta Exaustech. ':'')+(!n.token?'O chip não tem o endereço do portal Exaustech gravado.':'')};
+  } else if(q.token===n.token){
+    const s=await tagParConsultar(n.token,n.uid);
+    if(tagPar!==par) return;
+    res=s.ok?{ok:true,titulo:'Conferem — o QR é deste cartão',texto:'Os dois apontam para '+nomeA(s.ativo)+'.',
+              linhas:[s.uidConferido?etqLinha(true,'Chip confere','É o chip registrado, não é cópia.'):etqLinha(null,'Chip não conferido','Este aparelho não informou o número do chip.')]}
+            :{ok:false,titulo:'QR e chip iguais, mas a etiqueta tem problema',texto:'O código é o mesmo nos dois, porém: '+motivo(s)+'.'};
+  } else {
+    const [sq,sn]=await Promise.all([tagParConsultar(q.token,''),tagParConsultar(n.token,n.uid)]);
+    if(tagPar!==par) return;
+    const idQ=sq.ok&&sq.ativo&&sq.ativo.id?sq.ativo.id.slice(0,15):null, idN=sn.ok&&sn.ativo&&sn.ativo.id?sn.ativo.id.slice(0,15):null;
+    /* 410 do QR não traz o ativo: não dá para afirmar "mesmo equipamento", só que o QR é de etiqueta desativada */
+    const titulo=idQ&&idN&&idQ===idN?'Não conferem — QR de outra versão do mesmo equipamento':'Não conferem — QR e chip são de etiquetas diferentes';
+    res={ok:false,titulo,texto:'Não use este cartão até corrigir: reimprima o QR a partir do chip, ou troque o cartão.',
+      linhas:[etqLinha(sq.ok?null:false,'QR impresso',sq.ok?nomeA(sq.ativo):motivo(sq)),
+              etqLinha(sn.ok?null:false,'Chip NFC',sn.ok?nomeA(sn.ativo):motivo(sn))]};
+  }
+  try{ if(navigator.vibrate) navigator.vibrate(res.ok?80:[120,80,120]); }catch(e){}
+  tagParRender(res);
+}
+async function tagNfcAbrir(){
+  if(!await tagNfcLigar()) return;
+  etqFechar(); tagNfcEscolhido=true; etqAbrirModal(); etqRender({fase:'lendo'});
 }
 let tagCamStream=null, tagCamRAF=null;
 async function tagLerQr(){
@@ -14527,7 +14653,7 @@ function tagCamLoop(){
     const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(v,0,0,c.width,c.height);
     let img=null; try{ img=ctx.getImageData(0,0,c.width,c.height); }catch(e){}
     const code=img?jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
-    if(code&&code.data){ tagCamFechar(); etqAbrirModal(); etqConferir(code.data.trim(),'',''); return; }
+    if(code&&code.data){ tagCamFechar(); if(tagPar){ tagParLido('qr',code.data.trim(),''); return; } etqAbrirModal(); etqConferir(code.data.trim(),'',''); return; }
   }
   tagCamRAF=requestAnimationFrame(tagCamLoop);
 }
