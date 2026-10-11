@@ -14429,8 +14429,28 @@ async function etqTestar(ativoEsperadoId){
   }catch(err){ etqCtrl=null; etqRender({fase:'erro',msg:'Não consegui ativar o NFC: '+err.message,esperado}); }
 }
 /* confere UMA leitura (usada pelo botão de teste e pelo leitor que fica ligado depois de gravar, no cadastro) */
+/* 11/10/2026 — Raphael leu 2 cartões em sequência e o 2º deu "nenhum endereço gravado" com o número do chip certo;
+   lido de novo, sozinho e parado, funcionou. Era leitura CORTADA: o tablet pega o número do chip antes do conteúdo e o
+   cartão saiu do alcance no meio. Chip lido sem NENHUM registro passa a ser "encoste de novo", não resultado. Só depois
+   de 3 leituras vazias seguidas do mesmo chip o app conclui que o cartão está vazio de verdade (gravação que falhou). */
+let etqVazioUid='', etqVazioN=0;
+function etqLeituraIncompleta(e){
+  const uid=etqUid(e), n=((e&&e.message&&e.message.records)||[]).length;
+  if(n>0||!uid){ etqVazioUid=''; etqVazioN=0; return false; }
+  etqVazioN=(uid===etqVazioUid)?etqVazioN+1:1; etqVazioUid=uid;
+  if(etqVazioN>=3){ etqVazioUid=''; etqVazioN=0; return false; } /* 3ª vazia seguida: mostra o resultado "sem endereço" */
+  etqUltUid=''; /* libera a releitura imediata do mesmo cartão (senão a trava de 1,5 s engoliria a nova tentativa) */
+  try{ if(navigator.vibrate) navigator.vibrate([40,40,40]); }catch(_){}
+  return true;
+}
 async function etqProcessar(e,esperado){
       const uid=(e.serialNumber||'').replace(/:/g,'').toUpperCase();
+      if(etqLeituraIncompleta(e)){
+        ++etqSeq; /* descarta resposta de leitura anterior que ainda esteja chegando */
+        if(!document.getElementById('etqModal')) etqAbrirModal();
+        etqRender({fase:'lendo',aviso:'Leitura incompleta — o cartão saiu antes de terminar. Encoste de novo e segure parado por 2 segundos.'});
+        return;
+      }
       let url='';
       try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url'){ url=new TextDecoder().decode(rec.data); break; } } }catch(_){}
       return etqConferir(url,uid,esperado);
@@ -14538,7 +14558,7 @@ async function tagNfcLigar(){
     reader.onreading=(e)=>{ if(tagNfcCtrl!==ctrl) return;
       if(!tagPar&&!tagNfcEscolhido){ tagNfcStatus(false,'Etiqueta ignorada — escolha <b>NFC</b> ou <b>QR × NFC</b> antes de encostar.'); return; }
       if(etqLeituraBloqueada(etqUid(e))) return;
-      if(tagPar){ tagParLido('nfc',etqUrlDoChip(e),etqUid(e)); return; } /* modo "QR × NFC": a leitura é a 2ª metade do par */
+      if(tagPar){ if(etqLeituraIncompleta(e)){ toast('Leitura incompleta — encoste o cartão de novo e segure parado'); return; } tagParLido('nfc',etqUrlDoChip(e),etqUid(e)); return; } /* modo "QR × NFC": a leitura é a 2ª metade do par */
       etqProcessar(e,''); };
     tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).');
     return true;
