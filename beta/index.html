@@ -14331,7 +14331,7 @@ const ETF_SVG_QR='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" st
 const ETF_SVG_NFC='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9.5 9.5a3.5 3.5 0 0 1 0 5M12 8a6 6 0 0 1 0 8"/></svg>';
 const ETF_ICONE=[ETF_SVG_QR,ETF_SVG_QR,ETF_SVG_NFC,ETF_SVG_QR+ETF_SVG_NFC,'📷'];
 
-async function etfAbrir(nova){
+async function etfAbrir(nova,etapaInicial){ /* etapaInicial: pílula "sem etiqueta impressa" abre direto na impressão (12/10/2026) */
   if(!cadSt.ativoId){ toast('Salve o equipamento antes de fazer a etiqueta.'); return; }
   if(navigator.onLine===false){ toast('📴 A etiqueta precisa de internet (o código nasce no servidor).'); return; }
   if(typeof cadNfcDesativar==='function') cadNfcDesativar();
@@ -14356,6 +14356,7 @@ async function etfAbrir(nova){
         else etf.etapa=4;                                                 /* chip gravado / foto da ordem antiga / jeito antigo: conferir */
       }
     }
+    if(etapaInicial&&etf) etf.etapa=etapaInicial;
     etfRender();
   }catch(err){ if(etf){ etf.msg={tipo:'erro',txt:'Não consegui ler a etiqueta deste equipamento: '+err.message}; etfRender(); } }
 }
@@ -14612,7 +14613,11 @@ async function cadCarregarJaCadastrados(){
       +j.lista.map((a,i)=>'<button onclick="cadRetomarAtivo('+i+')" style="width:100%;text-align:left;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">'
         +'<span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:700;color:#0B2239">'+cadEsc(a.nome||'Sem número')+' <span style="font-weight:600;color:#3A4552">· '+cadEsc(a.tipo||'Equipamento')+'</span></span>'
         +(a.descricao?'<span style="display:block;font-size:12px;color:#686868;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cadEsc(String(a.descricao).slice(0,80))+'</span>':'')+'</span>'
-        +(a.etiquetaAtiva===false?'<span style="flex:0 0 auto;background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:2px 8px;font-size:10.5px;font-weight:700">sem etiqueta</span>':'')
+        /* 12/10/2026 — Raphael: pílula para "ativos que nunca tiveram etiqueta impressa ou NFC gravado"; tocar na pílula leva
+           direto ao passo que resolve (fluxo da etiqueta). Sem etiquetaEstado (servidor antigo), cai no aviso de antes. */
+        +(()=>{ const P={sem:['SEM ETIQUETA','#BA0517','#fff'],sem_nfc:['SEM NFC','#FE9339','#2B1A00'],sem_impressao:['SEM ETIQUETA IMPRESSA','#FE9339','#2B1A00']}[a.etiquetaEstado];
+           if(P) return '<span role="button" onclick="event.stopPropagation();cadResolverEtiqueta('+i+')" style="flex:0 0 auto;background:'+P[1]+';color:'+P[2]+';border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap">'+P[0]+' ›</span>';
+           return a.etiquetaAtiva===false?'<span style="flex:0 0 auto;background:#FFF4E5;color:#9A5A14;border-radius:8px;padding:2px 8px;font-size:10.5px;font-weight:700">sem etiqueta</span>':''; })()
         +'<span aria-hidden="true" style="color:#AEB8C2;font-size:18px">›</span></button>').join('');
   };
   if(cadSt._jaCad&&cadSt._jaCad.sis===sis&&!cadSt._jaCad.erro) return pinta();
@@ -14624,6 +14629,33 @@ async function cadCarregarJaCadastrados(){
 /* abre a tela de sucesso para um equipamento JÁ salvo. Não cria nem grava nada: GET /ativos/:id (etiquetas, conferência,
    respostas) e GET /ativos/:id/fotos. Exaustor Berliner: procura o motor filho; se não há, o passo Motor fica pendente e
    usa o link da ficha do fabricante já gravado para buscar o motor de fábrica (sem pedir outro QR). */
+/* 12/10/2026 — pílula do que falta na etiqueta, comum a todas as telas (lista do cadastro, ficha, Plano). Raphael: "em
+   todos os lugares". Tocar leva ao fluxo da etiqueta no passo certo, pelo cadastro do equipamento. */
+const ETQ_PILULA={sem:['SEM ETIQUETA','#BA0517','#fff'],sem_nfc:['SEM NFC','#FE9339','#2B1A00'],sem_impressao:['SEM ETIQUETA IMPRESSA','#FE9339','#2B1A00']};
+function etqEstadoDe(etiquetas){
+  const l=(etiquetas||[]).filter(e=>e.etapa!=='Cancelada'&&e.etapa!=='Substituída'), at=l.find(e=>e.ativa);
+  return at?(at.etapa?'ok':'sem_impressao'):(l.some(e=>e.etapa==='Impressa')?'sem_nfc':'sem');
+}
+function etqPilulaHtml(estado,onclick){
+  const P=ETQ_PILULA[estado]; if(!P) return '';
+  return '<span role="button" onclick="event.stopPropagation();'+onclick+'" style="display:inline-block;flex:0 0 auto;background:'+P[1]+';color:'+P[2]+';border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;cursor:pointer">'+P[0]+' ›</span>';
+}
+/* de fora do cadastro (ficha, Plano): abre o cadastro, retoma o equipamento e abre o fluxo da etiqueta */
+function etqResolverEtiquetaAtivo(ativoId,estado){
+  if(!ativoId) return;
+  try{ const md=document.getElementById('ativoDetModal'); if(md&&md.classList.contains('show')) closeAtivoDet(); }catch(e){}
+  try{ if(document.getElementById('etqModal')) etqFechar(); }catch(e){}
+  go('cadastro');
+  setTimeout(()=>{ cadSt._jaCad={sis:'__externo',lista:[{id:ativoId,tipo:''}]}; cadSt._depoisRetomar=estado==='sem_impressao'?'etf1':'etf'; cadRetomarAtivo(0); },50);
+}
+/* pílula da lista: abre o equipamento (mesma tela de sucesso) e, em seguida, o fluxo da etiqueta no passo certo:
+   sem etiqueta → etapa 1 (imprimir); sem NFC → etapa 2 (ler o QR e gravar o chip); sem etiqueta impressa (chip do jeito
+   antigo) → etapa 1 com a imagem da etiqueta que já existe, para imprimir. */
+async function cadResolverEtiqueta(i){
+  const a=((cadSt._jaCad&&cadSt._jaCad.lista)||[])[i]; if(!a) return;
+  cadSt._depoisRetomar=a.etiquetaEstado==='sem_impressao'?'etf1':'etf';
+  await cadRetomarAtivo(i);
+}
 async function cadRetomarAtivo(i){
   const a=((cadSt._jaCad&&cadSt._jaCad.lista)||[])[i]; if(!a||cadSt.criando) return;
   if(navigator.onLine===false){ toast('📴 Sem sinal: abrir um equipamento já cadastrado precisa de internet.'); return; }
@@ -14649,6 +14681,7 @@ async function cadRetomarAtivo(i){
       berliner,daBerliner:{},sugBerliner:{},berlinerModo:null,galeria:[],galeriaFalhou:false,motorConf:null,modoEdicao:false,
       etiqueta:cadEtiquetaDoAtivo(d),retomada:true,ident:{local:d.local||null,fotosN:fotos?fotos.length:null,motor},criando:false,step:'done'});
     cadStepDone();
+    if(cadSt._depoisRetomar){ const m=cadSt._depoisRetomar; cadSt._depoisRetomar=null; etfAbrir(false,m==='etf1'?1:null); } /* 12/10/2026: veio da pílula da lista */
   }catch(e){ st.criando=false; toast('Não consegui abrir o equipamento: '+e.message); if(cadSt===st) cadStepEquip(); }
 }
 /* "Conferir o motor na plaqueta" num exaustor RETOMADO: com o link do fabricante já lido, segue o fluxo normal; sem ele,
@@ -15900,7 +15933,8 @@ async function verAtivo(ativoId){
     /* resumo */
     const etAtiva=(d.etiquetas||[]).find(e=>e.ativa), g=d.dadosGerais||{};
     const res=[];
-    res.push(etAtiva?pil('Etiqueta ativa · v'+etAtiva.versao,'#2E844A'):pil('Sem etiqueta','#747474'));
+    { const est=etqEstadoDe(d.etiquetas); /* 12/10/2026: pílula clicável do que falta na etiqueta */
+      res.push(est==='ok'?pil('Etiqueta ativa · v'+(etAtiva?etAtiva.versao:''),'#2E844A'):etqPilulaHtml(est,"etqResolverEtiquetaAtivo('"+d.id+"','"+est+"')")); }
     if(g.criticidade) res.push(pil('Criticidade: '+g.criticidade,/alta|cr[ií]t/i.test(g.criticidade)?'#BA0517':(/m[eé]dia/i.test(g.criticidade)?'#FE9339':'#747474'),/m[eé]dia/i.test(g.criticidade)));
     if(g.plaqueta) res.push(pil('Plaqueta: '+g.plaqueta,'#747474'));
     if(g.ano) res.push(pil('Fabricação '+g.ano,'#747474'));
@@ -19510,7 +19544,8 @@ function plnRenderFicha(body){
     const conferir=a.tarefas.filter(t=>t.status==='A conferir').length;
     master+='<button class="pln-mitem'+(i===PLN.selAtivo?' on':'')+'" data-i="'+i+'">'+
       '<b>'+motEsc(a.nome)+'</b><small>'+motEsc(a.tipoAtivoNome||'')+' · '+a.tarefas.length+' tarefa'+(a.tarefas.length===1?'':'s')+'</small>'+
-      '<div class="pln-mbadges">'+(ok?'<span class="pln-mini g">'+ok+' ok</span>':'')+(conferir?'<span class="pln-mini o">'+conferir+' a conferir</span>':'')+'</div>'+
+      '<div class="pln-mbadges">'+(ok?'<span class="pln-mini g">'+ok+' ok</span>':'')+(conferir?'<span class="pln-mini o">'+conferir+' a conferir</span>':'')
+        +(a.etiquetaEstado&&a.etiquetaEstado!=='ok'?' '+etqPilulaHtml(a.etiquetaEstado,"etqResolverEtiquetaAtivo('"+a.id+"','"+a.etiquetaEstado+"')"):'')+'</div>'+
     '</button>';
   });
   const a=ativos[PLN.selAtivo];
