@@ -14146,11 +14146,33 @@ function cadEtqBlocoImpressao(et){
     +'<img id="cadNfcQr" alt="" style="display:none">';
 }
 function cadEtqBotoes(){
-  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;max-width:420px">'
-    +'<button onclick="cadEtqCopiar()" style="min-height:48px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📋 Copiar imagem</button>'
-    +'<button onclick="cadEtqEnviar()" style="min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:10px;font-weight:700;font-size:14px">📤 Enviar ao Niimbot</button>'
+  /* 12/10/2026 — Raphael: "na lista do Android não aparece o app da Niimbot". O app Niimbot não se oferece como destino
+     de "compartilhar" imagem. O botão principal agora faz os três passos num toque: GUARDA a imagem no aparelho (pasta
+     Download, que aparece na galeria), COPIA a imagem e ABRE o app Niimbot. No Niimbot: nova etiqueta → Imagem → escolher
+     a última (etiqueta-<número>.png). */
+  return '<button onclick="cadEtqImprimirNiimbot()" style="display:block;width:100%;max-width:420px;min-height:54px;margin-top:8px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15.5px">🖨️ Imprimir no Niimbot</button>'
+    +'<div style="font-size:12px;color:#686868;max-width:420px;margin-top:4px;line-height:1.4">Guarda a imagem, copia e abre o Niimbot. Lá: <b>nova etiqueta → Imagem → a última foto</b>.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;max-width:420px">'
+    +'<button onclick="cadEtqCopiar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">📋 Copiar imagem</button>'
+    +'<button onclick="cadEtqEnviar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">📤 Compartilhar</button>'
     +'<button onclick="cadEtqBaixar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">⬇ Baixar imagem</button>'
     +'<button onclick="cadEtqCopiarLink()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">🔗 Copiar link do QR</button></div>';
+}
+/* Abre o app Niimbot pelo "intent" do Android (Chrome abre app instalado pelo nome do pacote). Pacote lido no APKMirror em
+   12/10/2026: com.gengcon.android.jccloudprinter — NÃO confirmado na Play Store; se estiver errado, o Chrome cai na busca
+   da Play Store (fallback), e é só corrigir NIIMBOT_PACOTE. */
+const NIIMBOT_PACOTE='com.gengcon.android.jccloudprinter';
+async function cadEtqImprimirNiimbot(){
+  try{
+    const b=await cadEtqBlob();
+    await cadEtqBaixar();
+    try{ if(navigator.clipboard&&window.ClipboardItem) await navigator.clipboard.write([new ClipboardItem({'image/png':b})]); }catch(_){}
+    toast('🖨️ Etiqueta guardada e copiada — abrindo o Niimbot…');
+    setTimeout(()=>{
+      const fb=encodeURIComponent('https://play.google.com/store/search?q=niimbot&c=apps');
+      location.href='intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package='+NIIMBOT_PACOTE+';S.browser_fallback_url='+fb+';end';
+    },900);
+  }catch(e){ toast('Não deu para preparar a etiqueta: '+e.message); }
 }
 function cadStepDone(){
   cadTopo('done');
