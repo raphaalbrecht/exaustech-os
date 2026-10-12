@@ -15113,9 +15113,16 @@ async function etqFotoVer(driveId,data,foto){
   catch(e){ const c=document.getElementById('etqFotoGrandeC'); if(c) c.textContent='Não consegui abrir a foto: '+e.message; }
 }
 /* pendências (achados) deste equipamento, só leitura; tratar continua na aba Plano → Pendências */
+/* 12/10/2026 — fatia 1 de DECISAO_pendencias-para-proposta: cada pendência/anotação tem "abrir ›", que leva ao Plano →
+   Pendências mostrando SÓ ela (qualquer situação), para tratar ali. */
+function etqIrPlanoPendencia(id){
+  if(!PLN) plnReset();
+  PLN.tab='pendencias'; PLN.pndId=id; PLN.pndAtivo=null; PLN.pndFiltro='todos'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
+  etqFechar(); go('plano');
+}
 function etqIrPlanoPendencias(ativoId){
   if(!PLN) plnReset();
-  PLN.tab='pendencias'; PLN.pndAtivo=ativoId; PLN.pndFiltro='abertas'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
+  PLN.tab='pendencias'; PLN.pndId=null; PLN.pndAtivo=ativoId; PLN.pndFiltro='abertas'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
   etqFechar(); go('plano');
 }
 async function etqAcaoPendencias(ativoId){
@@ -15132,6 +15139,7 @@ async function etqAcaoPendencias(ativoId){
       h+='<div style="padding:8px 0;border-top:1px solid #E2E5E9;font-size:13.5px;line-height:1.35">'
         +'<span style="display:inline-block;background:'+(COR[x.severidade]||'#747474')+';color:'+(x.severidade==='Atenção'?'#2B1A00':'#fff')+';border-radius:999px;padding:1px 9px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:6px">'+cadEsc(x.severidade||'—')+'</span>'
         +'<b>'+cadEsc(x.descricao||'(sem descrição)')+'</b>'
+        +' <button onclick="etqIrPlanoPendencia(\''+x.id+'\')" style="float:right;min-height:34px;padding:0 10px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px">abrir ›</button>'
         +'<div style="color:#686868;font-size:12px;margin-top:2px">'+cadEsc([x.status,x.idadeDias!=null?('há '+x.idadeDias+' dia'+(x.idadeDias===1?'':'s')):null,x.corretiva?('corretiva '+(x.corretiva.nome||'')+' · '+(x.corretiva.status||'')):(x.pediuCorretiva?'corretiva pedida':null)].filter(Boolean).join(' · '))+'</div></div>';
     });
     if(l.length>8) h+='<div style="font-size:12px;color:#686868;padding-top:6px">+ '+(l.length-8)+' outras</div>';
@@ -15191,8 +15199,10 @@ async function etqAcaoHistorico(ativoId){
       const fim=['Resolvida','Resolvida pelo cliente'].indexOf(x.status)>=0, fora=['Descartada','Recusada pelo cliente'].indexOf(x.status)>=0;
       c3+='<div style="padding:8px 0;border-top:1px solid #E2E5E9;font-size:13.5px;line-height:1.35">'
         +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+dt(x.criadoEm)+(x.nome?' · '+cadEsc(x.nome):'')+'</b>'
-        +pil(x.status,fim?'#0B827C':fora?'#747474':'#0176D3')+'</div>'
+        +'<span style="display:flex;gap:6px;align-items:center">'+pil(x.status,fim?'#0B827C':fora?'#747474':'#0176D3')
+        +((typeof canPlano!=='function'||canPlano(ROLE))?'<button onclick="etqIrPlanoPendencia(\''+x.id+'\')" style="min-height:32px;padding:0 10px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px">abrir ›</button>':'')+'</span></div>'
         +'<div style="margin-top:3px">'+pil(x.severidade||'—',CS[x.severidade]||'#747474',x.severidade==='Atenção')+' <span style="color:#1B2733">'+cadEsc(x.descricao||'(sem descrição)')+'</span></div>'
+        +(x.comentario?'<div style="font-size:12.5px;color:#8C4B02;background:#FFFBEA;border-radius:6px;padding:4px 8px;margin-top:4px">💬 '+cadEsc(x.comentario)+'</div>':'')
         +(x.videoDriveId?'<button onclick="verVideoPendencia(\''+cadEsc(x.videoDriveId)+'\')" style="margin-top:4px;min-height:36px;padding:0 12px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px">▶ ver o vídeo</button>':'')
         +'<div style="color:#686868;font-size:12px;margin-top:2px">'+cadEsc([x.ot?'na '+x.ot:'fora de OT',x.registradaPor?'por '+x.registradaPor:null,x.cobertura,x.corretiva?'corretiva '+x.corretiva:null,x.medida?'feito: '+x.medida:null,x.motivoDescarte?'descarte: '+x.motivoDescarte:null].filter(Boolean).join(' · '))+'</div></div>';
     });
@@ -15323,6 +15333,9 @@ function etqProbRender(msg){
   h+='</div><div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Tipo de dano <span style="font-weight:400;color:#686868">(opcional)</span></div>'
     +'<select id="etqProbDano" onchange="etqProb.dano=this.value" style="width:100%;min-height:44px;border:1px solid #C9D0D8;border-radius:10px;font-size:15px;margin-top:4px;background:#fff"><option value="">—</option>'
     +['Vazamento','Ruído anormal','Corrosão','Vibração excessiva','Desgaste de componente','Outro'].map(x=>'<option'+(p.dano===x?' selected':'')+'>'+x+'</option>').join('')+'</select>'
+    /* 12/10/2026 — Raphael: campo de "Comentários internos" (fica na Exaustech; não vai para o cliente) */
+    +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Comentários internos <span style="font-weight:400;color:#686868">(opcional — não vão para o cliente)</span></div>'
+    +'<textarea id="etqProbCom" rows="2" placeholder="ex.: cliente pediu para avisar o gerente antes; peça difícil de achar" style="width:100%;box-sizing:border-box;border:1px solid #C9D0D8;border-radius:10px;padding:10px;font-size:15px;margin-top:4px;font-family:inherit;background:#FFFBEA">'+cadEsc(p.com||'')+'</textarea>'
     /* 12/10/2026 — Raphael: "depois de anexar foto, criar miniatura para exibir na tela e também permitir exclusão".
        A miniatura é a foto do próprio aparelho (não baixa do Drive). Remover só desanexa desta pendência: o arquivo já
        enviado fica no Drive sem vínculo (regra do projeto: não apagar). */
@@ -15352,7 +15365,7 @@ function etqProbRender(msg){
     +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
   etqAcaoBox(h);
 }
-function etqProbGuardarTxt(){ const t=document.getElementById('etqProbTxt'); if(t&&etqProb) etqProb.txt=t.value; }
+function etqProbGuardarTxt(){ const t=document.getElementById('etqProbTxt'); if(t&&etqProb) etqProb.txt=t.value; const c=document.getElementById('etqProbCom'); if(c&&etqProb) etqProb.com=c.value; }
 function etqProbSev(v){ etqProbGuardarTxt(); etqProb.sev=v; etqProbRender(); }
 function etqProbFoto(){
   etqProbGuardarTxt();
@@ -15387,7 +15400,7 @@ async function etqProbEnviar(){
   if(navigator.onLine===false) return etqProbRender('Sem internet: registrar pendência precisa de conexão.');
   p.enviando=true; etqProbRender();
   try{
-    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined});
+    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined,comentario:(p.com||'').trim()||undefined});
     etqProb=null; etqRodape(true); if(document.getElementById('etqBtnPend')) etqPendBadge(p.ativoId,etqSeq);
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
     etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
@@ -20402,6 +20415,7 @@ async function pndCarregar(){
   if(PLN.pndSev) q.push('severidade='+encodeURIComponent(PLN.pndSev));
   if(PLN.pndSoLocal && PLN.localId) q.push('localId='+PLN.localId);
   if(PLN.pndAtivo) q.push('ativoId='+encodeURIComponent(PLN.pndAtivo)); /* 12/10/2026: vindo do Consultar TAG (Tratar no Plano) */
+  if(PLN.pndId){ PLN.achados=await beGet('/plano/achados?pendenciaId='+encodeURIComponent(PLN.pndId)); return; } /* 12/10/2026: "abrir ›" de uma pendência */
   PLN.achados=await beGet('/plano/achados'+(q.length?'?'+q.join('&'):''));
 }
 function plnRenderPendencias(body){
@@ -20417,6 +20431,7 @@ function plnRenderPendencias(body){
   });
   h+='<button class="pnd-chip'+(PLN.pndSoLocal?' on':'')+'" data-pndlocal>Só este local</button>';
   if(PLN.pndAtivo) h+='<button class="pnd-chip on" data-pndativo>Só o equipamento da TAG ✕</button>';
+  if(PLN.pndId) h+='<button class="pnd-chip on" data-pndid>Só a pendência aberta ✕</button>';
   h+='</div>';
 
   if(!lista.length){
@@ -20457,6 +20472,7 @@ function plnRenderPendencias(body){
         +op('emergencia','Emergência','Abre a OT agora e vai para a escala; quem paga se decide antes de faturar.','#BA0517')
         +'<button class="pnd-bt" data-pndtricancel>cancelar</button></div>';
     }
+    if(a.comentario) h+='<div class="pnd-meta"><span>Comentário interno: <b>'+motEsc(a.comentario)+'</b></span></div>';
     if(a.videoDriveId) h+='<div class="pnd-meta"><button class="pnd-bt" onclick="verVideoPendencia(\''+motEsc(a.videoDriveId)+'\')">▶ ver o vídeo</button></div>';
     if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>'+(a.status==='Resolvida pelo cliente'?'O que o cliente fez':'O que foi feito')+': <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
     if(a.motivoDescarte) h+='<div class="pnd-meta"><span>Motivo do descarte: <b>'+motEsc(a.motivoDescarte)+'</b></span></div>';
@@ -20506,10 +20522,11 @@ function pndWire(body){
     el.style.cursor='zoom-in';
     el.addEventListener('click',()=>verImagem(did,'Foto do achado'));
   });
-  body.querySelectorAll('[data-pndf]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFiltro=b.dataset.pndf; recarrega(); }));
+  body.querySelectorAll('[data-pndf]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFiltro=b.dataset.pndf; PLN.pndId=null; recarrega(); }));
   body.querySelectorAll('[data-pnds]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSev=b.dataset.pnds; recarrega(); }));
   body.querySelectorAll('[data-pndlocal]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSoLocal=!PLN.pndSoLocal; recarrega(); }));
   body.querySelectorAll('[data-pndativo]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndAtivo=null; recarrega(); }));
+  body.querySelectorAll('[data-pndid]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndId=null; PLN.pndFiltro='abertas'; recarrega(); }));
   body.querySelectorAll('[data-pndform]').forEach(b=>b.addEventListener('click',()=>{
     PLN.pndEdit={id:b.dataset.id, acao:b.dataset.pndform, txt:'', erro:null}; plnRenderTabBody();
   }));
