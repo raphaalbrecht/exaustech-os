@@ -15047,9 +15047,19 @@ function etqProbRender(msg){
   h+='</div><div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Tipo de dano <span style="font-weight:400;color:#686868">(opcional)</span></div>'
     +'<select id="etqProbDano" onchange="etqProb.dano=this.value" style="width:100%;min-height:44px;border:1px solid #C9D0D8;border-radius:10px;font-size:15px;margin-top:4px;background:#fff"><option value="">—</option>'
     +['Vazamento','Ruído anormal','Corrosão','Vibração excessiva','Desgaste de componente','Outro'].map(x=>'<option'+(p.dano===x?' selected':'')+'>'+x+'</option>').join('')+'</select>'
-    +'<div style="display:flex;gap:8px;align-items:center;margin-top:10px">'
-    +'<button onclick="etqProbFoto()" style="min-height:48px;padding:0 14px;background:#fff;border:2px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:700;font-size:14px">'+(p.foto?'📷 Trocar foto':'📷 Tirar foto')+'</button>'
-    +'<span style="font-size:13px;color:'+(p.foto?'#1B7A3D':'#686868')+'">'+(p.foto==='enviando'?'Enviando…':p.foto?'✓ Foto anexada':'Recomendado')+'</span></div>'
+    /* 12/10/2026 — Raphael: "depois de anexar foto, criar miniatura para exibir na tela e também permitir exclusão".
+       A miniatura é a foto do próprio aparelho (não baixa do Drive). Remover só desanexa desta pendência: o arquivo já
+       enviado fica no Drive sem vínculo (regra do projeto: não apagar). */
+    +'<div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+    +(p.fotoPrev?'<div style="position:relative;width:96px;height:96px;flex:0 0 96px;border-radius:10px;overflow:hidden;border:1px solid #C9D0D8;background:#F4F6F8">'
+        +'<img src="'+p.fotoPrev+'" alt="Foto anexada" style="width:100%;height:100%;object-fit:cover;display:block">'
+        +(p.foto==='enviando'?'<div style="position:absolute;inset:0;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0B2239">Enviando…</div>':'')
+        +'</div>':'')
+    +'<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<button onclick="etqProbFoto()" style="min-height:44px;padding:0 14px;background:#fff;border:2px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:700;font-size:14px">'+(p.fotoPrev?'📷 Trocar foto':'📷 Tirar foto')+'</button>'
+    +(p.fotoPrev&&p.foto!=='enviando'?'<button onclick="etqProbRemoverFoto()" style="min-height:40px;padding:0 14px;background:#fff;border:1px solid #F3C1C1;border-radius:10px;color:#BA0517;font-weight:700;font-size:13.5px">✕ Remover foto</button>':'')
+    +(!p.fotoPrev?'<span style="font-size:12.5px;color:#686868">Recomendado</span>':'')
+    +'</div></div>'
     +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\');etqRodape(true)" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
     +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
@@ -15062,7 +15072,8 @@ function etqProbFoto(){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
   inp.onchange=async()=>{
     const f=inp.files&&inp.files[0]; const p=etqProb; if(!f||!p) return;
-    p.foto='enviando'; etqProbRender();
+    if(p.fotoPrev){ try{ URL.revokeObjectURL(p.fotoPrev); }catch(_){} }
+    p.fotoPrev=URL.createObjectURL(f); p.foto='enviando'; etqProbRender();
     try{
       const blob=await cadReduzirFoto(f);
       const fd=new FormData(); fd.append('file',blob,'pendencia.jpg');
@@ -15071,9 +15082,14 @@ function etqProbFoto(){
       if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
       p.foto=j.driveId; p.fotoUrl=j.url;
       if(etqProb===p) etqProbRender();
-    }catch(e){ p.foto=null; if(etqProb===p) etqProbRender('A foto não foi enviada: '+e.message); }
+    }catch(e){ p.foto=null; if(p.fotoPrev){ try{ URL.revokeObjectURL(p.fotoPrev); }catch(_){} p.fotoPrev=null; } if(etqProb===p) etqProbRender('A foto não foi enviada: '+e.message); }
   };
   inp.click();
+}
+function etqProbRemoverFoto(){
+  const p=etqProb; if(!p) return; etqProbGuardarTxt();
+  if(p.fotoPrev){ try{ URL.revokeObjectURL(p.fotoPrev); }catch(_){} }
+  p.foto=null; p.fotoUrl=null; p.fotoPrev=null; etqProbRender();
 }
 async function etqProbEnviar(){
   const p=etqProb; if(!p||p.enviando) return; etqProbGuardarTxt();
