@@ -13956,7 +13956,7 @@ async function cadSalvar(){
     if(!cadSt.ativoId&&cadSt.pendente){
       const p=cadSt.pendente;
       const r=await bePost('/ativos',{contaId:p.contaId,localId:p.localId,tipoId:p.tipoId,paiId:p.paiId});
-      cadSt.ativoId=r.id; cadSt.ativoNome=r.nome||null; cadSt.pendente=null; /* 11/10/2026: o servidor devolve o número (Name); se não vier, a tela diz "Número indisponível" */
+      cadSt.ativoId=r.id; cadSt.ativoNome=r.nome||null; cadSt.apelido=r.apelido||null; cadSt.pendente=null; /* 12/10/2026: + apelido sequencial */ /* 11/10/2026: o servidor devolve o número (Name); se não vier, a tela diz "Número indisponível" */
     }
     await bePost('/respostas',{ativoId:cadSt.ativoId,respostas});
     if(cadSt.motorConf&&cadSt.motorConf.gravada!==true) await cadMotorGravarConferencia(); /* 11/10/2026: depois das respostas; falha só avisa */
@@ -14159,9 +14159,7 @@ function cadEtqBotoes(){
     +'<button onclick="cadEtqBaixar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">⬇ Baixar imagem</button>'
     +'<button onclick="cadEtqCopiarLink()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">🔗 Copiar link do QR</button></div>';
 }
-/* Abre o app Niimbot pelo "intent" do Android (Chrome abre app instalado pelo nome do pacote). Pacote lido no APKMirror em
-   12/10/2026: com.gengcon.android.jccloudprinter — NÃO confirmado na Play Store; se estiver errado, o Chrome cai na busca
-   da Play Store (fallback), e é só corrigir NIIMBOT_PACOTE. */
+/* Abre o app NIIMBOT (pacote com.gengcon.android.jccloudprinter — confirmado na Play Store e com o Raphael em 12/10/2026). */
 const NIIMBOT_PACOTE='com.gengcon.android.jccloudprinter';
 async function cadEtqImprimirNiimbot(){
   try{
@@ -14170,8 +14168,10 @@ async function cadEtqImprimirNiimbot(){
     try{ if(navigator.clipboard&&window.ClipboardItem) await navigator.clipboard.write([new ClipboardItem({'image/png':b})]); }catch(_){}
     toast('🖨️ Etiqueta guardada e copiada — abrindo o Niimbot…');
     setTimeout(()=>{
-      const fb=encodeURIComponent('https://play.google.com/store/search?q=niimbot&c=apps');
-      location.href='intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package='+NIIMBOT_PACOTE+';S.browser_fallback_url='+fb+';end';
+      /* 12/10/2026 — o intent de "abrir o app pelo pacote" caía na Play Store com o NIIMBOT instalado: o Chrome só abre app
+         por link que o app aceita vindo do navegador (categoria BROWSABLE), e a tela inicial do Niimbot não aceita. O
+         caminho que contorna é o "market://launch" da própria Play Store: ela abre o app quando ele está instalado. */
+      location.href='intent://launch?id='+NIIMBOT_PACOTE+'#Intent;scheme=market;package=com.android.vending;end';
     },900);
   }catch(e){ toast('Não deu para preparar a etiqueta: '+e.message); }
 }
@@ -14191,6 +14191,7 @@ function cadStepDone(){
     +'<div style="font-size:11px;color:#686868;text-transform:uppercase;letter-spacing:.04em">Número do ativo</div>'
     +(cadSt.ativoNome
       ?'<div style="font-size:24px;font-weight:800;color:#0B2239;letter-spacing:.06em;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:2px">'+cadEsc(cadSt.ativoNome)+'</div>'
+       +(cadSt.apelido?'<div style="font-size:18px;font-weight:700;color:#3E7EB0;margin-top:2px">'+cadEsc(cadSt.apelido)+'</div>':'')
        +'<div style="font-size:12px;color:#686868;margin-top:4px">Use este número para identificar o equipamento.</div>'
       :'<div style="font-size:15px;font-weight:700;color:#686868;margin-top:2px">Número indisponível</div>'
        +'<div style="font-size:12px;color:#686868;margin-top:4px">Abra "Ver / editar este ativo" para ver o número.</div>')
@@ -14241,7 +14242,7 @@ let cadEtqBlobCache=null;
 let cadEtqOverride=null; /* fluxo da etiqueta: imprime o código NOVO (etapa 1), não o da etiqueta atual */
 function cadEtqDados(){
   const et=cadEtqOverride||cadSt.etiqueta||{}, id=cadSt.ident||{};
-  return {url:et.url||'', versao:et.versao||'', numero:cadSt.ativoNome||'', tipo:cadSt.tipoNome||'',
+  return {url:et.url||'', versao:et.versao||'', numero:cadSt.ativoNome||'', apelido:cadSt.apelido||'', tipo:cadSt.tipoNome||'',
     local:(cadSt.local?cadLocalNome(cadSt.local):id.local)||'', conta:(cadSt.conta&&cadSt.conta.nome)||''};
 }
 async function cadEtqGerar(){
@@ -14265,7 +14266,8 @@ async function cadEtqGerar(){
   x.font='700 24px Arial, Helvetica, sans-serif'; x.fillText('EQUIPAMENTO Nº',tx,y); y+=30;
   const tn=caber(d.numero||'—','900',128,48); x.fillText(d.numero||'—',tx,y); y+=tn+14;
   const linha=(txt,peso,tam)=>{ if(!txt) return; x.font=peso+' '+tam+'px Arial, Helvetica, sans-serif'; x.fillText(corta(txt),tx,y); y+=tam+10; };
-  linha(d.tipo,'700',34); linha(d.local,'400',28); linha(d.conta,'400',28);
+  /* 12/10/2026: o apelido ("Damper corta-fogo 2") substitui a linha do tipo — ele já começa pelo tipo */
+  linha(d.apelido||d.tipo,'700',34); linha(d.local,'400',28); linha(d.conta,'400',28);
   x.font='400 22px Arial, Helvetica, sans-serif'; x.textBaseline='bottom';
   x.fillText(corta('Etiqueta versão '+d.versao),tx,H-M);
   return await new Promise(ok=>cv.toBlob(ok,'image/png'));
@@ -14391,7 +14393,7 @@ function etfRender(){
   let h='<div style="background:#fff;border-bottom:1px solid #E2E5E9;padding:10px 14px 0">'
     +'<div style="display:flex;align-items:center;gap:10px"><button onclick="etfFechar()" style="background:none;border:none;color:#3E7EB0;font-size:15px;font-weight:700;padding:6px 4px">← Sair</button>'
     +'<div style="flex:1;font-size:16px;font-weight:700;color:#0B2239">Etiqueta do equipamento</div><div style="font-size:12px;color:#686868">Etapa '+n+' de 5</div></div>'
-    +'<div style="font-size:13px;color:#686868;margin:2px 0 0 4px">Equipamento nº <b style="color:#0B2239">'+cadEsc(cadSt.ativoNome||'—')+'</b>'+(cadSt.tipoNome?' · '+cadEsc(cadSt.tipoNome):'')+(etf.versao?' · etiqueta versão '+cadEsc(etf.versao):'')+'</div>'
+    +'<div style="font-size:13px;color:#686868;margin:2px 0 0 4px">Equipamento nº <b style="color:#0B2239">'+cadEsc(cadSt.ativoNome||'—')+'</b>'+(cadSt.apelido?' · '+cadEsc(cadSt.apelido):(cadSt.tipoNome?' · '+cadEsc(cadSt.tipoNome):''))+(etf.versao?' · etiqueta versão '+cadEsc(etf.versao):'')+'</div>'
     +dots+'</div>';
   h+='<div style="flex:1;overflow-y:auto;padding:16px 16px 20px"><div style="max-width:640px;margin:0 auto">'+etfCorpo()+'</div></div>';
   h+='<div style="background:#fff;border-top:1px solid #E2E5E9;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))"><div style="max-width:640px;margin:0 auto;display:flex;gap:10px">'+etfRodape()+'</div></div>';
@@ -14643,7 +14645,7 @@ async function cadRetomarAtivo(i){
     }
     if(cadSt!==st){ st.criando=false; return; }
     cadNfcDesativar();
-    Object.assign(cadSt,{ativoId:d.id,ativoNome:d.nome||null,tipoNome:d.tipo||a.tipo||'',pendente:null,form:null,resp:{},fotos:{},comuns:{},comunsMexeu:false,
+    Object.assign(cadSt,{ativoId:d.id,ativoNome:d.nome||null,apelido:d.apelido||null,tipoNome:d.tipo||a.tipo||'',pendente:null,form:null,resp:{},fotos:{},comuns:{},comunsMexeu:false,
       berliner,daBerliner:{},sugBerliner:{},berlinerModo:null,galeria:[],galeriaFalhou:false,motorConf:null,modoEdicao:false,
       etiqueta:cadEtiquetaDoAtivo(d),retomada:true,ident:{local:d.local||null,fotosN:fotos?fotos.length:null,motor},criando:false,step:'done'});
     cadStepDone();
@@ -14802,6 +14804,10 @@ function etqRender(st){
       +(v.t2?'<div style="font-size:15px;font-weight:500;margin-top:5px">'+cadEsc(v.t2)+'</div>':'')
       +(v.t3?'<div style="font-size:13.5px;margin-top:8px;background:'+(v.tom==='at'?'rgba(0,0,0,.08)':'rgba(255,255,255,.16)')+';border-radius:8px;padding:7px 9px;line-height:1.35">→ '+cadEsc(v.t3)+'</div>':'')
       +'</div></div>';
+    /* resultado veio do QR (sem número de chip): botão que liga o leitor NO TOQUE — o mesmo caminho do ícone NFC, que funciona.
+       12/10/2026 (Raphael): logo abaixo do quadro laranja, no topo — é a ação que o quadro pede. */
+    if(!st.uid&&st.okEtiqueta&&estoqNfcSuportado()&&document.getElementById('scr-tag')&&document.getElementById('scr-tag').classList.contains('active'))
+      h+='<button onclick="etqConferirChipAgora()" style="width:100%;min-height:54px;margin-top:10px;background:#FE9339;color:#2B1A00;border:none;border-radius:12px;font-weight:800;font-size:15.5px">📶 Conferir o chip agora</button>';
     const a=st.ativo;
     if(a){
       h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:14px;padding:14px 16px;margin-top:12px;position:relative">'
@@ -14809,6 +14815,7 @@ function etqRender(st){
         +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 2px"><span style="font-size:34px;font-weight:800;color:#0B2239;line-height:1.05">'+cadEsc(a.nome||'—')+'</span>'
         /* 12/10/2026 — tipo com mais destaque (Raphael), ao lado do número em vez de pílula pequena no canto */
         +(a.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(a.tipo)+'</span>':'')+'</div>'
+        +(a.apelido?'<div style="font-size:20px;font-weight:800;color:#3E7EB0;margin:2px 0 4px">'+cadEsc(a.apelido)+'</div>':'')
         +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-bottom:8px">'+cadEsc(a.descricao)+'</div>':'')
         +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#1B2733">'
         +(a.local?'<span><span style="color:#686868;margin-right:4px">Local</span>'+cadEsc(a.local)+'</span>':'')
@@ -14856,9 +14863,6 @@ function etqRender(st){
     /* o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") — link discreto, uso raro */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button class="etq-rodape" onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
-    /* resultado veio do QR (sem número de chip): botão que liga o leitor NO TOQUE — o mesmo caminho do ícone NFC, que funciona */
-    if(!st.uid&&st.okEtiqueta&&estoqNfcSuportado()&&document.getElementById('scr-tag')&&document.getElementById('scr-tag').classList.contains('active'))
-      h+='<button onclick="etqConferirChipAgora()" style="width:100%;min-height:54px;margin-top:12px;background:#FE9339;color:#2B1A00;border:none;border-radius:12px;font-weight:800;font-size:15.5px">📶 Conferir o chip agora</button>';
     h+='<div id="etqNfcEstado" style="text-align:center;font-size:11.5px;color:#AEB8C2;margin-top:8px">Leitor NFC: '+cadEsc(tagNfcEstado)+'</div>';
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
     if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o número da leitura muda.</div>';
@@ -15398,9 +15402,14 @@ async function tagParComparar(){
   try{ if(navigator.vibrate) navigator.vibrate(res.ok?80:[120,80,120]); }catch(e){}
   tagParRender(res);
 }
+/* 12/10/2026 — Raphael: "na segunda tentativa de validar o chip abriu o portal". Religar = DESLIGAR e ligar de novo; no
+   intervalo (fração de segundo) o tablet fica sem leitor e o Android entrega o cartão ao navegador → portal. Na 2ª vez o
+   cartão costuma já estar encostado, e cai exatamente nesse buraco. Agora o botão só liga se o leitor NÃO estiver ligado;
+   ligado, ele só passa a ACEITAR a próxima leitura. (Desligar depois de ler, como foi sugerido, faria abrir o portal
+   sempre: é o leitor ligado que segura o cartão no app.) */
 async function etqConferirChipAgora(){
   tagNfcEscolhido=true;
-  const ok=await tagNfcReligar();
+  const ok=tagNfcCtrl?true:await tagNfcLigar();
   if(ok){ tagNfcEstadoSet('ligado — encoste o cartão agora'); toast('📶 Encoste o cartão no tablet agora'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(_){} }
   else toast('⚠️ Não consegui ligar o NFC — '+tagNfcEstado);
 }
@@ -15416,7 +15425,7 @@ let tagCamStream=null, tagCamRAF=null;
    é ACEITA e vira o resultado completo, com o chip conferido — que é exatamente o que o alerta amarelo pede. */
 async function tagLerQr(){
   if(tagCamStream) return;
-  if(estoqNfcSuportado()) tagNfcReligar();
+  if(estoqNfcSuportado()&&!tagNfcCtrl) tagNfcLigar(); /* só liga se estiver desligado: religar abre um buraco sem leitor */
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste aparelho'); return; }
   try{ tagCamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
   catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
@@ -15482,6 +15491,7 @@ async function verAtivo(ativoId){
       +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:2px"><span style="font-size:30px;font-weight:800;color:#0B2239;letter-spacing:.03em;font-variant-numeric:tabular-nums">'+cadEsc(d.nome||'Ativo')+'</span>'
       /* 12/10/2026 — Raphael: "o tipo do equipamento deve ter mais destaque; pode continuar pílula, mas maior" */
       +(d.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(d.tipo)+'</span>':'')+'</div>';
+    if(d.apelido) document.getElementById('ativoDetTitulo').innerHTML+='<div style="font-size:20px;font-weight:800;color:#3E7EB0;margin-top:4px">'+cadEsc(d.apelido)+'</div>'; /* 12/10/2026: apelido sequencial */
     document.getElementById('ativoDetSub').innerHTML='<div style="font-size:14px;color:#1B2733;margin-top:4px;line-height:1.4">'
       +(d.local?'<span style="color:#686868">Local</span> <b style="font-weight:600">'+cadEsc(d.local)+'</b>':'')
       +(d.local&&d.conta?' &nbsp;·&nbsp; ':'')+(d.conta?'<span style="color:#686868">Conta</span> <b style="font-weight:600">'+cadEsc(d.conta)+'</b>':'')+'</div>';
@@ -15543,7 +15553,7 @@ async function ativoDetEditar(){
   cadSt.ativoId=d.id; cadSt.tipoNome=d.tipo||''; cadSt.conta={id:null,nome:d.conta||''}; cadSt.modoEdicao=true;
   /* 11/10/2026 — a tela "Cadastro atualizado" usa o mesmo layout da de sucesso: número, local e a etiqueta que o ativo
      JÁ tem (sem isto o passo Etiqueta NFC apareceria como pendente num equipamento etiquetado) */
-  cadSt.ativoNome=d.nome||null; cadSt.etiqueta=cadEtiquetaDoAtivo(d); cadSt.ident={local:d.local||null,fotosN:null,motor:cadMotorDoProprio(d)};
+  cadSt.ativoNome=d.nome||null; cadSt.apelido=d.apelido||null; cadSt.etiqueta=cadEtiquetaDoAtivo(d); cadSt.ident={local:d.local||null,fotosN:null,motor:cadMotorDoProprio(d)};
   try{ cadSt.form=await beGet('/formulario-ativo?ativoId='+d.id); }
   catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
