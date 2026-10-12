@@ -19927,6 +19927,16 @@ function plnRenderPendencias(body){
     if(a.causa) h+='<span>Causa: <b>'+motEsc(a.causa)+'</b></span>';
     h+='<span>Corretiva: <b>'+(a.corretiva?motEsc(a.corretiva.nome+' · '+a.corretiva.status):(a.pediuCorretiva?'pedida, ainda não gerada':'não pedida'))+'</b></span>';
     h+='</div>';
+    if(a.cobertura||a.emergencia) h+='<div class="pnd-meta"><span>Decisão comercial: <b>'+motEsc(a.emergencia&&!a.cobertura?'Emergência — cobrança a decidir':(a.cobertura||''))+'</b>'+(a.emergencia&&a.cobertura?' (emergência)':'')+'</span></div>';
+    if(PLN.pndTri===a.id){
+      const op=(k,t,d,cor)=>'<button class="pnd-bt" data-pndtrid="'+k+'" data-id="'+a.id+'" style="display:block;width:100%;text-align:left;padding:10px 12px;margin:0 0 6px;border:2px solid '+cor+';border-radius:10px;background:#fff"><b style="color:'+cor+'">'+t+'</b><br><span style="font-size:12px;color:#686868">'+d+'</span></button>';
+      h+='<div class="pnd-form"><span class="lbl">Quem paga? A decisão fica registrada com o seu nome.</span>'
+        +op('coberta','Coberta pelo contrato','Abre a OT corretiva agora, ligada ao contrato de MPP vigente do cliente.','#2E844A')
+        +op('garantia','Garantia ou cortesia','Abre a OT corretiva agora; no faturamento a linha recebe aviso de crédito.','#0B827C')
+        +op('orcamento','Cobrar com orçamento','Não abre OT: a OT nasce depois que o cliente aceitar a proposta.','#0176D3')
+        +op('emergencia','Emergência','Abre a OT agora e vai para a escala; quem paga se decide antes de faturar.','#BA0517')
+        +'<button class="pnd-bt" data-pndtricancel>cancelar</button></div>';
+    }
     if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>'+(a.status==='Resolvida pelo cliente'?'O que o cliente fez':'O que foi feito')+': <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
     if(a.motivoDescarte) h+='<div class="pnd-meta"><span>Motivo do descarte: <b>'+motEsc(a.motivoDescarte)+'</b></span></div>';
     if(a.baixaPor) h+='<div class="pnd-meta"><span>Baixa: <b>'+motEsc(a.status)+'</b> por '+motEsc(a.baixaPor)+(a.baixaEm?' em '+motEsc(new Date(a.baixaEm).toLocaleDateString('pt-BR')):'')+'</span>'+(a.fotoBaixaDriveId?' <span class="pnd-foto" data-pndfoto="'+motEsc(a.fotoBaixaDriveId)+'" title="foto da baixa" style="display:inline-block;width:42px;height:42px;vertical-align:middle"></span>':'')+'</div>';
@@ -19957,6 +19967,9 @@ function plnRenderPendencias(body){
          triagem (fatia 3), então o botão não aparece para ela */
       if(!a.pediuCorretiva && !a.corretiva && !a.foraDeOt)
         h+='<button class="pnd-bt" data-pndcorr="'+a.id+'">pedir corretiva</button>';
+      /* 12/10/2026 — fatia 3: triagem com decisão comercial (Coordenador+). Só para pendência aberta, sem OT e sem decisão. */
+      if(['Coordenador','Gerente','Sócio'].includes(ROLE) && !a.corretiva && !a.cobertura && !a.emergencia && (a.status==='Aberta'||a.status==='Em análise'))
+        h+='<button class="pnd-bt prim" data-pndtri="'+a.id+'" style="background:#0B2239;border-color:#0B2239">decidir quem paga</button>';
       h+='</div>';
     }
     h+='</div>';
@@ -19979,6 +19992,19 @@ function pndWire(body){
     PLN.pndEdit={id:b.dataset.id, acao:b.dataset.pndform, txt:'', erro:null}; plnRenderTabBody();
   }));
   body.querySelectorAll('[data-pndcancel]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndEdit=null; plnRenderTabBody(); }));
+  body.querySelectorAll('[data-pndtri]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndTri=b.dataset.pndtri; PLN.pndEdit=null; plnRenderTabBody(); }));
+  body.querySelectorAll('[data-pndtricancel]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndTri=null; plnRenderTabBody(); }));
+  body.querySelectorAll('[data-pndtrid]').forEach(b=>b.addEventListener('click',async()=>{
+    const k=b.dataset.pndtrid, NOME={coberta:'Coberta pelo contrato',garantia:'Garantia ou cortesia',orcamento:'Cobrar com orçamento',emergencia:'Emergência'};
+    if(!window.confirm('Confirmar: '+NOME[k]+'?'+(k==='orcamento'?'\n\nA pendência fica em análise até o cliente aceitar a proposta.':'\n\nUma OT corretiva será aberta agora para este equipamento.'))) return;
+    b.disabled=true;
+    try{
+      const r=await bePost('/plano/achado/'+b.dataset.id+'/triagem',{decisao:k});
+      PLN.pndTri=null;
+      toast(r&&r.ot?('✅ '+(r.ot.nome||'OT')+' aberta'+(r.contrato?' no contrato '+r.contrato:'')):'✅ Decisão registrada: '+NOME[k]);
+      recarrega();
+    }catch(e){ b.disabled=false; toast(e.message||'Falha na decisão'); }
+  }));
   body.querySelectorAll('[data-pndfotobaixa]').forEach(b=>b.addEventListener('click',()=>{
     const ed=PLN.pndEdit; if(!ed) return;
     const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
