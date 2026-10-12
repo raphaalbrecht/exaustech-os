@@ -2060,11 +2060,16 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     </div></div></div>
 
   <!-- MODAL DETALHE DO ATIVO (Cadastro de Ativos) -->
-  <div class="modal" id="ativoDetModal"><div class="modal-card" style="max-width:420px">
-    <div class="modal-title" id="ativoDetTitulo">Ativo</div>
-    <div class="modal-sub" id="ativoDetSub"></div>
-    <div id="ativoDetBody" style="max-height:50vh;overflow:auto"></div>
-    <div class="modal-actions" style="margin-top:12px">
+  <!-- 12/10/2026 (Raphael: "melhore o layout dessa página, além disso está quebrando"): ficha do equipamento em
+       coluna — cabeçalho fixo, corpo com rolagem própria e rodapé fixo. Antes: 420 px de largura, rótulo que não
+       encolhia e o valor encostado na borda (cortado pela barra de rolagem do Android). -->
+  <div class="modal" id="ativoDetModal"><div class="modal-card" style="max-width:680px;padding:0;display:flex;flex-direction:column;overflow:hidden">
+    <div id="ativoDetHead" style="padding:18px 20px 14px;border-bottom:1px solid var(--border)">
+      <div class="modal-title" id="ativoDetTitulo">Ativo</div>
+      <div class="modal-sub" id="ativoDetSub"></div>
+    </div>
+    <div id="ativoDetBody" style="flex:1;min-height:0;overflow-y:auto;padding:12px 20px 16px;background:#F4F6F8"></div>
+    <div class="modal-actions" style="margin:0;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);background:#fff">
       <button class="btn btn-neutral" onclick="closeAtivoDet()">Fechar</button>
       <button class="btn btn-brand" onclick="ativoDetEditar()">✏️ Editar cadastro</button>
     </div></div></div>
@@ -14969,22 +14974,48 @@ async function verAtivo(ativoId){
   try{
     const d=await beGet('/ativos/'+ativoId);
     ativoDetSt=d;
-    document.getElementById('ativoDetTitulo').textContent=d.nome||'Ativo';
-    document.getElementById('ativoDetSub').textContent=[d.tipo,d.conta,d.local].filter(Boolean).join(' · ');
+    /* 12/10/2026 — ficha reformulada: número grande + tipo em pílula + onde está; resumo (etiqueta, criticidade,
+       plaqueta, motor); seções em cartões; rótulo e valor quebram linha em vez de cortar; múltipla escolha vira lista. */
+    const pil=(t,cor,esc)=>'<span style="display:inline-block;background:'+cor+';color:'+(esc?'#2B1A00':'#fff')+';border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">'+cadEsc(t)+'</span>';
+    document.getElementById('ativoDetTitulo').innerHTML='<div style="font-size:11.5px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.07em">Equipamento</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px"><span style="font-size:30px;font-weight:800;color:#0B2239;letter-spacing:.03em;font-variant-numeric:tabular-nums">'+cadEsc(d.nome||'Ativo')+'</span>'+(d.tipo?pil(d.tipo,'#0176D3'):'')+'</div>';
+    document.getElementById('ativoDetSub').innerHTML='<div style="font-size:14px;color:#1B2733;margin-top:4px;line-height:1.4">'
+      +(d.local?'<span style="color:#686868">Local</span> <b style="font-weight:600">'+cadEsc(d.local)+'</b>':'')
+      +(d.local&&d.conta?' &nbsp;·&nbsp; ':'')+(d.conta?'<span style="color:#686868">Conta</span> <b style="font-weight:600">'+cadEsc(d.conta)+'</b>':'')+'</div>';
     let h='';
+    /* resumo */
+    const etAtiva=(d.etiquetas||[]).find(e=>e.ativa), g=d.dadosGerais||{};
+    const res=[];
+    res.push(etAtiva?pil('Etiqueta ativa · v'+etAtiva.versao,'#2E844A'):pil('Sem etiqueta','#747474'));
+    if(g.criticidade) res.push(pil('Criticidade: '+g.criticidade,/alta|cr[ií]t/i.test(g.criticidade)?'#BA0517':(/m[eé]dia/i.test(g.criticidade)?'#FE9339':'#747474'),/m[eé]dia/i.test(g.criticidade)));
+    if(g.plaqueta) res.push(pil('Plaqueta: '+g.plaqueta,'#747474'));
+    if(g.ano) res.push(pil('Fabricação '+g.ano,'#747474'));
+    if(d.conferenciaPlaqueta) res.push(pil('Motor: '+d.conferenciaPlaqueta,/confere com/i.test(d.conferenciaPlaqueta)?'#2E844A':(/n[aã]o conferido|n[aã]o vis/i.test(d.conferenciaPlaqueta)?'#FE9339':'#BA0517'),/n[aã]o conferido|n[aã]o vis/i.test(d.conferenciaPlaqueta)));
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+res.join('')+'</div>';
+    /* respostas por seção */
     const porSessao={};
-    (d.respostas||[]).forEach(r=>{ const s=r.sessao||'Outros'; (porSessao[s]=porSessao[s]||[]).push(r); });
-    Object.keys(porSessao).forEach(s=>{
-      h+='<div style="font-size:12px;font-weight:700;color:#3E7EB0;margin:10px 0 4px">'+cadEsc(s)+'</div>';
-      porSessao[s].forEach(r=>{
-        h+='<div class="det-row"><span class="det-k">'+cadEsc(r.campo||'')+'</span><span class="det-v">'+cadEsc(r.resposta||'')+'</span></div>';
+    (d.respostas||[]).forEach(r=>{ const sx=r.sessao||'Outros'; (porSessao[sx]=porSessao[sx]||[]).push(r); });
+    const valor=r=>{
+      const v=(r.resposta==null?'':String(r.resposta)).trim();
+      if(!v) return '<span style="color:#AEB8C2;font-weight:500">não informado</span>';
+      if(r.tipo==='Multi-Picklist'||v.indexOf(';')>=0) return v.split(';').map(x=>x.trim()).filter(Boolean).map(x=>'<div>'+cadEsc(x)+'</div>').join('');
+      if(r.valorFabricante!=null&&String(r.valorFabricante)!==v) return cadEsc(v)+'<div style="font-size:12px;color:#8C4B02;font-weight:500">fábrica: '+cadEsc(r.valorFabricante)+'</div>';
+      return cadEsc(v);
+    };
+    Object.keys(porSessao).forEach(sx=>{
+      h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:4px 14px 6px;margin-bottom:10px">'
+        +'<div style="font-size:12px;font-weight:700;color:#3E7EB0;text-transform:uppercase;letter-spacing:.06em;padding:10px 0 4px">'+cadEsc(sx)+'</div>';
+      porSessao[sx].forEach((r,k)=>{
+        h+='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:4px 16px;align-items:start;padding:9px 0;'+(k?'border-top:1px solid #EEF1F4;':'')+'font-size:14px;line-height:1.35">'
+          +'<span style="color:#3A4552;min-width:0;overflow-wrap:anywhere">'+cadEsc(r.campo||'')+'</span>'
+          +'<span style="font-weight:700;color:#0B2239;text-align:right;min-width:0;max-width:52vw;overflow-wrap:anywhere">'+valor(r)+'</span></div>';
       });
+      h+='</div>';
     });
-    if(!(d.respostas||[]).length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
-    const etAtiva=(d.etiquetas||[]).find(e=>e.ativa);
-    if(etAtiva) h+='<div style="font-size:12px;color:#1D9E75;margin-top:10px">🏷️ Etiqueta ativa — versão '+etAtiva.versao+'</div>';
-    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="etqTestar(\''+ativoId+'\')" style="width:100%;background:none;border:1px solid #3E7EB0;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px;font-weight:600">📶 Testar a etiqueta deste equipamento</button>';
+    if(!(d.respostas||[]).length) h+='<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
+    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="etqTestar(\''+ativoId+'\')" style="width:100%;min-height:48px;background:#fff;border:2px solid #3E7EB0;border-radius:12px;margin-top:4px;color:#0176D3;font-size:14px;font-weight:700">📶 Testar a etiqueta deste equipamento</button>';
     document.getElementById('ativoDetBody').innerHTML=h;
+    document.getElementById('ativoDetBody').scrollTop=0;
     document.getElementById('ativoDetModal').classList.add('show');
   }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
 }
