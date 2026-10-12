@@ -14796,15 +14796,20 @@ function etqRender(st){
        tela ao que já existe (ficha, galeria de fotos, pendências). O Id do ativo vai DENTRO do onclick: cada leitura nova
        troca o resultado, e a ação tem que agir sobre o equipamento que estava na tela no toque. As três rotas no servidor
        são de Supervisor para cima (cadastro e plano); para os outros papéis os botões não aparecem. */
-    if(a&&a.id&&!st.errado&&typeof canCadastrar==='function'&&canCadastrar(ROLE)){
+    /* 12/10/2026 — fatia 2: "Registrar problema" é para TODOS (o técnico também registra — Raphael); ficha, foto e histórico
+       continuam de Supervisor para cima (rotas do cadastro) e pendências da função de Plano. O problema vira PENDÊNCIA no
+       equipamento, sem OT (DECISAO_pendencia-decisao-comercial-e-contrato-de-origem_12-10-2026.md). */
+    if(a&&a.id&&!st.errado){
       const idA=String(a.id).replace(/[^A-Za-z0-9]/g,'');
-      const bt=(ic,txt,on)=>'<button onclick="'+on+'" style="flex:1 1 0;min-width:0;min-height:64px;background:#fff;border:2px solid #3E7EB0;border-radius:12px;color:#0B2239;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px"><span style="font-size:20px;line-height:1">'+ic+'</span>'+txt+'</button>';
+      const cad=typeof canCadastrar==='function'&&canCadastrar(ROLE), pla=typeof canPlano!=='function'||canPlano(ROLE);
+      const bt=(ic,txt,on,forte)=>'<button onclick="'+on+'" style="flex:1 1 0;min-width:0;min-height:64px;background:'+(forte?'#FFF4E5':'#fff')+';border:2px solid '+(forte?'#FE9339':'#3E7EB0')+';border-radius:12px;color:#0B2239;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px"><span style="font-size:20px;line-height:1">'+ic+'</span>'+txt+'</button>';
       h+='<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#686868;margin:16px 0 6px">Ações neste equipamento</div>'
-        +'<div style="display:flex;gap:8px">'
-        +bt('📄','Ver ficha',"etqAcaoFicha('"+idA+"')")
-        +bt('📷','Foto',"etqAcaoFoto('"+idA+"')")
-        +((typeof canPlano!=='function'||canPlano(ROLE))?bt('⚠️','Pendências',"etqAcaoPendencias('"+idA+"')"):'')
-        +bt('🕘','Histórico',"etqAcaoHistorico('"+idA+"')")
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +bt('⚠️','Registrar problema',"etqAcaoProblema('"+idA+"')",true)
+        +(cad?bt('📄','Ver ficha',"etqAcaoFicha('"+idA+"')"):'')
+        +(cad?bt('📷','Foto',"etqAcaoFoto('"+idA+"')"):'')
+        +(pla?bt('📋','Pendências',"etqAcaoPendencias('"+idA+"')"):'')
+        +(cad?bt('🕘','Histórico',"etqAcaoHistorico('"+idA+"')"):'')
         +'</div><div id="etqAcaoBox"></div>';
     }
     if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;min-height:52px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;margin-top:14px">👁️ Ver como o cliente vê</button>';
@@ -15015,6 +15020,70 @@ async function etqAcaoHistorico(ativoId){
     if(ch.length>12) c2+='<div style="font-size:12px;color:#686868;padding-top:6px">+ '+(ch.length-12)+' chamados mais antigos</div>';
     etqAcaoBox(caixa('Preventivas (MPP) realizadas'+(pv.length?' — '+pv.length:''),c1)+caixa('Chamados'+(ch.length?' — '+ch.length:''),c2));
   }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar o histórico: '+cadEsc(e.message)+'</div>'); }
+}
+/* ===== Registrar problema → pendência no equipamento (12/10/2026, fatia 2) =====
+   Descrição + gravidade (+ tipo de dano e foto, opcionais). Grava Anotacao_Tecnica__c ligada ao equipamento, situação Aberta,
+   sem OT: quem decide se vira OT e quem paga é a triagem (Coordenador+, fatia 3). Precisa de internet (fluxo de coordenação). */
+let etqProb=null;
+function etqAcaoProblema(ativoId){
+  etqProb={ativoId, sev:null, dano:'', foto:null, fotoUrl:null, enviando:false};
+  etqProbRender();
+}
+function etqProbRender(msg){
+  const p=etqProb; if(!p) return;
+  const SEV=[['Observação','#747474','Acompanhar; não impede o funcionamento'],['Atenção','#FE9339','Precisa de ação programada'],['Crítico','#BA0517','Risco: precisa de ação logo']];
+  let h='<div style="background:#fff;border:2px solid #FE9339;border-radius:12px;padding:12px 14px;margin-top:10px">'
+    +'<div style="font-weight:800;color:#0B2239;font-size:16px">Registrar problema</div>'
+    +'<div style="font-size:12.5px;color:#686868;margin:2px 0 8px">Vira uma pendência deste equipamento. A decisão de abrir OT e de quem paga é da triagem.</div>'
+    +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:6px">O que você viu?</div>'
+    +'<textarea id="etqProbTxt" rows="3" placeholder="ex.: correia com desgaste e ruído ao ligar" style="width:100%;box-sizing:border-box;border:1px solid #C9D0D8;border-radius:10px;padding:10px;font-size:15px;margin-top:4px;font-family:inherit">'+cadEsc(p.txt||'')+'</textarea>'
+    +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Gravidade</div><div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">';
+  SEV.forEach(([v,cor,d])=>{ const on=p.sev===v;
+    h+='<button onclick="etqProbSev(\''+v+'\')" style="flex:1 1 0;min-width:100px;min-height:58px;border-radius:10px;border:2px solid '+cor+';background:'+(on?cor:'#fff')+';color:'+(on?(v==='Atenção'?'#2B1A00':'#fff'):'#0B2239')+';font-weight:800;font-size:14px;padding:4px"><div>'+v+'</div><div style="font-size:11px;font-weight:500;opacity:.9">'+d+'</div></button>'; });
+  h+='</div><div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Tipo de dano <span style="font-weight:400;color:#686868">(opcional)</span></div>'
+    +'<select id="etqProbDano" onchange="etqProb.dano=this.value" style="width:100%;min-height:44px;border:1px solid #C9D0D8;border-radius:10px;font-size:15px;margin-top:4px;background:#fff"><option value="">—</option>'
+    +['Vazamento','Ruído anormal','Corrosão','Vibração excessiva','Desgaste de componente','Outro'].map(x=>'<option'+(p.dano===x?' selected':'')+'>'+x+'</option>').join('')+'</select>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:10px">'
+    +'<button onclick="etqProbFoto()" style="min-height:48px;padding:0 14px;background:#fff;border:2px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:700;font-size:14px">'+(p.foto?'📷 Trocar foto':'📷 Tirar foto')+'</button>'
+    +'<span style="font-size:13px;color:'+(p.foto?'#1B7A3D':'#686868')+'">'+(p.foto==='enviando'?'Enviando…':p.foto?'✓ Foto anexada':'Recomendado')+'</span></div>'
+    +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\')" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
+    +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
+  etqAcaoBox(h);
+}
+function etqProbGuardarTxt(){ const t=document.getElementById('etqProbTxt'); if(t&&etqProb) etqProb.txt=t.value; }
+function etqProbSev(v){ etqProbGuardarTxt(); etqProb.sev=v; etqProbRender(); }
+function etqProbFoto(){
+  etqProbGuardarTxt();
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
+  inp.onchange=async()=>{
+    const f=inp.files&&inp.files[0]; const p=etqProb; if(!f||!p) return;
+    p.foto='enviando'; etqProbRender();
+    try{
+      const blob=await cadReduzirFoto(f);
+      const fd=new FormData(); fd.append('file',blob,'pendencia.jpg');
+      const r=await fetch(BACKEND+'/pendencias/foto',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+      let j=null; try{ j=await r.json(); }catch(_){}
+      if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+      p.foto=j.driveId; p.fotoUrl=j.url;
+      if(etqProb===p) etqProbRender();
+    }catch(e){ p.foto=null; if(etqProb===p) etqProbRender('A foto não foi enviada: '+e.message); }
+  };
+  inp.click();
+}
+async function etqProbEnviar(){
+  const p=etqProb; if(!p||p.enviando) return; etqProbGuardarTxt();
+  if(!p.txt||p.txt.trim().length<3) return etqProbRender('Descreva o que você viu.');
+  if(!p.sev) return etqProbRender('Escolha a gravidade.');
+  if(p.foto==='enviando') return etqProbRender('Espere a foto terminar de enviar.');
+  if(navigator.onLine===false) return etqProbRender('Sem internet: registrar pendência precisa de conexão.');
+  p.enviando=true; etqProbRender();
+  try{
+    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined});
+    etqProb=null;
+    try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
+    etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
+  }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
 }
 /* 11/10/2026 — volta do portal. Raphael: "no teste do NFC continua abrindo o portal automaticamente". Com endereço
    de internet gravado no chip, o Android pode abrir o navegador mesmo com o app lendo NFC (o sistema decide antes do
@@ -19809,12 +19878,14 @@ function plnRenderPendencias(body){
     h+='<div class="tit"><b>'+motEsc(a.descricao||'(sem descrição)')+'</b>'+
       '<small>'+motEsc(a.nome||'')+' · '+(a.idadeDias!=null?('há '+a.idadeDias+' dia'+(a.idadeDias===1?'':'s')):'')+
       (a.ativo?' · equipamento <b>'+motEsc(a.ativo.descricao||a.ativo.nome||'')+'</b>':'')+
-      (a.otOrigem?' · '+motEsc(a.otOrigem.nome||'')+(a.otOrigem.localNome?' em '+motEsc(a.otOrigem.localNome):''):'')+'</small></div>';
+      (a.otOrigem?' · '+motEsc(a.otOrigem.nome||'')+(a.otOrigem.localNome?' em '+motEsc(a.otOrigem.localNome):''):'')+
+      /* 12/10/2026 — pendência registrada na leitura da TAG, sem OT */
+      (a.foraDeOt?' · <b>registrada fora de OT</b>'+(a.registradaPor?' por '+motEsc(a.registradaPor):'')+(a.ativo&&a.ativo.localNome?' em '+motEsc(a.ativo.localNome):''):'')+'</small></div>';
     h+='<span class="pnd-sev '+pndClasseSev(a.severidade)+'">'+motEsc(a.severidade||'—')+'</span>';
     h+='<span class="pnd-sit '+pndClasseSit(a.status)+'">'+motEsc(a.status||'Aberta')+'</span>';
     h+='</div>';
     h+='<div class="pnd-meta">';
-    h+='<span>Pergunta de origem: <b>'+(a.perguntaOrigem?motEsc(a.perguntaOrigem.ordem+' · '+a.perguntaOrigem.descricao):'não registrada')+'</b></span>';
+    if(!a.foraDeOt) h+='<span>Pergunta de origem: <b>'+(a.perguntaOrigem?motEsc(a.perguntaOrigem.ordem+' · '+a.perguntaOrigem.descricao):'não registrada')+'</b></span>';
     if(a.dano) h+='<span>Dano: <b>'+motEsc(a.dano)+'</b></span>';
     if(a.causa) h+='<span>Causa: <b>'+motEsc(a.causa)+'</b></span>';
     h+='<span>Corretiva: <b>'+(a.corretiva?motEsc(a.corretiva.nome+' · '+a.corretiva.status):(a.pediuCorretiva?'pedida, ainda não gerada':'não pedida'))+'</b></span>';
@@ -19839,7 +19910,9 @@ function plnRenderPendencias(body){
       if(a.status!=='Descartada') h+='<button class="pnd-bt" data-pndform="Descartada" data-id="'+a.id+'">descartar</button>';
       if(a.status==='Resolvida'||a.status==='Descartada')
         h+='<button class="pnd-bt" data-pndsit="Aberta" data-id="'+a.id+'">reabrir</button>';
-      if(!a.pediuCorretiva && !a.corretiva)
+      /* pendência fora de OT: a automação de corretiva precisa de um item de OT para herdar conta/local; quem decide é a
+         triagem (fatia 3), então o botão não aparece para ela */
+      if(!a.pediuCorretiva && !a.corretiva && !a.foraDeOt)
         h+='<button class="pnd-bt" data-pndcorr="'+a.id+'">pedir corretiva</button>';
       h+='</div>';
     }
