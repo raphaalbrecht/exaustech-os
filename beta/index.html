@@ -14812,10 +14812,10 @@ function etqRender(st){
         +(cad?bt('🕘','Histórico',"etqAcaoHistorico('"+idA+"')"):'')
         +'</div><div id="etqAcaoBox"></div>';
     }
-    if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;min-height:52px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;margin-top:14px">👁️ Ver como o cliente vê</button>';
-    h+='<div id="etqPrevia"></div>';
+    if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button class="etq-rodape" onclick="etqPrevia(\''+st.token+'\')" style="width:100%;min-height:52px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;margin-top:14px">👁️ Ver como o cliente vê</button>';
+    h+='<div id="etqPrevia" class="etq-rodape"></div>';
     /* o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") — link discreto, uso raro */
-    if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
+    if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button class="etq-rodape" onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
     if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o número da leitura muda.</div>';
@@ -14933,7 +14933,7 @@ async function etqConferir(url,uid,esperado){
       }
 }
 /* ===== Ações na leitura da TAG — entrega 1 (12/10/2026) ===== ver DECISAO_acoes-na-leitura-da-tag_12-10-2026.md */
-function etqAcaoBox(html){ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
+function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); } /* outra ação fecha o formulário de problema */ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
 /* a ficha é o modal de detalhe do cadastro (z-index menor que o painel da TAG): fecha o resultado antes. O leitor da tela
    continua em espera, então encostar outra etiqueta depois não abre o portal. */
 function etqAcaoFicha(ativoId){ etqFechar(); verAtivo(ativoId); }
@@ -15029,8 +15029,12 @@ function etqAcaoProblema(ativoId){
   etqProb={ativoId, sev:null, dano:'', foto:null, fotoUrl:null, enviando:false};
   etqProbRender();
 }
+/* 12/10/2026 — Raphael: "na tela de registrar problema, tirar o 'Ver como o cliente vê' da parte inferior". Enquanto o
+   formulário está aberto, o rodapé do resultado (prévia do cliente e link do portal) some; volta ao cancelar ou registrar. */
+function etqRodape(mostrar){ document.querySelectorAll('#etqCorpo .etq-rodape').forEach(el=>{ el.style.display=mostrar?'':'none'; }); }
 function etqProbRender(msg){
   const p=etqProb; if(!p) return;
+  etqRodape(false);
   const SEV=[['Observação','#747474','Acompanhar; não impede o funcionamento'],['Atenção','#FE9339','Precisa de ação programada'],['Crítico','#BA0517','Risco: precisa de ação logo']];
   let h='<div style="background:#fff;border:2px solid #FE9339;border-radius:12px;padding:12px 14px;margin-top:10px">'
     +'<div style="font-weight:800;color:#0B2239;font-size:16px">Registrar problema</div>'
@@ -15047,7 +15051,7 @@ function etqProbRender(msg){
     +'<button onclick="etqProbFoto()" style="min-height:48px;padding:0 14px;background:#fff;border:2px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:700;font-size:14px">'+(p.foto?'📷 Trocar foto':'📷 Tirar foto')+'</button>'
     +'<span style="font-size:13px;color:'+(p.foto?'#1B7A3D':'#686868')+'">'+(p.foto==='enviando'?'Enviando…':p.foto?'✓ Foto anexada':'Recomendado')+'</span></div>'
     +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
-    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\')" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\');etqRodape(true)" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
     +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
   etqAcaoBox(h);
 }
@@ -15080,7 +15084,7 @@ async function etqProbEnviar(){
   p.enviando=true; etqProbRender();
   try{
     const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined});
-    etqProb=null;
+    etqProb=null; etqRodape(true);
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
     etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
   }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
