@@ -19834,8 +19834,8 @@ function plnRenderBiblioteca(body){
    fila, nao havia situacao, nao havia onde escrever o que foi feito. Aqui a retaguarda
    tria: ve a pergunta que gerou, a foto, o equipamento, a corretiva vinculada, e decide.
    Ver docs/07-MANUTENCAO/DECISAO_achado-vira-pendencia_16-09-2026.md */
-const PND_SITUACOES=['Aberta','Em análise','Resolvida','Descartada'];
-const pndClasseSit=(s)=>({'Aberta':'ab','Em análise':'an','Resolvida':'re','Descartada':'de'}[s]||'ab');
+const PND_SITUACOES=['Aberta','Em análise','Resolvida','Descartada','Recusada pelo cliente','Resolvida pelo cliente']; /* 12/10/2026: + as duas do cliente */
+const pndClasseSit=(s)=>({'Aberta':'ab','Em análise':'an','Resolvida':'re','Resolvida pelo cliente':'re','Descartada':'de','Recusada pelo cliente':'de'}[s]||'ab');
 const pndClasseSev=(s)=>({'Observação':'obs','Atenção':'at','Crítico':'cr'}[s]||'obs');
 
 async function pndCarregar(){
@@ -19890,14 +19890,18 @@ function plnRenderPendencias(body){
     if(a.causa) h+='<span>Causa: <b>'+motEsc(a.causa)+'</b></span>';
     h+='<span>Corretiva: <b>'+(a.corretiva?motEsc(a.corretiva.nome+' · '+a.corretiva.status):(a.pediuCorretiva?'pedida, ainda não gerada':'não pedida'))+'</b></span>';
     h+='</div>';
-    if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>O que foi feito: <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
+    if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>'+(a.status==='Resolvida pelo cliente'?'O que o cliente fez':'O que foi feito')+': <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
     if(a.motivoDescarte) h+='<div class="pnd-meta"><span>Motivo do descarte: <b>'+motEsc(a.motivoDescarte)+'</b></span></div>';
+    if(a.baixaPor) h+='<div class="pnd-meta"><span>Baixa: <b>'+motEsc(a.status)+'</b> por '+motEsc(a.baixaPor)+(a.baixaEm?' em '+motEsc(new Date(a.baixaEm).toLocaleDateString('pt-BR')):'')+'</span>'+(a.fotoBaixaDriveId?' <span class="pnd-foto" data-pndfoto="'+motEsc(a.fotoBaixaDriveId)+'" title="foto da baixa" style="display:inline-block;width:42px;height:42px;vertical-align:middle"></span>':'')+'</div>';
 
     if(ed){
       h+='<div class="pnd-form">';
-      h+='<span class="lbl">'+(ed.acao==='Resolvida'?'O que foi feito para resolver':'Por que este achado não exige ação')+'</span>';
+      h+='<span class="lbl">'+(ed.acao==='Resolvida'?'O que foi feito para resolver':ed.acao==='Resolvida pelo cliente'?'O que o cliente fez (obrigatório)':'Por que este achado não exige ação')+'</span>';
       h+='<textarea data-pndtxt placeholder="'+(ed.acao==='Resolvida'?'ex: mancal realinhado e rolamento trocado':'ex: desgaste dentro do aceitável para o intervalo do contrato')+'">'+motEsc(ed.txt||'')+'</textarea>';
       if(ed.acao==='Descartada') h+='<span class="lbl" style="color:var(--pln-warn)">Descartar exige o motivo. Resolver não exige, mas ajuda a próxima visita.</span>';
+      /* 12/10/2026 — baixa "Resolvida pelo cliente": o cliente trocou por conta própria. Encerra a pendência (Raphael: sem
+         conferência na visita seguinte). Foto opcional, como prova. */
+      if(ed.acao==='Resolvida pelo cliente') h+='<div style="display:flex;gap:8px;align-items:center"><button class="pnd-bt" data-pndfotobaixa>'+(ed.foto?'📷 trocar foto':'📷 foto (opcional)')+'</button><span class="lbl" style="margin:0">'+(ed.foto==='enviando'?'enviando…':ed.foto?'✓ foto anexada':'')+'</span></div>';
       h+='<div style="display:flex;gap:7px"><button class="pnd-bt prim" data-pndok="'+a.id+'">Confirmar '+motEsc(ed.acao)+'</button>'+
         '<button class="pnd-bt" data-pndcancel>Cancelar</button></div>';
       if(ed.erro) h+='<div class="pln-berr" style="margin:0">'+motEsc(ed.erro)+'</div>';
@@ -19908,7 +19912,9 @@ function plnRenderPendencias(body){
         h+='<button class="pnd-bt" data-pndsit="Em análise" data-id="'+a.id+'">pegar para análise</button>';
       if(a.status!=='Resolvida') h+='<button class="pnd-bt prim" data-pndform="Resolvida" data-id="'+a.id+'">resolver</button>';
       if(a.status!=='Descartada') h+='<button class="pnd-bt" data-pndform="Descartada" data-id="'+a.id+'">descartar</button>';
-      if(a.status==='Resolvida'||a.status==='Descartada')
+      if(['Resolvida','Descartada','Recusada pelo cliente','Resolvida pelo cliente'].indexOf(a.status)<0)
+        h+='<button class="pnd-bt" data-pndform="Resolvida pelo cliente" data-id="'+a.id+'">resolvida pelo cliente</button>';
+      if(a.status==='Resolvida'||a.status==='Descartada'||a.status==='Resolvida pelo cliente'||a.status==='Recusada pelo cliente')
         h+='<button class="pnd-bt" data-pndsit="Aberta" data-id="'+a.id+'">reabrir</button>';
       /* pendência fora de OT: a automação de corretiva precisa de um item de OT para herdar conta/local; quem decide é a
          triagem (fatia 3), então o botão não aparece para ela */
@@ -19936,6 +19942,23 @@ function pndWire(body){
     PLN.pndEdit={id:b.dataset.id, acao:b.dataset.pndform, txt:'', erro:null}; plnRenderTabBody();
   }));
   body.querySelectorAll('[data-pndcancel]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndEdit=null; plnRenderTabBody(); }));
+  body.querySelectorAll('[data-pndfotobaixa]').forEach(b=>b.addEventListener('click',()=>{
+    const ed=PLN.pndEdit; if(!ed) return;
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
+    inp.onchange=async()=>{
+      const f=inp.files&&inp.files[0]; if(!f) return;
+      ed.foto='enviando'; plnRenderTabBody();
+      try{
+        const blob=await cadReduzirFoto(f); const fd=new FormData(); fd.append('file',blob,'baixa.jpg');
+        const r=await fetch(BACKEND+'/pendencias/foto',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+        let j=null; try{ j=await r.json(); }catch(_){}
+        if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+        ed.foto=j.driveId;
+      }catch(err){ ed.foto=null; ed.erro='A foto não foi enviada: '+err.message; }
+      if(PLN.pndEdit===ed) plnRenderTabBody();
+    };
+    inp.click();
+  }));
   const ta=body.querySelector('[data-pndtxt]');
   if(ta) ta.addEventListener('input',()=>{ if(PLN.pndEdit) PLN.pndEdit.txt=ta.value; });
   body.querySelectorAll('[data-pndsit]').forEach(b=>b.addEventListener('click',async()=>{
@@ -19950,8 +19973,13 @@ function pndWire(body){
   body.querySelectorAll('[data-pndok]').forEach(b=>b.addEventListener('click',async()=>{
     const e=PLN.pndEdit; if(!e) return;
     const corpo={status:e.acao};
-    if(e.acao==='Resolvida') corpo.medidaCorretiva=e.txt||'';
+    if(e.acao==='Resolvida'||e.acao==='Resolvida pelo cliente') corpo.medidaCorretiva=e.txt||'';
     else corpo.motivoDescarte=e.txt||'';
+    if(e.acao==='Resolvida pelo cliente'){
+      if(!(e.txt||'').trim()){ PLN.pndEdit.erro='Escreva o que o cliente fez.'; plnRenderTabBody(); return; }
+      if(e.foto==='enviando'){ PLN.pndEdit.erro='Espere a foto terminar de enviar.'; plnRenderTabBody(); return; }
+      if(e.foto) corpo.fotoBaixaDriveId=e.foto;
+    }
     try{ await bePatch('/plano/achado/'+b.dataset.pndok,corpo); toast('✅ '+e.acao); recarrega(); }
     catch(err){ PLN.pndEdit.erro=err.message||'O servidor recusou.'; plnRenderTabBody(); }
   }));
