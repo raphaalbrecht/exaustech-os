@@ -14856,6 +14856,10 @@ function etqRender(st){
     /* o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") — link discreto, uso raro */
     if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button class="etq-rodape" onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
+    /* resultado veio do QR (sem número de chip): botão que liga o leitor NO TOQUE — o mesmo caminho do ícone NFC, que funciona */
+    if(!st.uid&&st.okEtiqueta&&estoqNfcSuportado()&&document.getElementById('scr-tag')&&document.getElementById('scr-tag').classList.contains('active'))
+      h+='<button onclick="etqConferirChipAgora()" style="width:100%;min-height:54px;margin-top:12px;background:#FE9339;color:#2B1A00;border:none;border-radius:12px;font-weight:800;font-size:15.5px">📶 Conferir o chip agora</button>';
+    h+='<div id="etqNfcEstado" style="text-align:center;font-size:11.5px;color:#AEB8C2;margin-top:8px">Leitor NFC: '+cadEsc(tagNfcEstado)+'</div>';
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
     if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o número da leitura muda.</div>';
     else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:12px;font-weight:700;font-size:14px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
@@ -15279,12 +15283,17 @@ let tagNfcCtrl=null;
    técnico escolher NFC (tagNfcEscolhido) ou QR × NFC (tagPar). Fechar o resultado volta à espera. */
 let tagNfcEscolhido=false;
 function tagNfcStatus(ok,txt){ const s=document.getElementById('tagNfcStatus'); if(s){ s.style.color=ok?'#1D9E75':'#C4451B'; s.innerHTML=txt; } }
+/* 12/10/2026 — "continua abrindo o portal" depois do QR, sem eu conseguir reproduzir: o estado REAL do leitor passa a
+   aparecer no rodapé do resultado ("Leitor NFC: ligado / desligado — motivo"), para o próximo relato dizer onde quebrou. */
+let tagNfcEstado='desligado';
+function tagNfcEstadoSet(t){ tagNfcEstado=t; const el=document.getElementById('etqNfcEstado'); if(el) el.textContent='Leitor NFC: '+t; }
 async function tagNfcLigar(){
   if(tagNfcCtrl) { tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); return true; }
   try{
     const reader=new NDEFReader(), ctrl=new AbortController(); tagNfcCtrl=ctrl;
     await reader.scan({signal:ctrl.signal});
     if(tagNfcCtrl!==ctrl) return false; /* saiu da tela enquanto ligava */
+    tagNfcEstadoSet('ligado'+(tagNfcEscolhido||tagPar?'':' (em espera)'));
     reader.onreadingerror=()=>{ if(!document.getElementById('etqModal')) etqAbrirModal(); etqRender({fase:'lendo',aviso:'Não deu para ler. Encoste de novo e segure parado por um segundo.'}); };
     reader.onreading=(e)=>{ if(tagNfcCtrl!==ctrl) return;
       if(!tagPar&&!tagNfcEscolhido){ tagNfcStatus(false,'Etiqueta ignorada — escolha <b>NFC</b> ou <b>QR × NFC</b> antes de encostar.'); return; }
@@ -15294,13 +15303,13 @@ async function tagNfcLigar(){
     tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).');
     return true;
   }catch(err){
-    tagNfcCtrl=null;
+    tagNfcCtrl=null; tagNfcEstadoSet('desligado — '+((err&&(err.name||err.message))||'erro'));
     /* sem permissão ainda (1ª vez) o Chrome exige um toque: o ícone NFC tenta de novo */
     tagNfcStatus(false,'⚠ Leitor NFC desligado — toque no ícone NFC para ligar. Até lá, encostar a etiqueta abre o portal.');
     return false;
   }
 }
-function tagNfcDesligar(){ if(tagNfcCtrl){ try{tagNfcCtrl.abort();}catch(e){} tagNfcCtrl=null; } }
+function tagNfcDesligar(){ if(tagNfcCtrl){ try{tagNfcCtrl.abort();}catch(e){} tagNfcCtrl=null; } tagNfcEstadoSet('desligado'); }
 /* 11/10/2026 — Raphael: "agora quando escolho NFC e leio, abre o portal". O código guardava "leitor ligado" numa variável
    (tagNfcCtrl) e nunca conferia se o Chrome ainda estava mesmo lendo. Quando o app sai da frente (tela apaga, troca de
    app, o portal abriu uma vez), o Chrome suspende o leitor e pode não retomar — a variável continuava dizendo "ligado",
@@ -15388,6 +15397,12 @@ async function tagParComparar(){
   }
   try{ if(navigator.vibrate) navigator.vibrate(res.ok?80:[120,80,120]); }catch(e){}
   tagParRender(res);
+}
+async function etqConferirChipAgora(){
+  tagNfcEscolhido=true;
+  const ok=await tagNfcReligar();
+  if(ok){ tagNfcEstadoSet('ligado — encoste o cartão agora'); toast('📶 Encoste o cartão no tablet agora'); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(_){} }
+  else toast('⚠️ Não consegui ligar o NFC — '+tagNfcEstado);
 }
 async function tagNfcAbrir(){
   if(!await tagNfcReligar()) return;
