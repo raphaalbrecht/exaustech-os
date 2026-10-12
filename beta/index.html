@@ -14281,6 +14281,16 @@ async function cadEtqCopiarLink(){
   try{ await navigator.clipboard.writeText(u); toast('🔗 Link copiado — no Niimbot, crie um QR e cole'); }
   catch(e){ toast('Não deu para copiar o link: '+e.message); }
 }
+/* ===== Voltar do Android nas camadas por cima da tela (12/10/2026) =====
+   O app não usava o histórico do navegador: o Voltar do Android saía do app (ou da tela) em vez de fechar a camada de cima.
+   Cada camada que abre por cima (resultado da TAG, ficha, foto grande, fluxo da etiqueta) entra nesta pilha; o Voltar fecha
+   só a de cima. Fechar pelo botão da tela tira da pilha (a entrada que sobra no histórico é inofensiva: voltar nela não faz
+   nada). */
+const navPilha=[];
+function navAbriu(nome,fechar){ navPilha.push({nome,fechar}); try{ history.pushState({ov:nome},''); }catch(e){} }
+function navFechou(nome){ for(let i=navPilha.length-1;i>=0;i--){ if(navPilha[i].nome===nome){ navPilha.splice(i,1); return; } } }
+window.addEventListener('popstate',()=>{ const t=navPilha.pop(); if(t){ try{ t.fechar(); }catch(e){} } });
+function etqFotoFechar(){ navFechou('foto'); const v=document.getElementById('etqFotoGrande'); if(v) v.remove(); }
 /* ===================== FLUXO DA ETIQUETA EM 5 ETAPAS (etf*, 12/10/2026) =====================
    Layout B aprovado pelo Raphael em 11/10/2026 (prototipos/mockup-fluxo-etiqueta-B_11-10-2026.html): uma etapa por tela,
    bolinhas no topo. 1 Imprimir (o código nasce aqui, etiqueta INATIVA) → 2 Ler o QR impresso (câmera; trava) → 3 Gravar
@@ -14324,9 +14334,10 @@ function etfMontar(){
   const v=document.getElementById('etfTela'); if(v) v.remove();
   const ov=document.createElement('div'); ov.id='etfTela';
   ov.style.cssText='position:fixed;inset:0;z-index:100020;background:#FAFBFC;display:flex;flex-direction:column';
-  document.body.appendChild(ov);
+  document.body.appendChild(ov); navAbriu('etf',()=>etfFechar());
 }
 async function etfFechar(){
+  navFechou('etf');
   etfCamFechar(); etfNfcDesligar(); cadEtqOverride=null; cadEtqBlobCache=null;
   const v=document.getElementById('etfTela'); if(v) v.remove();
   const aid=etf&&etf.ativoId; etf=null;
@@ -14726,7 +14737,7 @@ function etqUid(e){ return ((e&&e.serialNumber)||'').replace(/:/g,'').toUpperCas
 function etqUrlDoChip(e){ try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url') return new TextDecoder().decode(rec.data); } }catch(_){} return ''; }
 let tagPar=null; /* modo "QR × NFC" de Consultar TAG — ver tagParIniciar */
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
-function etqFechar(){ etqParar(); etqTravado=false; etqSeq=0; etqUltUid=''; tagPar=null; tagNfcEscolhido=false; tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqFechar(){ navFechou('etq'); etqParar(); etqTravado=false; etqSeq=0; etqUltUid=''; tagPar=null; tagNfcEscolhido=false; tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); const m=document.getElementById('etqModal'); if(m) m.remove(); }
 function etqLinha(ok,titulo,detalhe){
   const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
@@ -14833,7 +14844,7 @@ function etqAbrirModal(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:100012;display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML='<div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:720px;max-height:92vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box"><div id="etqCorpo" style="position:relative"></div></div>';
   ov.addEventListener('click',ev=>{ if(ev.target===ov) etqFechar(); });
-  document.body.appendChild(ov);
+  document.body.appendChild(ov); navAbriu('etq',()=>etqFechar());
 }
 async function etqTestar(ativoEsperadoId){
   if(!estoqNfcSuportado()){ toast('⚠️ Este aparelho não suporta NFC'); return; }
@@ -14890,6 +14901,9 @@ async function etqProcessar(e,esperado){
 }
 /* confere um endereço de etiqueta (lido do chip, ou recebido do portal — ver etqDoPortal) */
 async function etqConferir(url,uid,esperado){
+      /* leitura nova com a ficha ou a foto grande abertas: elas eram do equipamento ANTERIOR — fecham para não confundir */
+      { const md=document.getElementById('ativoDetModal'); if(md&&md.classList.contains('show')&&document.getElementById('etqModal')) closeAtivoDet(); }
+      if(document.getElementById('etqFotoGrande')) etqFotoFechar();
       if(!document.getElementById('etqModal')) etqAbrirModal();
       const minha=++etqSeq; /* se outra leitura começar enquanto esta consulta o servidor, esta desiste de desenhar */
       etqRender({fase:'conferindo'});
@@ -14937,7 +14951,10 @@ async function etqConferir(url,uid,esperado){
 function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); } /* outra ação fecha o formulário de problema */ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
 /* a ficha é o modal de detalhe do cadastro (z-index menor que o painel da TAG): fecha o resultado antes. O leitor da tela
    continua em espera, então encostar outra etiqueta depois não abre o portal. */
-function etqAcaoFicha(ativoId){ etqFechar(); verAtivo(ativoId); }
+/* 12/10/2026 — Raphael: "depois da leitura, se eu clico em Ver ficha não consigo voltar para o registro; tenho que ler a
+   etiqueta de novo". A ficha FECHAVA o resultado da leitura (estava atrás dele na pilha de telas). Agora a ficha abre POR
+   CIMA do resultado e "Fechar" (ou o Voltar do Android) volta para ele, com a leitura intacta. */
+function etqAcaoFicha(ativoId){ verAtivo(ativoId); }
 /* foto avulsa: mesma gravação da galeria do cadastro (reduz → /midias-ativo → POST /ativos/:id/fotos, máx. 10 por
    equipamento, regra do servidor). Sem marca d'água, igual à galeria do cadastro. */
 function etqAcaoFoto(ativoId){
@@ -15004,10 +15021,10 @@ async function etqFotoVer(driveId,data){
   const ov=document.createElement('div'); ov.id='etqFotoGrande';
   ov.style.cssText='position:fixed;inset:0;z-index:100030;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center';
   ov.innerHTML='<div style="position:absolute;top:12px;left:16px;color:#fff;font-size:14px">'+cadEsc(data||'')+'</div>'
-    +'<button onclick="document.getElementById(\'etqFotoGrande\').remove()" style="position:absolute;top:8px;right:12px;background:#fff;border:none;border-radius:22px;min-width:44px;min-height:44px;font-size:22px;font-weight:700">×</button>'
+    +'<button onclick="etqFotoFechar()" style="position:absolute;top:8px;right:12px;background:#fff;border:none;border-radius:22px;min-width:44px;min-height:44px;font-size:22px;font-weight:700">×</button>'
     +'<div id="etqFotoGrandeC" style="color:#fff;font-size:14px">Carregando…</div>';
-  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
-  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{ if(e.target===ov) etqFotoFechar(); });
+  document.body.appendChild(ov); navAbriu('foto',etqFotoFechar);
   try{ const u=await etqFotoBlobUrl(driveId); const c=document.getElementById('etqFotoGrandeC'); if(c) c.outerHTML='<img src="'+u+'" style="max-width:96vw;max-height:86vh;object-fit:contain;border-radius:6px">'; }
   catch(e){ const c=document.getElementById('etqFotoGrandeC'); if(c) c.textContent='Não consegui abrir a foto: '+e.message; }
 }
@@ -15457,13 +15474,15 @@ async function verAtivo(ativoId){
       h+='</div>';
     });
     if(!(d.respostas||[]).length) h+='<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
-    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="etqTestar(\''+ativoId+'\')" style="width:100%;min-height:48px;background:#fff;border:2px solid #3E7EB0;border-radius:12px;margin-top:4px;color:#0176D3;font-size:14px;font-weight:700">📶 Testar a etiqueta deste equipamento</button>';
+    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="closeAtivoDet();etqTestar(\''+ativoId+'\')" style="width:100%;min-height:48px;background:#fff;border:2px solid #3E7EB0;border-radius:12px;margin-top:4px;color:#0176D3;font-size:14px;font-weight:700">📶 Testar a etiqueta deste equipamento</button>';
     document.getElementById('ativoDetBody').innerHTML=h;
     document.getElementById('ativoDetBody').scrollTop=0;
-    document.getElementById('ativoDetModal').classList.add('show');
+    const md=document.getElementById('ativoDetModal'); md.style.zIndex='100015'; /* acima do painel da TAG (100012) */
+    if(!md.classList.contains('show')) navAbriu('ficha',closeAtivoDet);
+    md.classList.add('show');
   }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
 }
-function closeAtivoDet(){ document.getElementById('ativoDetModal').classList.remove('show'); }
+function closeAtivoDet(){ document.getElementById('ativoDetModal').classList.remove('show'); navFechou('ficha'); }
 /* reabre o wizard direto na Ficha (pula conta/sistema/equipamento, já resolvidos) pré-preenchida com
    as respostas existentes — upsert por (Ativo,Campo) em POST /respostas já suporta editar no lugar.
    Limitação conhecida: campos tipo Foto não trazem preview da foto já salva (mapResposta não devolve
