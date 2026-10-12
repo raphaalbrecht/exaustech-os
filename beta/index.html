@@ -612,6 +612,15 @@
   /* gestão de avisos (fluxo de aprovação): histórico de alterações dentro do card */
   .av-hist{margin-top:8px;padding:8px;background:var(--neu-bg,#f4f6f9);border-radius:.25rem;font-size:11.5px;color:var(--weak);line-height:1.6}
   .av-hist .av-hist-row+.av-hist-row{margin-top:2px}
+  /* 12/10/2026 — gestão de avisos por cliente → contrato: resumo do destino no topo (duas linhas
+     rotuladas) e a faixa "Para: CLIENTE · Contrato X" no formulário. Cores só por variável do tema
+     (diretriz SLDS 2 de 01/09/2026); tamanhos maiores porque a tela é usada em tablet, com o dedo. */
+  .av-destino{background:var(--neu-bg,#f4f6f9);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .av-destino-l+.av-destino-l{margin-top:6px}
+  .av-destino-k{font-size:11px;color:var(--weaker);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .av-destino-v{font-size:15.5px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .av-para{background:var(--brand-l);border:1px solid #9fc6f0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;color:var(--brand);line-height:1.45}
+  #avGesModal .field input[type=search]{min-height:50px;font-size:16px}
   .det-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:13px}
   .det-row:last-child{border-bottom:none}
   .det-k{color:var(--weak);font-size:12px;flex-shrink:0}
@@ -2111,7 +2120,10 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 
   <!-- MODAL GESTÃO DE AVISOS DE CONTRATO · fluxo de aprovação (v2, 11/07/2026).
        Líder pra cima lança/sugere; Supervisor pra cima aprova, edita e exclui direto.
-       Aberto pela aba Aprovações (botão "Gerenciar avisos de contrato"). -->
+       Aberto pela aba Aprovações (botão "Gerenciar avisos de contrato").
+       12/10/2026: a tela começa pela escolha do DESTINO (cliente por busca de nome/CNPJ → contrato de
+       serviço do cliente); a lista antiga (contratos das OS da agenda) virou atalho. Ver
+       docs/06-OS-CAMPO/DECISAO_gestao-de-avisos-com-cliente-e-contrato_12-10-2026.md -->
   <div class="modal" id="avGesModal"><div class="modal-card">
     <div class="modal-title">📨 Gestão de avisos de contrato</div>
     <div class="modal-sub" id="avGesSub"></div>
@@ -16473,25 +16485,124 @@ async function avPendDecidir(avisoId,altId,aprovar){
     if(_avGes&&_avGes.ctr) avGesAbrirContrato(_avGes.ctr); /* refresca a lista do modal, se aberto */
   }catch(e){ toast('Erro: '+e.message); }
 }
-/* modal de gestão: contratos (das OS carregadas) → avisos do contrato (todos os status) + histórico */
-let _avGes=null; /* {view:'contratos'|'lista'|'form', contratos, ctr, ctrLabel, avisos, formAviso, erro} */
+/* ===== GESTÃO DE AVISOS DE CONTRATO — destino por CLIENTE → CONTRATO (12/10/2026) =====
+   Por quê: até 12/10 a lista de contratos vinha SÓ das OS carregadas na agenda (ordens[]), então não
+   dava pra lançar aviso pra um cliente sem OS na agenda. Raphael (12/10/2026): "é necessário campo de
+   cliente e contrato para direcionarmos o aviso". Agora a tela começa pela escolha do destino:
+   1) cliente, por busca de nome/CNPJ (GET /avisos/clientes) ou pelo atalho "clientes da minha agenda"
+      (o comportamento antigo, que vira atalho e não some);
+   2) contrato de serviço do cliente (GET /avisos/contratos), vigentes primeiro;
+   3) avisos daquele contrato (GET /avisos/contrato/:id — igual a antes) + "Lançar aviso" já com o
+      destino preenchido e visível ("Para: CLIENTE · Contrato X").
+   Permissões NÃO mudaram: Líder+ lança/sugere, Supervisor+ aplica direto (servidor decide).
+   Ver docs/06-OS-CAMPO/DECISAO_gestao-de-avisos-com-cliente-e-contrato_12-10-2026.md */
+let _avGes=null; /* {view:'destino'|'lista'|'form', cliente:{id,nome,cnpj}|null, contratos:[]|null, ctr, ctrLabel, ctrInfo, avisos, formAviso, erro, busca, resultados, buscando, agenda:[]} */
+let _avGesBuscaSeq=0, _avGesBuscaTimer=null; /* sequência: resposta velha de busca nunca sobrescreve a nova */
+/* contratos das OS da agenda (comportamento antigo): {id, label=nome do cliente na OS} — usado como atalho */
 function avGesContratos(){
   const map={}; ordens.forEach(o=>{ if(o._contrato&&!map[o._contrato]) map[o._contrato]={id:o._contrato,label:o.cli||o._contrato}; });
   return Object.values(map);
 }
 function openAvGes(){
-  const cs=avGesContratos();
-  if(!cs.length){ toast('Nenhum contrato carregado — os contratos vêm das OS da agenda'); return; }
-  _avGes={view:'contratos',contratos:cs};
+  _avGes={view:'destino',cliente:null,contratos:null,ctr:null,ctrLabel:'',ctrInfo:null,avisos:null,formAviso:null,erro:null,
+          busca:'',resultados:null,buscando:false,agenda:avGesContratos()};
   document.getElementById('avGesModal').classList.add('show');
-  if(cs.length===1){ avGesAbrirContrato(cs[0].id); return; }
   renderAvGes();
 }
-function closeAvGes(){ document.getElementById('avGesModal').classList.remove('show'); _avGes=null; }
-async function avGesAbrirContrato(ctrId){
-  const cs=(_avGes&&_avGes.contratos)||avGesContratos();
-  const c=cs.find(x=>x.id===ctrId);
-  _avGes={view:'lista',contratos:cs,ctr:ctrId,ctrLabel:(c?c.label:ctrId),avisos:null,erro:null};
+function closeAvGes(){ document.getElementById('avGesModal').classList.remove('show'); _avGes=null; clearTimeout(_avGesBuscaTimer); }
+/* pílulas em caixa alta (diretriz de 02/09/2026: status se lê de relance, cor semântica + CAIXA ALTA) */
+function avGesPill(txt,cls){ return '<span class="lz '+cls+'" style="text-transform:uppercase;letter-spacing:.3px">'+_esc(txt)+'</span>'; }
+function avGesCnpjFmt(c){ const d=String(c||'').replace(/\D/g,''); return d.length===14?d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'):(c||''); }
+function fmtDataISO(d){ if(!d) return ''; const m=String(d).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'/'+m[2]+'/'+m[1]):String(d); }
+/* situação do contrato como pílula: VIGENTE (verde) / VENCIDO (vermelho) / INATIVO (cinza) / sem status (cinza) */
+function avGesCtrSituacao(c){
+  if(!c) return '';
+  if(c.vigente) return avGesPill('Vigente','lz-succ');
+  if(c.status==='Expired'||(c.fim&&c.fim<hojeLocalISO())) return avGesPill('Vencido','lz-err');
+  if(c.status==='Inactive') return avGesPill('Inativo','lz-neu');
+  if(c.status==='Active') return avGesPill('Ainda não iniciou','lz-warn'); /* Active com StartDate futura */
+  return avGesPill(c.status||'Sem status','lz-neu');
+}
+function avGesCtrLinha(c){ /* "Nome · nº 00012 · Contrato de MPP · 01/01/2026 → 31/12/2026" */
+  const partes=[];
+  if(c.numero&&c.numero!==c.nome) partes.push('nº '+c.numero);
+  if(c.tipoRegistro) partes.push(c.tipoRegistro);
+  if(c.inicio||c.fim) partes.push((fmtDataISO(c.inicio)||'?')+' → '+(fmtDataISO(c.fim)||'sem fim'));
+  return partes.join(' · ');
+}
+/* ---- passo 1: busca de cliente (digitar ≥2 letras; 300 ms de espera pra não bater no servidor a cada tecla) ---- */
+function avGesBuscaInput(v){
+  const g=_avGes; if(!g) return;
+  g.busca=v; clearTimeout(_avGesBuscaTimer);
+  if(v.trim().length<2){ g.resultados=null; g.buscando=false; avGesPaintResultados(); return; }
+  g.buscando=true; avGesPaintResultados();
+  _avGesBuscaTimer=setTimeout(avGesBuscar,300);
+}
+async function avGesBuscar(){
+  const g=_avGes; if(!g) return; const q=g.busca.trim(); if(q.length<2) return;
+  const seq=++_avGesBuscaSeq;
+  try{ const r=await beGet('/avisos/clientes?q='+encodeURIComponent(q));
+    if(!_avGes||seq!==_avGesBuscaSeq) return; /* chegou tarde: já tem busca mais nova */
+    _avGes.resultados=Array.isArray(r)?r:[]; _avGes.buscando=false; _avGes.erro=null; }
+  catch(e){ if(!_avGes||seq!==_avGesBuscaSeq) return; _avGes.resultados=[]; _avGes.buscando=false; _avGes.erro=e.message; }
+  avGesPaintResultados();
+}
+/* só a lista de resultados é redesenhada: redesenhar o modal inteiro a cada tecla tiraria o foco do campo */
+function avGesPaintResultados(){
+  const g=_avGes, el=document.getElementById('avGesRes'); if(!g||!el) return;
+  if(g.buscando){ el.innerHTML='<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Procurando…</div>'; return; }
+  if(g.resultados===null){ el.innerHTML='<div class="subnote" style="padding:8px 0">Digite pelo menos 2 letras do nome, ou números do CNPJ.</div>'; return; }
+  if(g.erro){ el.innerHTML='<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>'; return; }
+  if(!g.resultados.length){ el.innerHTML='<div class="subnote" style="padding:8px 0">Nenhum cliente encontrado com "'+_esc(g.busca.trim())+'".</div>'; return; }
+  el.innerHTML=g.resultados.map((c,i)=>'<div class="av-item" style="padding:13px 8px;min-height:48px" onclick="avGesEscolherCliente('+i+')">'
+    +'<div class="av-tit" style="font-size:15px">'+_esc(c.nome)+'</div>'
+    +'<div class="av-meta">'+(c.cnpj?'CNPJ '+_esc(avGesCnpjFmt(c.cnpj)):'')+(c.tipo?(c.cnpj?' · ':'')+_esc(c.tipo):'')+'</div></div>').join('')
+    +(g.resultados.length>=20?'<div class="subnote" style="padding:8px 0">Mostrando os 20 primeiros — refine a busca.</div>':'');
+}
+function avGesEscolherCliente(i){ const g=_avGes; if(!g||!g.resultados) return; const c=g.resultados[i]; if(c) avGesSetCliente(c); }
+/* ---- passo 2: contratos do cliente ---- */
+async function avGesSetCliente(cli){
+  const g=_avGes; if(!g) return;
+  g.cliente={id:cli.id,nome:cli.nome,cnpj:cli.cnpj||null}; g.contratos=null; g.ctr=null; g.ctrInfo=null; g.erro=null; g.view='destino';
+  renderAvGes();
+  try{ const r=await beGet('/avisos/contratos?contaId='+encodeURIComponent(cli.id));
+    if(_avGes&&_avGes.cliente&&_avGes.cliente.id===cli.id){ _avGes.contratos=Array.isArray(r)?r:[]; renderAvGes(); } }
+  catch(e){ if(_avGes&&_avGes.cliente&&_avGes.cliente.id===cli.id){ _avGes.contratos=[]; _avGes.erro=e.message; renderAvGes(); } }
+}
+function avGesEscolherContrato(i){
+  const g=_avGes; if(!g||!g.contratos) return; const c=g.contratos[i]; if(!c) return;
+  avGesAbrirContrato(c.id,{contrato:c,cliente:g.cliente});
+}
+/* atalho "clientes da minha agenda": o contrato vem da OS (só Id + nome do cliente). Busca a ficha do
+   contrato por contratoId pra mostrar número/vigência; se falhar, segue só com o que a OS sabia. */
+async function avGesEscolherAgenda(i){
+  const g=_avGes; if(!g) return; const a=g.agenda[i]; if(!a) return;
+  let info=null;
+  try{ const r=await beGet('/avisos/contratos?contratoId='+encodeURIComponent(a.id)); if(Array.isArray(r)&&r[0]) info=r[0]; }catch(e){ /* best-effort */ }
+  if(!_avGes) return;
+  const cliente={id:(info&&info.contaId)||null,nome:(info&&info.contaNome)||a.label,cnpj:null};
+  avGesAbrirContrato(a.id,{contrato:info||{id:a.id,nome:a.label},cliente});
+}
+/* trocar o destino: volta pro passo 1 (mantém a busca digitada) ou pro passo 2 (mantém o cliente) */
+function avGesTrocar(oQue){
+  const g=_avGes; if(!g) return;
+  g.view='destino'; g.ctr=null; g.ctrInfo=null; g.avisos=null; g.formAviso=null; g.erro=null;
+  /* "trocar contrato" só faz sentido com o Id da conta em mãos; vindo do atalho da agenda os contratos
+     do cliente ainda não foram carregados (só se conhecia o contrato da OS) — carrega agora. Sem Id da
+     conta (ficha do contrato não veio), cai na busca de cliente. */
+  if(oQue==='contrato'&&g.cliente&&g.cliente.id){ if(!g.contratos){ avGesSetCliente(g.cliente); return; } renderAvGes(); return; }
+  g.cliente=null; g.contratos=null;
+  renderAvGes(); /* a busca digitada e os resultados anteriores continuam na tela */
+}
+/* ---- passo 3: avisos do contrato (todos os status + histórico). Assinatura mantida: avPendDecidir
+   chama avGesAbrirContrato(_avGes.ctr) pra refrescar e, sem "info", reaproveita cliente/contrato já escolhidos. */
+async function avGesAbrirContrato(ctrId,info){
+  const g=_avGes||{}; const cs=g.contratos||null;
+  const cliente=(info&&info.cliente)||g.cliente||null;
+  const contrato=(info&&info.contrato)||g.ctrInfo||(cs&&cs.find(x=>x.id===ctrId))||null;
+  const label=(contrato&&contrato.nome)||(cliente&&cliente.nome)||ctrId;
+  _avGes={view:'lista',cliente,contratos:cs,ctr:ctrId,ctrLabel:label,ctrInfo:contrato,avisos:null,formAviso:null,erro:null,
+          busca:g.busca||'',resultados:g.resultados||null,buscando:false,agenda:g.agenda||avGesContratos()};
   renderAvGes();
   try{ const r=await beGet('/avisos/contrato/'+encodeURIComponent(ctrId));
     if(_avGes&&_avGes.ctr===ctrId&&_avGes.view!=='form'){ _avGes.avisos=Array.isArray(r)?r:[]; renderAvGes(); }
@@ -16507,20 +16618,62 @@ function avGesHistHTML(a){
       +(x.motivoRejeicao?(' · motivo: '+_esc(x.motivoRejeicao)):'')+'</div>';
   }).join('')+'</div>';
 }
+/* resumo do destino escolhido (topo das telas de lista e formulário), com botões pra trocar */
+function avGesDestinoHTML(g,comTroca){
+  const cli=g.cliente, c=g.ctrInfo;
+  return '<div class="av-destino">'
+    +'<div class="av-destino-l"><div class="av-destino-k">Cliente</div><div class="av-destino-v">'+_esc(cli?cli.nome:'—')+'</div>'
+    +(cli&&cli.cnpj?'<div class="av-meta">CNPJ '+_esc(avGesCnpjFmt(cli.cnpj))+'</div>':'')+'</div>'
+    +'<div class="av-destino-l"><div class="av-destino-k">Contrato</div><div class="av-destino-v">'+_esc(g.ctrLabel||'—')+' '+avGesCtrSituacao(c)+'</div>'
+    +(c&&avGesCtrLinha(c)?'<div class="av-meta">'+_esc(avGesCtrLinha(c))+'</div>':'')+'</div>'
+    +(comTroca?'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button class="btn btn-neutral" style="flex:1;padding:10px" onclick="avGesTrocar(\'contrato\')">Trocar contrato</button>'
+      +'<button class="btn btn-neutral" style="flex:1;padding:10px" onclick="avGesTrocar(\'cliente\')">Trocar cliente</button></div>':'')
+    +'</div>';
+}
 function renderAvGes(){
   const g=_avGes; if(!g) return;
   const body=document.getElementById('avGesBody'), sub=document.getElementById('avGesSub');
-  if(g.view==='contratos'){
-    sub.textContent='Escolha o contrato:';
-    body.innerHTML=g.contratos.map(c=>'<div class="av-item" onclick="avGesAbrirContrato(\''+c.id+'\')"><div class="av-tit">'+_esc(c.label)+'</div><div class="av-meta">tocar para abrir os avisos</div></div>').join('');
+  if(g.view==='destino'){
+    if(!g.cliente){
+      /* passo 1: campo de busca + atalho da agenda. O input é criado uma vez; os resultados pintam em #avGesRes. */
+      sub.textContent='Passo 1 de 2 — para qual cliente é o aviso?';
+      body.innerHTML=
+        '<div class="field"><label>Cliente (nome ou CNPJ)</label>'
+        +'<input id="avGesBusca" type="search" autocomplete="off" placeholder="Digite o nome ou o CNPJ…" value="'+_esc(g.busca)+'" oninput="avGesBuscaInput(this.value)"></div>'
+        +'<div id="avGesRes"></div>'
+        +(g.agenda.length?'<div class="rel-hd" style="margin-top:14px;padding:0">Clientes da minha agenda</div>'
+          +'<div class="subnote" style="padding:2px 0 6px">Atalho: contratos das OS que já estão na sua agenda.</div>'
+          +g.agenda.map((a,i)=>'<div class="av-item" style="padding:13px 8px;min-height:48px" onclick="avGesEscolherAgenda('+i+')"><div class="av-tit" style="font-size:15px">'+_esc(a.label)+'</div><div class="av-meta">tocar para abrir os avisos deste contrato</div></div>').join('')
+          :'<div class="subnote" style="padding:14px 0 0">Sua agenda não tem OS com contrato — use a busca acima.</div>');
+      avGesPaintResultados();
+      const inp=document.getElementById('avGesBusca'); if(inp&&!g.busca) setTimeout(()=>{ try{ inp.focus(); }catch(_){ } },50);
+      if(g.busca.trim().length>=2&&g.resultados===null&&!g.buscando){ g.buscando=true; avGesPaintResultados(); avGesBuscar(); }
+      return;
+    }
+    /* passo 2: contratos do cliente, vigentes primeiro (ordem já vem do servidor) */
+    sub.textContent='Passo 2 de 2 — em qual contrato de '+g.cliente.nome+'?';
+    let lista;
+    if(g.contratos===null) lista='<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando contratos…</div>';
+    else if(g.erro) lista='<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>';
+    else if(!g.contratos.length) lista='<div class="subnote" style="padding:8px 0">Este cliente não tem contrato de serviço cadastrado. O aviso de contrato precisa de um contrato — peça o cadastro no Salesforce.</div>';
+    else lista=g.contratos.map((c,i)=>'<div class="av-item" style="padding:13px 8px;min-height:48px" onclick="avGesEscolherContrato('+i+')">'
+      +'<div class="av-tit" style="font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+_esc(c.nome)+avGesCtrSituacao(c)+'</div>'
+      +'<div class="av-meta">'+_esc(avGesCtrLinha(c)||'tocar para abrir os avisos')+'</div></div>').join('');
+    body.innerHTML='<div class="av-destino"><div class="av-destino-k">Cliente</div><div class="av-destino-v">'+_esc(g.cliente.nome)+'</div>'
+      +(g.cliente.cnpj?'<div class="av-meta">CNPJ '+_esc(avGesCnpjFmt(g.cliente.cnpj))+'</div>':'')
+      +'<button class="btn btn-neutral" style="margin-top:8px;padding:10px" onclick="avGesTrocar(\'cliente\')">Trocar cliente</button></div>'
+      +lista;
     return;
   }
   if(g.view==='form'){
     const ed=g.formAviso;
     sub.textContent=ed?(canAprovarAviso(ROLE)?'Alterar o texto — aplica na hora e TODOS releem o aviso.':'Sugerir alteração — só vale depois da aprovação do Supervisor pra cima.')
-                     :('Novo aviso em '+g.ctrLabel+(canAprovarAviso(ROLE)?' — publica na hora.':' — vai pra aprovação do Supervisor pra cima.'));
+                     :(canAprovarAviso(ROLE)?'Novo aviso — publica na hora.':'Novo aviso — vai pra aprovação do Supervisor pra cima.');
     body.innerHTML=
-      '<div class="field"><label>Título</label><input id="avGesTitulo" maxlength="120" value="'+_esc(ed?ed.titulo:'')+'"></div>'
+      /* o destino fica VISÍVEL no formulário (pedido do Raphael): quem lança vê pra quem está lançando */
+      '<div class="av-para">Para: <b>'+_esc((g.cliente&&g.cliente.nome)||'—').toUpperCase()+'</b> · Contrato <b>'+_esc(g.ctrLabel||'—')+'</b></div>'
+      +'<div class="field"><label>Título</label><input id="avGesTitulo" maxlength="120" value="'+_esc(ed?ed.titulo:'')+'"></div>'
       +'<div class="field"><label>Mensagem</label><textarea id="avGesMsg" rows="5" style="width:100%">'+_esc(ed?ed.mensagem:'')+'</textarea></div>'
       +'<div style="display:flex;gap:8px;margin-top:8px">'
       +'<button class="btn btn-neutral" style="flex:1" onclick="avGesVoltar()">Cancelar</button>'
@@ -16529,8 +16682,9 @@ function renderAvGes(){
     return;
   }
   /* lista de avisos do contrato (todos os status) + histórico + ações por papel */
-  sub.innerHTML='Contrato: <b>'+_esc(g.ctrLabel)+'</b>';
-  if(g.avisos===null){ body.innerHTML='<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando…</div>'; return; }
+  sub.textContent='Avisos do contrato escolhido';
+  const topo=avGesDestinoHTML(g,true);
+  if(g.avisos===null){ body.innerHTML=topo+'<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando…</div>'; return; }
   const cards=g.avisos.map(function(a,i){
     const pend=(a.historico||[]).filter(x=>x.status==='Pendente');
     return '<div class="av-item aberto" style="cursor:default">'
@@ -16548,15 +16702,17 @@ function renderAvGes(){
         +'</div>'):'')
       +'</div>';
   }).join('');
-  body.innerHTML=(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
+  body.innerHTML=topo
+    +(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
     +(cards||'<div class="subnote" style="padding:8px 0">Nenhum aviso neste contrato ainda.</div>')
     +'<button class="btn btn-brand" id="avGesNovoBtn" style="width:100%;margin-top:12px" onclick="avGesNovo()">➕ Lançar aviso'+(canAprovarAviso(ROLE)?'':' (vai pra aprovação)')+'</button>';
 }
 function avGesVoltar(){ if(!_avGes) return; _avGes.view='lista'; _avGes.formAviso=null; renderAvGes(); }
-function avGesNovo(){ if(!_avGes) return; _avGes.view='form'; _avGes.formAviso=null; renderAvGes(); }
+function avGesNovo(){ if(!_avGes||!_avGes.ctr){ toast('Escolha o cliente e o contrato primeiro'); return; } _avGes.view='form'; _avGes.formAviso=null; renderAvGes(); }
 function avGesEditar(i){ if(!_avGes||!_avGes.avisos) return; _avGes.view='form'; _avGes.formAviso=_avGes.avisos[i]||null; renderAvGes(); }
 async function avGesSalvar(){
   const g=_avGes; if(!g) return;
+  if(!g.ctr){ toast('Escolha o cliente e o contrato primeiro'); return; } /* o POST /avisos exige contratoId — nunca manda sem destino */
   const titulo=(document.getElementById('avGesTitulo').value||'').trim();
   const mensagem=(document.getElementById('avGesMsg').value||'').trim();
   if(!titulo||!mensagem){ toast('Preencha título e mensagem'); return; }
