@@ -15247,6 +15247,9 @@ function etqDoPortal(){
   if(!t) return true;
   if(!beTok()) return false;                       /* ainda sem login: tenta de novo daqui a pouco */
   try{ sessionStorage.removeItem('etq_portal'); }catch(e){}
+  /* 12/10/2026 (noite): fica registrado no diagnóstico do leitor que esta leitura veio pelo portal (o Android abriu o
+     navegador e o portal devolveu) — distingue, no próximo relato, "o app leu" de "o portal devolveu". */
+  try{ nfcHubEvento('voltou do portal com ?etiqueta'); }catch(e){}
   etqAbrirModal(); etqConferir(PORTAL_BASE+'/a/'+t,'','');
   return true;
 }
@@ -15359,6 +15362,18 @@ function nfcHubLeitoresAtivos(){
   o.forEach(x=>{ if(x[1]) l.push(x[0]); });
   return l;
 }
+/* 12/10/2026 (noite): o rodapé também diz COMO o app está rodando (instalado pelo Chrome = "app", aba do navegador,
+   ou dentro do app da Play Store) e quem o abriu (android-app://<pacote> no referrer). Conclusão do estudo do dia: o
+   Android do Galaxy entrega o cartão ao navegador MESMO com o leitor da página vivo (bug do firmware Samsung em Android
+   15/16, relatado em w3c/web-nfc#674 e corrigido por atualização do aparelho, não por código) — o app não tem como
+   impedir; o que dá para garantir é que o navegador volte para cá. Saber o modo e o pacote é o que permite ler o próximo
+   relato sem adivinhar. */
+function nfcHubModo(){
+  let m='aba'; try{ if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) m='app'; }catch(e){}
+  let r=''; try{ const x=(document.referrer||'').match(/^android-app:\/\/([^\/]+)/); if(x) r=x[1]; }catch(e){}
+  if(r==='br.com.exaustech.fieldservice') m='app Play Store';
+  return m+(r?' ('+r+')':'');
+}
 function nfcHubResumo(){
   const seg=ms=>ms<60000?Math.round(ms/1000)+'s':Math.round(ms/60000)+'min';
   const l=nfcHubLeitoresAtivos();
@@ -15366,6 +15381,7 @@ function nfcHubResumo(){
     +' · leitores ativos: '+l.length+(l.length?' ('+l.join(', ')+')':'')
     +' · leituras '+nfcHub.leituras+(nfcHub.ignoradas?' (descartadas '+nfcHub.ignoradas+')':'')+(nfcHub.erros?' · erros '+nfcHub.erros:'')+(nfcHub.falhas?' · falhas de scan '+nfcHub.falhas:'')
     +' · visível: '+(document.visibilityState==='visible'?'sim':'não')
+    +' · modo: '+nfcHubModo()
     +' · último: '+nfcHub.ultimo+(nfcHub.ultimoEm?' há '+seg(Date.now()-nfcHub.ultimoEm):'');
 }
 /* tagNfcCtrl continua existindo como "a tela Consultar TAG está usando o leitor" (true/false) — os pontos que
@@ -16600,7 +16616,12 @@ const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.r
 function beTok(){ return localStorage.getItem('be_tok')||sessionStorage.getItem('be_tok'); }
 /* 12/10/2026 — marca ESTE aparelho como de técnico para o portal (cookie no domínio .exaustech.com.br, lido por
    portal.exaustech.com.br/a/<código>): se o Android abrir o portal com o cartão, ele volta na hora para o app em vez de
-   pedir o login do cliente. Liga com sessão de técnico; desliga no "Sair". */
+   pedir o login do cliente. Liga com sessão de técnico; desliga no "Sair".
+   12/10/2026 (noite) — quem lê este cookie é o JAVASCRIPT da página do portal, não o servidor: o portal passa pelo
+   Firebase Hosting, que descarta todo cookie que não se chame __session, então o Cloud Run nunca o recebeu (foi por isso
+   que "mudar o navegador padrão para o Chrome" não mudou nada). O cookie só é visível no navegador que compartilha
+   cookies com este app — o Chrome, quando o app foi instalado por ele. No Samsung Internet ele não existe; lá o portal
+   tenta abrir o app da Play Store por intent://. Ver docs/09-CADASTROS/DECISAO_nfc-android-abre-portal_12-10-2026.md. */
 function exaTecCookie(on){ try{ document.cookie='exa_tec='+(on?'1':'0')+'; Domain=.exaustech.com.br; Path=/; Max-Age='+(on?60*60*24*60:0)+'; Secure; SameSite=Lax'; }catch(e){} }
 try{ if(location.hostname.endsWith('exaustech.com.br')&&beTok()) exaTecCookie(true); }catch(e){}
 async function beGet(path){
