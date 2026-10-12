@@ -1466,6 +1466,55 @@
     font:600 .65rem inherit;color:var(--pln-navy);resize:vertical}
   .pnd-form .lbl{font-size:.6rem;font-weight:700;color:var(--pln-text-soft)}
   .pnd-vazio{font-size:.68rem;color:var(--pln-text-soft);line-height:1.6;padding:18px 4px}
+  /* 12/10/2026 — cesta de pendências → proposta (mockup prototipos/mockup-pendencias-cesta-proposta_12-10-2026.html).
+     Toque >= 48px nos botões principais; o rodapé é fixo e só existe enquanto a cesta tem item. */
+  .cst-cb{width:48px;height:48px;border:2px solid var(--pln-blue);border-radius:10px;background:#fff;color:#fff;font-weight:900;font-size:22px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0}
+  .cst-cb.on{background:#0176D3;border-color:#0176D3}
+  .cst-cb.off{border-color:#C9CED4;background:#F3F5F7;cursor:not-allowed}
+  .cst-cb:focus-visible{outline:3px solid var(--pln-alert-line)}
+  .cst-motivo{font-size:.55rem;color:var(--pln-text-soft);margin-top:4px;max-width:120px;text-align:center;line-height:1.3}
+  .cst-rodape{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:2px solid var(--pln-navy);padding:10px 14px;
+    display:flex;align-items:center;gap:10px;box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+  .cst-rodape .res{flex:1;min-width:0}
+  .cst-rodape .res b{color:var(--pln-navy);font-size:.8rem;display:block}
+  .cst-rodape .res small{display:block;color:var(--pln-text-soft);font-size:.6rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cst-bt{min-height:48px;border-radius:10px;font:800 .72rem inherit;padding:0 16px;border:1.5px solid var(--pln-navy);background:#fff;color:var(--pln-navy);cursor:pointer;white-space:nowrap}
+  .cst-bt.esc{background:var(--pln-navy);color:#fff}
+  .cst-bt.vd{background:#2E844A;border-color:#2E844A;color:#fff}
+  .cst-bt.ghost{border-color:var(--pln-border);color:var(--pln-text-soft)}
+  .cst-bt:disabled{opacity:.5;cursor:not-allowed}
+  .cst-espaco{height:84px}
+  .cst-folha{background:#fff;border:1px solid var(--pln-border);border-radius:12px;overflow:hidden;margin-bottom:12px}
+  .cst-folha .hd{padding:12px 14px;background:#F8FAFC;border-bottom:1px solid var(--pln-border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .cst-folha .hd b{font-size:.82rem;color:var(--pln-navy)}
+  .cst-grp{padding:8px 14px 2px;font-size:.6rem;font-weight:800;color:var(--pln-blue);text-transform:uppercase;letter-spacing:.04em;border-top:1px solid var(--pln-border)}
+  .cst-it{display:flex;gap:10px;padding:9px 14px;align-items:flex-start}
+  .cst-it .n{width:26px;height:26px;border-radius:50%;background:var(--pln-navy);color:#fff;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+  .cst-it .tx{flex:1;min-width:0;font-size:.7rem;line-height:1.4}
+  .cst-it .tx small{display:block;color:var(--pln-text-soft);font-size:.6rem}
+  .cst-it .prod{margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.62rem}
+  .cst-it .prod .pnome{background:#E8F1FA;color:#0B2239;border-radius:6px;padding:3px 8px;font-weight:700}
+  .cst-it .prod .pnome.gen{background:#F0F2F5;color:var(--pln-text-soft)}
+  .cst-rm{min-height:44px;color:#BA0517;font:700 .6rem inherit;border:1px solid #F0C2C7;border-radius:8px;padding:0 10px;background:#fff;cursor:pointer}
+  .cst-campo{padding:10px 14px;border-top:1px solid var(--pln-border)}
+  .cst-campo label{display:block;font-size:.6rem;color:var(--pln-text-soft);margin-bottom:5px;font-weight:700}
+  .cst-campo input[type=text]{width:100%;border:1.5px solid var(--pln-border);border-radius:9px;padding:11px 12px;font:600 .72rem inherit;color:var(--pln-navy);box-sizing:border-box}
+  .cst-campo .ro{border:1.5px solid var(--pln-border);border-radius:9px;padding:10px 12px;font-size:.66rem;background:#F8FAFC;color:var(--pln-text-soft)}
+  .cst-per{display:flex;gap:8px;flex-wrap:wrap}
+  .cst-per button{min-height:48px;border:1.5px solid var(--pln-border);border-radius:10px;background:#fff;color:var(--pln-text);font:700 .66rem inherit;padding:0 14px;cursor:pointer}
+  .cst-per button.on{background:var(--pln-navy);border-color:var(--pln-navy);color:#fff}
+  .cst-nota{font-size:.6rem;color:var(--pln-text-soft);background:#FFF8E8;border:1px solid #F5D9A0;border-radius:8px;padding:7px 10px;margin:10px 14px 0;line-height:1.5}
+  .cst-acoes{display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--pln-border);flex-wrap:wrap}
+  .cst-busca{margin-top:6px;background:var(--pln-bg);border-radius:8px;padding:8px 10px}
+  .cst-busca input{width:100%;border:1.5px solid var(--pln-border);border-radius:8px;padding:10px;font:600 .68rem inherit;box-sizing:border-box}
+  .cst-busca .lista{margin-top:6px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+  .cst-busca .lista button{min-height:44px;text-align:left;border:1px solid var(--pln-border);background:#fff;border-radius:8px;padding:6px 10px;font:600 .64rem inherit;color:var(--pln-text);cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .cst-busca .lista button b{white-space:nowrap;color:#2E844A}
+  .cst-ok{border-color:#2E844A}
+  .cst-ok .hd{background:#EBF7EE}
+  .cst-ok .hd b{color:#2E844A}
+  .cst-ok a{color:#0176D3;font-weight:800}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   /* agendar visita (retaguarda) — 19/09/2026 */
   .pln-btn{border:1px solid var(--pln-border);background:#fff;color:var(--pln-navy);border-radius:8px;padding:9px 13px;font:700 .7rem inherit;cursor:pointer}
@@ -5080,6 +5129,31 @@ function estoqAbrirFichaUnidade(u){
 /* Scan por câmera embutido na busca (pra quem não tem coletor com leitor físico) — reaproveita o
    mesmo motor jsQR do Bipar, mas em modo "one-shot": lê 1 código e fecha o overlay sozinho, sem
    ficar preso numa tela de custódia. */
+/* 12/10/2026 — Raphael: "quando clicamos no scan do QR tem como habilitar o flash para facilitar a captura?".
+   Lanterna da câmera traseira pelo próprio stream (constraint "torch" do Chrome/Android). Só aparece o botão se o
+   aparelho disser que suporta (getCapabilities().torch) — em aparelho sem flash, ou no iPhone, não aparece nada,
+   em vez de um botão que não faz efeito. A lanterna apaga sozinha quando a câmera é fechada (track.stop()).
+   Um helper só para os 4 leitores de QR (Estoque, Bipar, fluxo da etiqueta, Consultar TAG). */
+function camLanterna(stream,host,tentativa){
+  if(!stream||!host) return;
+  const velho=host.querySelector('.cam-lanterna'); if(velho) velho.remove();
+  const track=stream.getVideoTracks&&stream.getVideoTracks()[0]; if(!track||track.readyState!=='live') return;
+  let caps=null; try{ caps=track.getCapabilities?track.getCapabilities():null; }catch(e){}
+  /* alguns Android só informam "torch" depois do primeiro quadro: tenta de novo uma vez */
+  if(!caps||!caps.torch){ if(!tentativa) setTimeout(()=>camLanterna(stream,host,1),600); return; }
+  if(getComputedStyle(host).position==='static') host.style.position='relative';
+  const b=document.createElement('button'); b.type='button'; b.className='cam-lanterna'; b.dataset.on='0';
+  b.style.cssText='position:absolute;top:56px;right:12px;z-index:5;min-width:56px;min-height:56px;padding:0 16px;border:none;border-radius:28px;background:rgba(0,0,0,.55);color:#fff;font-size:15px;font-weight:800';
+  b.textContent='🔦 Flash';
+  b.onclick=async function(ev){
+    ev.stopPropagation();
+    const on=b.dataset.on!=='1';
+    try{ await track.applyConstraints({advanced:[{torch:on}]}); b.dataset.on=on?'1':'0';
+      b.style.background=on?'#FFD84D':'rgba(0,0,0,.55)'; b.style.color=on?'#0B2239':'#fff'; b.textContent=on?'🔦 Flash ligado':'🔦 Flash'; }
+    catch(e){ toast('⚠️ Não consegui ligar o flash: '+e.message); }
+  };
+  host.appendChild(b);
+}
 let estoqScanStream=null, estoqScanRAF=null, estoqScanAbrindo=false;
 /* onResult opcional (Fase 4, recp*): por padrão o resultado cai na busca/bipagem do Estoque
    (estoqProcessarCodigoLido); passando uma função, o texto lido vai pra ela em vez disso —
@@ -5093,6 +5167,7 @@ async function estoqScanCamAbrir(onResult){
     catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
     const video=document.getElementById('estoqScanVideo'); video.srcObject=estoqScanStream; await video.play().catch(()=>{});
     document.getElementById('estoqScanOverlay').style.display='block';
+    camLanterna(estoqScanStream,document.getElementById('estoqScanOverlay')); /* 12/10/2026: flash */
     estoqScanLoop(onResult);
   }finally{ estoqScanAbrindo=false; }
 }
@@ -11984,6 +12059,7 @@ async function biparIniciar(){
     catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
     const video=document.getElementById('biparVideo'); video.srcObject=biparStream; await video.play().catch(()=>{});
     document.getElementById('biparCamWrap').style.display='block';
+    camLanterna(biparStream,document.getElementById('biparCamWrap')); /* 12/10/2026: flash */
     document.getElementById('biparBtnIniciar').style.display='none';
     document.getElementById('biparBtnParar').style.display='block';
     if(st) st.textContent='Procurando QR…';
@@ -12649,6 +12725,9 @@ function canMotor(r){ return !['Estoquista','Produção'].includes(r); }
 // Plano de Manutenção (retaguarda/engenharia) — mesma lista de canCadastrar/canAloc, não é
 // escopo do técnico de campo. Espelha FUNCAO_PLANO em backend/planoRoutes.js.
 function canPlano(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* 12/10/2026 — cesta de pendências → proposta é "Coordenador para cima" (decisão 6 de DECISAO_pendencias-para-proposta).
+   A mesma alçada de "decidir quem paga". Espelha FUNCAO_CESTA em backend/cestaPropostaRoutes.js. */
+function canCestaProposta(r){ return ['Coordenador','Gerente','Sócio'].includes(r); }
 function updateNavRole(){ navLimparPermitido(); const b=document.getElementById('nav-aloc'); if(b) b.style.display=canAloc(ROLE)?'flex':'none';
   const e=document.getElementById('nav-estoque'); if(e) e.style.display=canEstoque(ROLE)?'flex':'none';
   const c=document.getElementById('nav-cadastro'); if(c) c.style.display=canCadastrar(ROLE)?'flex':'none';
@@ -14502,6 +14581,7 @@ async function etfCamAbrir(onTexto){
     +'<button onclick="etfCamFechar()" style="position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#0B2239;border:none;border-radius:24px;padding:12px 28px;font-weight:700;font-size:15px">Cancelar</button>';
   document.body.appendChild(ov);
   const v=document.getElementById('etfCamV'); v.srcObject=etfCamStream; await v.play().catch(()=>{});
+  camLanterna(etfCamStream,ov); /* 12/10/2026: flash */
   const loop=()=>{
     const c=document.getElementById('etfCamC'); if(!etfCamStream||!c) return;
     if(v.readyState===v.HAVE_ENOUGH_DATA){
@@ -14870,9 +14950,17 @@ function etqRender(st){
         +(a.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(a.tipo)+'</span>':'')+'</div>'
         +(a.apelido?'<div style="font-size:20px;font-weight:800;color:#3E7EB0;margin:2px 0 4px">'+cadEsc(a.apelido)+'</div>':'')
         +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-bottom:8px">'+cadEsc(a.descricao)+'</div>':'')
-        +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#1B2733">'
-        +(a.local?'<span><span style="color:#686868;margin-right:4px">Local</span>'+cadEsc(a.local)+'</span>':'')
-        +(a.conta?'<span><span style="color:#686868;margin-right:4px">Conta</span>'+cadEsc(a.conta)+'</span>':'')+'</div></div>';
+        /* 12/10/2026 — Raphael: "apresentar o Local e o Sistema; o valor do campo deve ter mais destaque que o título".
+           Título pequeno em caixa alta e cinza; valor grande e escuro embaixo. Local e Sistema aparecem SEMPRE (vazio vira
+           "não informado", que também é informação para o técnico); Conta só se houver. */
+        +(function(){
+          const cel=(k,v,sub)=>'<div style="min-width:0;flex:1 1 200px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A949E">'+k+'</div>'
+            +(v?'<div style="font-size:18px;font-weight:700;color:#0B2239;line-height:1.25;margin-top:2px;word-break:break-word">'+cadEsc(v)+'</div>'
+               :'<div style="font-size:15px;font-weight:500;color:#AEB8C2;margin-top:2px">não informado</div>')
+            +(sub?'<div style="font-size:13px;color:#686868;margin-top:2px">dentro de '+cadEsc(sub)+'</div>':'')+'</div>';
+          return '<div style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:8px;padding-top:10px;border-top:1px solid #E2E5E9">'
+            +cel('Local',a.local)+cel('Sistema',a.sistema,a.dentroDe)+(a.conta?cel('Conta',a.conta):'')+'</div>';
+        })()+'</div>';
       if(st.errado) h+='<div style="background:#fff;border:1px solid #2E844A;border-radius:14px;padding:10px 16px;margin-top:8px;font-size:13.5px;color:#2E844A;font-weight:700">✓ Equipamento esperado: o deste cadastro</div>';
     } else {
       h+='<div style="border:1px dashed #C9D0D8;border-radius:14px;padding:18px;margin-top:12px;text-align:center;color:#686868;font-size:14px">Nenhum equipamento identificado</div>';
@@ -15899,6 +15987,7 @@ async function tagLerQr(){
   catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
   const v=document.getElementById('tagCamVideo'); v.srcObject=tagCamStream; await v.play().catch(()=>{});
   document.getElementById('tagCamOv').style.display='block';
+  camLanterna(tagCamStream,document.getElementById('tagCamOv')); /* 12/10/2026: flash */
   tagCamLoop();
 }
 /* religar=true (QR lido ou Cancelar): a câmera é a etapa em que o Android pode ter derrubado o reader mode sem o Chrome
@@ -20718,6 +20807,152 @@ const PND_SITUACOES=['Aberta','Em análise','Resolvida','Descartada','Recusada p
 const pndClasseSit=(s)=>({'Aberta':'ab','Em análise':'an','Resolvida':'re','Resolvida pelo cliente':'re','Descartada':'de','Recusada pelo cliente':'de'}[s]||'ab');
 const pndClasseSev=(s)=>({'Observação':'obs','Atenção':'at','Crítico':'cr'}[s]||'obs');
 
+/* ===== 12/10/2026 — CESTA de pendências → proposta (fatia 3 de DECISAO_pendencias-para-proposta_12-10-2026.md) =====
+   O coordenador anda pelo cliente, marca o que o cliente topou tratar agora e "Montar proposta" cria 1 Oportunidade +
+   1 Cotação + 1 linha por pendência (POST /plano/cesta/montar). A cesta vive em sessionStorage: sobrevive a trocar de
+   tela e a recarregar, não a fechar o app — é seleção, não registro. Criar a proposta exige conexão (como os fluxos de
+   coordenação: não entra na fila offline). Um cliente por cesta (todas as pendências de uma proposta são da mesma conta).
+   Regras do que entra: pndMotivoForaDaCesta() — espelha a validação do servidor, que é quem manda. */
+const CESTA_KEY='cesta_pendencias_v1';
+const CESTA={itens:[], contaId:null, contaNome:null, periodo:null, titulo:'', produtos:{}, chave:null,
+  aberta:false, contexto:null, contextoErro:null, busca:null, resultado:null, montando:false, erro:null};
+(function cestaRestaurar(){
+  try{ const s=JSON.parse(sessionStorage.getItem(CESTA_KEY)||'null'); if(s&&Array.isArray(s.itens)){ Object.assign(CESTA,{itens:s.itens,contaId:s.contaId||null,contaNome:s.contaNome||null,periodo:s.periodo||null,titulo:s.titulo||'',produtos:s.produtos||{},chave:s.chave||null}); } }catch(e){}
+})();
+function cestaSalvar(){ try{ sessionStorage.setItem(CESTA_KEY,JSON.stringify({itens:CESTA.itens,contaId:CESTA.contaId,contaNome:CESTA.contaNome,periodo:CESTA.periodo,titulo:CESTA.titulo,produtos:CESTA.produtos,chave:CESTA.chave})); }catch(e){} }
+/* chave de idempotência: uma por cesta. O servidor devolve o MESMO resultado se a mesma chave chegar duas vezes
+   (duplo toque, ou reenvio porque a resposta se perdeu) — nunca duas Oportunidades. */
+function cestaChave(){ if(!CESTA.chave){ CESTA.chave='cesta-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10); cestaSalvar(); } return CESTA.chave; }
+function cestaTem(id){ return CESTA.itens.some(i=>i.id===id); }
+function pndMotivoForaDaCesta(a){
+  if(['Aberta','Em análise','Recusada pelo cliente'].indexOf(a.status||'Aberta')<0) return 'encerrada';
+  if(a.cobertura==='Coberta pelo contrato'||a.cobertura==='Garantia ou cortesia') return a.cobertura==='Coberta pelo contrato'?'coberta pelo contrato':'garantia / cortesia';
+  if(a.corretiva) return 'já tem OT';
+  if(a.proposta&&!a.proposta.fechada) return 'já na proposta '+(a.proposta.nome||'');
+  if(!a.contaId) return 'sem cliente';
+  return null;
+}
+function cestaAlternar(a){
+  const i=CESTA.itens.findIndex(x=>x.id===a.id);
+  if(i>=0){ CESTA.itens.splice(i,1); if(!CESTA.itens.length){ CESTA.contaId=null; CESTA.contaNome=null; CESTA.produtos={}; CESTA.contexto=null; } cestaSalvar(); return true; }
+  const motivo=pndMotivoForaDaCesta(a); if(motivo){ toast('Não entra na cesta: '+motivo); return false; }
+  if(CESTA.contaId&&CESTA.contaId!==a.contaId){ toast('A cesta é de '+(CESTA.contaNome||'outro cliente')+'. Esvazie para começar outra.'); return false; }
+  const contaNome=(a.ativo&&a.ativo.contaNome)||(a.otOrigem&&a.otOrigem.contaNome)||null;
+  if(!CESTA.contaId){ CESTA.contaId=a.contaId; CESTA.contaNome=contaNome; CESTA.contexto=null; }
+  CESTA.itens.push({id:a.id, nome:a.nome, descricao:a.descricao||'', severidade:a.severidade||null, status:a.status||'Aberta', idadeDias:a.idadeDias,
+    ativoId:a.ativo?a.ativo.id:null, ativoNome:a.ativo?(a.ativo.descricao||a.ativo.nome||''):'', ativoTag:a.ativo?(a.ativo.nome||''):'', cobertura:a.cobertura||null});
+  cestaSalvar(); return true;
+}
+function cestaEsvaziar(){ Object.assign(CESTA,{itens:[],contaId:null,contaNome:null,periodo:null,titulo:'',produtos:{},chave:null,aberta:false,contexto:null,busca:null,erro:null}); cestaSalvar(); }
+async function cestaCarregarContexto(){
+  if(!CESTA.contaId||CESTA.contexto||CESTA.contextoErro) return;
+  try{ CESTA.contexto=await beGet('/plano/cesta/contexto?contaId='+encodeURIComponent(CESTA.contaId)); if(CESTA.contexto&&CESTA.contexto.conta&&!CESTA.contaNome){ CESTA.contaNome=CESTA.contexto.conta.nome; cestaSalvar(); } }
+  catch(e){ CESTA.contextoErro=e.message||'Falha ao ler o contrato do cliente'; }
+  plnRenderTabBody();
+}
+function cestaRodapeHtml(){
+  if(!CESTA.itens.length||CESTA.aberta||CESTA.resultado) return '';
+  const eq=new Set(CESTA.itens.map(i=>i.ativoId||i.ativoNome)).size;
+  return '<div class="cst-espaco"></div><div class="cst-rodape"><div class="res"><b>Cesta: '+CESTA.itens.length+' pendência'+(CESTA.itens.length===1?'':'s')+' · '+eq+' equipamento'+(eq===1?'':'s')+'</b>'+
+    '<small>'+motEsc(CESTA.contaNome||'')+'</small></div><button class="cst-bt" data-cstver>Ver cesta</button><button class="cst-bt esc" data-cstver="montar">Montar proposta →</button></div>';
+}
+function cestaFmtR(v){ return 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function cestaFolhaHtml(){
+  const c=CESTA, ctx=c.contexto;
+  if(c.resultado){
+    const r=c.resultado;
+    return '<div class="cst-folha cst-ok"><div class="hd"><b>✓ Proposta criada</b></div><div class="cst-campo" style="border-top:none">'+
+      '<div style="font-size:.78rem"><b>'+motEsc(r.oportunidade.nome||'')+'</b>'+(r.oportunidade.numero?' · nº '+motEsc(r.oportunidade.numero):'')+(r.cotacao&&r.cotacao.numero?' · Cotação '+motEsc(r.cotacao.numero)+' rev. '+(r.cotacao.revisao||1):'')+' · '+r.linhas.length+' linha'+(r.linhas.length===1?'':'s')+'</div>'+
+      '<div style="font-size:.62rem;color:var(--pln-text-soft);margin-top:4px">Fase <b>'+motEsc(r.oportunidade.fase||'')+'</b>'+(r.oportunidade.pai?' · ligada ao MPP '+motEsc(r.oportunidade.pai.nome||''):' · sem contrato de MPP vigente (sem Oportunidade pai)')+' · catálogo '+motEsc(r.catalogo?r.catalogo.nome:'')+'. As pendências ficaram <b>Em análise</b> apontando para a proposta; o comercial precifica no Salesforce.</div>'+
+      (r.oportunidade.url?'<div style="margin-top:10px"><a href="'+motEsc(r.oportunidade.url)+'" target="_blank" rel="noopener">Abrir a Oportunidade no Salesforce ›</a></div>':'')+
+      '</div><div class="cst-acoes"><button class="cst-bt esc" data-cstfechar>Voltar às pendências</button></div></div>';
+  }
+  const grupos={}; const ordem=[];
+  c.itens.forEach(i=>{ const k=i.ativoId||i.ativoNome||'?'; if(!grupos[k]){ grupos[k]=[]; ordem.push(k); } grupos[k].push(i); });
+  let h='<div class="cst-folha"><div class="hd"><b>'+c.itens.length+' pendência'+(c.itens.length===1?'':'s')+' para a proposta</b><span class="pnd-sit ab" style="margin-left:auto">'+motEsc(c.contaNome||'')+'</span></div>';
+  let n=0;
+  ordem.forEach(k=>{
+    const g=grupos[k];
+    h+='<div class="cst-grp">'+motEsc((g[0].ativoTag&&g[0].ativoTag!==g[0].ativoNome?g[0].ativoTag+' · ':'')+(g[0].ativoNome||'equipamento'))+'</div>';
+    g.forEach(i=>{
+      n++;
+      const prod=c.produtos[i.id];
+      const generico=ctx&&ctx.produtoGenerico?ctx.produtoGenerico.nome:'Serviço corretivo — a precificar';
+      h+='<div class="cst-it"><div class="n">'+n+'</div><div class="tx"><span class="pnd-sev '+pndClasseSev(i.severidade)+'">'+motEsc(i.severidade||'—')+'</span> '+motEsc(i.descricao||'(sem descrição)')+
+        '<small>'+motEsc(i.nome||'')+(i.idadeDias!=null?' · há '+i.idadeDias+' dia'+(i.idadeDias===1?'':'s'):'')+(i.status==='Recusada pelo cliente'?' · recusada antes, volta à proposta':'')+(i.cobertura==='Cobrada com orçamento'?' · já decidida "Cobrada com orçamento"':'')+'</small>'+
+        '<div class="prod"><span>Produto da linha:</span>'+(prod?'<span class="pnome">'+motEsc(prod.nome)+' · '+cestaFmtR(prod.preco)+'</span>':'<span class="pnome gen">'+motEsc(generico)+' · R$ 0,00 (o comercial precifica)</span>')+
+        '<button class="pnd-bt" data-csttrocar="'+i.id+'" style="min-height:40px">'+(prod?'trocar':'escolher do catálogo')+'</button>'+(prod?'<button class="pnd-bt" data-cstgen="'+i.id+'" style="min-height:40px">voltar ao genérico</button>':'')+'</div>';
+      if(c.busca&&c.busca.id===i.id){
+        h+='<div class="cst-busca"><input type="search" data-cstq placeholder="nome ou código do produto no catálogo '+motEsc(ctx&&ctx.catalogo?ctx.catalogo.nome:'')+'" value="'+motEsc(c.busca.q||'')+'" autocomplete="off">';
+        h+='<div class="lista">';
+        if(c.busca.carregando) h+='<span class="pln-legend" style="margin:4px">buscando…</span>';
+        else if(c.busca.erro) h+='<span class="pln-berr" style="margin:0">'+motEsc(c.busca.erro)+'</span>';
+        else if(c.busca.lista&&!c.busca.lista.length) h+='<span class="pln-legend" style="margin:4px">nada com "'+motEsc(c.busca.q)+'" neste catálogo</span>';
+        else (c.busca.lista||[]).forEach(p=>{ h+='<button data-cstprod="'+motEsc(p.pbeId)+'"><span>'+motEsc(p.nome)+(p.codigo?' <small style="color:var(--pln-text-soft)">'+motEsc(p.codigo)+'</small>':'')+'</span><b>'+cestaFmtR(p.preco)+'</b></button>'; });
+        h+='</div><button class="pnd-bt" data-cstbuscafechar style="margin-top:6px;min-height:40px">fechar busca</button></div>';
+      }
+      h+='</div><button class="cst-rm" data-cstrm="'+i.id+'">remover</button></div>';
+    });
+  });
+  h+='<div class="cst-campo"><label>Título da proposta (pode mudar)</label><input type="text" data-csttitulo maxlength="120" value="'+motEsc(c.titulo||cestaTituloPadrao())+'"></div>';
+  h+='<div class="cst-campo"><label>Período previsto de execução (obrigatório — a Cotação não nasce sem isso)</label><div class="cst-per">'+
+    (ctx&&ctx.periodos?ctx.periodos:[{valor:'horario_comercial',rotulo:'Horário comercial'},{valor:'Horario_nao_comercial',rotulo:'Horário não comercial'},{valor:'Não determinado',rotulo:'Não determinado'}])
+      .map(p=>'<button class="'+(c.periodo===p.valor?'on':'')+'" data-cstper="'+motEsc(p.valor)+'">'+motEsc(p.rotulo)+'</button>').join('')+'</div></div>';
+  h+='<div class="cst-campo"><label>Contrato e catálogo de preços</label><div class="ro">'+
+    (c.contextoErro?'<span style="color:var(--pln-warn)">'+motEsc(c.contextoErro)+'</span>':!ctx?'lendo o contrato do cliente…':
+      (ctx.contrato?'MPP vigente <b>'+motEsc(ctx.contrato.nome)+'</b>'+(ctx.contrato.oportunidade?' · Oportunidade '+motEsc(ctx.contrato.oportunidade.nome||'')+' vira "Oportunidade pai"':' · contrato sem Oportunidade ligada (sem "Oportunidade pai")'):'sem contrato de MPP vigente — a proposta nasce sem "Oportunidade pai"')+
+      ' · catálogo <b>'+motEsc(ctx.catalogo.nome)+'</b>'+(ctx.catalogo.origem!=='contrato'?' (padrão, por falta de catálogo no contrato)':'')+
+      (ctx.produtoGenerico?'':'<br><span style="color:var(--pln-warn)">O produto genérico "a precificar" não está neste catálogo — peça ao Raphael para rodar o script da fatia 3 antes de montar.</span>'))+'</div></div>';
+  h+='<div class="cst-nota">O que vai acontecer: nasce <b>1 Oportunidade (Serviços, fase Proposta/Cotação de preço) + 1 Cotação com '+c.itens.length+' linha'+(c.itens.length===1?'':'s')+'</b>, uma por pendência. As pendências ficam <b>Em análise</b> apontando para a proposta. As outras continuam abertas. Precisa de conexão.</div>';
+  if(c.erro) h+='<div class="pln-berr" style="margin:10px 14px 0">'+motEsc(c.erro)+'</div>';
+  h+='<div class="cst-acoes"><button class="cst-bt ghost" data-cstesvaziar>Esvaziar cesta</button><span style="flex:1"></span><button class="cst-bt" data-cstfechar>Continuar vistoria</button>'+
+    '<button class="cst-bt vd" data-cstmontar'+(c.montando||!c.itens.length?' disabled':'')+'>'+(c.montando?'Montando…':'Montar proposta ✓')+'</button></div></div>';
+  return h;
+}
+function cestaTituloPadrao(){ const d=new Date(); const dd=String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); return 'Corretivas — '+(CESTA.contaNome||'cliente')+' — vistoria de '+dd; }
+function cestaWire(body){
+  /* o rodapé é fixo e a barra de navegação de baixo (#botnav-wrap) não é: sem este ajuste o rodapé cobriria a barra */
+  const rod=body.querySelector('.cst-rodape');
+  if(rod){ const bn=document.getElementById('botnav-wrap'); rod.style.bottom=(bn&&bn.style.display!=='none'?bn.offsetHeight:0)+'px'; }
+  body.querySelectorAll('[data-cstver]').forEach(b=>b.addEventListener('click',()=>{ CESTA.aberta=true; CESTA.erro=null; cestaCarregarContexto(); plnRenderTabBody(); }));
+  body.querySelectorAll('[data-cstfechar]').forEach(b=>b.addEventListener('click',()=>{ CESTA.aberta=false; CESTA.busca=null; const r=CESTA.resultado; CESTA.resultado=null; plnRenderTabBody(); if(r){ PLN.achados=null; plnCarregarTab(); } }));
+  body.querySelectorAll('[data-cstesvaziar]').forEach(b=>b.addEventListener('click',()=>{ if(!window.confirm('Esvaziar a cesta? Nada é alterado nas pendências.')) return; cestaEsvaziar(); plnRenderTabBody(); }));
+  body.querySelectorAll('[data-cstrm]').forEach(b=>b.addEventListener('click',()=>{ const i=CESTA.itens.findIndex(x=>x.id===b.dataset.cstrm); if(i>=0){ CESTA.itens.splice(i,1); delete CESTA.produtos[b.dataset.cstrm]; } if(!CESTA.itens.length){ cestaEsvaziar(); } cestaSalvar(); plnRenderTabBody(); }));
+  body.querySelectorAll('[data-cstper]').forEach(b=>b.addEventListener('click',()=>{ CESTA.periodo=b.dataset.cstper; CESTA.erro=null; cestaSalvar(); plnRenderTabBody(); }));
+  const tit=body.querySelector('[data-csttitulo]'); if(tit) tit.addEventListener('input',()=>{ CESTA.titulo=tit.value; cestaSalvar(); });
+  body.querySelectorAll('[data-cstgen]').forEach(b=>b.addEventListener('click',()=>{ delete CESTA.produtos[b.dataset.cstgen]; cestaSalvar(); plnRenderTabBody(); }));
+  body.querySelectorAll('[data-csttrocar]').forEach(b=>b.addEventListener('click',()=>{ CESTA.busca={id:b.dataset.csttrocar,q:'',lista:null,erro:null,carregando:false}; plnRenderTabBody(); const q=document.querySelector('[data-cstq]'); if(q) q.focus(); }));
+  body.querySelectorAll('[data-cstbuscafechar]').forEach(b=>b.addEventListener('click',()=>{ CESTA.busca=null; plnRenderTabBody(); }));
+  const q=body.querySelector('[data-cstq]');
+  if(q){ let t=null; q.addEventListener('input',()=>{ const bs=CESTA.busca; if(!bs) return; bs.q=q.value; clearTimeout(t); if(bs.q.trim().length<2){ bs.lista=null; return; }
+    t=setTimeout(async()=>{ bs.carregando=true; const meu=bs.q; try{ const r=await beGet('/plano/cesta/produtos?contaId='+encodeURIComponent(CESTA.contaId)+'&q='+encodeURIComponent(meu.trim())); if(CESTA.busca===bs&&bs.q===meu){ bs.lista=r.produtos||[]; bs.erro=null; } }
+      catch(e){ if(CESTA.busca===bs){ bs.erro=e.message||'Falha na busca'; bs.lista=null; } }
+      if(CESTA.busca===bs){ bs.carregando=false; plnRenderTabBody(); const q2=document.querySelector('[data-cstq]'); if(q2){ q2.focus(); const v=q2.value; q2.setSelectionRange(v.length,v.length); } } },350); }); }
+  body.querySelectorAll('[data-cstprod]').forEach(b=>b.addEventListener('click',()=>{ const bs=CESTA.busca; if(!bs||!bs.lista) return; const p=bs.lista.find(x=>x.pbeId===b.dataset.cstprod); if(p){ CESTA.produtos[bs.id]={pbeId:p.pbeId,nome:p.nome,preco:p.preco,codigo:p.codigo||null}; } CESTA.busca=null; cestaSalvar(); plnRenderTabBody(); }));
+  const montar=body.querySelector('[data-cstmontar]');
+  if(montar) montar.addEventListener('click',async()=>{
+    if(CESTA.montando) return;
+    if(!CESTA.itens.length){ CESTA.erro='A cesta está vazia.'; return plnRenderTabBody(); }
+    if(!CESTA.periodo){ CESTA.erro='Escolha o período previsto de execução.'; return plnRenderTabBody(); }
+    if(!navigator.onLine){ CESTA.erro='Sem conexão. Montar proposta precisa de internet (não entra na fila offline).'; return plnRenderTabBody(); }
+    if(!window.confirm('Montar a proposta com '+CESTA.itens.length+' pendência'+(CESTA.itens.length===1?'':'s')+' de '+(CESTA.contaNome||'')+'?\n\nNasce 1 Oportunidade + 1 Cotação no Salesforce.')) return;
+    CESTA.montando=true; CESTA.erro=null; plnRenderTabBody();
+    const produtos={}; Object.keys(CESTA.produtos).forEach(k=>{ if(CESTA.itens.some(i=>i.id===k)) produtos[k]=CESTA.produtos[k].pbeId; });
+    try{
+      const r=await bePost('/plano/cesta/montar',{pendenciaIds:CESTA.itens.map(i=>i.id), periodo:CESTA.periodo, titulo:(CESTA.titulo||'').trim()||cestaTituloPadrao(), produtos, chave:cestaChave()});
+      const n=CESTA.itens.length;
+      cestaEsvaziar(); CESTA.aberta=true; CESTA.resultado=r; CESTA.montando=false;
+      toast('✅ Proposta '+(r.oportunidade&&(r.oportunidade.numero||r.oportunidade.nome)||'')+' criada com '+n+' linha'+(n===1?'':'s'));
+    }catch(e){
+      CESTA.montando=false; CESTA.erro=(e.message||'O servidor recusou.')+' Nada foi criado.';
+      /* 409 de regra de negócio (pendência mudou por outra mão desde que entrou na cesta): recarrega a lista por trás
+         para o coordenador ver o estado atual ao "Continuar vistoria" */
+      if(e.status===409){ PLN.achados=null; plnCarregarTab(); return; }
+    }
+    plnRenderTabBody();
+  });
+}
+
 async function pndCarregar(){
   const q=[];
   /* "abertas" e o padrao do servidor, que devolve Aberta mais Em analise: mandar o parametro
@@ -20732,6 +20967,9 @@ async function pndCarregar(){
 }
 function plnRenderPendencias(body){
   const d=PLN.achados, lista=(d&&d.achados)||[];
+  /* 12/10/2026 — a cesta aberta ("Ver cesta" / "Montar proposta") toma o lugar da lista; Coordenador+ */
+  const podeCesta=canCestaProposta(ROLE);
+  if(podeCesta && (CESTA.aberta||CESTA.resultado)){ body.innerHTML=cestaFolhaHtml(); cestaWire(body); return; }
   let h='<div class="pnd-filtros">';
   [['abertas','Em aberto'],['Aberta','Só as novas'],['Em análise','Em análise'],
    ['Resolvida','Resolvidas'],['Descartada','Descartadas'],['todos','Tudo']].forEach(([v,r])=>{
@@ -20748,13 +20986,21 @@ function plnRenderPendencias(body){
 
   if(!lista.length){
     h+='<div class="pnd-vazio">Nenhum achado nesta seleção. Se você acabou de mudar o filtro, tente <b>Tudo</b>.</div>';
+    h+=podeCesta?cestaRodapeHtml():'';
     body.innerHTML=h; pndWire(body); return;
   }
-  h+='<div class="pln-bhint" style="margin:0 0 9px">'+lista.length+' achado'+(lista.length===1?'':'s')+' · o mais recente primeiro</div>';
+  h+='<div class="pln-bhint" style="margin:0 0 9px">'+lista.length+' achado'+(lista.length===1?'':'s')+' · o mais recente primeiro'+
+    (podeCesta?' · <b>marque</b> o que o cliente topou tratar agora; o resto continua aberto no equipamento':'')+'</div>';
   lista.forEach(a=>{
     const ed=PLN.pndEdit&&PLN.pndEdit.id===a.id?PLN.pndEdit:null;
     h+='<div class="pnd-card">';
     h+='<div class="pnd-hd">';
+    /* 12/10/2026 — caixa da cesta (Coordenador+). Cinza = não entra em proposta (coberta/garantia, já tem OT, já em proposta aberta, encerrada). */
+    if(podeCesta){
+      const na=cestaTem(a.id), motivo=na?null:pndMotivoForaDaCesta(a);
+      h+='<div style="display:flex;flex-direction:column;align-items:center"><button class="cst-cb'+(na?' on':motivo?' off':'')+'" data-cstcb="'+a.id+'" title="'+(motivo?'não entra na cesta: '+motEsc(motivo):(na?'tirar da cesta':'pôr na cesta'))+'" aria-pressed="'+(na?'true':'false')+'">'+(na?'✓':'')+'</button>'+
+        (motivo?'<span class="cst-motivo">'+motEsc(motivo)+'</span>':'')+'</div>';
+    }
     /* A foto vem pelo proxy autenticado /arquivos/:driveId, igual ao resto do app. Antes ia a
        URL__c (o link /file/d/ID/view do Drive) direto no background-image, que nunca e imagem, e
        ainda quebrava o atributo style nas aspas: o resultado era um quadrado cinza vazio. */
@@ -20775,6 +21021,8 @@ function plnRenderPendencias(body){
     h+='<span>Corretiva: <b>'+(a.corretiva?motEsc(a.corretiva.nome+' · '+a.corretiva.status):(a.pediuCorretiva?'pedida, ainda não gerada':'não pedida'))+'</b></span>';
     h+='</div>';
     if(a.cobertura||a.emergencia) h+='<div class="pnd-meta"><span>Decisão comercial: <b>'+motEsc(a.emergencia&&!a.cobertura?'Emergência — cobrança a decidir':(a.cobertura||''))+'</b>'+(a.emergencia&&a.cobertura?' (emergência)':'')+'</span></div>';
+    /* 12/10/2026 — a proposta em que a pendência está (fatia 3). O bloco completo com linhas e valores é a fatia 5. */
+    if(a.proposta) h+='<div class="pnd-meta"><span>Proposta: <b>'+motEsc(a.proposta.nome||'')+'</b> · '+motEsc(a.proposta.fase||'')+(a.proposta.fechada?(a.proposta.ganha?' · <b>aceita</b>':' · <b>perdida</b> — pode voltar à cesta'):' · aguardando o comercial/cliente')+'</span></div>';
     if(PLN.pndTri===a.id){
       const op=(k,t,d,cor)=>'<button class="pnd-bt" data-pndtrid="'+k+'" data-id="'+a.id+'" style="display:block;width:100%;text-align:left;padding:10px 12px;margin:0 0 6px;border:2px solid '+cor+';border-radius:10px;background:#fff"><b style="color:'+cor+'">'+t+'</b><br><span style="font-size:12px;color:#686868">'+d+'</span></button>';
       h+='<div class="pnd-form"><span class="lbl">Quem paga? A decisão fica registrada com o seu nome.</span>'
@@ -20823,11 +21071,20 @@ function plnRenderPendencias(body){
     }
     h+='</div>';
   });
+  if(podeCesta) h+=cestaRodapeHtml();
   body.innerHTML=h;
   pndWire(body);
 }
 function pndWire(body){
   const recarrega=async()=>{ PLN.achados=null; PLN.pndEdit=null; await plnCarregarTab(); };
+  /* 12/10/2026 — cesta: marcar/desmarcar e o rodapé. Re-renderiza só a lista (sem ir ao servidor). */
+  if(canCestaProposta(ROLE)){
+    body.querySelectorAll('[data-cstcb]').forEach(b=>b.addEventListener('click',()=>{
+      const a=((PLN.achados&&PLN.achados.achados)||[]).find(x=>x.id===b.dataset.cstcb); if(!a) return;
+      if(cestaAlternar(a)) plnRenderTabBody();
+    }));
+    cestaWire(body);
+  }
   body.querySelectorAll('[data-pndfoto]').forEach(el=>{
     const did=el.dataset.pndfoto;
     beArquivoDataURL(did).then(du=>{ el.style.backgroundImage='url("'+du+'")'; }).catch(()=>{ el.style.opacity='.45'; });
