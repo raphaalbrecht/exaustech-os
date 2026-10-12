@@ -15015,6 +15015,7 @@ async function etqConferir(url,uid,esperado){
           :!r.uidConferido?{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — lida pelo QR'} /* 12/10/2026: QR não alerta sobre o chip (Raphael); conferir os dois é o QR × NFC */
           :{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — chip confere'};
         etqRender({fase:'resultado',chk,ver,ativo:a,errado,token,okEtiqueta:true,esperado,url,uid});
+        if(r.avisos&&r.avisos.length&&a&&a.id) etqAvisosMostrar(r.avisos,a.id); /* 12/10/2026: avisos de contrato do cliente */
       }catch(err){
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         const ver=err.status===404?{tom:'er',t1:'Não use',t2:'Código não existe no sistema',t3:'Esta etiqueta não é da Exaustech ou nunca foi cadastrada. Avise o escritório.'}
@@ -15438,6 +15439,37 @@ async function etqProbEnviar(){
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
     etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
   }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
+}
+/* ===== Avisos de contrato na leitura da TAG (12/10/2026) — DECISAO_avisos-na-leitura-da-tag_12-10-2026.md =====
+   Raphael: "se o equipamento tem um alerta gravado para ele, deve abrir assim que for escaneado ou lido o NFC". Abrem os
+   avisos de CONTRATO do cliente que esta pessoa ainda não confirmou (depois da última alteração do aviso). Por cima do
+   resultado; só fecha depois de "Li e entendi" em cada um (fica registrado quem leu e quando). */
+function etqAvisosMostrar(avisos,ativoId){
+  const v=document.getElementById('etqAvisosOv'); if(v) v.remove();
+  const ov=document.createElement('div'); ov.id='etqAvisosOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:100018;background:rgba(11,34,57,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.dataset.ativo=ativoId; ov.dataset.falta=String(avisos.length);
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;border-top:10px solid #FE9339">'
+    +'<div style="padding:14px 18px 6px;font-size:18px;font-weight:800;color:#0B2239">⚠️ '+(avisos.length>1?avisos.length+' avisos deste cliente':'Aviso deste cliente')+'</div>'
+    +'<div style="padding:0 18px 4px;font-size:13px;color:#686868">Leia antes de trabalhar no equipamento. Confirme cada um.</div>'
+    +avisos.map(x=>'<div id="etqAv_'+x.id+'" style="margin:10px 18px;padding:12px 14px;border:1px solid #F9C77F;background:#FFF4E5;border-radius:12px">'
+      +'<div style="font-weight:800;color:#0B2239;font-size:15.5px">'+cadEsc(x.titulo)+'</div>'
+      +(x.contrato?'<div style="font-size:12px;color:#8C4B02;margin-top:2px">Contrato '+cadEsc(x.contrato)+'</div>':'')
+      +'<div style="font-size:14.5px;color:#1B2733;margin-top:6px;white-space:pre-wrap;line-height:1.45">'+cadEsc(x.mensagem)+'</div>'
+      +'<button onclick="etqAvisoCiente(\''+x.id+'\')" style="margin-top:10px;width:100%;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">Li e entendi</button></div>').join('')
+    +'<div style="height:10px"></div></div>';
+  document.body.appendChild(ov);
+  try{ if(navigator.vibrate) navigator.vibrate([120,80,120]); }catch(_){}
+}
+async function etqAvisoCiente(id){
+  const ov=document.getElementById('etqAvisosOv'); if(!ov) return;
+  const card=document.getElementById('etqAv_'+id); const b=card&&card.querySelector('button'); if(b){ b.disabled=true; b.textContent='Registrando…'; }
+  try{
+    await bePost('/avisos-tag/'+id+'/ciencia',{ativoId:ov.dataset.ativo});
+    if(card) card.innerHTML='<div style="color:#1B7A3D;font-weight:700">✓ Lido</div>';
+    const falta=Number(ov.dataset.falta)-1; ov.dataset.falta=String(falta);
+    if(falta<=0) setTimeout(()=>{ const o=document.getElementById('etqAvisosOv'); if(o) o.remove(); },500);
+  }catch(e){ if(b){ b.disabled=false; b.textContent='Li e entendi'; } toast('Não registrei a leitura: '+e.message); }
 }
 /* 11/10/2026 — volta do portal. Raphael: "no teste do NFC continua abrindo o portal automaticamente". Com endereço
    de internet gravado no chip, o Android pode abrir o navegador mesmo com o app lendo NFC (o sistema decide antes do
