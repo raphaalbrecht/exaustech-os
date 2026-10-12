@@ -16639,7 +16639,9 @@ function avGesDestinoHTML(g,comTroca){
     +(cli&&cli.cnpj?'<div class="av-meta">CNPJ '+_esc(avGesCnpjFmt(cli.cnpj))+'</div>':'')+'</div>'
     +'<div class="av-destino-l"><div class="av-destino-k">Contrato</div><div class="av-destino-v">'+_esc(g.ctrLabel||'—')+' '+avGesCtrSituacao(c)+'</div>'
     +(c&&avGesCtrLinha(c)?'<div class="av-meta">'+_esc(avGesCtrLinha(c))+'</div>':'')+'</div>'
-    +(comTroca?'<div style="display:flex;gap:8px;margin-top:8px">'
+    /* 12/10/2026 — Raphael pediu pra remover "Trocar contrato" e "Trocar cliente" da tela. Desligado com
+       "false &&" (não apagado) — avGesTrocar continua no código. Pra trocar de destino: Fechar e abrir de novo. */
+    +(false&&comTroca?'<div style="display:flex;gap:8px;margin-top:8px">'
       +'<button class="btn btn-neutral" style="flex:1;padding:10px" onclick="avGesTrocar(\'contrato\')">Trocar contrato</button>'
       +'<button class="btn btn-neutral" style="flex:1;padding:10px" onclick="avGesTrocar(\'cliente\')">Trocar cliente</button></div>':'')
     +'</div>';
@@ -16675,7 +16677,8 @@ function renderAvGes(){
       +'<div class="av-meta">'+_esc(avGesCtrLinha(c)||'tocar para abrir os avisos')+'</div></div>').join('');
     body.innerHTML='<div class="av-destino"><div class="av-destino-k">Cliente</div><div class="av-destino-v">'+_esc(g.cliente.nome)+'</div>'
       +(g.cliente.cnpj?'<div class="av-meta">CNPJ '+_esc(avGesCnpjFmt(g.cliente.cnpj))+'</div>':'')
-      +'<button class="btn btn-neutral" style="margin-top:8px;padding:10px" onclick="avGesTrocar(\'cliente\')">Trocar cliente</button></div>'
+      /* 12/10/2026: botão "Trocar cliente" removido a pedido do Raphael (ver avGesDestinoHTML) */
+      +'</div>'
       +lista;
     return;
   }
@@ -16745,10 +16748,21 @@ function renderAvGes(){
         +'</div>'):'')
       +'</div>';
   }).join('');
+  /* 12/10/2026 — Raphael: "quando não tem nenhum em vigor, deixar claro com texto: nenhum aviso em vigor".
+     Faixa fixa no topo, independente do chip: "em vigor" aqui é a.vigente (o que de fato abre no check-in e na
+     TAG), não emVigor — um aviso só programado ou aguardando aprovação ainda NÃO está em vigor. Some quando
+     houver erro de carga, pra não afirmar "nenhum" sem ter conseguido ler. */
+  const nVig=g.avisos.filter(a=>a.vigente).length;
+  const nCaminho=g.avisos.filter(a=>!a.vigente&&a.emVigor).length;
+  const faixaVazia=(!g.erro&&!nVig)?'<div style="margin:2px 0 10px;padding:12px 14px;border-radius:8px;background:var(--neu-bg,#F3F3F3);border:1px solid var(--neu-bd,#C9C9C9);text-align:center">'
+      +'<div style="font-weight:800;font-size:15px;letter-spacing:.3px">NENHUM AVISO EM VIGOR</div>'
+      +'<div class="av-meta" style="margin-top:4px">Nada abre no check-in nem na leitura da TAG deste contrato'
+      +(nCaminho?' — '+nCaminho+' aviso'+(nCaminho===1?' programado ou aguardando aprovação':'s programados ou aguardando aprovação')+' abaixo':'')+'.</div></div>':'';
   body.innerHTML=topo
     +(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
+    +faixaVazia
     +(g.avisos.length?chip:'')
-    +(cards||'<div class="subnote" style="padding:8px 0">'+(g.avisos.length?'Nenhum aviso em vigor neste contrato — toque em "Mostrar desativados e histórico" pra ver os outros.':'Nenhum aviso neste contrato ainda.')+'</div>')
+    +(cards||(g.avisos.length&&!_avGesMostrarTodos?'<div class="subnote" style="padding:8px 0">Toque em "Mostrar desativados e histórico" pra ver os avisos antigos.</div>':''))
     +'<button class="btn btn-brand" id="avGesNovoBtn" style="width:100%;margin-top:12px" onclick="avGesNovo()">➕ Lançar aviso'+(canAprovarAviso(ROLE)?'':' (vai pra aprovação)')+'</button>';
 }
 function avGesMostrarTodos(){ _avGesMostrarTodos=!_avGesMostrarTodos; renderAvGes(); }
