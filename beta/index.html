@@ -154,6 +154,9 @@
   .lz-live::before{animation:lzLivePulse 2.2s ease-in-out infinite}
   @keyframes lzLivePulse{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.4;box-shadow:0 0 0 4px transparent}}
   .eq-pill.live{animation:eqLivePulse 2.2s ease-in-out infinite}
+  /* 11/10/2026: ponto do carimbo da leitura (Consultar TAG, layout A) — pulsa para mostrar que a tela é de uma leitura nova */
+  .etq-pulso{animation:etqPulso 1.6s infinite}
+  @keyframes etqPulso{0%{box-shadow:0 0 0 0 rgba(1,118,211,.55)}100%{box-shadow:0 0 0 14px rgba(1,118,211,0)}}
   @keyframes eqLivePulse{0%,100%{box-shadow:0 0 0 0 rgba(186,5,23,.45)}50%{box-shadow:0 0 0 5px rgba(186,5,23,0)}}
   /* ---- spinner de carregamento (13/07/2026, pedido do Raphael): símbolo animado só pra dar a
      sensação de progresso acontecendo entre uma tela e outra — substitui os "Carregando…" estáticos
@@ -14371,7 +14374,7 @@ function etqRender(st){
   const c=document.getElementById('etqCorpo'); if(!c) return;
   etqTravado=(st.fase==='resultado'||st.fase==='conferindo');
   let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-    +'<div style="font-size:15px;font-weight:700;color:#0B2239">📶 Teste da etiqueta NFC</div>'
+    +'<div style="font-size:15px;font-weight:700;color:#0B2239">📶 Consultar etiqueta</div>'
     +'<button onclick="etqFechar()" style="background:none;border:none;font-size:22px;color:#686868;line-height:1;padding:0 4px">×</button></div>';
   if(st.fase==='lendo'){
     h+='<div style="text-align:center;padding:22px 6px"><div style="font-size:34px">📶</div>'
@@ -14381,34 +14384,68 @@ function etqRender(st){
   } else if(st.fase==='conferindo'){
     h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
   } else if(st.fase==='resultado'){
+    /* 11/10/2026 — layout A "Veredito primeiro" (prototipos/tag-resultado-A.html, escolhido pelo Raphael). A tela estava
+       na ordem em que o sistema CONFERE (checagens, URL) e não na ordem em que o técnico LÊ: "posso usar?" e "de qual
+       equipamento é?". Agora: 1) faixa de veredito em uma palavra + o que fazer; 2) equipamento em letra grande;
+       3) carimbo da leitura (nº muda a cada leitura); 4) checagens, URL e chip RECOLHIDOS (abrem sozinhos se há problema);
+       5) ações. Ver docs/09-CADASTROS/PROPOSTA_tela-resultado-leitura-tag_11-10-2026.md */
     const hr=new Date(), p2=n=>String(n).padStart(2,'0');
-    /* faixa "Leitura nº X" pisca ao trocar: sem isso, ler duas etiquetas parecidas dá a impressão de que nada mudou */
-    h+='<div id="etqFaixa" style="font-size:12.5px;font-weight:700;color:#0B2239;background:#E6F1FB;border-radius:8px;padding:6px 10px;margin:-4px 0 8px;transition:background .8s">Leitura nº '+etqSeq+' · '+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+(st.uid?' · chip '+cadEsc(st.uid.match(/.{1,2}/g).join(':')):'') /* 11/10/2026: número INTEIRO — cartões do mesmo lote terminam iguais (…0289) e os últimos 6 dígitos pareciam o mesmo chip. Qualquer app de NFC lê esse número; não é segredo. */+'</div>';
-    h+=st.linhas.join('');
-    if(st.ativo){
-      h+='<div style="background:#F4F7F9;border:1px solid #E2E5E9;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#3A4552">'
-        +'<div style="font-weight:700;color:#0B2239">'+cadEsc(st.ativo.descricao||st.ativo.nome||'Equipamento')+'</div>'
-        +'<div style="font-size:12px;color:#686868;margin-top:2px">'+cadEsc([st.ativo.nome,st.ativo.tipo,st.ativo.local,st.ativo.conta].filter(Boolean).join(' · '))+'</div></div>';
+    const v=st.ver||{tom:'ne',t1:'Resultado',t2:''};
+    const COR={ok:'#2E844A',at:'#FE9339',er:'#BA0517',ne:'#747474'}, TXT=v.tom==='at'?'#2B1A00':'#fff';
+    const ICV={ok:'<path d="M4 12.5l5 5L20 7"/>',er:'<path d="M6 6l12 12M18 6L6 18"/>',at:'<path d="M12 5v8M12 17.5v.5"/>',ne:'<path d="M12 5v8M12 17.5v.5"/>'};
+    h+='<div style="background:'+COR[v.tom]+';color:'+TXT+';border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center">'
+      +'<span style="flex:0 0 56px;height:56px;border-radius:50%;background:'+(v.tom==='at'?'rgba(0,0,0,.12)':'rgba(255,255,255,.22)')+';display:flex;align-items:center;justify-content:center">'
+      +'<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="'+TXT+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'+ICV[v.tom]+'</svg></span>'
+      +'<div style="flex:1;min-width:0"><div style="font-size:28px;font-weight:800;letter-spacing:.04em;line-height:1.05;text-transform:uppercase">'+cadEsc(v.t1)+'</div>'
+      +(v.t2?'<div style="font-size:15px;font-weight:500;margin-top:5px">'+cadEsc(v.t2)+'</div>':'')
+      +(v.t3?'<div style="font-size:13.5px;margin-top:8px;background:'+(v.tom==='at'?'rgba(0,0,0,.08)':'rgba(255,255,255,.16)')+';border-radius:8px;padding:7px 9px;line-height:1.35">→ '+cadEsc(v.t3)+'</div>':'')
+      +'</div></div>';
+    const a=st.ativo;
+    if(a){
+      h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:14px;padding:14px 16px;margin-top:12px;position:relative">'
+        +'<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+(st.errado?'#BA0517':'#686868')+'">'+(st.errado?'✕ Etiqueta lida pertence a':'Equipamento')+'</div>'
+        +(a.tipo?'<span style="position:absolute;top:14px;right:16px;background:#0176D3;color:#fff;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">'+cadEsc(a.tipo)+'</span>':'')
+        +'<div style="font-size:34px;font-weight:800;color:#0B2239;line-height:1.05;margin:4px 0 2px">'+cadEsc(a.nome||'—')+'</div>'
+        +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-bottom:8px">'+cadEsc(a.descricao)+'</div>':'')
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#1B2733">'
+        +(a.local?'<span><span style="color:#686868;margin-right:4px">Local</span>'+cadEsc(a.local)+'</span>':'')
+        +(a.conta?'<span><span style="color:#686868;margin-right:4px">Conta</span>'+cadEsc(a.conta)+'</span>':'')+'</div></div>';
+      if(st.errado) h+='<div style="background:#fff;border:1px solid #2E844A;border-radius:14px;padding:10px 16px;margin-top:8px;font-size:13.5px;color:#2E844A;font-weight:700">✓ Equipamento esperado: o deste cadastro</div>';
+    } else {
+      h+='<div style="border:1px dashed #C9D0D8;border-radius:14px;padding:18px;margin-top:12px;text-align:center;color:#686868;font-size:14px">Nenhum equipamento identificado</div>';
     }
-    if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:12px">👁️ Ver como o cliente vê</button>';
+    const chipTxt=st.uid?st.uid.match(/.{1,2}/g).join(':'):''; /* número INTEIRO: cartões do mesmo lote terminam iguais (…0289) */
+    h+='<div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:9px 12px;margin-top:12px">'
+      +'<div style="background:#0B2239;color:#fff;border-radius:10px;padding:6px 11px;font-weight:800;font-size:19px;line-height:1;white-space:nowrap"><div style="font-size:10px;font-weight:600;opacity:.85;letter-spacing:.08em;margin-bottom:3px">LEITURA</div>nº '+etqSeq+'</div>'
+      +'<div style="flex:1;min-width:0;line-height:1.3"><div style="font-weight:700;font-size:15px;color:#0B2239">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+(st.uid?'NFC':'QR code / link')+'</div>'
+      +'<div style="color:#686868;font-size:12.5px;word-break:break-all">'+(st.uid?'chip '+cadEsc(chipTxt):'sem número de chip — o QR não lê o chip')+'</div></div>'
+      +'<span class="etq-pulso" style="flex:0 0 12px;height:12px;border-radius:50%;background:#0176D3"></span></div>';
+    const chk=st.chk||[], ruim=chk.filter(x=>x[0]!=='ok').length;
+    const bol=t=>'<span style="flex:0 0 22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
+    h+='<details style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-top:12px"'+(ruim?' open':'')+'>'
+      +'<summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;min-height:48px;font-weight:600;font-size:14px;color:#0B2239"><span>Detalhes da checagem</span>'
+      +'<span style="display:flex;gap:5px;align-items:center">'+(ruim?'<span style="color:#BA0517;font-weight:700;margin-right:4px">'+ruim+' problema'+(ruim>1?'s':'')+'</span>':'')+chk.map(x=>bol(x[0])).join('')+'<span style="color:#686868;margin-left:4px">▾</span></span></summary>'
+      +'<div style="padding:0 14px 10px">'+chk.map(x=>'<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #E2E5E9;line-height:1.35">'+bol(x[0])+'<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;color:#0B2239">'+cadEsc(x[1])+'</div>'+(x[2]?'<div style="color:#686868;font-size:12px;word-break:break-all">'+cadEsc(x[2])+'</div>':'')+'</div></div>').join('')
+      +'</div></details>';
+    if(st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button onclick="etqPrevia(\''+st.token+'\')" style="width:100%;min-height:52px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;margin-top:14px">👁️ Ver como o cliente vê</button>';
     h+='<div id="etqPrevia"></div>';
-    /* 11/10/2026: o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") */
-    if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;background:none;border:1px solid #E2E5E9;border-radius:10px;padding:10px;margin-top:8px;color:#3E7EB0;font-size:13px">Abrir no portal (pede o login do cliente)</button>';
+    /* o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") — link discreto, uso raro */
+    if(st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
-    if(lendo) h+='<div style="text-align:center;font-size:12.5px;color:#3E7EB0;margin-top:12px">📶 Encoste outra etiqueta a qualquer momento — o resultado é trocado na hora.</div>';
-    else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
+    if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o número da leitura muda.</div>';
+    else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:12px;font-weight:700;font-size:14px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
   } else if(st.fase==='erro'){
     h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
       +'<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;background:#3E7EB0;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px">Tentar de novo</button>';
   }
-  c.innerHTML=h;
+  c.innerHTML=h; c.dataset.fase=st.fase;
 }
 function etqAbrirModal(){
   const velho=document.getElementById('etqModal'); if(velho) velho.remove();
   const ov=document.createElement('div'); ov.id='etqModal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(11,34,57,.45);z-index:100012;display:flex;align-items:flex-end;justify-content:center';
-  ov.innerHTML='<div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box"><div id="etqCorpo"></div></div>';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:720px;max-height:92vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box"><div id="etqCorpo" style="position:relative"></div></div>';
   ov.addEventListener('click',ev=>{ if(ev.target===ov) etqFechar(); });
   document.body.appendChild(ov);
 }
@@ -14448,7 +14485,17 @@ async function etqProcessar(e,esperado){
       if(etqLeituraIncompleta(e)){
         ++etqSeq; /* descarta resposta de leitura anterior que ainda esteja chegando */
         if(!document.getElementById('etqModal')) etqAbrirModal();
-        etqRender({fase:'lendo',aviso:'Leitura incompleta — o cartão saiu antes de terminar. Encoste de novo e segure parado por 2 segundos.'});
+        const corpo=document.getElementById('etqCorpo');
+        if(corpo&&corpo.dataset.fase==='resultado'){ /* layout A: cobre o resultado anterior em vez de apagá-lo */
+          const velho=document.getElementById('etqIncompleta'); if(velho) velho.remove();
+          const d=document.createElement('div'); d.id='etqIncompleta';
+          d.style.cssText='position:absolute;inset:-4px;background:rgba(11,34,57,.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;border-radius:12px';
+          d.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px 20px;text-align:center;max-width:420px;border-top:8px solid #FE9339">'
+            +'<div style="font-size:24px;font-weight:800;color:#0B2239">Leitura incompleta</div>'
+            +'<div style="font-size:16px;margin-top:8px;color:#1B2733">Encoste de novo e <b>segure parado</b> até vibrar.</div>'
+            +'<div style="font-size:13px;color:#686868;margin-top:12px">O resultado anterior continua na tela; nada foi trocado.</div></div>';
+          corpo.appendChild(d);
+        } else etqRender({fase:'lendo',aviso:'Leitura incompleta — o cartão saiu antes de terminar. Encoste de novo e segure parado por 2 segundos.'});
         return;
       }
       let url='';
@@ -14460,28 +14507,41 @@ async function etqConferir(url,uid,esperado){
       if(!document.getElementById('etqModal')) etqAbrirModal();
       const minha=++etqSeq; /* se outra leitura começar enquanto esta consulta o servidor, esta desiste de desenhar */
       etqRender({fase:'conferindo'});
-      const linhas=[]; const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
+      /* chk = [tom, título, detalhe] (tom ok|er|at|ne) · ver = faixa do veredito (layout A) */
+      const m=url.match(/\/a\/([A-Za-z0-9-]{16,64})(?:[?#\/]|$)/); const token=m?m[1]:null;
       const enderecoOk=!!token&&url.indexOf(PORTAL_BASE+'/a/')===0;
-      linhas.push(etqLinha(enderecoOk, enderecoOk?'Endereço do portal gravado':'A etiqueta não tem o endereço do portal Exaustech', url||'(nenhum endereço gravado)'));
-      if(!token){ etqRender({fase:'resultado',linhas,esperado,url,uid}); return; }
+      const chipTxt=uid?uid.match(/.{1,2}/g).join(':'):'';
+      const chk=[[enderecoOk?'ok':'er', enderecoOk?'Endereço do portal gravado':'Sem endereço do portal Exaustech', url||'(nenhum endereço gravado)']];
+      if(!enderecoOk){
+        chk.push(['ne','Etiqueta ativa no sistema','Não verificado'],['ne','Chip confere','Não verificado'],['ne','Equipamento','Não verificado']);
+        const vazio=!url&&!!uid;
+        etqRender({fase:'resultado',chk,esperado,url,uid,ver:{tom:'er',t1:'Não use',
+          t2:vazio?'Cartão vazio — nada gravado no chip':'Etiqueta sem endereço Exaustech',
+          t3:vazio?'Se é a etiqueta de um equipamento, grave de novo pelo cadastro dele.':'Esta etiqueta não é da Exaustech ou não foi gravada pelo app. Avise o escritório.'}});
+        return;
+      }
       try{
         const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):''));
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
-        linhas.push(etqLinha(true,'Etiqueta ativa no sistema','É a etiqueta atual deste equipamento.'));
-        linhas.push(r.uidConferido?etqLinha(true,'Chip confere','O número físico do chip é o registrado — não é cópia.')
-                                  :etqLinha(null,'Chip não conferido','Este aparelho não informou o número do chip.'));
+        chk.push(['ok','Etiqueta ativa no sistema','É a versão atual deste equipamento.']);
+        chk.push(r.uidConferido?['ok','Chip confere — não é cópia','Chip '+chipTxt]:['at','Chip não conferido',uid?'O servidor não conferiu o chip.':'Leitura sem número de chip (QR ou link).']);
         const a=r.ativo||null;
-        if(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15)) linhas.push(etqLinha(false,'Esta etiqueta é de OUTRO equipamento','Ela aponta para '+(a.descricao||a.nome||'outro ativo')+'.'));
-        else if(a) linhas.push(etqLinha(true,'Equipamento certo', esperado?'É o equipamento deste cadastro.':''));
-        etqRender({fase:'resultado',linhas,ativo:a,token,okEtiqueta:true,esperado,url,uid});
+        const errado=!!(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15));
+        chk.push(errado?['er','Equipamento errado','Esta etiqueta aponta para '+(a.nome||'')+' '+(a.descricao||'')]:['ok','Equipamento'+(esperado?' certo':''),a?[a.nome,a.descricao].filter(Boolean).join(' · '):'']);
+        const ver=errado?{tom:'er',t1:'Equipamento errado',t2:'Esta etiqueta é de outro equipamento',t3:'Não cole aqui. Use a etiqueta deste equipamento.'}
+          :!r.uidConferido?{tom:'at',t1:'Atenção',t2:'Chip não conferido',t3:'Lida sem o número do chip: não dá para saber se é cópia. Para confirmar, encoste o cartão no tablet (NFC).'}
+          :{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — chip confere'};
+        etqRender({fase:'resultado',chk,ver,ativo:a,errado,token,okEtiqueta:true,esperado,url,uid});
       }catch(err){
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
-        const msg=err.status===404?['Etiqueta não encontrada no sistema','O código gravado não existe — etiqueta de teste antiga ou gravada fora do app.']
-          :err.status===410?['Etiqueta desativada','Foi substituída por outra. Use a etiqueta atual do equipamento.']
-          :err.status===403?['Chip NÃO confere','O endereço é válido, mas o chip físico é outro — possível cópia.']
-          :['Não consegui conferir',err.message];
-        linhas.push(etqLinha(false,msg[0],msg[1]));
-        etqRender({fase:'resultado',linhas,esperado,url,uid});
+        const ver=err.status===404?{tom:'er',t1:'Não use',t2:'Código não existe no sistema',t3:'Esta etiqueta não é da Exaustech ou nunca foi cadastrada. Avise o escritório.'}
+          :err.status===410?{tom:'er',t1:'Não use',t2:'Etiqueta desativada',t3:'Foi substituída por uma versão nova. Use a etiqueta nova deste equipamento e recolha esta.'}
+          :err.status===403?{tom:'er',t1:'Não use',t2:'Chip não confere — possível cópia',t3:'Não cole nem entregue esta etiqueta. Avise o escritório.'}
+          :{tom:'ne',t1:'Não conferido',t2:'Não consegui falar com o sistema',t3:'Confira a internet e encoste a etiqueta de novo.'};
+        chk.push(err.status===410?['er','Etiqueta desativada','Substituída por versão nova']:['ne','Etiqueta ativa no sistema',err.status===404?'Código não encontrado':'Não verificado']);
+        chk.push(err.status===403?['er','Chip NÃO confere','Chip lido '+chipTxt+' é diferente do cadastrado']:['ne','Chip confere','Não verificado']);
+        chk.push(['ne','Equipamento',err.status&&err.status<500?'Não identificado':'Erro: '+(err.message||'')]);
+        etqRender({fase:'resultado',chk,ver,esperado,url,uid});
       }
 }
 /* 11/10/2026 — volta do portal. Raphael: "no teste do NFC continua abrindo o portal automaticamente". Com endereço
