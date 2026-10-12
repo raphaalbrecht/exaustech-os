@@ -14063,8 +14063,12 @@ function cadStepRevisao(){
    (4) saída. A mesma tela serve à edição ("Cadastro atualizado") e ao equipamento RETOMADO pela lista "Já cadastrados
    neste sistema" (cadRetomarAtivo). As funções de etiqueta, motor e fotos são as mesmas de antes; só mudaram de lugar. */
 function cadEtiquetaDoAtivo(d){ /* etiqueta ATIVA que o ativo já tem → mesmo formato que cadProvisionarEtiqueta grava */
-  const e=((d&&d.etiquetas)||[]).find(x=>x.ativa&&x.token);
-  return e?{status:'ok',token:e.token,versao:e.versao,url:PORTAL_BASE+'/a/'+e.token}:{status:'idle'};
+  const l=(d&&d.etiquetas)||[];
+  const e=l.find(x=>x.ativa&&x.token);
+  /* 12/10/2026 — fluxo em 5 etapas: guarda a etapa (retomar) e, sem ativa, a etiqueta impressa ainda sem chip */
+  if(e) return {status:'ok',token:e.token,versao:e.versao,url:PORTAL_BASE+'/a/'+e.token,etapa:e.etapa||null};
+  const p=l.find(x=>!x.ativa&&x.token&&x.etapa==='Impressa');
+  return p?{status:'preparo',token:p.token,versao:p.versao,url:PORTAL_BASE+'/a/'+p.token,etapa:'Impressa'}:{status:'idle'};
 }
 /* conferência gravada no PRÓPRIO ativo, quando ele é um motor (GET /ativos/:id → conferenciaPlaqueta). Motor cadastrado à mão,
    sem conferência, não ganha o passo: não há o que conferir contra a fábrica. */
@@ -14112,33 +14116,41 @@ function cadBtnDone(txt,onclick,tipo,extra){
 /* passo "Etiqueta NFC": TODOS os estados de antes (gravar, lendo, gravando, ok com QR/URL, leitor ligado, testar, gravar
    outra, erro, sem NFC), só reorganizados dentro da linha. "Provisionar" virou "Gravar" (jargão, decisão de 11/10). */
 function cadPassoEtiqueta(){
+  /* 12/10/2026 — Raphael: "Cadê o fluxo da impressão da etiqueta com passo a passo e mockup que foi aprovado e nunca foi
+     ao ar? quero que seja corrigido e implementado". O passo agora abre o FLUXO EM 5 ETAPAS (etf*, layout B aprovado em
+     11/10): imprimir → ler o QR → gravar o chip → foto → conferir. A gravação direta do chip sem QR (cadProvisionarEtiqueta)
+     saiu daqui de propósito: era exatamente o caminho que deixava colar uma etiqueta impressa num chip gravado com outro
+     código. A função antiga continua no arquivo, sem chamador. Ver DECISAO_fluxo-etiqueta-qr-nfc_11-10-2026.md */
   const et=cadSt.etiqueta||{status:'idle'};
   const d=(t,cor)=>'<div style="font-size:12px;color:'+(cor||'#3A4552')+';margin-top:4px;line-height:1.45">'+t+'</div>';
-  if(et.status==='ok'){
-    let c='';
-    if(cadNfcCtrl) c+='<div style="font-size:12px;color:#3E7EB0;background:#EAF2FB;border-radius:8px;padding:8px 10px;margin-top:8px">Leitor ligado: encoste a etiqueta para testar. O portal não abre.</div>';
-    /* 12/10/2026 — Raphael: "no fluxo de criação de ativo não tem a impressão da etiqueta que deve ser copiada e colada no
-       app do Niimbot". A impressão direta pela M2 (NiimBlue, Bluetooth do navegador) foi testada e não imprimiu direito;
-       decisão: o app gera a IMAGEM da etiqueta 80×50 mm e oferece Copiar / Enviar / Baixar para levar ao app Niimbot.
-       Ver docs/09-CADASTROS/DECISAO_etiqueta-impressa-niimbot_12-10-2026.md */
-    c+='<div style="margin-top:12px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#686868">Etiqueta para imprimir (80 × 50 mm)</div>'
-      +'<img id="cadEtqImg" alt="Etiqueta" style="display:block;width:100%;max-width:420px;aspect-ratio:80/50;margin-top:6px;border:1px solid #C9D0D8;border-radius:6px;background:#fff">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;max-width:420px">'
-      +'<button onclick="cadEtqCopiar()" style="min-height:48px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📋 Copiar imagem</button>'
-      +'<button onclick="cadEtqEnviar()" style="min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:10px;font-weight:700;font-size:14px">📤 Enviar ao Niimbot</button>'
-      +'<button onclick="cadEtqBaixar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">⬇ Baixar imagem</button>'
-      +'<button onclick="cadEtqCopiarLink()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">🔗 Copiar link do QR</button>'
-      +'</div><div style="font-size:11px;color:#686868;word-break:break-all;line-height:1.4;margin-top:6px">'+cadEsc(et.url)+' <span style="color:#AEB8C2">— endereço gravado no chip e no QR</span></div>'
-      +'<img id="cadNfcQr" alt="" style="display:none">';
+  const ETAPA_TXT={'Impressa':'Impressa — falta ler o QR e gravar o chip','Chip gravado':'Chip gravado — falta a foto e a conferência','Foto':'Foto feita — falta a conferência','Conferida':'Conferida'};
+  if(et.status==='ok'&&et.etapa==='Conferida'){
+    let c=cadEtqBlocoImpressao(et);
     c+=cadBtnDone('Testar esta etiqueta','etqTestar(\''+cadSt.ativoId+'\')','p');
-    c+=cadBtnDone('Gravar outra etiqueta','cadProvisionarEtiqueta()','l');
-    return {feito:true,st:'Gravada · versão '+cadEsc(et.versao),corpo:c};
+    c+=cadBtnDone('Fazer uma etiqueta nova','etfAbrir(true)','l');
+    return {feito:true,st:'Conferida · versão '+cadEsc(et.versao),corpo:c};
   }
-  if(et.status==='lendo'||et.status==='gravando')
-    return {feito:false,st:et.status==='lendo'?'Aproxime a etiqueta NFC em branco…':'Gravando…',stCor:'#3E7EB0',corpo:cadBtnDone('Cancelar','cadNfcCancelar()','l')};
-  if(et.status==='erro') return {feito:false,st:'Pendente',corpo:d(cadEsc(et.msg),'#C4451B')+cadBtnDone('Tentar novamente','cadProvisionarEtiqueta()','p')};
-  if(estoqNfcSuportado()) return {feito:false,st:'Pendente',corpo:d('Grave uma etiqueta em branco e cole no equipamento.')+cadBtnDone('Gravar etiqueta NFC','cadProvisionarEtiqueta()','p')};
-  return {feito:false,st:'Pendente',corpo:d('Exige aparelho Android com NFC (Chrome) — não disponível neste aparelho.','#686868')};
+  if(et.status==='ok'){
+    const falta=et.etapa?ETAPA_TXT[et.etapa]:'Gravada sem o passo a passo — falta a foto e a conferência';
+    return {feito:false,st:'Versão '+cadEsc(et.versao)+' · '+cadEsc(falta),stCor:'#8C4B02',corpo:cadBtnDone('Continuar a etiqueta','etfAbrir()','p')+cadEtqBlocoImpressao(et)};
+  }
+  if(et.status==='preparo') return {feito:false,st:cadEsc(ETAPA_TXT.Impressa),stCor:'#8C4B02',corpo:d('A etiqueta da versão '+cadEsc(et.versao)+' foi gerada e ainda não tem chip.')+cadBtnDone('Continuar a etiqueta','etfAbrir()','p')};
+  return {feito:false,st:'Pendente',corpo:d('Imprima a etiqueta, leia o QR, grave o chip, fotografe e confira — em 5 etapas.')+cadBtnDone('Fazer a etiqueta','etfAbrir()','p')};
+}
+/* imagem da etiqueta + copiar/enviar/baixar (reimpressão de etiqueta que já existe) */
+function cadEtqBlocoImpressao(et){
+  return '<div style="margin-top:12px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#686868">Etiqueta para imprimir (80 × 50 mm)</div>'
+    +'<img id="cadEtqImg" alt="Etiqueta" style="display:block;width:100%;max-width:420px;aspect-ratio:80/50;margin-top:6px;border:1px solid #C9D0D8;border-radius:6px;background:#fff">'
+    +cadEtqBotoes()
+    +'<div style="font-size:11px;color:#686868;word-break:break-all;line-height:1.4;margin-top:6px">'+cadEsc(et.url)+' <span style="color:#AEB8C2">— endereço gravado no chip e no QR</span></div>'
+    +'<img id="cadNfcQr" alt="" style="display:none">';
+}
+function cadEtqBotoes(){
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;max-width:420px">'
+    +'<button onclick="cadEtqCopiar()" style="min-height:48px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📋 Copiar imagem</button>'
+    +'<button onclick="cadEtqEnviar()" style="min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:10px;font-weight:700;font-size:14px">📤 Enviar ao Niimbot</button>'
+    +'<button onclick="cadEtqBaixar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">⬇ Baixar imagem</button>'
+    +'<button onclick="cadEtqCopiarLink()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">🔗 Copiar link do QR</button></div>';
 }
 function cadStepDone(){
   cadTopo('done');
@@ -14203,8 +14215,9 @@ function cadStepDone(){
    etiqueta. Fonte única da imagem: cadEtqGerar(). Ver docs/09-CADASTROS/DECISAO_etiqueta-impressa-niimbot_12-10-2026.md */
 const EX_LOGO_PRETO=new Image(); EX_LOGO_PRETO.src=EX_LOGO.src.replace(/%23ffffff/gi,'%23000000');
 let cadEtqBlobCache=null;
+let cadEtqOverride=null; /* fluxo da etiqueta: imprime o código NOVO (etapa 1), não o da etiqueta atual */
 function cadEtqDados(){
-  const et=cadSt.etiqueta||{}, id=cadSt.ident||{};
+  const et=cadEtqOverride||cadSt.etiqueta||{}, id=cadSt.ident||{};
   return {url:et.url||'', versao:et.versao||'', numero:cadSt.ativoNome||'', tipo:cadSt.tipoNome||'',
     local:(cadSt.local?cadLocalNome(cadSt.local):id.local)||'', conta:(cadSt.conta&&cadSt.conta.nome)||''};
 }
@@ -14267,6 +14280,270 @@ async function cadEtqCopiarLink(){
   const u=cadEtqDados().url; if(!u) return;
   try{ await navigator.clipboard.writeText(u); toast('🔗 Link copiado — no Niimbot, crie um QR e cole'); }
   catch(e){ toast('Não deu para copiar o link: '+e.message); }
+}
+/* ===================== FLUXO DA ETIQUETA EM 5 ETAPAS (etf*, 12/10/2026) =====================
+   Layout B aprovado pelo Raphael em 11/10/2026 (prototipos/mockup-fluxo-etiqueta-B_11-10-2026.html): uma etapa por tela,
+   bolinhas no topo. 1 Imprimir (o código nasce aqui, etiqueta INATIVA) → 2 Ler o QR impresso (câmera; trava) → 3 Gravar
+   o chip com o endereço do QR LIDO (o servidor recusa chip que já é de outro equipamento) → 4 Foto da etiqueta colada →
+   5 Conferir QR + chip. Sem NFC no aparelho: faz 1, 2 e 4; o chip fica pendente para outro aparelho.
+   O leitor NFC fica ligado o fluxo inteiro (leituras fora da etapa 3/5 são engolidas): leitor desligado com o chip perto
+   devolve a etiqueta ao Android, que abre o portal. Ver docs/09-CADASTROS/DECISAO_fluxo-etiqueta-qr-nfc_11-10-2026.md */
+let etf=null, etfNfcCtrl=null, etfCamStream=null, etfCamRAF=null;
+const ETF_ROT=['Imprimir','Ler QR','Gravar chip','Foto','Conferir'];
+const ETF_SVG_QR='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2M18 14h2M14 18v2h2M18 18h2v2"/></svg>';
+const ETF_SVG_NFC='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9.5 9.5a3.5 3.5 0 0 1 0 5M12 8a6 6 0 0 1 0 8"/></svg>';
+const ETF_ICONE=[ETF_SVG_QR,ETF_SVG_QR,ETF_SVG_NFC,'📷',ETF_SVG_QR+ETF_SVG_NFC];
+
+async function etfAbrir(nova){
+  if(!cadSt.ativoId){ toast('Salve o equipamento antes de fazer a etiqueta.'); return; }
+  if(navigator.onLine===false){ toast('📴 A etiqueta precisa de internet (o código nasce no servidor).'); return; }
+  if(typeof cadNfcDesativar==='function') cadNfcDesativar();
+  etf={ativoId:cadSt.ativoId, etapa:1, token:null, versao:null, url:null, ativa:false, etapaSrv:null,
+       qrLido:false, urlLida:null, chipOk:false, fotoOk:false, confQr:null, confUid:null, conferida:false,
+       busy:false, msg:null, ecoAte:0};
+  etfMontar(); etfRender();
+  if(estoqNfcSuportado()) etfNfcLigar();
+  if(nova) return; /* "Fazer uma etiqueta nova": começa na etapa 1, sem código; a atual vale até o chip novo */
+  try{
+    const d=await beGet('/ativos/'+etf.ativoId);
+    if(!etf) return;
+    const l=(d.etiquetas||[]).filter(e=>e.token&&e.etapa!=='Cancelada'&&e.etapa!=='Substituída');
+    const prep=l.find(e=>!e.ativa&&e.etapa==='Impressa'), at=l.find(e=>e.ativa);
+    const e=prep||at;
+    if(e){
+      etf.token=e.token; etf.versao=e.versao; etf.url=PORTAL_BASE+'/a/'+e.token; etf.ativa=!!e.ativa; etf.etapaSrv=e.etapa||null;
+      if(prep) etf.etapa=2;                                  /* impressa: o QR SEMPRE é lido de novo (a trava não vale entre sessões) */
+      else if(e.etapa==='Conferida'){ etf.qrLido=etf.chipOk=etf.fotoOk=etf.conferida=true; etf.urlLida=etf.url; etf.etapa=5; }
+      else if(e.etapa==='Foto'){ etf.qrLido=etf.chipOk=etf.fotoOk=true; etf.urlLida=etf.url; etf.etapa=5; }
+      else { etf.qrLido=etf.chipOk=true; etf.urlLida=etf.url; etf.etapa=4; } /* chip gravado (ou etiqueta feita do jeito antigo) */
+    }
+    etfRender();
+  }catch(err){ if(etf){ etf.msg={tipo:'erro',txt:'Não consegui ler a etiqueta deste equipamento: '+err.message}; etfRender(); } }
+}
+function etfMontar(){
+  const v=document.getElementById('etfTela'); if(v) v.remove();
+  const ov=document.createElement('div'); ov.id='etfTela';
+  ov.style.cssText='position:fixed;inset:0;z-index:100020;background:#FAFBFC;display:flex;flex-direction:column';
+  document.body.appendChild(ov);
+}
+async function etfFechar(){
+  etfCamFechar(); etfNfcDesligar(); cadEtqOverride=null; cadEtqBlobCache=null;
+  const v=document.getElementById('etfTela'); if(v) v.remove();
+  const aid=etf&&etf.ativoId; etf=null;
+  /* volta à tela do equipamento com a etiqueta como está no servidor */
+  if(aid&&cadSt.ativoId===aid){ try{ const d=await beGet('/ativos/'+aid); cadSt.etiqueta=cadEtiquetaDoAtivo(d); }catch(e){} if(cadSt.step==='done') cadStepDone(); }
+}
+function etfIr(n){ if(!etf||etf.busy) return; etf.etapa=n; etf.msg=null; etfCamFechar(); etfRender(); }
+function etfFeita(n){ if(!etf) return false; return n===1?!!etf.token:n===2?etf.qrLido:n===3?etf.chipOk:n===4?etf.fotoOk:etf.conferida; }
+function etfRender(){
+  const el=document.getElementById('etfTela'); if(!el||!etf) return;
+  const n=etf.etapa;
+  const b=(cor,fundo,borda)=>'flex:0 0 30px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;box-sizing:border-box;color:'+cor+';background:'+fundo+';'+(borda?'border:2px solid '+borda+';':'');
+  let dots='<div style="display:flex;align-items:flex-start;padding:12px 4px 6px">';
+  for(let k=1;k<=5;k++){
+    const feita=etfFeita(k), atual=k===n;
+    const est=atual?b('#fff','#3E7EB0')+'box-shadow:0 0 0 5px #EAF2FB;':(feita?b('#fff','#1D9E75'):b('#AEB8C2','#fff','#D7DEE6'));
+    dots+='<div onclick="etfIr('+k+')" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;width:62px;cursor:pointer">'
+      +'<div style="'+est+'">'+(feita&&!atual?'✓':k)+'</div>'
+      +'<div style="display:flex;gap:2px;color:'+(atual?'#2B5A7E':'#686868')+'">'+ETF_ICONE[k-1]+'</div>'
+      +'<div style="font-size:11px;color:'+(atual?'#2B5A7E':'#686868')+';font-weight:'+(atual?700:500)+';text-align:center;line-height:1.1">'+ETF_ROT[k-1]+'</div></div>';
+    if(k<5) dots+='<div style="flex:1;height:3px;margin-top:14px;background:'+(etfFeita(k)?'#1D9E75':'#D7DEE6')+';border-radius:2px"></div>';
+  }
+  dots+='</div>';
+  let h='<div style="background:#fff;border-bottom:1px solid #E2E5E9;padding:10px 14px 0">'
+    +'<div style="display:flex;align-items:center;gap:10px"><button onclick="etfFechar()" style="background:none;border:none;color:#3E7EB0;font-size:15px;font-weight:700;padding:6px 4px">← Sair</button>'
+    +'<div style="flex:1;font-size:16px;font-weight:700;color:#0B2239">Etiqueta do equipamento</div><div style="font-size:12px;color:#686868">Etapa '+n+' de 5</div></div>'
+    +'<div style="font-size:13px;color:#686868;margin:2px 0 0 4px">Equipamento nº <b style="color:#0B2239">'+cadEsc(cadSt.ativoNome||'—')+'</b>'+(cadSt.tipoNome?' · '+cadEsc(cadSt.tipoNome):'')+(etf.versao?' · etiqueta versão '+cadEsc(etf.versao):'')+'</div>'
+    +dots+'</div>';
+  h+='<div style="flex:1;overflow-y:auto;padding:16px 16px 20px"><div style="max-width:640px;margin:0 auto">'+etfCorpo()+'</div></div>';
+  h+='<div style="background:#fff;border-top:1px solid #E2E5E9;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))"><div style="max-width:640px;margin:0 auto;display:flex;gap:10px">'+etfRodape()+'</div></div>';
+  el.innerHTML=h;
+  if(n===1&&etf.token) etfEtqPreview();
+}
+function etfBox(tipo,tit,txt){
+  const C={ok:['#EAF6F0','#BFE3CC','#1B7A3D'],erro:['#FCEBEB','#F3C1C1','#8e1b1b'],aviso:['#FFF4E5','#F9C77F','#8C4B02'],info:['#EAF2FB','#BFD5E6','#0B2239']}[tipo]||['#fff','#E2E5E9','#0B2239'];
+  return '<div style="background:'+C[0]+';border:1px solid '+C[1]+';color:'+C[2]+';border-radius:12px;padding:12px 14px;margin-top:12px"><div style="font-weight:700;font-size:15px">'+tit+'</div>'+(txt?'<div style="font-size:13.5px;margin-top:4px;line-height:1.45">'+txt+'</div>':'')+'</div>';
+}
+function etfBtn(txt,on,tipo,extra){
+  return '<button onclick="'+on+'" style="'+(tipo==='p'?'background:#0176D3;color:#fff;border:none;':tipo==='s'?'background:#fff;color:#0176D3;border:2px solid #3E7EB0;':'background:none;color:#3E7EB0;border:none;text-decoration:underline;')+'border-radius:12px;min-height:52px;padding:0 16px;font-size:15px;font-weight:700;'+(extra||'')+'">'+txt+'</button>';
+}
+function etfCorpo(){
+  const n=etf.etapa, t=(a,b)=>'<div style="font-size:11.5px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.06em">Etapa '+n+' de 5</div><div style="font-size:21px;font-weight:800;color:#0B2239;margin:2px 0 6px">'+a+'</div><div style="font-size:14.5px;color:#3A4552;line-height:1.5">'+b+'</div>';
+  let h='';
+  if(n===1){
+    h+=t('Imprimir a etiqueta','O código da etiqueta nasce aqui. Leve a imagem ao app Niimbot, imprima e cole a etiqueta por cima do cartão NFC.');
+    if(!etf.token) h+=etfBtn(etf.busy?'Gerando…':'Gerar a etiqueta','etfGerar()','p','width:100%;margin-top:16px');
+    else{
+      h+='<img id="etfEtqImg" alt="Etiqueta" style="display:block;width:100%;max-width:520px;aspect-ratio:80/50;margin-top:14px;border:1px solid #C9D0D8;border-radius:6px;background:#fff">'+cadEtqBotoes();
+      if(etf.ativa) h+=etfBox('info','Esta etiqueta já tem chip gravado','É a imagem da versão '+cadEsc(etf.versao)+', para reimprimir. Para trocar o chip, faça uma etiqueta nova.')+etfBtn('Fazer uma etiqueta nova','etfNova()','l','margin-top:4px');
+      else h+=etfBtn('Cancelar esta etiqueta e gerar outra','etfNova()','l','margin-top:6px');
+    }
+  } else if(n===2){
+    h+=t('Ler o QR impresso','Aponte a câmera para o QR da etiqueta que saiu da impressora. É esta leitura que diz ao app qual código gravar no chip — por isso ela é obrigatória.');
+    if(!etf.token) h+=etfBox('aviso','Falta a etapa 1','Gere e imprima a etiqueta primeiro.');
+    else if(etf.qrLido) h+=etfBox('ok','✓ QR confere','A etiqueta impressa é a deste equipamento (versão '+cadEsc(etf.versao)+').');
+    else h+=etfBtn(ETF_SVG_QR.replace(/"14"/g,'"24"')+' Abrir a câmera','etfLerQr()','p','width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:10px');
+    h+='<div style="font-size:13px;color:#686868;margin-top:14px">O QR não lê? Volte à etapa 1 e imprima de novo — digitar o número enfraqueceria a trava.</div>';
+  } else if(n===3){
+    h+=t('Gravar o chip','Encoste o cartão NFC (com a etiqueta já colada) atrás do tablet e segure parado. O app grava nele o endereço do QR que você acabou de ler.');
+    if(!estoqNfcSuportado()) h+=etfBox('aviso','Este aparelho não tem NFC','Faça a foto (etapa 4) e termine o chip num aparelho Android com NFC — o fluxo fica salvo.');
+    else if(!etf.qrLido) h+=etfBox('aviso','Falta ler o QR (etapa 2)','O chip só é gravado com o código lido do QR impresso.');
+    else if(etf.chipOk) h+=etfBox('ok','✓ Chip gravado','O chip e o QR carregam o mesmo código. Etiqueta versão '+cadEsc(etf.versao)+' ativa.');
+    else h+='<div style="background:#EAF2FB;border:1px solid #BFD5E6;border-radius:12px;padding:28px 14px;margin-top:14px;text-align:center"><div style="color:#3E7EB0;display:flex;justify-content:center">'+ETF_SVG_NFC.replace(/"14"/g,'"48"')+'</div><div style="font-size:17px;font-weight:800;color:#0B2239;margin-top:8px">'+(etf.busy?'Gravando… não afaste o cartão':'Encoste o chip agora')+'</div><div style="font-size:13px;color:#686868;margin-top:4px">O leitor já está ligado.</div></div>';
+  } else if(n===4){
+    h+=t('Foto da etiqueta colada','Cole a etiqueta no equipamento, no lugar definitivo, e tire a foto. Ela entra na galeria do equipamento.');
+    if(etf.fotoOk) h+=etfBox('ok','✓ Foto guardada','A foto da etiqueta colada está na galeria do equipamento.')+etfBtn('Tirar outra foto','etfFoto()','l','margin-top:4px');
+    else h+=etfBtn(etf.busy?'Enviando a foto…':'📷 Tirar a foto','etfFoto()','p','width:100%;margin-top:16px');
+  } else {
+    h+=t('Conferir QR e chip','Faça o que o cliente vai fazer: leia o QR com a câmera e encoste o chip. Os dois têm que apontar para esta etiqueta.');
+    const li=(ok,tit,det,acao)=>'<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #EEF1F4"><span style="flex:0 0 30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;background:'+(ok===true?'#1D9E75':ok===false?'#C4451B':'#C9D0D8')+'">'+(ok===true?'✓':ok===false?'✕':'')+'</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px;color:#0B2239">'+tit+'</div><div style="font-size:13px;color:#686868">'+det+'</div></div>'+(acao||'')+'</div>';
+    const qrOk=etf.conferida?true:(etf.confQr?(etf.confQr===etf.token):null), chOk=etf.conferida?true:(etf.confUid?true:null);
+    h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:2px 14px;margin-top:14px">'
+      +li(qrOk,'QR lido pela câmera',qrOk===false?'Este QR é de outra etiqueta.':qrOk?'Confere.':'Ainda não lido.',qrOk?'':etfBtn('Ler o QR','etfConfQr()','s','min-height:44px'))
+      +li(chOk,'Chip lido pelo NFC',chOk?'Confere.':!estoqNfcSuportado()?'Este aparelho não tem NFC — confira num aparelho com NFC.':'Encoste o chip.')
+      +li(etf.conferida?true:null,'Sistema confirma',etf.conferida?'Etiqueta conferida e registrada.':'Depois das duas leituras.')+'</div>';
+    if(etf.conferida) h+=etfBox('ok','✓ Etiqueta pronta','QR e chip apontam para este equipamento.');
+  }
+  if(etf.msg) h+=etfBox(etf.msg.tipo,etf.msg.tipo==='erro'?'Não deu certo':'Atenção',cadEsc(etf.msg.txt));
+  return h;
+}
+function etfRodape(){
+  const n=etf.etapa, voltar=n>1?etfBtn('← Voltar','etfIr('+(n-1)+')','s','flex:0 0 auto'):'';
+  let av='';
+  if(n===1) av=etf.token?etfBtn('Já imprimi — continuar →','etfIr(2)','p','flex:1'):'';
+  else if(n===2) av=etf.qrLido?etfBtn('Continuar →','etfIr('+(estoqNfcSuportado()?3:4)+')','p','flex:1'):'';
+  else if(n===3) av=etf.chipOk?etfBtn('Continuar →','etfIr(4)','p','flex:1'):(!estoqNfcSuportado()&&etf.qrLido?etfBtn('Pular para a foto →','etfIr(4)','s','flex:1'):'');
+  else if(n===4) av=etf.fotoOk?etfBtn('Continuar →','etfIr(5)','p','flex:1'):(etf.msg&&etf.msg.pularFoto?etfBtn('Pular a foto →','etfIr(5)','s','flex:1'):'');
+  else av=etf.conferida?etfBtn('Concluir ✓','etfFechar()','p','flex:1'):etfBtn('Sair e terminar depois','etfFechar()','s','flex:1');
+  return voltar+av;
+}
+/* ---------- etapa 1 ---------- */
+async function etfGerar(nova){
+  if(!etf||etf.busy) return; etf.busy=true; etf.msg=null; etfRender();
+  try{
+    const r=await bePost('/etiquetas',{ativoId:etf.ativoId,nova:!!nova});
+    Object.assign(etf,{token:r.token,versao:r.versao,url:PORTAL_BASE+'/a/'+r.token,ativa:false,etapaSrv:'Impressa',qrLido:false,urlLida:null,chipOk:false,fotoOk:false,confQr:null,confUid:null,conferida:false});
+  }catch(e){ etf.msg={tipo:'erro',txt:e.message}; }
+  etf.busy=false; etfRender();
+}
+async function etfNova(){
+  if(!confirm(etf.ativa?'Fazer uma etiqueta NOVA? A atual continua valendo até o chip novo ser gravado.':'Cancelar esta etiqueta impressa e gerar outra? Jogue fora o papel desta.')) return;
+  if(!etf.ativa&&etf.token){ try{ await bePost('/etiquetas/'+encodeURIComponent(etf.token)+'/cancelar',{}); }catch(e){} }
+  etf.token=null; etf.versao=null; etf.ativa=false; etf.etapa=1; await etfGerar(true);
+}
+async function etfEtqPreview(){
+  const img=document.getElementById('etfEtqImg'); if(!img||!etf) return;
+  cadEtqOverride={url:etf.url,versao:etf.versao}; cadEtqBlobCache=null;
+  try{ cadEtqBlobCache=await cadEtqGerar(); img.src=URL.createObjectURL(cadEtqBlobCache); }catch(e){ img.alt='Não consegui montar a etiqueta: '+e.message; }
+}
+/* ---------- câmera própria do fluxo (os visores do Estoque e do Consultar TAG vivem dentro das telas deles) ---------- */
+async function etfCamAbrir(onTexto){
+  if(etfCamStream) return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('⚠️ Câmera não suportada neste aparelho'); return; }
+  try{ etfCamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}}); }
+  catch(e){ toast('⚠️ Não consegui acessar a câmera: '+e.message); return; }
+  const ov=document.createElement('div'); ov.id='etfCam'; ov.style.cssText='position:fixed;inset:0;z-index:100030;background:#000';
+  ov.innerHTML='<video id="etfCamV" playsinline muted style="width:100%;height:100%;object-fit:cover"></video><canvas id="etfCamC" style="display:none"></canvas>'
+    +'<div style="position:absolute;left:0;right:0;top:18px;text-align:center;color:#fff;font-size:15px;font-weight:700">Aponte para o QR da etiqueta</div>'
+    +'<div style="position:absolute;left:50%;top:50%;width:62vmin;height:62vmin;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:16px"></div>'
+    +'<button onclick="etfCamFechar()" style="position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#0B2239;border:none;border-radius:24px;padding:12px 28px;font-weight:700;font-size:15px">Cancelar</button>';
+  document.body.appendChild(ov);
+  const v=document.getElementById('etfCamV'); v.srcObject=etfCamStream; await v.play().catch(()=>{});
+  const loop=()=>{
+    const c=document.getElementById('etfCamC'); if(!etfCamStream||!c) return;
+    if(v.readyState===v.HAVE_ENOUGH_DATA){
+      c.width=v.videoWidth; c.height=v.videoHeight; const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(v,0,0,c.width,c.height);
+      let img=null; try{ img=x.getImageData(0,0,c.width,c.height); }catch(e){}
+      const code=img?jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
+      if(code&&code.data){ etfCamFechar(); onTexto(code.data.trim()); return; }
+    }
+    etfCamRAF=requestAnimationFrame(loop);
+  };
+  loop();
+}
+function etfCamFechar(){
+  if(etfCamRAF) cancelAnimationFrame(etfCamRAF); etfCamRAF=null;
+  if(etfCamStream){ etfCamStream.getTracks().forEach(t=>t.stop()); etfCamStream=null; }
+  const ov=document.getElementById('etfCam'); if(ov) ov.remove();
+}
+/* ---------- etapa 2: a trava ---------- */
+function etfLerQr(){
+  etfCamAbrir(texto=>{
+    if(!etf) return;
+    const tk=etqTokenDe(texto);
+    if(!tk){ etf.msg={tipo:'erro',txt:'Este QR não é de uma etiqueta Exaustech.'}; etfRender(); return; }
+    if(tk!==etf.token){ etf.msg={tipo:'erro',txt:'Esta etiqueta é de outro equipamento ou de outra versão. Pegue a etiqueta impressa agora (versão '+etf.versao+') ou volte à etapa 1 e imprima de novo.'}; etfRender(); return; }
+    etf.qrLido=true; etf.urlLida=PORTAL_BASE+'/a/'+tk; etf.msg=null;
+    try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
+    etfRender();
+  });
+}
+/* ---------- NFC do fluxo: um leitor só, ligado do começo ao fim ---------- */
+async function etfNfcLigar(){
+  try{
+    const reader=new NDEFReader(), ctrl=new AbortController(); etfNfcCtrl=ctrl;
+    await reader.scan({signal:ctrl.signal});
+    reader.onreadingerror=()=>{ if(etf&&(etf.etapa===3||etf.etapa===5)){ etf.msg={tipo:'aviso',txt:'Leitura incompleta — encoste de novo e segure parado.'}; etfRender(); } };
+    reader.onreading=(e)=>{ if(!etf||etfNfcCtrl!==ctrl) return; if(Date.now()<etf.ecoAte) return;
+      if(etf.etapa===3&&etf.qrLido&&!etf.chipOk) etfGravarChip(reader,e);
+      else if(etf.etapa===5&&!etf.conferida) etfConfChip(e);
+      /* fora disso: leitura engolida (não abre o portal) */ };
+  }catch(err){ etfNfcCtrl=null; if(etf){ etf.msg={tipo:'aviso',txt:'Não consegui ligar o NFC: '+err.message+'. Toque em Sair e abra o fluxo de novo.'}; etfRender(); } }
+}
+function etfNfcDesligar(){ if(etfNfcCtrl){ try{ etfNfcCtrl.abort(); }catch(e){} etfNfcCtrl=null; } }
+/* ---------- etapa 3 ---------- */
+async function etfGravarChip(reader,e){
+  if(etf.busy) return;
+  const uid=etqUid(e);
+  if(!uid||uid.length<8){ etf.msg={tipo:'erro',txt:'Este chip não informa um número de série utilizável — use outro chip.'}; etfRender(); return; }
+  const st=etf; st.busy=true; st.msg=null; etfRender();
+  try{
+    const tk=etqTokenDe(st.urlLida);
+    await bePost('/etiquetas/'+encodeURIComponent(tk)+'/chip',{ativoId:st.ativoId,uid});
+    await reader.write({records:[{recordType:'url',data:st.urlLida}]});
+    st.ecoAte=Date.now()+2000; st.chipOk=true; st.ativa=true;
+    try{ if(navigator.vibrate) navigator.vibrate([60,40,60]); }catch(_){}
+  }catch(err){
+    st.msg={tipo:'erro',txt:(err.message||'Falha ao gravar')+(err.status===409?'':' Encoste de novo e segure parado.')};
+  }
+  st.busy=false; if(etf===st) etfRender();
+}
+/* ---------- etapa 4 ---------- */
+function etfFoto(){
+  if(!etf||etf.busy) return;
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
+  inp.onchange=async()=>{
+    const f=inp.files&&inp.files[0]; if(!f||!etf) return;
+    const st=etf; st.busy=true; st.msg=null; etfRender();
+    try{
+      const blob=await cadReduzirFoto(f);
+      const fd=new FormData(); fd.append('file',blob,'etiqueta.jpg'); fd.append('campoId','etiqueta');
+      const r=await fetch(BACKEND+'/midias-ativo',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+      let j=null; try{ j=await r.json(); }catch(_){}
+      if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+      await bePost('/etiquetas/'+encodeURIComponent(st.token)+'/foto',{ativoId:st.ativoId,driveId:j.driveId,url:j.url,nome:'etiqueta-colada.jpg',tiradaEm:new Date(f.lastModified||Date.now()).toISOString()});
+      st.fotoOk=true;
+    }catch(err){ st.msg={tipo:'erro',txt:'A foto não foi guardada: '+err.message,pularFoto:true}; }
+    st.busy=false; if(etf===st) etfRender();
+  };
+  inp.click();
+}
+/* ---------- etapa 5 ---------- */
+function etfConfQr(){
+  etfCamAbrir(texto=>{ if(!etf) return; etf.confQr=etqTokenDe(texto)||'-'; etf.msg=null; etfRender(); etfConfTentar(); });
+}
+function etfConfChip(e){
+  if(!((e.message&&e.message.records)||[]).length){ etf.msg={tipo:'aviso',txt:'Leitura incompleta — encoste de novo e segure parado.'}; etfRender(); return; }
+  const tk=etqTokenDe(etqUrlDoChip(e));
+  if(tk!==etf.token){ etf.confUid=null; etf.msg={tipo:'erro',txt:'Este chip aponta para outra etiqueta. A etiqueta impressa pode ter sido colada no chip errado — volte à etapa 3.'}; etfRender(); return; }
+  etf.confUid=etqUid(e); etf.msg=null; etfRender(); etfConfTentar();
+}
+async function etfConfTentar(){
+  if(!etf||etf.conferida||etf.busy||!etf.confUid||etf.confQr!==etf.token) return;
+  const st=etf; st.busy=true;
+  try{ await bePost('/etiquetas/'+encodeURIComponent(st.token)+'/conferencia',{uid:st.confUid,tokenQr:st.confQr}); st.conferida=true; try{ if(navigator.vibrate) navigator.vibrate([80,60,80]); }catch(_){} }
+  catch(err){ st.msg={tipo:'erro',txt:err.message}; }
+  st.busy=false; if(etf===st) etfRender();
 }
 /* "CADASTRAR OUTRO EQUIPAMENTO" (11/10/2026, decisão do Raphael): volta já na MESMA conta/local/sistema, na escolha do
    equipamento — o técnico costuma cadastrar vários equipamentos do mesmo sistema seguidos. Todo o resto é zerado pelo
@@ -14491,8 +14768,9 @@ function etqRender(st){
     if(a){
       h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:14px;padding:14px 16px;margin-top:12px;position:relative">'
         +'<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+(st.errado?'#BA0517':'#686868')+'">'+(st.errado?'✕ Etiqueta lida pertence a':'Equipamento')+'</div>'
-        +(a.tipo?'<span style="position:absolute;top:14px;right:16px;background:#0176D3;color:#fff;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">'+cadEsc(a.tipo)+'</span>':'')
-        +'<div style="font-size:34px;font-weight:800;color:#0B2239;line-height:1.05;margin:4px 0 2px">'+cadEsc(a.nome||'—')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 2px"><span style="font-size:34px;font-weight:800;color:#0B2239;line-height:1.05">'+cadEsc(a.nome||'—')+'</span>'
+        /* 12/10/2026 — tipo com mais destaque (Raphael), ao lado do número em vez de pílula pequena no canto */
+        +(a.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(a.tipo)+'</span>':'')+'</div>'
         +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-bottom:8px">'+cadEsc(a.descricao)+'</div>':'')
         +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#1B2733">'
         +(a.local?'<span><span style="color:#686868;margin-right:4px">Local</span>'+cadEsc(a.local)+'</span>':'')
@@ -14630,6 +14908,9 @@ async function etqConferir(url,uid,esperado){
         const a=r.ativo||null;
         const errado=!!(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15));
         chk.push(errado?['er','Equipamento errado','Esta etiqueta aponta para '+(a.nome||'')+' '+(a.descricao||'')]:['ok','Equipamento'+(esperado?' certo':''),a?[a.nome,a.descricao].filter(Boolean).join(' · '):'']);
+        /* 12/10/2026 — fluxo em 5 etapas: etiqueta impressa e ainda sem chip gravado */
+        if(r.emPreparacao){ chk[1]=['at','Etiqueta em preparação','Impressa; o chip ainda não foi gravado.']; if(chk[2]) chk[2]=['ne','Chip confere','Ainda sem chip'];
+          etqRender({fase:'resultado',chk,ver:{tom:'at',t1:'Atenção',t2:'Etiqueta ainda não terminada',t3:'Impressa, mas o chip não foi gravado. Termine o fluxo da etiqueta no cadastro do equipamento.'},ativo:a,errado,token,okEtiqueta:false,esperado,url,uid}); return; }
         const ver=errado?{tom:'er',t1:'Equipamento errado',t2:'Esta etiqueta é de outro equipamento',t3:'Não cole aqui. Use a etiqueta deste equipamento.'}
           :!r.uidConferido?{tom:'at',t1:'Atenção',t2:'Chip não conferido',t3:'Lida sem o número do chip: não dá para saber se é cópia. Para confirmar, encoste o cartão no tablet (NFC).'}
           :{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — chip confere'};
@@ -14978,10 +15259,18 @@ async function verAtivo(ativoId){
        plaqueta, motor); seções em cartões; rótulo e valor quebram linha em vez de cortar; múltipla escolha vira lista. */
     const pil=(t,cor,esc)=>'<span style="display:inline-block;background:'+cor+';color:'+(esc?'#2B1A00':'#fff')+';border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">'+cadEsc(t)+'</span>';
     document.getElementById('ativoDetTitulo').innerHTML='<div style="font-size:11.5px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.07em">Equipamento</div>'
-      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px"><span style="font-size:30px;font-weight:800;color:#0B2239;letter-spacing:.03em;font-variant-numeric:tabular-nums">'+cadEsc(d.nome||'Ativo')+'</span>'+(d.tipo?pil(d.tipo,'#0176D3'):'')+'</div>';
+      +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:2px"><span style="font-size:30px;font-weight:800;color:#0B2239;letter-spacing:.03em;font-variant-numeric:tabular-nums">'+cadEsc(d.nome||'Ativo')+'</span>'
+      /* 12/10/2026 — Raphael: "o tipo do equipamento deve ter mais destaque; pode continuar pílula, mas maior" */
+      +(d.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(d.tipo)+'</span>':'')+'</div>';
     document.getElementById('ativoDetSub').innerHTML='<div style="font-size:14px;color:#1B2733;margin-top:4px;line-height:1.4">'
       +(d.local?'<span style="color:#686868">Local</span> <b style="font-weight:600">'+cadEsc(d.local)+'</b>':'')
       +(d.local&&d.conta?' &nbsp;·&nbsp; ':'')+(d.conta?'<span style="color:#686868">Conta</span> <b style="font-weight:600">'+cadEsc(d.conta)+'</b>':'')+'</div>';
+    /* 12/10/2026 — sistema ao qual o equipamento pertence (ativo-pai; Raphael pediu na ficha) */
+    { const nm=x=>x?[x.descricao||x.nome,x.descricao&&x.nome?'nº '+x.nome:null].filter(Boolean).join(' · '):'';
+      if(d.sistema||d.dentroDe) document.getElementById('ativoDetSub').innerHTML+='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">'
+        +(d.sistema?'<div style="background:#EAF2FB;border:1px solid #BFD5E6;border-radius:10px;padding:7px 12px;font-size:14px;color:#0B2239"><span style="font-size:11px;font-weight:700;color:#3E7EB0;text-transform:uppercase;letter-spacing:.06em;display:block">Sistema</span><b>'+cadEsc(nm(d.sistema))+'</b></div>':'')
+        +(d.dentroDe?'<div style="background:#F4F6F8;border:1px solid #E2E5E9;border-radius:10px;padding:7px 12px;font-size:14px;color:#0B2239"><span style="font-size:11px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.06em;display:block">Dentro de</span><b>'+cadEsc([d.dentroDe.tipo,nm(d.dentroDe)].filter(Boolean).join(' · '))+'</b></div>':'')+'</div>';
+      else document.getElementById('ativoDetSub').innerHTML+='<div style="margin-top:6px;font-size:13px;color:#8C4B02">Sem sistema associado</div>'; }
     let h='';
     /* resumo */
     const etAtiva=(d.etiquetas||[]).find(e=>e.ativa), g=d.dadosGerais||{};
