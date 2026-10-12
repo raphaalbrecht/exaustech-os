@@ -15193,6 +15193,7 @@ async function etqAcaoHistorico(ativoId){
         +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+dt(x.criadoEm)+(x.nome?' · '+cadEsc(x.nome):'')+'</b>'
         +pil(x.status,fim?'#0B827C':fora?'#747474':'#0176D3')+'</div>'
         +'<div style="margin-top:3px">'+pil(x.severidade||'—',CS[x.severidade]||'#747474',x.severidade==='Atenção')+' <span style="color:#1B2733">'+cadEsc(x.descricao||'(sem descrição)')+'</span></div>'
+        +(x.videoDriveId?'<button onclick="verVideoPendencia(\''+cadEsc(x.videoDriveId)+'\')" style="margin-top:4px;min-height:36px;padding:0 12px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px">▶ ver o vídeo</button>':'')
         +'<div style="color:#686868;font-size:12px;margin-top:2px">'+cadEsc([x.ot?'na '+x.ot:'fora de OT',x.registradaPor?'por '+x.registradaPor:null,x.cobertura,x.corretiva?'corretiva '+x.corretiva:null,x.medida?'feito: '+x.medida:null,x.motivoDescarte?'descarte: '+x.motivoDescarte:null].filter(Boolean).join(' · '))+'</div></div>';
     });
     if(an.length>12) c3+='<div style="font-size:12px;color:#686868;padding-top:6px">+ '+(an.length-12)+' anotações mais antigas</div>';
@@ -15214,6 +15215,87 @@ async function etqPendBadge(ativoId,seq){
     sp.style.cssText='position:absolute;top:-8px;right:-8px;min-width:26px;height:26px;padding:0 7px;box-sizing:border-box;border-radius:13px;background:#BA0517;color:#fff;font-size:14px;font-weight:800;line-height:26px;text-align:center;box-shadow:0 0 0 2px #fff';
     b.appendChild(sp); b.style.borderColor='#BA0517'; b.title=n+' pendência'+(n>1?'s':'')+' em aberto';
   }catch(e){ /* sem o número, o botão continua funcionando */ }
+}
+/* ===== Vídeo na pendência (12/10/2026) =====
+   Raphael: "ao registrar uma pendência podemos enviar um vídeo também; ajustar a resolução para não ficar muito pesado e/ou
+   limitar a duração; tudo no Drive". Gravado DENTRO do app (não pela câmera do Android, que grava em 4K e sem limite):
+   720p (ideal), ~1,2 Mbps, no máximo 30 s ≈ 5 MB. Sobe ao Drive por POST /pendencias/video; a pendência guarda o
+   Video_Drive_Id__c. Assistir: verVideoPendencia (proxy autenticado /arquivos). */
+const VID_MAX_S=30, VID_BPS=1200000;
+let vidRec=null;
+async function etqProbVideo(){
+  etqProbGuardarTxt();
+  const p=etqProb; if(!p) return;
+  if(!window.MediaRecorder||!navigator.mediaDevices){ toast('⚠️ Este aparelho não grava vídeo pelo app'); return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24,max:30}},audio:true}); }
+  catch(e){ try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}}); }catch(e2){ toast('⚠️ Não consegui abrir a câmera: '+e2.message); return; } }
+  const ov=document.createElement('div'); ov.id='vidRecOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:100030;background:#000;display:flex;flex-direction:column';
+  ov.innerHTML='<video id="vidRecV" playsinline muted style="flex:1;width:100%;object-fit:cover"></video>'
+    +'<div style="position:absolute;top:14px;left:0;right:0;text-align:center;color:#fff;font-size:16px;font-weight:800"><span id="vidRecT">Vídeo de até '+VID_MAX_S+' s</span></div>'
+    +'<div style="position:absolute;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;gap:16px;justify-content:center">'
+    +'<button id="vidRecCancel" style="min-height:56px;padding:0 22px;border:none;border-radius:28px;background:#fff;color:#0B2239;font-weight:800;font-size:16px">Cancelar</button>'
+    +'<button id="vidRecBtn" style="min-height:56px;padding:0 26px;border:none;border-radius:28px;background:#BA0517;color:#fff;font-weight:800;font-size:16px">● Gravar</button></div>';
+  document.body.appendChild(ov);
+  const v=document.getElementById('vidRecV'); v.srcObject=stream; await v.play().catch(()=>{});
+  const tipos=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp8,opus','video/webm'];
+  const mime=tipos.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'';
+  const fim=()=>{ try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){} const o=document.getElementById('vidRecOv'); if(o) o.remove(); if(vidRec&&vidRec.timer) clearInterval(vidRec.timer); vidRec=null; };
+  document.getElementById('vidRecCancel').onclick=()=>{ if(vidRec&&vidRec.mr&&vidRec.mr.state==='recording'){ vidRec.cancelado=true; vidRec.mr.stop(); } fim(); };
+  document.getElementById('vidRecBtn').onclick=()=>{
+    if(vidRec&&vidRec.mr&&vidRec.mr.state==='recording'){ vidRec.mr.stop(); return; }
+    let mr; try{ mr=new MediaRecorder(stream,Object.assign({videoBitsPerSecond:VID_BPS,audioBitsPerSecond:64000},mime?{mimeType:mime}:{})); }
+    catch(e){ toast('⚠️ Não consegui gravar: '+e.message); fim(); return; }
+    const partes=[]; const t0=Date.now();
+    vidRec={mr,cancelado:false,timer:null};
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) partes.push(e.data); };
+    mr.onstop=async()=>{
+      const cancel=vidRec&&vidRec.cancelado; fim();
+      if(cancel||!partes.length) return;
+      const blob=new Blob(partes,{type:(mr.mimeType||mime||'video/webm').split(';')[0]});
+      etqProbVideoEnviar(blob);
+    };
+    mr.start(1000);
+    const b=document.getElementById('vidRecBtn'); b.textContent='■ Parar'; b.style.background='#fff'; b.style.color='#BA0517';
+    vidRec.timer=setInterval(()=>{
+      const s=Math.floor((Date.now()-t0)/1000), el=document.getElementById('vidRecT');
+      if(el) el.textContent='● Gravando '+s+' s de '+VID_MAX_S+' s';
+      if(s>=VID_MAX_S&&mr.state==='recording') mr.stop();
+    },250);
+  };
+}
+async function etqProbVideoEnviar(blob){
+  const p=etqProb; if(!p) return;
+  if(blob.size>11.5*1024*1024){ etqProbRender('O vídeo ficou grande demais ('+(blob.size/1048576).toFixed(1)+' MB). Grave um mais curto.'); return; }
+  if(p.videoPrev){ try{ URL.revokeObjectURL(p.videoPrev); }catch(_){} }
+  p.videoPrev=URL.createObjectURL(blob); p.video='enviando'; etqProbRender();
+  try{
+    const fd=new FormData(); fd.append('file',blob,'pendencia.'+(/mp4/.test(blob.type)?'mp4':'webm'));
+    const r=await fetch(BACKEND+'/pendencias/video',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
+    p.video=j.driveId; p.videoUrl=j.url; p.videoMb=(blob.size/1048576).toFixed(1);
+    if(etqProb===p) etqProbRender();
+  }catch(e){ p.video=null; if(p.videoPrev){ try{ URL.revokeObjectURL(p.videoPrev); }catch(_){} p.videoPrev=null; } if(etqProb===p) etqProbRender('O vídeo não foi enviado: '+e.message); }
+}
+function etqProbRemoverVideo(){
+  const p=etqProb; if(!p) return; etqProbGuardarTxt();
+  if(p.videoPrev){ try{ URL.revokeObjectURL(p.videoPrev); }catch(_){} }
+  p.video=null; p.videoUrl=null; p.videoPrev=null; p.videoMb=null; etqProbRender();
+}
+async function verVideoPendencia(driveId){
+  const v=document.getElementById('vidVerOv'); if(v) v.remove();
+  const ov=document.createElement('div'); ov.id='vidVerOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:100030;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<button onclick="document.getElementById(\'vidVerOv\').remove()" style="position:absolute;top:8px;right:12px;background:#fff;border:none;border-radius:22px;min-width:44px;min-height:44px;font-size:22px;font-weight:700">×</button><div id="vidVerC" style="color:#fff;font-size:14px">Carregando o vídeo…</div>';
+  document.body.appendChild(ov);
+  try{
+    const r=await fetch(BACKEND+'/arquivos/'+encodeURIComponent(driveId),{headers:{Authorization:'Bearer '+beTok()}});
+    if(!r.ok) throw new Error('Erro '+r.status);
+    const u=URL.createObjectURL(await r.blob());
+    const c=document.getElementById('vidVerC'); if(c) c.outerHTML='<video src="'+u+'" controls autoplay playsinline style="max-width:96vw;max-height:86vh;border-radius:6px"></video>';
+  }catch(e){ const c=document.getElementById('vidVerC'); if(c) c.textContent='Não consegui abrir o vídeo: '+e.message; }
 }
 /* ===== Registrar problema → pendência no equipamento (12/10/2026, fatia 2) =====
    Descrição + gravidade (+ tipo de dano e foto, opcionais). Grava Anotacao_Tecnica__c ligada ao equipamento, situação Aberta,
@@ -15254,6 +15336,17 @@ function etqProbRender(msg){
     +(p.fotoPrev&&p.foto!=='enviando'?'<button onclick="etqProbRemoverFoto()" style="min-height:40px;padding:0 14px;background:#fff;border:1px solid #F3C1C1;border-radius:10px;color:#BA0517;font-weight:700;font-size:13.5px">✕ Remover foto</button>':'')
     +(!p.fotoPrev?'<span style="font-size:12.5px;color:#686868">Recomendado</span>':'')
     +'</div></div>'
+    /* 12/10/2026: vídeo curto (até 30 s, 720p), gravado no app */
+    +'<div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">'
+    +(p.videoPrev?'<div style="position:relative;width:128px;height:96px;flex:0 0 128px;border-radius:10px;overflow:hidden;border:1px solid #C9D0D8;background:#000">'
+        +'<video src="'+p.videoPrev+'" muted playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>'
+        +(p.video==='enviando'?'<div style="position:absolute;inset:0;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0B2239">Enviando…</div>':'<span style="position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:4px;padding:1px 5px">▶ '+(p.videoMb?p.videoMb+' MB':'')+'</span>')
+        +'</div>':'')
+    +'<div style="display:flex;flex-direction:column;gap:6px">'
+    +'<button onclick="etqProbVideo()" style="min-height:44px;padding:0 14px;background:#fff;border:2px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:700;font-size:14px">'+(p.videoPrev?'🎥 Gravar de novo':'🎥 Gravar vídeo (até 30 s)')+'</button>'
+    +(p.videoPrev&&p.video!=='enviando'?'<button onclick="etqProbRemoverVideo()" style="min-height:40px;padding:0 14px;background:#fff;border:1px solid #F3C1C1;border-radius:10px;color:#BA0517;font-weight:700;font-size:13.5px">✕ Remover vídeo</button>':'')
+    +(!p.videoPrev?'<span style="font-size:12.5px;color:#686868">Opcional</span>':'')
+    +'</div></div>'
     +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\');etqRodape(true)" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
     +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
@@ -15290,10 +15383,11 @@ async function etqProbEnviar(){
   if(!p.txt||p.txt.trim().length<3) return etqProbRender('Descreva o que você viu.');
   if(!p.sev) return etqProbRender('Escolha a gravidade.');
   if(p.foto==='enviando') return etqProbRender('Espere a foto terminar de enviar.');
+  if(p.video==='enviando') return etqProbRender('Espere o vídeo terminar de enviar.');
   if(navigator.onLine===false) return etqProbRender('Sem internet: registrar pendência precisa de conexão.');
   p.enviando=true; etqProbRender();
   try{
-    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined});
+    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined});
     etqProb=null; etqRodape(true); if(document.getElementById('etqBtnPend')) etqPendBadge(p.ativoId,etqSeq);
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
     etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
@@ -20363,6 +20457,7 @@ function plnRenderPendencias(body){
         +op('emergencia','Emergência','Abre a OT agora e vai para a escala; quem paga se decide antes de faturar.','#BA0517')
         +'<button class="pnd-bt" data-pndtricancel>cancelar</button></div>';
     }
+    if(a.videoDriveId) h+='<div class="pnd-meta"><button class="pnd-bt" onclick="verVideoPendencia(\''+motEsc(a.videoDriveId)+'\')">▶ ver o vídeo</button></div>';
     if(a.medidaCorretiva) h+='<div class="pnd-meta"><span>'+(a.status==='Resolvida pelo cliente'?'O que o cliente fez':'O que foi feito')+': <b>'+motEsc(a.medidaCorretiva)+'</b></span></div>';
     if(a.motivoDescarte) h+='<div class="pnd-meta"><span>Motivo do descarte: <b>'+motEsc(a.motivoDescarte)+'</b></span></div>';
     if(a.baixaPor) h+='<div class="pnd-meta"><span>Baixa: <b>'+motEsc(a.status)+'</b> por '+motEsc(a.baixaPor)+(a.baixaEm?' em '+motEsc(new Date(a.baixaEm).toLocaleDateString('pt-BR')):'')+'</span>'+(a.fotoBaixaDriveId?' <span class="pnd-foto" data-pndfoto="'+motEsc(a.fotoBaixaDriveId)+'" title="foto da baixa" style="display:inline-block;width:42px;height:42px;vertical-align:middle"></span>':'')+'</div>';
