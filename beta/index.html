@@ -16596,6 +16596,11 @@ function capturarVideo(ii){
 /* ===== BACKEND (identidade única): login + dados + escrita via Cloud Run ===== */
 const BACKEND = 'https://exaustech-os-backend-1039787065614.southamerica-east1.run.app';
 function beTok(){ return localStorage.getItem('be_tok')||sessionStorage.getItem('be_tok'); }
+/* 12/10/2026 — marca ESTE aparelho como de técnico para o portal (cookie no domínio .exaustech.com.br, lido por
+   portal.exaustech.com.br/a/<código>): se o Android abrir o portal com o cartão, ele volta na hora para o app em vez de
+   pedir o login do cliente. Liga com sessão de técnico; desliga no "Sair". */
+function exaTecCookie(on){ try{ document.cookie='exa_tec='+(on?'1':'0')+'; Domain=.exaustech.com.br; Path=/; Max-Age='+(on?60*60*24*60:0)+'; Secure; SameSite=Lax'; }catch(e){} }
+try{ if(location.hostname.endsWith('exaustech.com.br')&&beTok()) exaTecCookie(true); }catch(e){}
 async function beGet(path){
   const r=await fetch(BACKEND+path,{headers:{Authorization:'Bearer '+beTok()}});
   if(r.status===401){ beLogout(); throw new Error('Sessão expirada'); }
@@ -16746,7 +16751,7 @@ async function beDoLogin(payload){
     let j={}; try{ j=await r.json(); }catch(_){}
     if(!r.ok){ const msg=j.error||'Falha no login'; if(m)m.textContent=msg; toast(msg); return; }
     const nm=_noDemo(j.name||'');
-    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); localStorage.setItem('be_rid', j.resourceId||'');
+    localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); exaTecCookie(true); localStorage.setItem('be_rid', j.resourceId||'');
     localStorage.setItem('be_funcao', j.funcao||''); localStorage.setItem('be_cargo', j.funcaoReal||'');
     CARGO_REAL=j.funcaoReal||'';
     /* 20/09/2026: sem papel traduzido a pessoa entra no piso da escada, nunca em Líder de Equipe.
@@ -16762,7 +16767,7 @@ function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).valu
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name','be_rid','be_funcao','be_cargo'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name','be_rid','be_funcao','be_cargo'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); exaTecCookie(false); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
