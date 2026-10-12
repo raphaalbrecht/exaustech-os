@@ -14876,7 +14876,7 @@ function etqRender(st){
     /* 12/10/2026: rodapé de diagnóstico com o resumo do leitor único (scan vivo?, leitores, último evento) — ver nfcHubResumo */
     h+='<div id="etqNfcEstado" style="text-align:center;font-size:11.5px;color:#AEB8C2;margin-top:8px;word-break:break-word">'+cadEsc(typeof nfcHubResumo==='function'?nfcHubResumo():'Leitor NFC: '+tagNfcEstado)+'</div>';
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
-    if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o número da leitura muda.</div>';
+    if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o resultado é trocado na hora.</div>';
     else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:12px;font-weight:700;font-size:14px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
   } else if(st.fase==='erro'){
     h+='<div style="font-size:13px;color:#C4451B;padding:10px 0">'+cadEsc(st.msg)+'</div>'
@@ -15050,8 +15050,11 @@ async function etqAcaoFotos(ativoId){
     if(!l.length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma foto registrada ainda.</div>';
     else{
       h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px">';
-      l.forEach((f,i)=>{ h+='<button onclick="etqFotoVer(\''+cadEsc(f.driveId)+'\',\''+cadEsc(dt(f.tiradaEm))+'\')" style="position:relative;aspect-ratio:1;border:1px solid #C9D0D8;border-radius:10px;overflow:hidden;background:#F4F6F8;padding:0">'
+      etqFotosAtual={ativoId,l};
+      l.forEach((f,i)=>{ h+='<button onclick="etqFotoAbrir('+i+')" style="position:relative;aspect-ratio:1;border:1px solid '+(f.exclusao==='Solicitada'?'#BA0517':'#C9D0D8')+';border-radius:10px;overflow:hidden;background:#F4F6F8;padding:0">'
         +'<img data-etqfoto="'+cadEsc(f.driveId)+'" alt="Foto '+(i+1)+'" style="width:100%;height:100%;object-fit:cover;display:block;opacity:0">'
+        /* 12/10/2026: marca d'água de exclusão pedida (some da galeria só quando o Sócio aprovar) */
+        +(f.exclusao==='Solicitada'?'<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(186,5,23,.35)"><span style="transform:rotate(-24deg);background:rgba(186,5,23,.9);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.04em;padding:3px 6px;border-radius:4px;text-align:center;line-height:1.15">EXCLUSÃO<br>SOLICITADA</span></span>':'')
         +(f.tiradaEm?'<span style="position:absolute;left:0;right:0;bottom:0;background:rgba(11,34,57,.65);color:#fff;font-size:11px;padding:2px 4px">'+cadEsc(dt(f.tiradaEm))+'</span>':'')+'</button>'; });
       h+='</div>';
     }
@@ -15063,7 +15066,40 @@ async function etqAcaoFotos(ativoId){
     }
   }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar as fotos: '+cadEsc(e.message)+'</div>'); }
 }
-async function etqFotoVer(driveId,data){
+/* ===== Exclusão de foto com aprovação (12/10/2026) — DECISAO_exclusao-de-foto-com-aprovacao_12-10-2026.md =====
+   Qualquer um pede (com motivo); a foto ganha marca d'água "EXCLUSÃO SOLICITADA"; só o Sócio aprova ou recusa. Aprovada:
+   some da galeria, continua guardada no Salesforce e no Drive (permite desfazer). */
+let etqFotosAtual=null;
+function etqFotoAbrir(i){
+  const f=etqFotosAtual&&etqFotosAtual.l[i]; if(!f) return;
+  let d=''; try{ d=f.tiradaEm?new Date(f.tiradaEm).toLocaleDateString('pt-BR'):''; }catch(e){}
+  etqFotoVer(f.driveId,d,f);
+}
+function etqFotoBarra(f){
+  const ov=document.getElementById('etqFotoGrande'); if(!ov) return;
+  const v=document.getElementById('etqFotoBarra'); if(v) v.remove();
+  const bar=document.createElement('div'); bar.id='etqFotoBarra';
+  bar.style.cssText='position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));background:rgba(11,34,57,.92);color:#fff;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center';
+  const btn=(t,on,cor)=>'<button onclick="'+on+'" style="min-height:48px;padding:0 18px;border:none;border-radius:12px;font-weight:800;font-size:15px;background:'+cor+';color:#fff">'+t+'</button>';
+  if(f.exclusao==='Solicitada'){
+    bar.innerHTML='<div style="flex:1 1 100%;text-align:center;font-size:13.5px"><b>Exclusão solicitada</b>'+(f.exclusaoPor?' por '+cadEsc(f.exclusaoPor):'')+(f.exclusaoMotivo?' — '+cadEsc(f.exclusaoMotivo):'')+'</div>'
+      +(ROLE==='Sócio'?btn('✓ Aprovar exclusão','etqFotoDecidir(\''+f.id+'\',true)','#BA0517')+btn('Manter a foto','etqFotoDecidir(\''+f.id+'\',false)','#2E844A')
+        :'<div style="font-size:12.5px;opacity:.85">Aguardando a aprovação do Sócio.</div>');
+  } else bar.innerHTML=btn('🗑 Solicitar exclusão','etqFotoPedirExclusao(\''+f.id+'\')','#747474');
+  ov.appendChild(bar);
+}
+async function etqFotoPedirExclusao(id){
+  const m=prompt('Por que esta foto deve sair da galeria?');
+  if(m==null) return; if(m.trim().length<3){ toast('Escreva o motivo.'); return; }
+  try{ await bePost('/fotos-ativo/'+id+'/exclusao',{motivo:m.trim()}); toast('Exclusão solicitada — aguarda a aprovação do Sócio'); etqFotoFechar(); if(etqFotosAtual) etqAcaoFotos(etqFotosAtual.ativoId); }
+  catch(e){ toast(e.message||'Falha ao pedir a exclusão'); }
+}
+async function etqFotoDecidir(id,aprovar){
+  if(aprovar&&!confirm('Aprovar a exclusão? A foto sai da galeria (continua guardada no Salesforce e no Drive).')) return;
+  try{ await bePost('/fotos-ativo/'+id+'/exclusao/decisao',{aprovar}); toast(aprovar?'Foto retirada da galeria':'Pedido recusado — a foto continua'); etqFotoFechar(); if(etqFotosAtual) etqAcaoFotos(etqFotosAtual.ativoId); }
+  catch(e){ toast(e.message||'Falha na decisão'); }
+}
+async function etqFotoVer(driveId,data,foto){
   const v=document.getElementById('etqFotoGrande'); if(v) v.remove();
   const ov=document.createElement('div'); ov.id='etqFotoGrande';
   ov.style.cssText='position:fixed;inset:0;z-index:100030;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center';
@@ -15072,7 +15108,8 @@ async function etqFotoVer(driveId,data){
     +'<div id="etqFotoGrandeC" style="color:#fff;font-size:14px">Carregando…</div>';
   ov.addEventListener('click',e=>{ if(e.target===ov) etqFotoFechar(); });
   document.body.appendChild(ov); navAbriu('foto',etqFotoFechar);
-  try{ const u=await etqFotoBlobUrl(driveId); const c=document.getElementById('etqFotoGrandeC'); if(c) c.outerHTML='<img src="'+u+'" style="max-width:96vw;max-height:86vh;object-fit:contain;border-radius:6px">'; }
+  if(foto) etqFotoBarra(foto);
+  try{ const u=await etqFotoBlobUrl(driveId); const c=document.getElementById('etqFotoGrandeC'); if(c) c.outerHTML='<img src="'+u+'" style="max-width:96vw;max-height:76vh;object-fit:contain;border-radius:6px">'; }
   catch(e){ const c=document.getElementById('etqFotoGrandeC'); if(c) c.textContent='Não consegui abrir a foto: '+e.message; }
 }
 /* pendências (achados) deste equipamento, só leitura; tratar continua na aba Plano → Pendências */
@@ -15115,7 +15152,13 @@ async function etqAcaoHistorico(ativoId){
     if(seq!==etqSeq) return;
     const dt=s=>{ if(!s) return 'sem data'; try{ return new Date(s).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return s; } };
     const pil=(txt,cor,esc)=>'<span style="display:inline-block;background:'+cor+';color:'+(esc?'#2B1A00':'#fff')+';border-radius:999px;padding:1px 9px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">'+cadEsc(txt)+'</span>';
-    const caixa=(tit,corpo)=>'<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 14px;margin-top:10px"><div style="font-weight:700;color:#0B2239;font-size:14px;margin-bottom:4px">'+tit+'</div>'+corpo+'</div>';
+    /* 12/10/2026 — Raphael: "os grupos Preventivas, Anotações e Chamados devem ter mais destaque": cabeçalho em faixa colorida
+       por grupo (ícone + título grande + contagem em pílula), borda do cartão na mesma cor. */
+    const caixa=(tit,corpo,cor,ic,n)=>'<div style="background:#fff;border:2px solid '+(cor||'#E2E5E9')+';border-radius:14px;margin-top:14px;overflow:hidden">'
+      +'<div style="background:'+(cor||'#0B2239')+';color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px">'
+      +'<span style="font-size:20px;line-height:1">'+(ic||'')+'</span><span style="flex:1;font-size:17px;font-weight:800;letter-spacing:.02em">'+tit+'</span>'
+      +(n!=null?'<span style="background:rgba(255,255,255,.25);border-radius:999px;padding:2px 12px;font-size:15px;font-weight:800">'+n+'</span>':'')+'</div>'
+      +'<div style="padding:4px 14px 10px">'+corpo+'</div></div>';
     const pv=d.preventivas||[];
     let c1='';
     if(!pv.length) c1='<div style="font-size:13px;color:#686868;padding:4px 0">Nenhuma preventiva concluída registrada no sistema novo para este equipamento.</div>';
@@ -15153,7 +15196,7 @@ async function etqAcaoHistorico(ativoId){
         +'<div style="color:#686868;font-size:12px;margin-top:2px">'+cadEsc([x.ot?'na '+x.ot:'fora de OT',x.registradaPor?'por '+x.registradaPor:null,x.cobertura,x.corretiva?'corretiva '+x.corretiva:null,x.medida?'feito: '+x.medida:null,x.motivoDescarte?'descarte: '+x.motivoDescarte:null].filter(Boolean).join(' · '))+'</div></div>';
     });
     if(an.length>12) c3+='<div style="font-size:12px;color:#686868;padding-top:6px">+ '+(an.length-12)+' anotações mais antigas</div>';
-    etqAcaoBox(caixa('Preventivas (MPP) realizadas'+(pv.length?' — '+pv.length:''),c1)+caixa('Anotações técnicas'+(an.length?' — '+an.length:''),c3)+caixa('Chamados'+(ch.length?' — '+ch.length:''),c2));
+    etqAcaoBox(caixa('Preventivas (MPP) realizadas',c1,'#2E844A','🛠️',pv.length)+caixa('Anotações técnicas',c3,'#C2410C','⚠️',an.length)+caixa('Chamados',c2,'#0176D3','📞',ch.length));
   }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar o histórico: '+cadEsc(e.message)+'</div>'); }
 }
 /* 12/10/2026 — Raphael: "sinalização visual mais clara com bolinha vermelha e número de pendências na caixa Pendências, caso
