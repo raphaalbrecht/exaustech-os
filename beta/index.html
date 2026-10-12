@@ -14757,7 +14757,9 @@ let etqTravado=false;
 let etqSeq=0, etqUltUid='', etqUltEm=0;
 function etqLeituraBloqueada(uid){
   const agora=Date.now();
-  if(uid&&uid===etqUltUid&&agora-etqUltEm<1500) return true;
+  /* 12/10/2026 — "ao encostar o chip são feitas duas leituras, uma em sequência da outra": o Android repete o evento do
+     mesmo cartão parado. Janela do mesmo chip subiu de 1,5 s para 4 s (outro cartão continua sendo lido na hora). */
+  if(uid&&uid===etqUltUid&&agora-etqUltEm<4000) return true;
   etqUltUid=uid||''; etqUltEm=agora;
   try{ if(navigator.vibrate) navigator.vibrate(80); }catch(e){}
   return false;
