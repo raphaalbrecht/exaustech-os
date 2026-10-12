@@ -14968,8 +14968,8 @@ function etqRender(st){
     const chipTxt=st.uid?st.uid.match(/.{1,2}/g).join(':'):''; /* número INTEIRO: cartões do mesmo lote terminam iguais (…0289) */
     h+='<div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:9px 12px;margin-top:12px">'
       /* 12/10/2026 — Raphael: "remover o quadrado do número da leitura de todas as páginas" (o nº da leitura saiu; ficam hora e chip) */
-      +'<div style="flex:1;min-width:0;line-height:1.3"><div style="font-weight:700;font-size:15px;color:#0B2239">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+(st.uid?'NFC':'QR code / link')+'</div>'
-      +'<div style="color:#686868;font-size:12.5px;word-break:break-all">'+(st.uid?'chip '+cadEsc(chipTxt):'sem número de chip — o QR não lê o chip')+'</div></div>'
+      +'<div style="flex:1;min-width:0;line-height:1.3"><div style="font-weight:700;font-size:15px;color:#0B2239">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+(st.uid?'NFC':(st.porCodigo?'Código digitado':'QR code / link'))+'</div>'
+      +'<div style="color:#686868;font-size:12.5px;word-break:break-all">'+(st.uid?'chip '+cadEsc(chipTxt):(st.porCodigo?'consulta sem etiqueta — nada foi conferido':'sem número de chip — o QR não lê o chip'))+'</div></div>'
       +'<span class="etq-pulso" style="flex:0 0 12px;height:12px;border-radius:50%;background:#0176D3"></span></div>';
     const chk=st.chk||[], ruim=chk.filter(x=>x[0]!=='ok').length;
     const bol=t=>'<span style="flex:0 0 22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
@@ -15602,6 +15602,37 @@ document.addEventListener('DOMContentLoaded',()=>{ let n=0; const iv=setInterval
    na tela com o símbolo de cada um". Reaproveita a conferência do teste da etiqueta (etqConferir/etqTestar): mostra
    a quem a etiqueta pertence, se está ativa e, pelo NFC, se o chip confere. A câmera tem overlay PRÓPRIO desta tela:
    o do Estoque fica dentro da tela do Estoque e some quando ela não está aberta. */
+/* 12/10/2026 — consulta pelo código (4ª opção). Reaproveita a tela de resultado da leitura (equipamento, local, sistema,
+   ações, avisos), mas sem conferência de etiqueta: a faixa diz "Consulta pelo código" em cinza, nunca "Pode usar" —
+   ninguém leu etiqueta nenhuma. Rota: GET /ativos-codigo/:numero. */
+async function tagBuscarCodigo(){
+  const inp=document.getElementById('tagCodNum'), btn=document.getElementById('tagCodBtn');
+  const num=((inp&&inp.value)||'').replace(/\D/g,'');
+  if(!num){ toast('Digite o número do equipamento'); if(inp) inp.focus(); return; }
+  if(btn&&btn.disabled) return; /* toque duplo */
+  if(btn){ btn.disabled=true; btn.textContent='Buscando…'; }
+  try{ if(inp) inp.blur(); }catch(_){}
+  { const md=document.getElementById('ativoDetModal'); if(md&&md.classList.contains('show')&&document.getElementById('etqModal')) closeAtivoDet(); }
+  if(document.getElementById('etqFotoGrande')) etqFotoFechar();
+  if(!document.getElementById('etqModal')) etqAbrirModal();
+  const minha=++etqSeq;
+  etqRender({fase:'conferindo'});
+  const chk=[['ne','Etiqueta','Não lida — consulta pelo código ATV-'+num]];
+  try{
+    const r=await beGet('/ativos-codigo/'+encodeURIComponent(num));
+    if(minha!==etqSeq||!document.getElementById('etqModal')) return;
+    const a=r.ativo||null;
+    chk.push(['ok','Equipamento',a?[a.nome,a.descricao].filter(Boolean).join(' · '):'']);
+    etqRender({fase:'resultado',porCodigo:true,chk,ativo:a,okEtiqueta:false,ver:{tom:'ne',t1:'Consulta pelo código',t2:'ATV-'+num,t3:'Etiqueta não conferida — para conferir, leia o QR ou o NFC.'}});
+    if(r.avisos&&r.avisos.length&&a&&a.id) etqAvisosMostrar(r.avisos,a.id);
+  }catch(err){
+    if(minha!==etqSeq||!document.getElementById('etqModal')) return;
+    const msg=err.status===404?'Nenhum equipamento com o código ATV-'+num:(err.status===409||err.status===400)?(err.message||'Código inválido'):'Não consegui falar com o sistema. Confira a internet.';
+    etqRender({fase:'resultado',porCodigo:true,chk:chk.concat([['ne','Equipamento',msg]]),ver:{tom:err.status===404?'er':'ne',t1:err.status===404?'Não encontrado':'Não consultado',t2:msg}});
+  }finally{
+    const b=document.getElementById('tagCodBtn'); if(b){ b.disabled=false; b.textContent='Buscar'; }
+  }
+}
 function renderTag(){
   const el=document.getElementById('tagBody'); if(!el) return;
   const nfc=estoqNfcSuportado();
@@ -15621,6 +15652,19 @@ function renderTag(){
       +'<span style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#EAF2FB;border-radius:12px;padding:8px">'+svgQr.replace(/60/g,'28')+'<span style="font-weight:700;color:#3E7EB0;font-size:14px">×</span>'+svgNfc.replace(/60/g,'28')+'</span>'
       +'<span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;color:#0B2239">QR × NFC</span>'
       +'<span style="display:block;font-size:12px;color:#686868;margin-top:2px">Confere se o QR impresso é do mesmo cartão em que está colado</span></span></button>':'')
+    /* 12/10/2026 — Raphael: "quarta opção de consultar pelo código: prefixo ATV- fixo + número + Buscar". Para etiqueta
+       rasgada/apagada ou equipamento sem etiqueta. Fica para TODOS os aparelhos (não depende de NFC nem de câmera). */
+    +'<div style="margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px">'
+      +'<div style="font-size:15px;font-weight:700;color:#0B2239">Código do equipamento</div>'
+      +'<div style="font-size:12px;color:#686868;margin:2px 0 10px">Sem etiqueta para ler? Digite o número.</div>'
+      +'<div style="display:flex;gap:8px;align-items:stretch">'
+        +'<div style="flex:1;min-width:0;display:flex;align-items:center;border:2px solid #C9D0D8;border-radius:12px;overflow:hidden;background:#fff">'
+          +'<span style="padding:0 4px 0 14px;font-size:20px;font-weight:800;color:#3E7EB0;letter-spacing:.03em">ATV-</span>'
+          +'<input id="tagCodNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" placeholder="000123" '
+            +'onkeydown="if(event.key===\'Enter\')tagBuscarCodigo()" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" '
+            +'style="flex:1;min-width:0;border:none;outline:none;font-size:20px;font-weight:700;color:#0B2239;padding:12px 10px 12px 0;background:transparent"></div>'
+        +'<button id="tagCodBtn" onclick="tagBuscarCodigo()" style="flex:0 0 auto;min-width:110px;min-height:56px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:16px">Buscar</button>'
+      +'</div></div>'
     +(nfc?'<div id="tagNfcStatus" style="margin-top:14px;font-size:12.5px;text-align:center;color:#686868">Ligando o leitor NFC…</div>':'')
     +'</div>';
   if(nfc) tagNfcLigar();
