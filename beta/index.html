@@ -14112,8 +14112,19 @@ function cadPassoEtiqueta(){
   if(et.status==='ok'){
     let c='';
     if(cadNfcCtrl) c+='<div style="font-size:12px;color:#3E7EB0;background:#EAF2FB;border-radius:8px;padding:8px 10px;margin-top:8px">Leitor ligado: encoste a etiqueta para testar. O portal não abre.</div>';
-    c+='<div style="display:flex;gap:12px;align-items:center;margin-top:10px"><img id="cadNfcQr" alt="" style="width:84px;height:84px;flex:0 0 84px;border:1px solid #E2E5E9;border-radius:6px;background:#fff">'
-      +'<div style="font-size:11px;color:#686868;word-break:break-all;line-height:1.4">'+cadEsc(et.url)+'<br><span style="color:#AEB8C2">endereço gravado na etiqueta</span></div></div>';
+    /* 12/10/2026 — Raphael: "no fluxo de criação de ativo não tem a impressão da etiqueta que deve ser copiada e colada no
+       app do Niimbot". A impressão direta pela M2 (NiimBlue, Bluetooth do navegador) foi testada e não imprimiu direito;
+       decisão: o app gera a IMAGEM da etiqueta 80×50 mm e oferece Copiar / Enviar / Baixar para levar ao app Niimbot.
+       Ver docs/09-CADASTROS/DECISAO_etiqueta-impressa-niimbot_12-10-2026.md */
+    c+='<div style="margin-top:12px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#686868">Etiqueta para imprimir (80 × 50 mm)</div>'
+      +'<img id="cadEtqImg" alt="Etiqueta" style="display:block;width:100%;max-width:420px;aspect-ratio:80/50;margin-top:6px;border:1px solid #C9D0D8;border-radius:6px;background:#fff">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;max-width:420px">'
+      +'<button onclick="cadEtqCopiar()" style="min-height:48px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📋 Copiar imagem</button>'
+      +'<button onclick="cadEtqEnviar()" style="min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:10px;font-weight:700;font-size:14px">📤 Enviar ao Niimbot</button>'
+      +'<button onclick="cadEtqBaixar()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">⬇ Baixar imagem</button>'
+      +'<button onclick="cadEtqCopiarLink()" style="min-height:44px;background:#fff;color:#0B2239;border:1px solid #E2E5E9;border-radius:10px;font-weight:600;font-size:13px">🔗 Copiar link do QR</button>'
+      +'</div><div style="font-size:11px;color:#686868;word-break:break-all;line-height:1.4;margin-top:6px">'+cadEsc(et.url)+' <span style="color:#AEB8C2">— endereço gravado no chip e no QR</span></div>'
+      +'<img id="cadNfcQr" alt="" style="display:none">';
     c+=cadBtnDone('Testar esta etiqueta','etqTestar(\''+cadSt.ativoId+'\')','p');
     c+=cadBtnDone('Gravar outra etiqueta','cadProvisionarEtiqueta()','l');
     return {feito:true,st:'Gravada · versão '+cadEsc(et.versao),corpo:c};
@@ -14179,7 +14190,78 @@ function cadStepDone(){
   h+='<button onclick="cadOutroEquip()" style="display:block;width:100%;border-radius:12px;padding:14px;font-size:14px;font-weight:700;margin-top:4px;'+(tudo?'background:#3E7EB0;color:#fff;border:none':'background:none;border:1px solid #E2E5E9;color:#3A4552')+'">Cadastrar outro equipamento</button>'
     +'<button onclick="go(\'schedule\')" style="display:block;width:100%;border:none;background:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;margin-top:8px;color:#3E7EB0">Voltar à agenda</button></div>';
   el.innerHTML=h;
-  if(et.status==='ok') cadDesenharQrPreview(et.url);
+  if(et.status==='ok'){ cadDesenharQrPreview(et.url); cadEtqPreview(); }
+}
+/* ===== Etiqueta impressa 80×50 mm para o app Niimbot (12/10/2026) =====
+   Imagem a 300 dpi (945 × 591 px), fundo branco, preto puro (impressora térmica): QR grande à esquerda (o mesmo endereço
+   gravado no chip), à direita o símbolo + EXAUSTECH, o NÚMERO do ativo em destaque, tipo, local, conta e a versão da
+   etiqueta. Fonte única da imagem: cadEtqGerar(). Ver docs/09-CADASTROS/DECISAO_etiqueta-impressa-niimbot_12-10-2026.md */
+const EX_LOGO_PRETO=new Image(); EX_LOGO_PRETO.src=EX_LOGO.src.replace(/%23ffffff/gi,'%23000000');
+let cadEtqBlobCache=null;
+function cadEtqDados(){
+  const et=cadSt.etiqueta||{}, id=cadSt.ident||{};
+  return {url:et.url||'', versao:et.versao||'', numero:cadSt.ativoNome||'', tipo:cadSt.tipoNome||'',
+    local:(cadSt.local?cadLocalNome(cadSt.local):id.local)||'', conta:(cadSt.conta&&cadSt.conta.nome)||''};
+}
+async function cadEtqGerar(){
+  const d=cadEtqDados(); if(!d.url) throw new Error('Etiqueta ainda não gravada');
+  if(!(EX_LOGO_PRETO.complete&&EX_LOGO_PRETO.naturalWidth)) await new Promise(ok=>{ EX_LOGO_PRETO.onload=ok; EX_LOGO_PRETO.onerror=ok; setTimeout(ok,1500); });
+  const W=945, H=591, M=30;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const x=cv.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,W,H); x.fillStyle='#000';
+  /* QR: módulos inteiros (sem borrar) e a zona de silêncio que o leitor exige */
+  const qr=qrcode(0,'M'); qr.addData(d.url); qr.make();
+  const n=qr.getModuleCount(), lado=H-2*M, mod=Math.floor(lado/(n+2)), q=mod*n, qx=M+mod, qy=Math.round((H-q)/2);
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) x.fillRect(qx+c*mod,qy+r*mod,mod,mod);
+  const tx=M+lado+24, tw=W-tx-M;
+  const caber=(txt,peso,max,min)=>{ let t=max; do{ x.font=peso+' '+t+'px Arial, Helvetica, sans-serif'; if(x.measureText(txt).width<=tw) break; t-=2; }while(t>min); return t; };
+  const corta=(txt)=>{ if(x.measureText(txt).width<=tw) return txt; let s2=txt; while(s2.length>1&&x.measureText(s2+'…').width>tw) s2=s2.slice(0,-1); return s2+'…'; };
+  let y=M;
+  if(EX_LOGO_PRETO.complete&&EX_LOGO_PRETO.naturalWidth){ try{ x.drawImage(EX_LOGO_PRETO,tx,y,64,66); }catch(e){} }
+  x.font='800 40px Arial, Helvetica, sans-serif'; x.textBaseline='middle'; x.fillText('EXAUSTECH',tx+76,y+34);
+  y+=92; x.fillRect(tx,y,tw,4); y+=22;
+  x.textBaseline='top';
+  x.font='700 24px Arial, Helvetica, sans-serif'; x.fillText('EQUIPAMENTO Nº',tx,y); y+=30;
+  const tn=caber(d.numero||'—','900',128,48); x.fillText(d.numero||'—',tx,y); y+=tn+14;
+  const linha=(txt,peso,tam)=>{ if(!txt) return; x.font=peso+' '+tam+'px Arial, Helvetica, sans-serif'; x.fillText(corta(txt),tx,y); y+=tam+10; };
+  linha(d.tipo,'700',34); linha(d.local,'400',28); linha(d.conta,'400',28);
+  x.font='400 22px Arial, Helvetica, sans-serif'; x.textBaseline='bottom';
+  x.fillText(corta('Etiqueta versão '+d.versao),tx,H-M);
+  return await new Promise(ok=>cv.toBlob(ok,'image/png'));
+}
+async function cadEtqPreview(){
+  const img=document.getElementById('cadEtqImg'); if(!img) return;
+  cadEtqBlobCache=null; /* outro ativo / etiqueta regravada: nunca reaproveitar a imagem anterior */
+  try{ cadEtqBlobCache=await cadEtqGerar(); img.src=URL.createObjectURL(cadEtqBlobCache); }
+  catch(e){ img.alt='Não consegui montar a etiqueta: '+e.message; }
+}
+async function cadEtqBlob(){ return cadEtqBlobCache||(cadEtqBlobCache=await cadEtqGerar()); }
+function cadEtqNomeArq(){ return 'etiqueta-'+(cadSt.ativoNome||'equipamento')+'.png'; }
+/* Copiar a imagem: Chrome do Android aceita imagem PNG na área de transferência. Se o app Niimbot não aceitar colar
+   imagem, "Enviar ao Niimbot" (compartilhar) ou "Baixar" levam a mesma imagem pela galeria. */
+async function cadEtqCopiar(){
+  try{
+    const b=await cadEtqBlob();
+    if(!(navigator.clipboard&&window.ClipboardItem)) throw new Error('este aparelho não copia imagem');
+    await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);
+    toast('📋 Etiqueta copiada — cole no app Niimbot');
+  }catch(e){ toast('Não deu para copiar ('+e.message+'). Use "Enviar ao Niimbot" ou "Baixar imagem".'); }
+}
+async function cadEtqEnviar(){
+  try{
+    const b=await cadEtqBlob(); const f=new File([b],cadEtqNomeArq(),{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Etiqueta '+(cadSt.ativoNome||'')}); return; }
+    cadEtqBaixar(); toast('Este aparelho não compartilha imagem: baixei o arquivo. Abra no app Niimbot pela galeria.');
+  }catch(e){ if(e&&e.name==='AbortError') return; toast('Não deu para enviar: '+e.message); }
+}
+async function cadEtqBaixar(){
+  try{ const b=await cadEtqBlob(); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=cadEtqNomeArq(); document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }
+  catch(e){ toast('Não deu para baixar: '+e.message); }
+}
+async function cadEtqCopiarLink(){
+  const u=cadEtqDados().url; if(!u) return;
+  try{ await navigator.clipboard.writeText(u); toast('🔗 Link copiado — no Niimbot, crie um QR e cole'); }
+  catch(e){ toast('Não deu para copiar o link: '+e.message); }
 }
 /* "CADASTRAR OUTRO EQUIPAMENTO" (11/10/2026, decisão do Raphael): volta já na MESMA conta/local/sistema, na escolha do
    equipamento — o técnico costuma cadastrar vários equipamentos do mesmo sistema seguidos. Todo o resto é zerado pelo
