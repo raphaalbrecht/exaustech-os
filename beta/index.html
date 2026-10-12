@@ -16320,6 +16320,11 @@ async function avisosGateOk(o, alocId, cont){
     try{ const fresh=await beGet('/avisos?contratoId='+encodeURIComponent(o._contrato)+(alocId?'&alocId='+encodeURIComponent(alocId):''));
       if(Array.isArray(fresh)){ o._avisos=fresh; avisos=fresh; } }catch(e){ /* offline/erro: segue com o snapshot */ }
   }
+  /* 12/10/2026 — vigência: o snapshot do hydrate pode ter sido tirado dias atrás; um aviso de contrato
+     cujo fim já passou (ou cujo início ainda não chegou) não pode travar o check-in offline. O servidor
+     já filtra; isto é a mesma regra aplicada ao snapshot (sem datas = vale, como os avisos antigos). */
+  const hoje=hojeLocalISO();
+  avisos=avisos.filter(v=>v.tipo==='global'||((!v.dataInicio||String(v.dataInicio).slice(0,10)<=hoje)&&(!v.dataFim||String(v.dataFim).slice(0,10)>=hoje)));
   if(!avisos.some(v=>!v.lido)) return true; /* nada pendente (ou avisos todos desativados) — segue a ação */
   _avisosCtx={o,avisos,alocId:alocId||null,
     onOk:(cont&&cont.onOk)||function(){ checkInAloc(true); },
@@ -16437,7 +16442,7 @@ async function propDecidir(tarefaId,acao){
    Cada pedido de Criação/Edição/Exclusão vira um Aviso_Contrato_Alteracao__c — a lista é o
    histórico de auditoria. Supervisor+ age direto (auto-aprovado); abaixo disso vai pra fila,
    que aparece pro Supervisor+ na MESMA aba Aprovações dos relatórios de visita. */
-const AV_ST_LZ={'Aguardando aprovação':'lz-warn','Ativo':'lz-succ','Aguardando aprovação de exclusão':'lz-warn','Excluído':'lz-neu','Rejeitado':'lz-err'};
+const AV_ST_LZ={'Aguardando aprovação':'lz-warn','Ativo':'lz-succ','Aguardando aprovação de exclusão':'lz-warn','Excluído':'lz-neu','Rejeitado':'lz-err','Desativado':'lz-neu'}; /* Desativado: 12/10/2026 (checkbox Ativo) */
 function avStChip(st){ return '<span class="lz '+(AV_ST_LZ[st]||'lz-neu')+'" style="margin-left:6px">'+_esc(st||'—')+'</span>'; }
 async function fetchAvPendencias(){
   if(!(SF_LIVE&&canAprovarAviso(ROLE))){ _avPend=[]; return _avPend; }
@@ -16468,7 +16473,12 @@ function paintAvPend(){
     '<div class="appr-item" style="cursor:default">'
     +'<div class="appr-top"><div class="appr-cli">'+_esc(p.tipo||'')+' de aviso — '+_esc(p.tituloNovo||p.avisoTitulo||p.avisoName||'')+'</div><span class="lz lz-warn">Pendente</span></div>'
     +'<div class="appr-meta">'+_esc(p.avisoName||'')+' · pedido por '+_esc(p.solicitadoPorNome||'—')+(p.solicitadoEm?' · '+fmtDH(p.solicitadoEm):'')+'</div>'
-    +(p.tipo==='Exclusão'?'':'<div class="appr-meta">Texto: '+_esc(String(p.textoNovo||'').slice(0,160))+'</div>')
+    /* 12/10/2026: Desativação/Reativação (checkbox Ativo) mostram o motivo/data; Criação e Edição, o texto e a vigência */
+    +(p.tipo==='Exclusão'?'':p.tipo==='Desativação'?(p.textoNovo?'<div class="appr-meta">Motivo: '+_esc(String(p.textoNovo).slice(0,160))+'</div>':'')
+      :p.tipo==='Reativação'?'<div class="appr-meta">Volta a valer'+(p.dataFimNova?' até '+fmtDataBR(p.dataFimNova):' sem prazo')+'</div>'
+      :'<div class="appr-meta">Texto: '+_esc(String(p.textoNovo||'').slice(0,160))+'</div>'
+        +((p.dataInicioNova||p.dataFimNova)?'<div class="appr-meta">Vigência: '+(p.dataInicioNova?fmtDataBR(p.dataInicioNova):'desde sempre')+' → '+(p.dataFimNova?fmtDataBR(p.dataFimNova):'sem fim')+'</div>':''))
+    +((p.substitui||[]).length?'<div class="appr-meta">⚠️ Ao aprovar, desativa: '+p.substitui.map(s=>_esc(s.titulo)).join(', ')+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:8px">'
     +'<button class="btn btn-succ" style="flex:1" onclick="avPendDecidir(\''+p.avisoId+'\',\''+p.id+'\',true)">Aprovar</button>'
     +'<button class="btn btn-neutral" style="flex:1" onclick="avPendDecidir(\''+p.avisoId+'\',\''+p.id+'\',false)">Rejeitar</button>'
@@ -16496,7 +16506,8 @@ async function avPendDecidir(avisoId,altId,aprovar){
       destino preenchido e visível ("Para: CLIENTE · Contrato X").
    Permissões NÃO mudaram: Líder+ lança/sugere, Supervisor+ aplica direto (servidor decide).
    Ver docs/06-OS-CAMPO/DECISAO_gestao-de-avisos-com-cliente-e-contrato_12-10-2026.md */
-let _avGes=null; /* {view:'destino'|'lista'|'form', cliente:{id,nome,cnpj}|null, contratos:[]|null, ctr, ctrLabel, ctrInfo, avisos, formAviso, erro, busca, resultados, buscando, agenda:[]} */
+let _avGes=null; /* {view:'destino'|'lista'|'form', cliente:{id,nome,cnpj}|null, contratos:[]|null, ctr, ctrLabel, ctrInfo, avisos, formAviso, erro, busca, resultados, buscando, agenda:[], mostrarTodos} */
+let _avGesMostrarTodos=false; /* 12/10/2026: chip "Mostrar desativados e histórico" — por padrão a lista só traz o que vale ou está a caminho; a escolha sobrevive ao refresh da lista */
 let _avGesBuscaSeq=0, _avGesBuscaTimer=null; /* sequência: resposta velha de busca nunca sobrescreve a nova */
 /* contratos das OS da agenda (comportamento antigo): {id, label=nome do cliente na OS} — usado como atalho */
 function avGesContratos(){
@@ -16613,9 +16624,11 @@ function avGesHistHTML(a){
   const h=a.historico||[]; if(!h.length) return '';
   return '<div class="av-hist">'+h.map(x=>{
     const st=x.status==='Pendente'?'⏳ pendente':(x.status==='Aprovado'?'✔ aprovado':'✖ rejeitado');
+    /* 12/10/2026: Desativação guarda em textoNovo o motivo ("Substituído pelo aviso…" / "Automático: data de fim…") */
+    const extra=(x.tipo==='Desativação'&&x.textoNovo)?' · '+_esc(x.textoNovo):'';
     return '<div class="av-hist-row"><b>'+_esc(x.tipo||'')+'</b> por '+_esc(x.solicitadoPorNome||'—')+(x.solicitadoEm?' em '+fmtDH(x.solicitadoEm):'')
       +' — '+st+(x.decididoPorNome?(' por '+_esc(x.decididoPorNome)+(x.decididoEm?' em '+fmtDH(x.decididoEm):'')):'')
-      +(x.motivoRejeicao?(' · motivo: '+_esc(x.motivoRejeicao)):'')+'</div>';
+      +(x.motivoRejeicao?(' · motivo: '+_esc(x.motivoRejeicao)):'')+extra+'</div>';
   }).join('')+'</div>';
 }
 /* resumo do destino escolhido (topo das telas de lista e formulário), com botões pra trocar */
@@ -16668,6 +16681,7 @@ function renderAvGes(){
   }
   if(g.view==='form'){
     const ed=g.formAviso;
+    const substituiveis=(g.avisos||[]).filter(a=>a.status==='Ativo'&&!a.vencido); /* candidatos a "este aviso substitui" */
     sub.textContent=ed?(canAprovarAviso(ROLE)?'Alterar o texto — aplica na hora e TODOS releem o aviso.':'Sugerir alteração — só vale depois da aprovação do Supervisor pra cima.')
                      :(canAprovarAviso(ROLE)?'Novo aviso — publica na hora.':'Novo aviso — vai pra aprovação do Supervisor pra cima.');
     body.innerHTML=
@@ -16675,6 +16689,16 @@ function renderAvGes(){
       '<div class="av-para">Para: <b>'+_esc((g.cliente&&g.cliente.nome)||'—').toUpperCase()+'</b> · Contrato <b>'+_esc(g.ctrLabel||'—')+'</b></div>'
       +'<div class="field"><label>Título</label><input id="avGesTitulo" maxlength="120" value="'+_esc(ed?ed.titulo:'')+'"></div>'
       +'<div class="field"><label>Mensagem</label><textarea id="avGesMsg" rows="5" style="width:100%">'+_esc(ed?ed.mensagem:'')+'</textarea></div>'
+      /* 12/10/2026 — vigência (mesmo padrão visual do aviso global): início default hoje; fim opcional.
+         Num aviso antigo sem data de início, o campo fica vazio e continua vazio ("desde sempre"). */
+      +'<div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Data de início</label><input id="avGesIni" type="date" value="'+_esc(ed?String(ed.dataInicio||'').slice(0,10):hojeLocalISO())+'"></div>'
+      +'<div class="field" style="flex:1"><label>Data de fim (opcional)</label><input id="avGesFim" type="date" value="'+_esc(ed&&ed.dataFim?String(ed.dataFim).slice(0,10):'')+'"></div></div>'
+      +'<div class="sig-hint" style="margin-top:-6px">Sem data de fim, o aviso fica em vigor até alguém desativar. Com data de fim, para de valer sozinho no dia seguinte. Início no futuro = ainda não vale.</div>'
+      /* 12/10/2026 — "Novo substitui obsoleto — quem lança escolhe": só no aviso NOVO, lista dos avisos
+         que valem hoje neste contrato; os marcados são desativados quando o novo passar a valer. */
+      +(!ed&&substituiveis.length?'<div class="field"><label>Este aviso substitui (opcional)</label>'
+        +substituiveis.map(a=>'<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 4px;font-weight:400;font-size:14px;line-height:1.35"><input type="checkbox" class="avGesSub" value="'+_esc(a.id)+'" style="width:20px;height:20px;flex:none;margin-top:1px"><span><b>'+_esc(a.titulo)+'</b><br><span class="av-meta">'+_esc(a.name||'')+(a.dataFim?' · vale até '+fmtDataBR(a.dataFim):'')+'</span></span></label>').join('')
+        +'<div class="sig-hint">Os marcados são desativados '+(canAprovarAviso(ROLE)?'assim que este for publicado':'quando este for aprovado — até lá continuam valendo')+'.</div></div>':'')
       +'<div style="display:flex;gap:8px;margin-top:8px">'
       +'<button class="btn btn-neutral" style="flex:1" onclick="avGesVoltar()">Cancelar</button>'
       +'<button class="btn btn-brand" style="flex:1" id="avGesSalvarBtn" onclick="avGesSalvar()">'+(ed?(canAprovarAviso(ROLE)?'Salvar alteração':'Enviar sugestão'):(canAprovarAviso(ROLE)?'Publicar aviso':'Enviar pra aprovação'))+'</button>'
@@ -16685,11 +16709,30 @@ function renderAvGes(){
   sub.textContent='Avisos do contrato escolhido';
   const topo=avGesDestinoHTML(g,true);
   if(g.avisos===null){ body.innerHTML=topo+'<div class="subnote" style="padding:8px 0"><span class="ld-spin"></span>Carregando…</div>'; return; }
-  const cards=g.avisos.map(function(a,i){
+  /* 12/10/2026 — "Exibe só os ativos": por padrão, só o que vale hoje ou está a caminho (emVigor, decidido
+     no servidor). O chip abre o resto (desativados, excluídos, rejeitados, vencidos). */
+  const ocultos=g.avisos.filter(a=>!a.emVigor).length;
+  const visiveis=_avGesMostrarTodos?g.avisos:g.avisos.filter(a=>a.emVigor);
+  const chip='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 8px;flex-wrap:wrap">'
+    +'<span class="av-meta">'+visiveis.length+' de '+g.avisos.length+' aviso'+(g.avisos.length===1?'':'s')+'</span>'
+    +'<button class="lz '+(_avGesMostrarTodos?'lz-info':'lz-neu')+'" style="cursor:pointer;min-height:36px;padding:4px 12px;font-size:12px" onclick="avGesMostrarTodos()">'+(_avGesMostrarTodos?'✓ Mostrando desativados e histórico':'Mostrar desativados e histórico'+(ocultos?' ('+ocultos+')':''))+'</button></div>';
+  const cards=visiveis.map(function(a){
+    const i=g.avisos.indexOf(a); /* índice na lista COMPLETA — é o que avGesEditar/avGesExcluir/avGesToggleAtivo usam */
     const pend=(a.historico||[]).filter(x=>x.status==='Pendente');
-    return '<div class="av-item aberto" style="cursor:default">'
-      +'<div class="av-tit">'+_esc(a.titulo)+avStChip(a.status)+'</div>'
-      +'<div class="av-meta">'+_esc(a.name||'')+(a.criadoEm?' · criado em '+fmtDH(a.criadoEm):'')+'</div>'
+    const pendDes=pend.some(x=>x.tipo==='Desativação'), pendRea=pend.some(x=>x.tipo==='Reativação');
+    /* checkbox "Ativo" (pedido do Raphael): marcado = valendo. Só aparece quando faz sentido mexer:
+       aviso Ativo (desmarcar = desativar) ou Desativado (marcar = reativar). Líder pede; Supervisor+ aplica. */
+    const podeCheck=a.status==='Ativo'||a.status==='Desativado';
+    const check=podeCheck?'<label style="display:inline-flex;align-items:center;gap:8px;margin-left:auto;font-size:13px;font-weight:600;cursor:pointer">'
+      +'<input type="checkbox" '+(a.status==='Ativo'?'checked':'')+(pendDes||pendRea?' disabled':'')+' style="width:22px;height:22px" onchange="avGesToggleAtivo('+i+',this)"> Ativo'
+      +(pendDes?' <span class="lz lz-warn">desativação pedida</span>':pendRea?' <span class="lz lz-warn">reativação pedida</span>':'')+'</label>':'';
+    /* vigência de relance: pílula em caixa alta (diretriz de 02/09/2026) + datas por extenso */
+    const vig=a.status==='Desativado'||a.status==='Excluído'||a.status==='Rejeitado'?'':(a.vencido?avGesPill('Vencido','lz-err'):a.programado?avGesPill('Programado','lz-warn'):a.vigente?avGesPill('Vigente','lz-succ'):'');
+    const datas=(a.dataInicio||a.dataFim)?((a.dataInicio?fmtDataBR(a.dataInicio):'desde sempre')+' → '+(a.dataFim?fmtDataBR(a.dataFim):'sem fim')):'sem prazo (vale até desativar)';
+    return '<div class="av-item aberto" style="cursor:default'+(a.emVigor?'':';opacity:.75')+'">'
+      +'<div class="av-tit" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+_esc(a.titulo)+avStChip(a.status)+(vig?' '+vig:'')+check+'</div>'
+      +'<div class="av-meta">'+_esc(a.name||'')+(a.criadoEm?' · criado em '+fmtDH(a.criadoEm):'')+' · '+datas
+      +(a.substituidoPor?' · substituído por '+_esc(a.substituidoPorNome||a.substituidoPor):'')+'</div>'
       +'<div class="av-body">'+_esc(a.mensagem)+'</div>'
       +avGesHistHTML(a)
       +(canAprovarAviso(ROLE)?pend.map(x=>
@@ -16697,15 +16740,41 @@ function renderAvGes(){
         +'<button class="btn btn-succ" style="flex:1" onclick="avPendDecidir(\''+a.id+'\',\''+x.id+'\',true)">Aprovar</button>'
         +'<button class="btn btn-neutral" style="flex:1" onclick="avPendDecidir(\''+a.id+'\',\''+x.id+'\',false)">Rejeitar</button></div>').join(''):'')
       +(a.status==='Ativo'?('<div style="display:flex;gap:8px;margin-top:8px">'
-        +'<button class="btn btn-neutral" style="flex:1" onclick="avGesEditar('+i+')">'+(canAprovarAviso(ROLE)?'✏️ Editar texto':'✏️ Sugerir alteração')+'</button>'
+        +'<button class="btn btn-neutral" style="flex:1" onclick="avGesEditar('+i+')">'+(canAprovarAviso(ROLE)?'✏️ Editar':'✏️ Sugerir alteração')+'</button>'
         +'<button class="btn btn-neutral" style="flex:1;color:var(--err-tx);border-color:var(--err-bd)" onclick="avGesExcluir('+i+')">'+(canAprovarAviso(ROLE)?'🗑 Excluir':'🗑 Pedir exclusão')+'</button>'
         +'</div>'):'')
       +'</div>';
   }).join('');
   body.innerHTML=topo
     +(g.erro?'<div class="subnote" style="padding:8px 0">⚠️ '+_esc(g.erro)+'</div>':'')
-    +(cards||'<div class="subnote" style="padding:8px 0">Nenhum aviso neste contrato ainda.</div>')
+    +(g.avisos.length?chip:'')
+    +(cards||'<div class="subnote" style="padding:8px 0">'+(g.avisos.length?'Nenhum aviso em vigor neste contrato — toque em "Mostrar desativados e histórico" pra ver os outros.':'Nenhum aviso neste contrato ainda.')+'</div>')
     +'<button class="btn btn-brand" id="avGesNovoBtn" style="width:100%;margin-top:12px" onclick="avGesNovo()">➕ Lançar aviso'+(canAprovarAviso(ROLE)?'':' (vai pra aprovação)')+'</button>';
+}
+function avGesMostrarTodos(){ _avGesMostrarTodos=!_avGesMostrarTodos; renderAvGes(); }
+/* checkbox "Ativo" do card (12/10/2026): desmarcar → POST /avisos/:id/desativar; marcar → /reativar.
+   O servidor decide se aplica (Supervisor+) ou se vira pedido na fila (Líder). Em erro, o checkbox volta. */
+async function avGesToggleAtivo(i,cb){
+  const g=_avGes; if(!g||!g.avisos) return; const a=g.avisos[i]; if(!a){ return; }
+  const direto=canAprovarAviso(ROLE), ligar=!!cb.checked;
+  let body={};
+  if(!ligar){
+    const ok=window.confirm(direto?'Desativar o aviso "'+a.titulo+'"? Ele para de valer na hora (dá pra reativar depois).'
+                                  :'Pedir a desativação do aviso "'+a.titulo+'"? Ele CONTINUA valendo até um Supervisor+ aprovar.');
+    if(!ok){ cb.checked=true; return; }
+    const motivo=window.prompt('Motivo (opcional):')||''; body={motivo:motivo.trim()};
+  } else if(a.vencido){
+    /* reativar aviso com fim vencido exige data nova — o servidor recusa sem isso */
+    const nova=window.prompt('A data de fim ('+fmtDataBR(a.dataFim)+') já passou. Nova data de fim (AAAA-MM-DD) — deixe vazio pra valer sem prazo:','');
+    if(nova===null){ cb.checked=false; return; }
+    body={dataFim:nova.trim()||null};
+  }
+  cb.disabled=true;
+  try{
+    const r=await bePost('/avisos/'+a.id+'/'+(ligar?'reativar':'desativar'),body);
+    toast(r&&r.pendente?'📨 Pedido enviado pra aprovação — o aviso '+(ligar?'segue desativado':'segue valendo')+' até lá':(ligar?'✅ Aviso reativado':'⏸ Aviso desativado'));
+    avGesAbrirContrato(g.ctr);
+  }catch(e){ toast('Erro: '+e.message); cb.checked=!ligar; cb.disabled=false; }
 }
 function avGesVoltar(){ if(!_avGes) return; _avGes.view='lista'; _avGes.formAviso=null; renderAvGes(); }
 function avGesNovo(){ if(!_avGes||!_avGes.ctr){ toast('Escolha o cliente e o contrato primeiro'); return; } _avGes.view='form'; _avGes.formAviso=null; renderAvGes(); }
@@ -16716,12 +16785,18 @@ async function avGesSalvar(){
   const titulo=(document.getElementById('avGesTitulo').value||'').trim();
   const mensagem=(document.getElementById('avGesMsg').value||'').trim();
   if(!titulo||!mensagem){ toast('Preencha título e mensagem'); return; }
+  /* 12/10/2026 — vigência e substituição vão junto; o servidor valida de novo (fim ≥ início, substituídos do mesmo contrato) */
+  const elIni=document.getElementById('avGesIni'), elFim=document.getElementById('avGesFim');
+  const dataInicio=(elIni&&elIni.value||'').trim(), dataFim=(elFim&&elFim.value||'').trim();
+  if(dataInicio&&dataFim&&dataFim<dataInicio){ toast('A data de fim não pode ser antes do início'); return; }
+  const substitui=[...document.querySelectorAll('input.avGesSub:checked')].map(x=>x.value);
   const btn=document.getElementById('avGesSalvarBtn'); if(btn) btn.disabled=true;
   try{
     const r=g.formAviso
-      ? await bePost('/avisos/'+g.formAviso.id+'/sugerir-edicao',{titulo,mensagem})
-      : await bePost('/avisos',{contratoId:g.ctr,titulo,mensagem});
-    toast(r&&r.pendente?'📨 Enviado pra aprovação do Supervisor pra cima':('✅ Aviso '+(g.formAviso?'alterado — todos vão reler':'publicado')));
+      ? await bePost('/avisos/'+g.formAviso.id+'/sugerir-edicao',{titulo,mensagem,dataInicio,dataFim:dataFim||null})
+      : await bePost('/avisos',{contratoId:g.ctr,titulo,mensagem,dataInicio,dataFim:dataFim||null,substitui});
+    toast(r&&r.pendente?'📨 Enviado pra aprovação do Supervisor pra cima'+(substitui.length?' — os substituídos valem até lá':'')
+      :('✅ Aviso '+(g.formAviso?'alterado'+(r&&r.leiturasResetadas?' — todos vão reler':''):'publicado'+(r&&r.desativados?' — '+r.desativados+' substituído(s) desativado(s)':''))));
     avGesAbrirContrato(g.ctr);
   }catch(e){ toast('Erro: '+e.message); if(btn) btn.disabled=false; }
 }
