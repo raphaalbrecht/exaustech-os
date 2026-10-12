@@ -15462,11 +15462,11 @@ function etqAvisosMostrar(avisos,ativoId){
   ov.style.cssText='position:fixed;inset:0;z-index:100018;background:rgba(11,34,57,.6);display:flex;align-items:center;justify-content:center;padding:16px';
   ov.dataset.ativo=ativoId; ov.dataset.falta=String(avisos.length);
   ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;border-top:10px solid #FE9339">'
-    +'<div style="padding:14px 18px 6px;font-size:18px;font-weight:800;color:#0B2239">⚠️ '+(avisos.length>1?avisos.length+' avisos deste cliente':'Aviso deste cliente')+'</div>'
+    +'<div style="padding:14px 18px 6px;font-size:18px;font-weight:800;color:#0B2239">⚠️ '+(avisos.length>1?avisos.length+' avisos deste cliente':'Avisos deste cliente') /* 12/10/2026: plural mesmo com um só (pedido do Raphael) */+'</div>'
     +'<div style="padding:0 18px 4px;font-size:13px;color:#686868">Leia antes de trabalhar no equipamento. Confirme cada um.</div>'
     +avisos.map(x=>'<div id="etqAv_'+x.id+'" style="margin:10px 18px;padding:12px 14px;border:1px solid #F9C77F;background:#FFF4E5;border-radius:12px">'
       +'<div style="font-weight:800;color:#0B2239;font-size:15.5px">'+cadEsc(x.titulo)+'</div>'
-      +(x.contrato?'<div style="font-size:12px;color:#8C4B02;margin-top:2px">Contrato '+cadEsc(x.contrato)+'</div>':'')
+      /* 12/10/2026: nome do contrato retirado do cartão a pedido do Raphael (ocupava 2 linhas e não ajuda o técnico) */
       +'<div style="font-size:14.5px;color:#1B2733;margin-top:6px;white-space:pre-wrap;line-height:1.45">'+cadEsc(x.mensagem)+'</div>'
       +'<button onclick="etqAvisoCiente(\''+x.id+'\')" style="margin-top:10px;width:100%;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">Li e entendi</button></div>').join('')
     +'<div style="height:10px"></div></div>';
