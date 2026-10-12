@@ -14809,7 +14809,9 @@ function etqRender(st){
       +'</div></div>';
     /* resultado veio do QR (sem número de chip): botão que liga o leitor NO TOQUE — o mesmo caminho do ícone NFC, que funciona.
        12/10/2026 (Raphael): logo abaixo do quadro laranja, no topo — é a ação que o quadro pede. */
-    if(!st.uid&&st.okEtiqueta&&estoqNfcSuportado()&&document.getElementById('scr-tag')&&document.getElementById('scr-tag').classList.contains('active'))
+    /* 12/10/2026 (tarde) — Raphael: "o scan do QR não alerta nada sobre não ter lido o NFC; isso vai ser tarefa do botão de
+       comparar (QR × NFC)". O botão "Conferir o chip agora" saiu da tela do QR (a função continua no arquivo, sem chamador). */
+    if(false&&!st.uid&&st.okEtiqueta&&estoqNfcSuportado()&&document.getElementById('scr-tag')&&document.getElementById('scr-tag').classList.contains('active'))
       h+='<button id="etqBtnChipAgora" onclick="etqConferirChipAgora()" style="width:100%;min-height:54px;margin-top:10px;background:#FE9339;color:#2B1A00;border:none;border-radius:12px;font-weight:800;font-size:15.5px;transition:background .15s">📶 Conferir o chip agora</button>'
         +'<style>@keyframes etqPulsa{0%,100%{box-shadow:0 0 0 0 rgba(1,118,211,.55)}50%{box-shadow:0 0 0 10px rgba(1,118,211,0)}}.etq-btn-pulsa{animation:etqPulsa 1.1s ease-out infinite}</style>'; /* 12/10/2026: id + pulso para os estados do botão (etqChipAgoraEstado) */
     const a=st.ativo;
@@ -14964,7 +14966,7 @@ async function etqConferir(url,uid,esperado){
         const r=await beGet('/etiquetas/'+encodeURIComponent(token)+(uid?('?uid='+encodeURIComponent(uid)):''));
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         chk.push(['ok','Etiqueta ativa no sistema','É a versão atual deste equipamento.']);
-        chk.push(r.uidConferido?['ok','Chip confere — não é cópia','Chip '+chipTxt]:['at','Chip não conferido',uid?'O servidor não conferiu o chip.':'Leitura sem número de chip (QR ou link).']);
+        chk.push(r.uidConferido?['ok','Chip confere — não é cópia','Chip '+chipTxt]:(uid?['at','Chip não conferido','O servidor não conferiu o chip.']:['ne','Chip não lido','Leitura pelo QR. Para conferir QR e chip juntos, use QR × NFC.']));
         const a=r.ativo||null;
         const errado=!!(esperado&&a&&a.id&&a.id.slice(0,15)!==esperado.slice(0,15));
         chk.push(errado?['er','Equipamento errado','Esta etiqueta aponta para '+(a.nome||'')+' '+(a.descricao||'')]:['ok','Equipamento'+(esperado?' certo':''),a?[a.nome,a.descricao].filter(Boolean).join(' · '):'']);
@@ -14972,7 +14974,8 @@ async function etqConferir(url,uid,esperado){
         if(r.emPreparacao){ chk[1]=['at','Etiqueta em preparação','Impressa; o chip ainda não foi gravado.']; if(chk[2]) chk[2]=['ne','Chip confere','Ainda sem chip'];
           etqRender({fase:'resultado',chk,ver:{tom:'at',t1:'Atenção',t2:'Etiqueta ainda não terminada',t3:'Impressa, mas o chip não foi gravado. Termine o fluxo da etiqueta no cadastro do equipamento.'},ativo:a,errado,token,okEtiqueta:false,esperado,url,uid}); return; }
         const ver=errado?{tom:'er',t1:'Equipamento errado',t2:'Esta etiqueta é de outro equipamento',t3:'Não cole aqui. Use a etiqueta deste equipamento.'}
-          :!r.uidConferido?{tom:'at',t1:'Atenção',t2:'Chip não conferido',t3:'Lida pelo QR, sem o número do chip. Para confirmar, encoste agora o cartão no tablet — o resultado é atualizado aqui.'}
+          :(!r.uidConferido&&uid)?{tom:'at',t1:'Atenção',t2:'Chip não conferido',t3:'O servidor não conferiu o número do chip.'}
+          :!r.uidConferido?{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — lida pelo QR'} /* 12/10/2026: QR não alerta sobre o chip (Raphael); conferir os dois é o QR × NFC */
           :{tom:'ok',t1:'Pode usar',t2:'Etiqueta OK — chip confere'};
         etqRender({fase:'resultado',chk,ver,ativo:a,errado,token,okEtiqueta:true,esperado,url,uid});
       }catch(err){
