@@ -14807,7 +14807,7 @@ function etqRender(st){
         +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
         +bt('⚠️','Registrar problema',"etqAcaoProblema('"+idA+"')",true)
         +(cad?bt('📄','Ver ficha',"etqAcaoFicha('"+idA+"')"):'')
-        +(cad?bt('📷','Foto',"etqAcaoFoto('"+idA+"')"):'')
+        +(cad?bt('📷','Fotos',"etqAcaoFotos('"+idA+"')"):'')
         +(pla?bt('📋','Pendências',"etqAcaoPendencias('"+idA+"')",false,'etqBtnPend'):'')
         +(cad?bt('🕘','Histórico',"etqAcaoHistorico('"+idA+"')"):'')
         +'</div><div id="etqAcaoBox"></div>';
@@ -14954,13 +14954,62 @@ function etqAcaoFoto(ativoId){
       if(!r.ok||!j||!j.driveId) throw new Error((j&&j.error)||('Erro '+r.status));
       const v=await bePost('/ativos/'+ativoId+'/fotos',{fotos:[{driveId:j.driveId,url:j.url,nome:f.name||'foto.jpg',tiradaEm:new Date(f.lastModified||Date.now()).toISOString()}]});
       toast('📷 Foto guardada no equipamento'+(v&&v.total?' ('+v.total+' de 10)':''));
-      if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#2E844A;font-size:14px;font-weight:600">✓ Foto guardada'+(v&&v.total?' — '+v.total+' de 10 fotos deste equipamento':'')+'.</div>');
+      if(seq===etqSeq) etqAcaoFotos(ativoId);
     }catch(e){
       toast('Erro ao guardar a foto: '+e.message);
       if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não guardei a foto: '+cadEsc(e.message)+'</div>');
     }
   };
   inp.click();
+}
+/* 12/10/2026 — Raphael: "o botão Foto é só para acrescentar? Se já tiverem fotos do equipamento registradas, temos que
+   poder ver". Agora "Fotos" abre a GALERIA do equipamento (GET /ativos/:id/fotos, máx. 10) com miniaturas; tocar abre a
+   foto grande; "Adicionar foto" continua aqui. As imagens vêm pelo proxy autenticado /midias-ativo/:driveId (só entrega
+   arquivo registrado como foto de ativo). O visualizador é próprio: o de outras telas fica ATRÁS do painel da TAG. */
+const etqFotoCache={};
+async function etqFotoBlobUrl(driveId){
+  if(etqFotoCache[driveId]) return etqFotoCache[driveId];
+  const r=await fetch(BACKEND+'/midias-ativo/'+encodeURIComponent(driveId),{headers:{Authorization:'Bearer '+beTok()}});
+  if(!r.ok) throw new Error('Erro '+r.status);
+  return (etqFotoCache[driveId]=URL.createObjectURL(await r.blob()));
+}
+async function etqAcaoFotos(ativoId){
+  const seq=etqSeq;
+  etqAcaoBox('<div style="padding:12px 2px;color:#3E7EB0;font-size:14px"><span class="ld-spin"></span> Buscando as fotos…</div>');
+  try{
+    const l=(await beGet('/ativos/'+encodeURIComponent(ativoId)+'/fotos'))||[];
+    if(seq!==etqSeq) return;
+    const dt=s=>{ try{ return s?new Date(s).toLocaleDateString('pt-BR'):''; }catch(e){ return ''; } };
+    let h='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 14px;margin-top:10px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="font-weight:700;color:#0B2239;font-size:14px">Fotos do equipamento — '+l.length+' de 10</div>'
+      +(l.length<10?'<button onclick="etqAcaoFoto(\''+ativoId+'\')" style="min-height:44px;padding:0 14px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📷 Adicionar foto</button>':'<span style="font-size:12px;color:#8C4B02">Limite de 10 atingido</span>')+'</div>';
+    if(!l.length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma foto registrada ainda.</div>';
+    else{
+      h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px">';
+      l.forEach((f,i)=>{ h+='<button onclick="etqFotoVer(\''+cadEsc(f.driveId)+'\',\''+cadEsc(dt(f.tiradaEm))+'\')" style="position:relative;aspect-ratio:1;border:1px solid #C9D0D8;border-radius:10px;overflow:hidden;background:#F4F6F8;padding:0">'
+        +'<img data-etqfoto="'+cadEsc(f.driveId)+'" alt="Foto '+(i+1)+'" style="width:100%;height:100%;object-fit:cover;display:block;opacity:0">'
+        +(f.tiradaEm?'<span style="position:absolute;left:0;right:0;bottom:0;background:rgba(11,34,57,.65);color:#fff;font-size:11px;padding:2px 4px">'+cadEsc(dt(f.tiradaEm))+'</span>':'')+'</button>'; });
+      h+='</div>';
+    }
+    etqAcaoBox(h+'</div>');
+    /* miniaturas uma a uma (rede de campo é fraca) */
+    for(const img of document.querySelectorAll('#etqAcaoBox img[data-etqfoto]')){
+      if(seq!==etqSeq) return;
+      try{ img.src=await etqFotoBlobUrl(img.dataset.etqfoto); img.style.opacity='1'; }catch(e){ img.alt='não carregou'; img.style.opacity='1'; }
+    }
+  }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar as fotos: '+cadEsc(e.message)+'</div>'); }
+}
+async function etqFotoVer(driveId,data){
+  const v=document.getElementById('etqFotoGrande'); if(v) v.remove();
+  const ov=document.createElement('div'); ov.id='etqFotoGrande';
+  ov.style.cssText='position:fixed;inset:0;z-index:100030;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="position:absolute;top:12px;left:16px;color:#fff;font-size:14px">'+cadEsc(data||'')+'</div>'
+    +'<button onclick="document.getElementById(\'etqFotoGrande\').remove()" style="position:absolute;top:8px;right:12px;background:#fff;border:none;border-radius:22px;min-width:44px;min-height:44px;font-size:22px;font-weight:700">×</button>'
+    +'<div id="etqFotoGrandeC" style="color:#fff;font-size:14px">Carregando…</div>';
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  try{ const u=await etqFotoBlobUrl(driveId); const c=document.getElementById('etqFotoGrandeC'); if(c) c.outerHTML='<img src="'+u+'" style="max-width:96vw;max-height:86vh;object-fit:contain;border-radius:6px">'; }
+  catch(e){ const c=document.getElementById('etqFotoGrandeC'); if(c) c.textContent='Não consegui abrir a foto: '+e.message; }
 }
 /* pendências (achados) deste equipamento, só leitura; tratar continua na aba Plano → Pendências */
 async function etqAcaoPendencias(ativoId){
