@@ -14894,7 +14894,7 @@ function etqUid(e){ return ((e&&e.serialNumber)||'').replace(/:/g,'').toUpperCas
 function etqUrlDoChip(e){ try{ for(const rec of (e.message&&e.message.records)||[]){ if(rec.recordType==='url'||rec.recordType==='absolute-url') return new TextDecoder().decode(rec.data); } }catch(_){} return ''; }
 let tagPar=null; /* modo "QR × NFC" de Consultar TAG — ver tagParIniciar */
 function etqParar(){ if(etqCtrl){ try{etqCtrl.abort();}catch(e){} etqCtrl=null; } }
-function etqFechar(){ navFechou('etq'); etqParar(); if(typeof etqChipAgoraFim==='function') etqChipAgoraFim(); etqTravado=false; etqSeq=0; etqUltUid=''; tagPar=null; tagNfcEscolhido=false; tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); const m=document.getElementById('etqModal'); if(m) m.remove(); }
+function etqFechar(){ navFechou('etq'); etqParar(); if(typeof etqChipAgoraFim==='function') etqChipAgoraFim(); if(typeof etqPndFecharTudo==='function'){ etqPndFecharTudo(); etqPnd=null; etqProb=null; } etqTravado=false; etqSeq=0; etqUltUid=''; tagPar=null; tagNfcEscolhido=false; tagNfcStatus(true,'📶 Leitor NFC em espera — toque em <b>NFC</b> ou <b>QR × NFC</b> para ler. Encostar a etiqueta agora não faz nada (e não abre o portal).'); const m=document.getElementById('etqModal'); if(m) m.remove(); }
 function etqLinha(ok,titulo,detalhe){
   const cor=ok===true?'#1D9E75':(ok===false?'#C4451B':'#8C4B02'), ic=ok===true?'✓':(ok===false?'✗':'!');
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #EEF1F4">'
@@ -14906,6 +14906,7 @@ function etqRender(st){
   const c=document.getElementById('etqCorpo'); if(!c) return;
   etqTravado=(st.fase==='resultado'||st.fase==='conferindo');
   if(typeof etqChipAgoraFim==='function'&&(etqChipAgoraOcupado||etqChipAgoraTimer)) etqChipAgoraFim(); /* 12/10/2026: a tela trocou, o botão antigo já não existe — zera o estado "ocupado" */
+  if(typeof etqPndFecharTudo==='function') etqPndFecharTudo(); /* 12/10/2026 (A2): lista completa / folha de filtros de pendências são da leitura anterior — fecham */
   let h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
     +'<div style="font-size:15px;font-weight:700;color:#0B2239">📶 Consultar TAG</div>'
     +'<button onclick="etqFechar()" style="background:none;border:none;font-size:22px;color:#686868;line-height:1;padding:0 4px">×</button></div>';
@@ -14942,42 +14943,52 @@ function etqRender(st){
       h+='<button id="etqBtnChipAgora" onclick="etqConferirChipAgora()" style="width:100%;min-height:54px;margin-top:10px;background:#FE9339;color:#2B1A00;border:none;border-radius:12px;font-weight:800;font-size:15.5px;transition:background .15s">📶 Conferir o chip agora</button>'
         +'<style>@keyframes etqPulsa{0%,100%{box-shadow:0 0 0 0 rgba(1,118,211,.55)}50%{box-shadow:0 0 0 10px rgba(1,118,211,0)}}.etq-btn-pulsa{animation:etqPulsa 1.1s ease-out infinite}</style>'; /* 12/10/2026: id + pulso para os estados do botão (etqChipAgoraEstado) */
     const a=st.ativo;
+    /* 12/10/2026 — revisão de arquitetura da informação, mockup B2 APROVADO pelo Raphael
+       (prototipos/mockup-tag-resultado-AI-B2_12-10-2026.html; DECISAO_tela-resultado-leitura-tag_11-10-2026.md, seção B2).
+       Pedido: "dar destaque ao que merece; mais clara a Conta e o item". Ordem de leitura: O QUE É (apelido grande) → DE QUEM
+       E ONDE (cliente, local, sistema) → O QUE FAZER (lista de ações). Nº do equipamento vira chip monoespaçado no canto
+       superior direito, com as pílulas de situação EMPILHADAS embaixo dele (Raphael: "muita área vazia na porção superior
+       direita"). Local/Sistema/Dentro de um embaixo do outro, título pequeno e valor grande (Raphael: "não em pílulas").
+       Pílula = caixa alta, fundo sólido, 6 tons (diretriz de 02/09/2026). */
+    const pil=(tom,txt,id,oculta,cls)=>'<span'+(id?' id="'+id+'"':'')+(cls?' class="'+cls+'"':'')+' style="display:'+(oculta?'none':'inline-block')+';border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;line-height:1.25;white-space:nowrap;background:'+({sucesso:'#2E844A',concluido:'#0B827C',info:'#0176D3',atencao:'#FE9339',erro:'#BA0517',neutro:'#747474'})[tom]+';color:'+(tom==='atencao'?'#2B1A00':'#fff')+'">'+txt+'</span>';
     if(a){
-      h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:14px;padding:14px 16px;margin-top:12px;position:relative">'
-        +'<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+(st.errado?'#BA0517':'#686868')+'">'+(st.errado?'✕ Etiqueta lida pertence a':'Equipamento')+'</div>'
-        +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 2px"><span style="font-size:34px;font-weight:800;color:#0B2239;line-height:1.05">'+cadEsc(a.nome||'—')+'</span>'
-        /* 12/10/2026 — tipo com mais destaque (Raphael), ao lado do número em vez de pílula pequena no canto */
-        +(a.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(a.tipo)+'</span>':'')+'</div>'
-        +(a.apelido?'<div style="font-size:20px;font-weight:800;color:#3E7EB0;margin:2px 0 4px">'+cadEsc(a.apelido)+'</div>':'')
-        +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-bottom:8px">'+cadEsc(a.descricao)+'</div>':'')
-        /* 12/10/2026 — Raphael: "apresentar o Local e o Sistema; o valor do campo deve ter mais destaque que o título".
-           Título pequeno em caixa alta e cinza; valor grande e escuro embaixo. Local e Sistema aparecem SEMPRE (vazio vira
-           "não informado", que também é informação para o técnico); Conta só se houver. */
+      const titulo=a.apelido||a.nome||'—'; /* sem apelido, o nº ATV é o título — nunca fica sem nome grande */
+      h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:16px;padding:14px 16px 12px;margin-top:12px;position:relative">'
+        +(st.errado?'<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#BA0517;margin-bottom:6px">✕ Etiqueta lida pertence a</div>':'')
+        /* topo em 2 colunas: esquerda tipo + apelido + descrição; direita nº + pílulas, alinhados à direita */
+        +'<div style="display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:start">'
+        +'<div style="min-width:0">'
+        +(a.tipo?pil('info',cadEsc(a.tipo)):'')
+        +'<div style="font-size:clamp(28px,7vw,44px);font-weight:800;color:#0B2239;line-height:1;margin-top:6px;word-break:break-word">'+cadEsc(titulo)+'</div>'
+        +(a.descricao?'<div style="font-size:18px;font-weight:600;color:#0B2239;margin-top:8px;line-height:1.3">'+cadEsc(a.descricao)+'</div>':'')
+        +'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">'
+        /* chip do nº: monoespaçado, para conferir com a plaqueta colada sem disputar com o apelido */
+        +(a.nome?'<div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;font-weight:700;color:#0B2239;background:#EEF2F6;border-radius:8px;padding:6px 10px;letter-spacing:.03em;white-space:nowrap"><small style="font-family:system-ui,sans-serif;font-size:11px;font-weight:700;color:#8A949E;letter-spacing:.08em;margin-right:6px">Nº</small>'+cadEsc(a.nome)+'</div>':'')
+        /* pílulas de situação, uma embaixo da outra. NESTA entrega só "N PENDÊNCIAS" (vermelha; some quando é zero — "0 PENDÊNCIAS"
+           seria alarme falso). Nasce oculta: o número chega depois do render, por etqPndCarregar → etqPendPintar (12/10 A2: a mesma
+           lista da seção "Pendências deste equipamento", para todos os papéis).
+           PONTO DE ENCAIXE (próxima entrega, dependem do servidor): "CONTRATO MPP VIGENTE" (sucesso) e "PREVENTIVA HÁ N DIAS" (info)
+           entram aqui, como pil('sucesso',…) e pil('info',…), quando GET /etiquetas/:token e /ativos-codigo/:numero devolverem
+           contrato vigente e data da última preventiva. Até lá não aparece nada. */
+        +'<div id="etqPilhaSit" style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">'
+        +pil('erro','',  'etqPilPend', true)
+        +'</div></div></div>'
+        /* pílula escura do cliente (Raphael: "mais clara a Conta") — só se houver conta */
+        +(a.conta?'<div style="display:flex;flex-wrap:wrap;gap:6px 4px;margin-top:14px;padding-top:12px;border-top:1px solid #E2E5E9"><span style="display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:4px 12px;border-radius:999px;background:#0B2239;color:#fff;font-size:15px;font-weight:800;line-height:1.2;word-break:break-word"><small style="font-weight:600;color:#9FB6CC;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em">Cliente</small>'+cadEsc(a.conta)+'</span></div>':'')
+        /* Local, Sistema e Dentro de empilhados. Local e Sistema SEMPRE (vazio = "não informado", que também é informação para o
+           técnico — regra de 12/10); Dentro de só se houver. */
         +(function(){
-          const cel=(k,v,sub)=>'<div style="min-width:0;flex:1 1 200px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A949E">'+k+'</div>'
-            +(v?'<div style="font-size:18px;font-weight:700;color:#0B2239;line-height:1.25;margin-top:2px;word-break:break-word">'+cadEsc(v)+'</div>'
-               :'<div style="font-size:15px;font-weight:500;color:#AEB8C2;margin-top:2px">não informado</div>')
-            +(sub?'<div style="font-size:13px;color:#686868;margin-top:2px">dentro de '+cadEsc(sub)+'</div>':'')+'</div>';
-          return '<div style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:8px;padding-top:10px;border-top:1px solid #E2E5E9">'
-            +cel('Local',a.local)+cel('Sistema',a.sistema,a.dentroDe)+(a.conta?cel('Conta',a.conta):'')+'</div>';
+          const lin=(k,v)=>'<div style="display:flex;flex-direction:column;line-height:1.25"><small style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A949E">'+k+'</small>'
+            +(v?'<b style="font-size:17px;font-weight:700;color:#0B2239;margin-top:1px;word-break:break-word">'+cadEsc(v)+'</b>'
+               :'<span style="font-size:15px;font-weight:500;color:#AEB8C2;margin-top:1px">não informado</span>')+'</div>';
+          return '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #E2E5E9">'
+            +lin('Local',a.local)+lin('Sistema',a.sistema)+(a.dentroDe?lin('Dentro de',a.dentroDe):'')+'</div>';
         })()+'</div>';
       if(st.errado) h+='<div style="background:#fff;border:1px solid #2E844A;border-radius:14px;padding:10px 16px;margin-top:8px;font-size:13.5px;color:#2E844A;font-weight:700">✓ Equipamento esperado: o deste cadastro</div>';
     } else {
       h+='<div style="border:1px dashed #C9D0D8;border-radius:14px;padding:18px;margin-top:12px;text-align:center;color:#686868;font-size:14px">Nenhum equipamento identificado</div>';
     }
-    const chipTxt=st.uid?st.uid.match(/.{1,2}/g).join(':'):''; /* número INTEIRO: cartões do mesmo lote terminam iguais (…0289) */
-    h+='<div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:9px 12px;margin-top:12px">'
-      /* 12/10/2026 — Raphael: "remover o quadrado do número da leitura de todas as páginas" (o nº da leitura saiu; ficam hora e chip) */
-      +'<div style="flex:1;min-width:0;line-height:1.3"><div style="font-weight:700;font-size:15px;color:#0B2239">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+(st.uid?'NFC':(st.porCodigo?'Código digitado':'QR code / link'))+'</div>'
-      +'<div style="color:#686868;font-size:12.5px;word-break:break-all">'+(st.uid?'chip '+cadEsc(chipTxt):(st.porCodigo?'consulta sem etiqueta — nada foi conferido':'sem número de chip — o QR não lê o chip'))+'</div></div>'
-      +'<span class="etq-pulso" style="flex:0 0 12px;height:12px;border-radius:50%;background:#0176D3"></span></div>';
-    const chk=st.chk||[], ruim=chk.filter(x=>x[0]!=='ok').length;
-    const bol=t=>'<span style="flex:0 0 22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
-    h+='<details style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-top:12px"'+(ruim?' open':'')+'>'
-      +'<summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;min-height:48px;font-weight:600;font-size:14px;color:#0B2239"><span>Detalhes da checagem</span>'
-      +'<span style="display:flex;gap:5px;align-items:center">'+(ruim?'<span style="color:#BA0517;font-weight:700;margin-right:4px">'+ruim+' problema'+(ruim>1?'s':'')+'</span>':'')+chk.map(x=>bol(x[0])).join('')+'<span style="color:#686868;margin-left:4px">▾</span></span></summary>'
-      +'<div style="padding:0 14px 10px">'+chk.map(x=>'<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #E2E5E9;line-height:1.35">'+bol(x[0])+'<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;color:#0B2239">'+cadEsc(x[1])+'</div>'+(x[2]?'<div style="color:#686868;font-size:12px;word-break:break-all">'+cadEsc(x[2])+'</div>':'')+'</div></div>').join('')
-      +'</div></details>';
     /* 12/10/2026 — ações sobre o equipamento lido, entrega 1 da DECISAO_acoes-na-leitura-da-tag_12-10-2026.md: só ligam a
        tela ao que já existe (ficha, galeria de fotos, pendências). O Id do ativo vai DENTRO do onclick: cada leitura nova
        troca o resultado, e a ação tem que agir sobre o equipamento que estava na tela no toque. As três rotas no servidor
@@ -14985,20 +14996,53 @@ function etqRender(st){
     /* 12/10/2026 — fatia 2: "Registrar problema" é para TODOS (o técnico também registra — Raphael); ficha, foto e histórico
        continuam de Supervisor para cima (rotas do cadastro) e pendências da função de Plano. O problema vira PENDÊNCIA no
        equipamento, sem OT (DECISAO_pendencia-decisao-comercial-e-contrato-de-origem_12-10-2026.md). */
+    /* 12/10/2026 (B2) — a grade de botões quadrados virou LISTA VERTICAL (mockup): uma ação por linha, ≥ 56 px, chevron à direita.
+       "Registrar problema" destacada em laranja com subtítulo; "Pendências" leva a pílula "N ABERTAS" (preenchida por
+       etqPendPintar). Regras de papel e onclick iguais aos de antes; #etqAcaoBox continua logo abaixo da lista. */
+    /* 12/10/2026 (A2) — Raphael: "Registrar problema e Pendências são no fundo a mesma coisa". As duas linhas saíram da lista
+       de ações e viraram UMA seção fixa, "Pendências deste equipamento", logo abaixo do cartão de identidade, com o botão laranja
+       "+ Registrar problema" no cabeçalho e as 3 pendências mais recentes já visíveis (chips de situação, ordenação, folha de
+       filtros, "Ver todas"). O formulário abre INLINE, no lugar da lista. Para TODOS os papéis: a lista vem de
+       GET /pendencias/equipamento/:id (só leitura, sem valores); o técnico vê mas não tem "abrir ›" nem "Tratar no Plano".
+       Na lista de ações ficam Ver ficha, Fotos e Histórico (Supervisor+). Ver DECISAO_pendencias-unificadas-na-leitura-da-tag_12-10-2026.md */
+    etqProb=null; etqPnd=null;
     if(a&&a.id&&!st.errado){
       const idA=String(a.id).replace(/[^A-Za-z0-9]/g,'');
-      const cad=typeof canCadastrar==='function'&&canCadastrar(ROLE), pla=typeof canPlano!=='function'||canPlano(ROLE);
-      const bt=(ic,txt,on,forte,id)=>'<button '+(id?'id="'+id+'" ':'')+'onclick="'+on+'" style="position:relative;flex:1 1 0;min-width:0;min-height:64px;background:'+(forte?'#FFF4E5':'#fff')+';border:2px solid '+(forte?'#FE9339':'#3E7EB0')+';border-radius:12px;color:#0B2239;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px"><span style="font-size:20px;line-height:1">'+ic+'</span>'+txt+'</button>';
-      h+='<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#686868;margin:16px 0 6px">Ações neste equipamento</div>'
-        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-        +bt('⚠️','Registrar problema',"etqAcaoProblema('"+idA+"')",true)
-        +(cad?bt('📄','Ver ficha',"etqAcaoFicha('"+idA+"')"):'')
-        +(cad?bt('📷','Fotos',"etqAcaoFotos('"+idA+"')"):'')
-        +(pla?bt('📋','Pendências',"etqAcaoPendencias('"+idA+"')",false,'etqBtnPend'):'')
-        +(cad?bt('🕘','Histórico',"etqAcaoHistorico('"+idA+"')"):'')
-        +'</div><div id="etqAcaoBox"></div>';
-      if(pla) setTimeout(()=>etqPendBadge(idA,etqSeq),0);
+      const cad=typeof canCadastrar==='function'&&canCadastrar(ROLE);
+      etqPnd=etqPndNovo(idA); etqPnd.titulo=a.apelido||a.nome||''; etqPnd.nome=a.nome||''; etqPnd.conta=a.conta||''; etqPnd.tipo=a.tipo||''; /* 12/10/2026: tipo → sugestões de problema */
+      h+=ETQ_PND_CSS+etqPndSecaoHtml();
+      const lin=(ic,txt,on,opt)=>{ opt=opt||{};
+        return '<button '+(opt.id?'id="'+opt.id+'" ':'')+'onclick="'+on+'" style="display:flex;align-items:center;gap:12px;width:100%;min-height:'+(opt.forte?60:56)+'px;padding:0 16px;border:none;border-top:1px solid #E2E5E9;background:'+(opt.forte?'#FFF4E5':'#fff')+';'+(opt.forte?'border-left:6px solid #FE9339;padding-left:10px;':'')+'font-size:16px;font-weight:700;color:#0B2239;text-align:left;cursor:pointer;font-family:inherit">'
+          +'<span style="font-size:20px;width:28px;text-align:center;flex:0 0 28px">'+ic+'</span>'
+          +'<span style="flex:1;min-width:0">'+txt+(opt.sub?'<span style="display:block;font-weight:500;font-size:13px;color:#686868;margin-top:1px">'+opt.sub+'</span>':'')+'</span>'
+          +'<span style="display:flex;align-items:center;gap:10px">'+(opt.dir||'')+'<span style="color:#8A949E;font-size:20px">›</span></span></button>'; };
+      if(cad) h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px" class="etq-lista-acoes">'
+        +lin('📄','Ver ficha',"etqAcaoFicha('"+idA+"')")
+        +lin('📷','Fotos',"etqAcaoFotos('"+idA+"')")
+        +lin('🕘','Histórico',"etqAcaoHistorico('"+idA+"')")
+        +'</div><style>.etq-lista-acoes>button:first-child{border-top:none!important}</style>';
+      h+='<div id="etqAcaoBox"></div>';
+      setTimeout(()=>etqPndCarregar(idA,etqSeq),0);
     }
+    /* 12/10/2026 (B2) — "Sobre esta leitura": o carimbo (hora · NFC/QR/código · chip) e as checagens viraram UMA linha recolhida.
+       Hora e chip INTEIRO continuam (cartões do mesmo lote terminam iguais, …0289). Abre sozinho só quando há problema de
+       verdade (tom er/at); checagem "não verificada" (ne) fica recolhida — pelo QR o chip não é lido e isso não é alerta
+       (Raphael, 12/10: "o scan do QR não alerta nada sobre não ter lido o NFC"). O diagnóstico do leitor (#etqNfcEstado) mora
+       aqui dentro; o id é o mesmo porque tagNfcEstadoSet atualiza esse elemento. */
+    const chipTxt=st.uid?st.uid.match(/.{1,2}/g).join(':'):'';
+    const chk=st.chk||[], ruim=chk.filter(x=>x[0]==='er'||x[0]==='at').length, okN=chk.filter(x=>x[0]==='ok').length;
+    const bol=t=>'<span style="flex:0 0 20px;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
+    const fonte=st.uid?'NFC':(st.porCodigo?'Código digitado':'QR code');
+    const resumo=st.porCodigo?'consulta sem etiqueta':(ruim?'<span style="color:#BA0517;font-weight:700">'+ruim+' problema'+(ruim>1?'s':'')+'</span>':'<b style="color:#0B2239;font-weight:600">'+okN+' checage'+(okN===1?'m':'ns')+' OK</b>');
+    h+='<details id="etqSobre" style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-top:12px"'+(ruim?' open':'')+'>'
+      +'<summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;min-height:52px;font-size:14px;color:#686868;line-height:1.3">'
+      +'<span style="min-width:0;word-break:break-all"><b style="color:#0B2239;font-weight:600">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+fonte+'</b>'
+      +(st.uid?' · chip '+cadEsc(chipTxt):(st.porCodigo?'':' · sem número de chip'))+' · '+resumo+'</span>'
+      +'<span style="display:flex;gap:5px;align-items:center;flex:0 0 auto">'+chk.map(x=>bol(x[0])).join('')+'<span style="color:#8A949E;margin-left:4px">▾</span></span></summary>'
+      +'<div style="padding:0 14px 10px">'+chk.map(x=>'<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #E2E5E9;line-height:1.35">'+bol(x[0])+'<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;color:#0B2239">'+cadEsc(x[1])+'</div>'+(x[2]?'<div style="color:#686868;font-size:12px;word-break:break-all">'+cadEsc(x[2])+'</div>':'')+'</div></div>').join('')
+      /* 12/10/2026: diagnóstico do leitor único (scan vivo?, leitores, último evento) — ver nfcHubResumo */
+      +'<div id="etqNfcEstado" style="font-size:11.5px;color:#AEB8C2;margin-top:8px;padding-top:8px;border-top:1px solid #E2E5E9;word-break:break-word">'+cadEsc(typeof nfcHubResumo==='function'?nfcHubResumo():'Leitor NFC: '+tagNfcEstado)+'</div>'
+      +'</div></details>';
     /* 12/10/2026 — Raphael: "guardar todos os lugares onde aparece 'ver como o cliente vê', porque não teremos portal num primeiro
        momento; guardar para um dia voltarmos". Desligados por PORTAL_ATIVO (o link "Abrir no portal" também). Religar = true. */
     if(PORTAL_ATIVO&&st.token&&st.okEtiqueta&&(typeof canCadastrar!=='function'||canCadastrar(ROLE))) h+='<button class="etq-rodape" onclick="etqPrevia(\''+st.token+'\')" style="width:100%;min-height:52px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;margin-top:14px">👁️ Ver como o cliente vê</button>';
@@ -15006,8 +15050,7 @@ function etqRender(st){
     /* o portal só abre se o técnico quiser (Raphael: "o portal só se for escolha do técnico") — link discreto, uso raro */
     if(PORTAL_ATIVO&&st.url&&st.url.indexOf(PORTAL_BASE+'/a/')===0) h+='<button class="etq-rodape" onclick="window.open(\''+st.url.replace(/'/g,'')+'\',\'_blank\')" style="width:100%;min-height:44px;background:none;border:none;color:#686868;font-size:13.5px;text-decoration:underline;margin-top:4px">Abrir no portal (pede o login do cliente)</button>';
     /* leitor ligado → basta encostar a próxima; sem leitor (veio do QR ou do portal) → botão para ligar o NFC */
-    /* 12/10/2026: rodapé de diagnóstico com o resumo do leitor único (scan vivo?, leitores, último evento) — ver nfcHubResumo */
-    h+='<div id="etqNfcEstado" style="text-align:center;font-size:11.5px;color:#AEB8C2;margin-top:8px;word-break:break-word">'+cadEsc(typeof nfcHubResumo==='function'?nfcHubResumo():'Leitor NFC: '+tagNfcEstado)+'</div>';
+    /* 12/10/2026 (B2): o diagnóstico do leitor (#etqNfcEstado) saiu daqui e foi para dentro de "Sobre esta leitura", acima */
     const lendo=!!etqCtrl||!!tagNfcCtrl||(typeof cadNfcCtrl!=='undefined'&&!!cadNfcCtrl);
     if(lendo) h+='<div style="text-align:center;font-size:13px;color:#686868;margin-top:6px">Encoste outra etiqueta a qualquer momento — o resultado é trocado na hora.</div>';
     else h+='<button onclick="etqTestar(\''+(st.esperado||'')+'\')" style="width:100%;min-height:48px;background:#fff;color:#0176D3;border:2px solid #3E7EB0;border-radius:12px;font-weight:700;font-size:14px;margin-top:10px">📶 Ler uma etiqueta por NFC</button>';
@@ -15129,7 +15172,7 @@ async function etqConferir(url,uid,esperado){
       }
 }
 /* ===== Ações na leitura da TAG — entrega 1 (12/10/2026) ===== ver DECISAO_acoes-na-leitura-da-tag_12-10-2026.md */
-function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); } /* outra ação fecha o formulário de problema */ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
+function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); } /* outra ação fecha o formulário de problema (12/10 A2: o formulário mora na seção de pendências — repinta a lista) */ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
 /* a ficha é o modal de detalhe do cadastro (z-index menor que o painel da TAG): fecha o resultado antes. O leitor da tela
    continua em espera, então encostar outra etiqueta depois não abre o portal. */
 /* 12/10/2026 — Raphael: "depois da leitura, se eu clico em Ver ficha não consigo voltar para o registro; tenho que ler a
@@ -15259,30 +15302,9 @@ function etqIrPlanoPendencias(ativoId){
   PLN.tab='pendencias'; PLN.pndId=null; PLN.pndAtivo=ativoId; PLN.pndFiltro='abertas'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
   etqFechar(); go('plano');
 }
-async function etqAcaoPendencias(ativoId){
-  const seq=etqSeq;
-  etqAcaoBox('<div style="padding:12px 2px;color:#3E7EB0;font-size:14px"><span class="ld-spin"></span> Buscando pendências…</div>');
-  try{
-    const d=await beGet('/plano/achados?ativoId='+encodeURIComponent(ativoId));
-    if(seq!==etqSeq) return;
-    const l=(d&&d.achados)||[];
-    const COR={'Crítico':'#BA0517','Atenção':'#FE9339','Observação':'#747474'};
-    let h='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 14px;margin-top:10px">'
-      +'<div style="font-weight:700;color:#0B2239;font-size:14px;margin-bottom:4px">'+(l.length?l.length+' pendência'+(l.length>1?'s':'')+' em aberto':'Nenhuma pendência em aberto')+'</div>';
-    l.slice(0,8).forEach(x=>{
-      h+='<div style="padding:8px 0;border-top:1px solid #E2E5E9;font-size:13.5px;line-height:1.35">'
-        +'<span style="display:inline-block;background:'+(COR[x.severidade]||'#747474')+';color:'+(x.severidade==='Atenção'?'#2B1A00':'#fff')+';border-radius:999px;padding:1px 9px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:6px">'+cadEsc(x.severidade||'—')+'</span>'
-        +'<b>'+cadEsc(x.descricao||'(sem descrição)')+'</b>'
-        +' <button onclick="etqIrPlanoPendencia(\''+x.id+'\')" style="float:right;min-height:34px;padding:0 10px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px">abrir ›</button>'
-        +'<div style="color:#686868;font-size:12px;margin-top:2px">'+cadEsc([x.status,x.idadeDias!=null?('há '+x.idadeDias+' dia'+(x.idadeDias===1?'':'s')):null,x.corretiva?('corretiva '+(x.corretiva.nome||'')+' · '+(x.corretiva.status||'')):(x.pediuCorretiva?'corretiva pedida':null)].filter(Boolean).join(' · '))+'</div></div>';
-    });
-    if(l.length>8) h+='<div style="font-size:12px;color:#686868;padding-top:6px">+ '+(l.length-8)+' outras</div>';
-    /* 12/10/2026 — Raphael: "me obriga a ir para o Plano para tratar; criar um link que leve ao Plano". Abre Plano → Pendências
-       já filtrado neste equipamento. */
-    if(l.length) h+='<button onclick="etqIrPlanoPendencias(\''+ativoId+'\')" style="width:100%;min-height:48px;margin-top:8px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:14.5px">Tratar no Plano →</button>';
-    etqAcaoBox(h+'</div>');
-  }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar as pendências: '+cadEsc(e.message)+'</div>'); }
-}
+/* 12/10/2026 (A2) — a linha "Pendências" da lista de ações saiu: a lista mora na seção fixa "Pendências deste equipamento"
+   (etqPndSecaoHtml). Esta função ficou como atalho para a lista completa, para quem ainda a chamar. */
+function etqAcaoPendencias(ativoId){ if(etqPnd&&etqPnd.ativoId===ativoId&&etqPnd.lista) etqPndCheia(true); }
 /* 12/10/2026 — Histórico do equipamento (Raphael: "histórico de MPP daquele equipamento, preventivas realizadas em ordem
    decrescente por data; chamados (Casos) também"). GET /ativos/:id/historico. OS antigas não entram (só ligam à Conta;
    serão migradas para OT). Chamado só do cliente aparece marcado "do cliente". Ver DECISAO_historico-do-equipamento_12-10-2026.md */
@@ -15344,22 +15366,273 @@ async function etqAcaoHistorico(ativoId){
     etqAcaoBox(caixa('Preventivas (MPP) realizadas',c1,'#2E844A','🛠️',pv.length)+caixa('Anotações técnicas',c3,'#C2410C','⚠️',an.length)+caixa('Chamados',c2,'#0176D3','📞',ch.length));
   }catch(e){ if(seq===etqSeq) etqAcaoBox('<div style="padding:12px 2px;color:#BA0517;font-size:14px">Não consegui buscar o histórico: '+cadEsc(e.message)+'</div>'); }
 }
-/* 12/10/2026 — Raphael: "sinalização visual mais clara com bolinha vermelha e número de pendências na caixa Pendências, caso
-   haja alguma em aberto para aquele ativo". Conta as pendências em aberto (Aberta + Em análise) do equipamento lido e põe o
-   número numa bolinha vermelha no canto do botão. Leitura nova no meio da consulta: descarta (etqSeq). */
-async function etqPendBadge(ativoId,seq){
+/* ===== Pendências deste equipamento — seção fixa na leitura da TAG (12/10/2026, proposta A2 APROVADA) =====
+   Raphael: "Registrar problema e Pendências são no fundo a mesma coisa. Como reestruturar em um único elemento, mas com a fácil
+   opção de registrar problema?" e, depois de escolher a proposta A: "incluir filtros, pois ao longo do tempo podem ir juntando
+   vários itens e vamos precisar de critérios para ordenar e filtrar". Mockups: prototipos/mockup-tag-pendencias-unificadas-A_12-10-2026.html
+   e prototipos/mockup-tag-pendencias-A2-filtros_12-10-2026.html. Decisão: docs/09-CADASTROS/DECISAO_pendencias-unificadas-na-leitura-da-tag_12-10-2026.md
+   Como funciona:
+   - A tela pede UMA vez GET /pendencias/equipamento/:id (todas as situações, qualquer papel) e filtra/ordena no aparelho.
+   - Chips de situação com contagem (um ativo por vez): EM ABERTO (padrão) · SÓ AS NOVAS · EM ANÁLISE · COM ORÇAMENTO · ENCERRADAS;
+     TUDO só na lista completa. "Encerradas" = Resolvida, Resolvida pelo cliente e Descartada. "Recusada pelo cliente" tem chip
+     próprio, RECUSADAS (decisão do Raphael, 12/10/2026: "ganha um grupo próprio").
+   - Ordenação: Recentes (padrão) · Gravidade (Crítico › Atenção › Observação, empate pela mais recente) · Antigas.
+   - Folha "Filtros": gravidade, quem paga, origem, com foto ou vídeo. "Registradas por mim" NÃO entrou (o servidor não devolve o
+     autor das pendências de visita). As contagens dos chips NÃO consideram a folha, para o operador ver o que existe por trás.
+   - Os filtros valem só para a leitura atual: etqRender cria um etqPnd novo a cada resultado.
+   - Mostra 3 itens + "Ver todas (N) ›" → lista completa por cima (#etqPndCheia) com os mesmos controles e "+ Registrar problema".
+   - Dois vazios diferentes: "sem pendências" (verde, convite a registrar, sem chips) e "nenhuma com esses filtros" (botão Limpar).
+   - "abrir ›" e "Tratar no Plano →" só para quem tem função de Plano; a triagem continua lá.
+   - Registrar problema abre o formulário INLINE no lugar da lista (etqProbRender); ao gravar, a pendência nova entra no topo,
+     destacada "agora · por você", e os filtros voltam ao padrão para ela ficar visível — a prova de que gravou é a lista crescendo. */
+let etqPnd=null;
+/* 12/10/2026 (resposta do Raphael à pergunta 2): "Recusada pelo cliente GANHA UM GRUPO PRÓPRIO" — sai de Encerradas e vira o
+   chip RECUSADAS. Para o técnico é "o cliente já disse não" (não registrar de novo); para o comercial, o que pode voltar à proposta. */
+const ETQ_PND_ABERTO=['Aberta','Em análise'], ETQ_PND_ENC=['Resolvida','Resolvida pelo cliente','Descartada'];
+const ETQ_PND_CHIPS={
+  aberto:['Em aberto',a=>ETQ_PND_ABERTO.indexOf(a.status)>=0],
+  novas:['Só as novas',a=>a.status==='Aberta'],
+  analise:['Em análise',a=>a.status==='Em análise'],
+  orcamento:['Com orçamento',a=>ETQ_PND_ABERTO.indexOf(a.status)>=0&&a.quemPaga==='Cobrada com orçamento'], /* recorte de Em análise: as contagens se sobrepõem de propósito */
+  recusadas:['Recusadas',a=>a.status==='Recusada pelo cliente'],
+  encerradas:['Encerradas',a=>ETQ_PND_ENC.indexOf(a.status)>=0],
+  tudo:['Tudo',()=>true]
+};
+const ETQ_PND_SEVN={'Crítico':0,'Atenção':1,'Observação':2}, ETQ_PND_SEVCOR={'Crítico':'#BA0517','Atenção':'#FE9339','Observação':'#747474'};
+const ETQ_PND_PIL={'Aberta':'info','Em análise':'atencao','Resolvida':'sucesso','Resolvida pelo cliente':'sucesso','Descartada':'neutro','Recusada pelo cliente':'erro'};
+const ETQ_PND_COR={sucesso:'#2E844A',concluido:'#0B827C',info:'#0176D3',atencao:'#FE9339',erro:'#BA0517',neutro:'#747474'}; /* 6 tons da diretriz de 02/09/2026 */
+const ETQ_PND_PAGA={'Coberta pelo contrato':'Coberta pelo contrato','Garantia ou cortesia':'Garantia ou cortesia','Cobrada com orçamento':'Cobrada com orçamento','Emergência':'Emergência',sem:'Ainda sem decisão'};
+const ETQ_PND_ORIG={tag:'Leitura da TAG',ot:'Visita (OT)',corretiva:'Com OT corretiva'};
+function etqPndNovo(ativoId){ return {ativoId, lista:null, erro:null, chip:'aberto', ord:'recentes', fil:{sev:[],paga:[],orig:[],midia:false}, cheia:false, folha:false, titulo:'', nome:'', conta:'', tipo:''}; } /* tipo (12/10/2026): nome do TipoAtivo__c — escolhe as sugestões de problema */
+/* Compatibilidade: etqPendBadge(ativoId,seq) era quem buscava a contagem da pílula; agora a contagem sai da mesma lista. */
+async function etqPendBadge(ativoId,seq){ return etqPndCarregar(ativoId,seq); }
+async function etqPndCarregar(ativoId,seq){
+  if(seq!==etqSeq||!etqPnd||etqPnd.ativoId!==ativoId) return; /* leitura nova no meio: a resposta é de outra tela */
   try{
-    const d=await beGet('/plano/achados?ativoId='+encodeURIComponent(ativoId));
-    if(seq!==etqSeq) return;
-    const n=((d&&d.achados)||[]).length, b=document.getElementById('etqBtnPend'); if(!b) return;
-    const v=b.querySelector('.etq-badge'); if(v) v.remove();
-    if(!n){ b.title='Nenhuma pendência em aberto'; return; }
-    const sp=document.createElement('span'); sp.className='etq-badge';
-    sp.textContent=n>99?'99+':String(n);
-    sp.style.cssText='position:absolute;top:-8px;right:-8px;min-width:26px;height:26px;padding:0 7px;box-sizing:border-box;border-radius:13px;background:#BA0517;color:#fff;font-size:14px;font-weight:800;line-height:26px;text-align:center;box-shadow:0 0 0 2px #fff';
-    b.appendChild(sp); b.style.borderColor='#BA0517'; b.title=n+' pendência'+(n>1?'s':'')+' em aberto';
-  }catch(e){ /* sem o número, o botão continua funcionando */ }
+    const d=await beGet('/pendencias/equipamento/'+encodeURIComponent(ativoId));
+    if(seq!==etqSeq||!etqPnd||etqPnd.ativoId!==ativoId) return;
+    etqPnd.lista=(d&&d.pendencias)||[]; etqPnd.erro=null;
+  }catch(e){ if(seq!==etqSeq||!etqPnd||etqPnd.ativoId!==ativoId) return; etqPnd.erro=e.message||'erro'; etqPnd.lista=null; }
+  etqPendPintar(etqPnd.lista?etqPndContagem('aberto'):0); etqPndPintar();
 }
+/* pílula "N PENDÊNCIAS" do cartão de identidade (#etqPilPend): só as em aberto; zero esconde ("0 PENDÊNCIAS" seria alarme falso) */
+function etqPendPintar(n){
+  n=Number(n)||0; const txt=n>99?'99+':String(n);
+  const p=document.getElementById('etqPilPend');
+  if(p){ p.style.display=n?'inline-block':'none'; p.textContent=n?txt+' pendência'+(n>1?'s':''):''; }
+  const b=document.getElementById('etqBtnPend'); if(!b) return; /* linha antiga da lista de ações — já não é desenhada (A2) */
+  const v=b.querySelector('.etq-badge');
+  if(v){ v.style.display=n?'inline-block':'none'; v.textContent=n?txt+' aberta'+(n>1?'s':''):''; }
+  b.title=n?n+' pendência'+(n>1?'s':'')+' em aberto':'Nenhuma pendência em aberto';
+}
+/* ---- filtros e ordenação (tudo no aparelho) ---- */
+function etqPndNFil(f){ return f.sev.length+f.paga.length+f.orig.length+(f.midia?1:0); }
+function etqPndPassaFolha(a,f){
+  if(f.sev.length&&f.sev.indexOf(a.severidade)<0) return false;
+  if(f.paga.length&&f.paga.indexOf(a.quemPaga||'sem')<0) return false;
+  if(f.orig.length&&!((f.orig.indexOf('tag')>=0&&a.foraDeOt)||(f.orig.indexOf('ot')>=0&&!a.foraDeOt)||(f.orig.indexOf('corretiva')>=0&&!!a.corretiva))) return false;
+  if(f.midia&&!(a.temFoto||a.temVideo)) return false;
+  return true;
+}
+function etqPndTempo(a){ if(a.criadoEm){ const t=new Date(a.criadoEm).getTime(); if(!isNaN(t)) return t; } return a.idadeDias!=null?Date.now()-a.idadeDias*86400000:0; }
+function etqPndOrdenar(l,ord){
+  const rec=(a,b)=>etqPndTempo(b)-etqPndTempo(a);
+  const f=ord==='gravidade'?((a,b)=>(((ETQ_PND_SEVN[a.severidade]!=null?ETQ_PND_SEVN[a.severidade]:3)-(ETQ_PND_SEVN[b.severidade]!=null?ETQ_PND_SEVN[b.severidade]:3))||rec(a,b)))
+    :ord==='antigas'?((a,b)=>etqPndTempo(a)-etqPndTempo(b)):rec;
+  return l.slice().sort(f);
+}
+function etqPndContagem(k){ return (etqPnd&&etqPnd.lista||[]).filter(ETQ_PND_CHIPS[k][1]).length; }
+function etqPndFiltrada(){ const p=etqPnd; const c=ETQ_PND_CHIPS[p.chip]||ETQ_PND_CHIPS.aberto; return etqPndOrdenar((p.lista||[]).filter(c[1]).filter(a=>etqPndPassaFolha(a,p.fil)),p.ord); }
+function etqPndChip(k){ if(!etqPnd||!ETQ_PND_CHIPS[k]) return; if(k==='tudo'&&!etqPnd.cheia) k='aberto'; /* TUDO só existe na lista completa */ etqPnd.chip=k; etqPndPintar(); }
+function etqPndOrd(k){ if(!etqPnd) return; etqPnd.ord=k; etqPndPintar(); }
+function etqPndFil(g,v){ if(!etqPnd) return; const f=etqPnd.fil; if(g==='midia') f.midia=!f.midia; else if(f[g]){ const i=f[g].indexOf(v); if(i<0) f[g].push(v); else f[g].splice(i,1); } etqPndPintar(); }
+function etqPndLimpar(chipTb){ if(!etqPnd) return; etqPnd.fil={sev:[],paga:[],orig:[],midia:false}; if(chipTb) etqPnd.chip=etqPnd.cheia?'tudo':'aberto'; etqPndPintar(); }
+/* ---- pedaços de HTML ---- */
+function etqPndIdade(a){ if(a._nova) return 'agora'; const d=a.idadeDias; if(d==null) return ''; return d===0?'hoje':d===1?'há 1 dia':d<60?'há '+d+' dias':'há '+Math.round(d/30)+' meses'; }
+function etqPndItemHtml(a,plano){
+  const enc=ETQ_PND_ENC.indexOf(a.status)>=0||a.status==='Recusada pelo cliente' /* fora do campo: mesmo visual apagado */, tom=ETQ_PND_PIL[a.status]||'neutro';
+  /* linha pequena: gravidade · idade · quem/origem · (corretiva) · (quem paga) · ícones de mídia */
+  const quem=a._nova?'por você':(a.foraDeOt?(a.registradaPor?'por '+a.registradaPor+' (TAG)':'TAG'):('visita '+((a.otOrigem&&a.otOrigem.nome)||'OT')));
+  const extra=(!enc&&a.corretiva?' · corretiva '+(a.corretiva.nome||'')+(a.corretiva.status?' ('+a.corretiva.status+')':''):'')+(a.quemPaga?' · '+a.quemPaga.toLowerCase():'');
+  const md=(a.temFoto?'📷':'')+(a.temVideo?'🎥':'');
+  return '<div class="etqp-it'+(enc?' etqp-enc':'')+(a._nova?' etqp-nova':'')+'" data-pid="'+cadEsc(a.id||'')+'" style="border-left-color:'+(ETQ_PND_SEVCOR[a.severidade]||'#747474')+'">'
+    +'<div class="etqp-d"><b>'+cadEsc(a.descricao||'(sem descrição)')+'</b><small>'+cadEsc([a.severidade||'—',etqPndIdade(a),quem].filter(Boolean).join(' · ')+extra)+(md?' · <span class="etqp-md">'+md+'</span>':'')+'</small></div>'
+    +'<span class="etqp-pil" style="background:'+ETQ_PND_COR[tom]+';color:'+(tom==='atencao'?'#2B1A00':'#fff')+'">'+cadEsc(a.status||'—')+'</span>'
+    +(plano&&a.id?'<button class="etqp-abrir" onclick="etqIrPlanoPendencia(\''+cadEsc(String(a.id).replace(/[^A-Za-z0-9]/g,''))+'\')">abrir ›</button>':'')
+    +'</div>';
+}
+function etqPndChipsHtml(comTudo){
+  let h='<div class="etqp-chips">';
+  Object.keys(ETQ_PND_CHIPS).forEach(k=>{ if(k==='tudo'&&!comTudo) return; const n=etqPndContagem(k);
+    h+='<button class="etqp-chip'+(k===etqPnd.chip?' on':'')+(n?'':' zero')+'" data-chip="'+k+'" onclick="etqPndChip(\''+k+'\')">'+ETQ_PND_CHIPS[k][0]+'<span class="n">'+n+'</span></button>'; });
+  return h+'</div>';
+}
+function etqPndAtivosHtml(){
+  const f=etqPnd.fil, tags=[];
+  f.sev.forEach(v=>tags.push(['sev',v,v])); f.paga.forEach(v=>tags.push(['paga',v,ETQ_PND_PAGA[v]||v])); f.orig.forEach(v=>tags.push(['orig',v,ETQ_PND_ORIG[v]||v])); if(f.midia) tags.push(['midia','1','Com foto ou vídeo']);
+  if(!tags.length) return '';
+  return '<div class="etqp-ativos">'+tags.map(t=>'<button class="etqp-tag" onclick="etqPndFil(\''+t[0]+'\',\''+cadEsc(t[1])+'\')">'+cadEsc(t[2])+' <i>×</i></button>').join('')+'<button class="etqp-limpar" onclick="etqPndLimpar(false)">Limpar</button></div>';
+}
+function etqPndCtlHtml(){
+  const p=etqPnd, nf=etqPndNFil(p.fil);
+  return '<div class="etqp-ctl"><span class="etqp-lbl">Ordenar</span><div class="etqp-segm">'
+    +[['recentes','Recentes'],['gravidade','Gravidade'],['antigas','Antigas']].map(([k,r])=>'<button class="'+(p.ord===k?'on':'')+'" data-ord="'+k+'" onclick="etqPndOrd(\''+k+'\')">'+r+'</button>').join('')
+    +'</div><button class="etqp-bfil'+(nf?' on':'')+'" data-bfil onclick="etqPndFolha(true)">⚙ Filtros'+(nf?'<span class="n">'+nf+'</span>':'')+'</button></div>'+etqPndAtivosHtml();
+}
+function etqPndSecaoHtml(){
+  const p=etqPnd; if(!p) return '';
+  const plano=typeof canPlano!=='function'||canPlano(ROLE);
+  const mais=(cls)=>'<button class="etqp-mais'+(cls||'')+'" onclick="etqAcaoProblema(\''+p.ativoId+'\')"><span class="plus">+</span> Registrar problema</button>';
+  let h='<div class="etqp" id="etqPndSecao">';
+  /* formulário inline: o cabeçalho vira "Registrar problema" (faixa laranja) e o corpo é o formulário */
+  if(etqProb&&etqProb.ativoId===p.ativoId){
+    return h+'<div class="etqp-cab etqp-cab-form"><div class="etqp-tit">Registrar problema<small>'+cadEsc([p.titulo,p.nome].filter(Boolean).join(' · '))+(p.titulo||p.nome?' · ':'')+'vira pendência “Aberta” neste equipamento</small></div><button class="etqp-x" onclick="etqProbCancelar()" aria-label="Fechar">×</button></div>'
+      +'<div id="etqPndCorpo">'+etqProbFormHtml(etqProbMsg)+'</div></div>';
+  }
+  const total=(p.lista||[]).length, nAb=p.lista?etqPndContagem('aberto'):0;
+  let sub;
+  if(p.lista===null&&!p.erro) sub='buscando…';
+  else if(p.erro) sub='não consegui buscar a lista';
+  else if(!total) sub='Nenhuma em aberto · nenhuma na vida do equipamento';
+  else { const rec=etqPndOrdenar(p.lista,'recentes')[0]; sub=nAb+' em aberto · '+total+' na vida do equipamento'+(rec&&etqPndIdade(rec)?' · a mais recente '+etqPndIdade(rec):''); }
+  /* sem pendências, o botão laranja sai do cabeçalho e vai para o convite (não haver dois) */
+  h+='<div class="etqp-cab"><div class="etqp-tit">Pendências deste equipamento<small>'+cadEsc(sub)+'</small></div>'+(p.lista!==null&&!total&&!p.erro?'':mais(''))+'</div>';
+  if(p.lista===null&&!p.erro){ h+='<div class="etqp-vazio" style="color:#3E7EB0"><span class="ld-spin"></span> Buscando pendências…</div>'; }
+  else if(p.erro){ h+='<div class="etqp-vazio">Não consegui buscar as pendências: '+cadEsc(p.erro)+'<br><button class="etqp-limp" onclick="etqPndCarregar(\''+p.ativoId+'\',etqSeq)">Tentar de novo</button></div>'; }
+  else if(!total){ h+='<div class="etqp-vazio"><div class="etqp-ok">✓ Equipamento sem pendências</div><br>Viu algo errado? Registre aqui — vira pendência “Aberta” para o supervisor tratar.'+mais(' cheio')+'</div>'; }
+  else {
+    h+=etqPndChipsHtml(false)+etqPndCtlHtml();
+    const l=etqPndFiltrada();
+    if(!l.length){
+      h+='<div class="etqp-vazio"><div class="etqp-nada">Nenhuma pendência com esses filtros</div><br>Há '+total+' pendência'+(total>1?'s':'')+' neste equipamento ('+nAb+' em aberto), mas nenhuma com esses filtros.<br><button class="etqp-limp" onclick="etqPndLimpar(true)">Limpar filtros · ver as em aberto</button></div>';
+    } else {
+      h+='<div class="etqp-lista">'+l.slice(0,3).map(a=>etqPndItemHtml(a,plano)).join('')+'</div>';
+      h+='<div class="etqp-todas">'+(l.length>3?'<button class="etqp-ver" id="etqPndVerTodas" onclick="etqPndCheia(true)">Ver todas ('+l.length+') ›</button>':'<span class="cz" style="padding-left:0">'+(l.length===1?'a única com esse recorte':'mostrando as '+l.length)+'</span>')
+        +'<span class="etqp-dir">'+(l.length>3?'<span class="cz">mostrando 3 de '+l.length+'</span>':'')
+        +(plano?'<button class="etqp-ver" id="etqPndTratar" onclick="etqIrPlanoPendencias(\''+p.ativoId+'\')">Tratar no Plano →</button>':'<span class="cz">tratadas pelo supervisor no Plano</span>')+'</span></div>';
+    }
+  }
+  return h+'</div>';
+}
+/* repinta a seção (e a lista completa / folha, se abertas) a partir do estado etqPnd */
+function etqPndPintar(){
+  const s=document.getElementById('etqPndSecao');
+  if(s&&etqPnd){ s.outerHTML=etqPndSecaoHtml(); }
+  if(etqPnd&&etqPnd.cheia) etqPndCheiaPintar();
+  if(etqPnd&&etqPnd.folha) etqPndFolhaPintar();
+}
+/* ---- lista completa por cima (#etqPndCheia) ---- */
+function etqPndCheia(abrir){
+  const v=document.getElementById('etqPndCheia');
+  if(!abrir){ if(v){ v.remove(); navFechou('etqPndCheia'); } if(etqPnd){ etqPnd.cheia=false; if(etqPnd.chip==='tudo') etqPnd.chip='aberto'; etqPndPintar(); } return; }
+  if(!etqPnd||!etqPnd.lista) return;
+  etqPnd.cheia=true;
+  if(!v){ const ov=document.createElement('div'); ov.id='etqPndCheia'; ov.style.cssText='position:fixed;inset:0;z-index:100014;background:#F4F6F8;display:flex;flex-direction:column'; document.body.appendChild(ov); navAbriu('etqPndCheia',()=>etqPndCheia(false)); }
+  etqPndCheiaPintar();
+}
+function etqPndCheiaPintar(){
+  const v=document.getElementById('etqPndCheia'), p=etqPnd; if(!v||!p||!p.lista) return;
+  const plano=typeof canPlano!=='function'||canPlano(ROLE), l=etqPndFiltrada(), total=p.lista.length;
+  let h='<div class="etqp-ctopo"><button class="etqp-volta" onclick="etqPndCheia(false)" aria-label="Voltar">‹</button><div class="t"><b>Todas as pendências'+(p.titulo?' · '+cadEsc(p.titulo):'')+'</b><small>'+cadEsc([p.nome,p.conta].filter(Boolean).join(' · '))+(total?(p.nome||p.conta?' · ':'')+total+' na vida do equipamento':'')+'</small></div>'
+    +'<button class="etqp-mais" onclick="etqPndCheia(false);etqAcaoProblema(\''+p.ativoId+'\')"><span class="plus">+</span> Registrar problema</button></div>'
+    +'<div style="background:#fff">'+etqPndChipsHtml(true)+etqPndCtlHtml()+'</div><div class="etqp-rolo">';
+  if(!l.length) h+='<div class="etqp-vazio"><div class="etqp-nada">Nenhuma pendência com esses filtros</div><br><button class="etqp-limp" onclick="etqPndLimpar(true)">Limpar filtros · ver tudo</button></div>';
+  else if(p.chip==='tudo'){ /* 12/10/2026: três grupos — Recusadas ganhou grupo próprio (Raphael) */
+    const ab=l.filter(a=>ETQ_PND_ABERTO.indexOf(a.status)>=0), rc=l.filter(a=>a.status==='Recusada pelo cliente'), en=l.filter(a=>ETQ_PND_ABERTO.indexOf(a.status)<0&&a.status!=='Recusada pelo cliente');
+    const grp=(t,g)=>g.length?'<div class="etqp-sep">'+t+' · '+g.length+'</div>'+g.map(a=>etqPndItemHtml(a,plano)).join(''):'';
+    h+=grp('Em aberto',ab)+grp('Recusadas pelo cliente',rc)+grp('Encerradas',en); }
+  else h+=l.map(a=>etqPndItemHtml(a,plano)).join('');
+  h+='</div><div class="etqp-pe"><span class="cz">'+l.length+' pendência'+(l.length===1?'':'s')+' · '+({recentes:'a mais recente primeiro',gravidade:'Crítico primeiro, depois Atenção, depois Observação',antigas:'a mais antiga primeiro'})[p.ord]+(p.chip==='tudo'?' · encerradas em cinza mais claro':'')+'</span>'
+    +(plano?'<button class="etqp-ver etqp-borda" onclick="etqPndCheia(false);etqIrPlanoPendencias(\''+p.ativoId+'\')">Tratar no Plano →</button>':'')+'</div>';
+  v.innerHTML=h;
+}
+/* ---- folha de filtros (#etqPndFolha) ---- */
+function etqPndFolha(abrir){
+  const v=document.getElementById('etqPndFolha');
+  if(!abrir){ if(v){ v.remove(); navFechou('etqPndFolha'); } if(etqPnd) etqPnd.folha=false; return; }
+  if(!etqPnd||!etqPnd.lista) return;
+  etqPnd.folha=true;
+  if(!v){ const ov=document.createElement('div'); ov.id='etqPndFolha'; ov.style.cssText='position:fixed;inset:0;z-index:100016;background:rgba(11,34,57,.45);display:flex;align-items:flex-end;justify-content:center';
+    ov.addEventListener('click',ev=>{ if(ev.target===ov) etqPndFolha(false); }); document.body.appendChild(ov); navAbriu('etqPndFolha',()=>etqPndFolha(false)); }
+  etqPndFolhaPintar();
+}
+function etqPndFolhaPintar(){
+  const v=document.getElementById('etqPndFolha'), p=etqPnd; if(!v||!p) return; const f=p.fil;
+  const op=(g,val,r,on,cor)=>'<button class="etqp-op'+(on?' on':'')+'" data-op="'+g+':'+cadEsc(val)+'" onclick="etqPndFil(\''+g+'\',\''+cadEsc(val)+'\')">'+(cor?'<span class="q" style="background:'+cor+';border-color:'+cor+'"></span>':'')+cadEsc(r)+'</button>';
+  const n=etqPndFiltrada().length;
+  v.innerHTML='<div class="etqp-folha"><div class="alca"></div><div class="fh"><b>Filtros</b><button class="etqp-limpar" onclick="etqPndLimpar(false)">Limpar</button><button class="etqp-x" onclick="etqPndFolha(false)" aria-label="Fechar">×</button></div>'
+    +'<div class="grp"><label>Gravidade</label><div class="ops">'+Object.keys(ETQ_PND_SEVCOR).map(s=>op('sev',s,s,f.sev.indexOf(s)>=0,ETQ_PND_SEVCOR[s])).join('')+'</div></div>'
+    +'<div class="grp"><label>Quem paga <em>(decisão comercial)</em></label><div class="ops">'+Object.keys(ETQ_PND_PAGA).map(k=>op('paga',k,ETQ_PND_PAGA[k],f.paga.indexOf(k)>=0)).join('')+'</div></div>'
+    +'<div class="grp"><label>Origem</label><div class="ops">'+Object.keys(ETQ_PND_ORIG).map(k=>op('orig',k,ETQ_PND_ORIG[k],f.orig.indexOf(k)>=0)).join('')+'</div></div>'
+    +'<div class="grp"><label>Mídia</label><div class="ops">'+op('midia','1','Com foto ou vídeo',f.midia)+'</div></div>'
+    +'<button class="etqp-aplicar" onclick="etqPndFolha(false)">Mostrar '+n+' pendência'+(n===1?'':'s')+'</button>'
+    +'<div class="nota">Os filtros valem só nesta leitura. Ao ler outra etiqueta, voltam ao padrão (em aberto · recentes).</div></div>';
+}
+function etqPndFecharTudo(){ ['etqPndCheia','etqPndFolha'].forEach(id=>{ const v=document.getElementById(id); if(v){ v.remove(); navFechou(id); } }); if(etqPnd){ etqPnd.cheia=false; etqPnd.folha=false; } }
+/* estilos da seção — fixos como o resto desta tela (app PWA, sem SLDS); 6 tons da paleta semântica */
+const ETQ_PND_CSS='<style>'
++'.etqp{background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px}'
++'.etqp-cab{display:flex;align-items:center;gap:12px;padding:10px 12px 8px 16px;min-height:64px}'
++'.etqp-cab-form{background:#FFF4E5;border-left:6px solid #FE9339;padding-left:12px}'
++'.etqp-tit{font-size:16px;font-weight:800;color:#0B2239;display:flex;flex-direction:column;line-height:1.2;flex:1;min-width:0}'
++'.etqp-tit small{font-size:12.5px;font-weight:500;color:#686868;margin-top:2px}'
++'.etqp-mais{min-height:48px;padding:0 16px;border:none;border-radius:12px;background:#FE9339;color:#2B1A00;font-weight:800;font-size:15px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit;flex:none}'
++'.etqp-mais .plus{font-size:22px;line-height:1;font-weight:900}'
++'.etqp-mais.cheio{width:100%;justify-content:center;min-height:56px;font-size:16.5px;margin-top:12px}'
++'.etqp-x{width:48px;height:48px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;font-size:22px;color:#686868;flex:none;font-family:inherit}'
++'.etqp-chips{display:flex;gap:8px;padding:4px 12px 10px 16px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.etqp-chips::-webkit-scrollbar{display:none}'
++'.etqp-chip{display:inline-flex;align-items:center;gap:7px;min-height:48px;padding:0 14px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none}'
++'.etqp-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#EEF2F6;color:#0B2239;font-size:12.5px;font-weight:800;letter-spacing:0}'
++'.etqp-chip.on{background:#0B2239;border-color:#0B2239;color:#fff}.etqp-chip.on .n{background:#fff;color:#0B2239}'
++'.etqp-chip.zero{color:#8A949E;border-color:#E2E5E9}.etqp-chip.zero .n{color:#8A949E}.etqp-chip.zero.on{color:#fff}'
++'.etqp-ctl{display:flex;align-items:center;gap:10px;padding:0 12px 10px 16px;flex-wrap:wrap}'
++'.etqp-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E}'
++'.etqp-segm{display:inline-flex;border:1.5px solid #C9D0D8;border-radius:10px;overflow:hidden;background:#fff}'
++'.etqp-segm button{min-height:48px;min-width:84px;padding:0 12px;border:none;border-left:1.5px solid #C9D0D8;background:#fff;font-size:13px;font-weight:700;color:#0B2239;font-family:inherit}'
++'.etqp-segm button:first-child{border-left:none}.etqp-segm button.on{background:#EEF2F6;box-shadow:inset 0 -3px 0 #0176D3}'
++'.etqp-bfil{margin-left:auto;min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-weight:800;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;font-family:inherit}'
++'.etqp-bfil .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;background:#FE9339;color:#2B1A00;font-size:12px}'
++'.etqp-bfil.on{border-color:#FE9339;background:#FFF4E5}'
++'.etqp-ativos{display:flex;align-items:center;gap:8px;padding:0 12px 10px 16px;flex-wrap:wrap}'
++'.etqp-tag{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 10px 0 12px;border-radius:999px;background:#FFF4E5;border:1px solid #F7C88F;color:#7a3e00;font-weight:700;font-size:12.5px;font-family:inherit}'
++'.etqp-tag i{font-style:normal;font-weight:900;font-size:15px;opacity:.7}'
++'.etqp-limpar{margin-left:auto;min-height:44px;border:none;background:none;color:#0176D3;font-weight:800;font-size:13.5px;padding:0 8px;font-family:inherit}'
++'.etqp-lista{border-top:1px solid #E2E5E9}'
++'.etqp-it{display:flex;align-items:center;gap:12px;min-height:62px;padding:8px 14px 8px 12px;border-top:1px solid #E2E5E9;border-left:6px solid #747474;background:#fff}'
++'.etqp-lista .etqp-it:first-child,.etqp-rolo .etqp-it:first-child{border-top:none}'
++'.etqp-enc{opacity:.78}.etqp-nova{background:#F3FBF5}'
++'.etqp-d{flex:1;min-width:0;line-height:1.25}'
++'.etqp-d b{font-size:15.5px;color:#0B2239;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'.etqp-d small{font-size:12.5px;color:#686868;display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'.etqp-pil{display:inline-block;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;line-height:1.25;white-space:nowrap;flex:none}'
++'.etqp-abrir{min-height:48px;padding:0 10px;background:#fff;border:1px solid #3E7EB0;border-radius:8px;color:#0176D3;font-weight:700;font-size:13px;font-family:inherit;flex:none}'
++'.etqp-todas{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:0 8px 0 16px;border-top:1px solid #E2E5E9;background:#F7F9FB;flex-wrap:wrap}'
++'.etqp-todas .cz,.etqp-pe .cz{color:#686868;font-weight:500;font-size:13px}.etqp-dir{display:inline-flex;align-items:center;gap:6px;margin-left:auto}'
++'.etqp-ver{min-height:48px;border:none;background:none;color:#0176D3;font-weight:700;font-size:14.5px;padding:0 8px;font-family:inherit}'
++'.etqp-ver.etqp-borda{border:1.5px solid #3E7EB0;border-radius:10px;background:#fff;padding:0 14px}'
++'.etqp-vazio{border-top:1px solid #E2E5E9;padding:18px 16px 16px;text-align:center;color:#686868;font-size:14.5px;line-height:1.4}'
++'.etqp-ok{display:inline-flex;align-items:center;gap:8px;color:#2E844A;font-weight:800;font-size:16px}'
++'.etqp-nada{display:inline-flex;color:#0B2239;font-weight:800;font-size:16px}'
++'.etqp-limp{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1.5px solid #3E7EB0;border-radius:10px;color:#0176D3;font-weight:800;font-size:14.5px;margin-top:12px;background:#fff;font-family:inherit}'
++'.etqp-folha{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25);padding:10px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;box-sizing:border-box}'
++'.etqp-folha .alca{width:52px;height:5px;border-radius:3px;background:#C9D0D8;margin:0 auto 4px}'
++'.etqp-folha .fh{display:flex;align-items:center;gap:12px}.etqp-folha .fh b{font-size:19px;color:#0B2239;flex:1}'
++'.etqp-folha .grp label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;display:block;margin-bottom:7px}'
++'.etqp-folha .grp label em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0}'
++'.etqp-folha .ops{display:flex;flex-wrap:wrap;gap:8px}'
++'.etqp-op{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-weight:700;font-size:14.5px;font-family:inherit}'
++'.etqp-op .q{width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid #C9D0D8;flex:none}'
++'.etqp-op.on{background:#FFF4E5;border-color:#FE9339;box-shadow:inset 0 0 0 1px #FE9339}.etqp-op.on:before{content:"✓";font-weight:900;color:#7a3e00}'
++'.etqp-aplicar{min-height:56px;border:none;border-radius:12px;background:#0B2239;color:#fff;font-weight:800;font-size:16.5px;font-family:inherit}'
++'.etqp-folha .nota{font-size:12.5px;color:#686868;text-align:center;margin-top:-6px}'
++'.etqp-ctopo{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;background:#fff;border-bottom:1px solid #E2E5E9}'
++'.etqp-volta{width:48px;height:48px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;font-size:24px;color:#0B2239;flex:none;font-family:inherit}'
++'.etqp-ctopo .t{flex:1;min-width:0;line-height:1.2}.etqp-ctopo .t b{display:block;font-size:17px;color:#0B2239}.etqp-ctopo .t small{font-size:12.5px;color:#686868;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
++'#etqPndCheia .etqp-chips{flex-wrap:wrap;white-space:normal;row-gap:8px;padding-top:10px}#etqPndCheia .etqp-ctl{border-bottom:1px solid #E2E5E9}'
++'.etqp-rolo{flex:1;overflow:auto;background:#fff}'
++'.etqp-sep{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;background:#F7F9FB;border-top:1px solid #E2E5E9}'
++'.etqp-pe{padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid #E2E5E9;display:flex;gap:12px;align-items:center}.etqp-pe .cz{flex:1;line-height:1.3}'
++'</style>';
 /* ===== Vídeo na pendência (12/10/2026) =====
    Raphael: "ao registrar uma pendência podemos enviar um vídeo também; ajustar a resolução para não ficar muito pesado e/ou
    limitar a duração; tudo no Drive". Gravado DENTRO do app (não pela câmera do Android, que grava em 4K e sem limite):
@@ -15383,6 +15656,7 @@ async function etqProbVideo(){
     +'<button id="vidRecBtn" style="min-height:56px;padding:0 26px;border:none;border-radius:28px;background:#BA0517;color:#fff;font-weight:800;font-size:16px">● Gravar</button></div>';
   document.body.appendChild(ov);
   const v=document.getElementById('vidRecV'); v.srcObject=stream; await v.play().catch(()=>{});
+  camLanterna(stream,ov); /* 12/10/2026 — Raphael: "gravar vídeo também deve permitir flash, assim como tirar fotos". As fotos usam a câmera do Android (tem flash próprio); o vídeo grava DENTRO do app, então precisa do botão. Mesmo helper dos leitores de QR. */
   const tipos=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp8,opus','video/webm'];
   const mime=tipos.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'';
   const fim=()=>{ try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){} const o=document.getElementById('vidRecOv'); if(o) o.remove(); if(vidRec&&vidRec.timer) clearInterval(vidRec.timer); vidRec=null; };
@@ -15444,22 +15718,165 @@ async function verVideoPendencia(driveId){
 /* ===== Registrar problema → pendência no equipamento (12/10/2026, fatia 2) =====
    Descrição + gravidade (+ tipo de dano e foto, opcionais). Grava Anotacao_Tecnica__c ligada ao equipamento, situação Aberta,
    sem OT: quem decide se vira OT e quem paga é a triagem (Coordenador+, fatia 3). Precisa de internet (fluxo de coordenação). */
-let etqProb=null;
-function etqAcaoProblema(ativoId){
-  etqProb={ativoId, sev:null, dano:'', foto:null, fotoUrl:null, enviando:false};
+let etqProb=null, etqProbMsg='';
+/* ===== Sugestões de problema por tipo de ativo (12/10/2026) — DECISAO_sugestoes-de-problema-por-tipo_12-10-2026.md =====
+   Raphael: "a página de registrar problemas pode ser mais inteligente, sugerindo os casos mais comuns de acordo com o tipo de
+   ativo (exaustor, coifa, damper…), como pílulas clicáveis". Cada grupo abaixo é um conjunto de problemas comuns em campo,
+   com a GRAVIDADE SUGERIDA (Crítico = risco de incêndio, parada ou segurança; Atenção = ação programada; Observação = acompanhar).
+   O catálogo legível para revisão está em docs/09-CADASTROS/CATALOGO_sugestoes-de-problema-por-tipo_12-10-2026.md.
+
+   COMO ACRESCENTAR OU CORRIGIR:
+   - Um problema novo: acrescente ['Texto curto como o técnico fala','Crítico|Atenção|Observação'] em `itens` do grupo. Até ~40 caracteres.
+   - Um tipo novo: acrescente um grupo {grupo, casa, itens}. `casa` são pedaços do NOME do tipo (TipoAtivo__c.Name) já
+     normalizados — sem acento, minúsculo, só letras e números (ex.: 'Damper Corta-fogo' → 'dampercortafogo'). Basta UM pedaço
+     estar contido no nome normalizado para casar. A ORDEM importa: o primeiro grupo que casa vence — por isso 'coifa lavadora'
+     vem antes de 'coifa', 'exaustor axial' antes de 'exaustor' e 'sistema uv' antes de 'sistema'.
+   - O último grupo (casa vazio) é o genérico: vale para tipo desconhecido ou equipamento sem tipo.
+   - A MOB3 tem tipos duplicados com variação de nome ("Motor" × "Motor Elétrico", "Lavador de Gases" × "Lavador de gases"):
+     o casamento por pedaço normalizado absorve isso sem precisar listar cada variante.
+   Evolução prevista (não é desta entrega): mover para Custom Metadata no Salesforce, para o escritório editar sem deploy. */
+const ETQ_PROB_SUGESTOES=[
+  {grupo:'Coifa lavadora',casa:['coifalavadora','washpull','carboncomtanque','lavadorawash'],itens:[
+    ['Sem água na calha de lavagem','Crítico'],['Bomba da coifa não liga','Crítico'],['Nível de água baixo','Atenção'],
+    ['Boia ou sensor de nível travado','Atenção'],['Bicos de lavagem entupidos','Atenção'],['Vazamento de água','Atenção'],
+    ['Incrustação de gordura na calha','Atenção'],['Dreno entupido','Atenção'],['Temporizador ou painel com defeito','Atenção'],
+    ['Sem desincrustante no tanque','Observação']]},
+  {grupo:'Coifa sem filtro',casa:['coifasemfiltro','somentecaptacao'],itens:[
+    ['Captação fraca (fumaça escapa)','Atenção'],['Gordura escorrendo pela borda','Atenção'],['Gordura acumulada no interior','Atenção'],
+    ['Solda ou emenda vazando gordura','Atenção'],['Luminária queimada','Observação'],['Luminária sem proteção','Atenção'],['Corrosão na coifa','Observação']]},
+  {grupo:'Coifa',casa:['coifa'],itens:[
+    ['Filtro inercial faltando','Crítico'],['Filtro inercial amassado','Atenção'],['Filtros saturados de gordura','Atenção'],
+    ['Gordura acumulada na calha','Atenção'],['Gordura escorrendo pela borda','Atenção'],['Captação fraca (fumaça escapa)','Atenção'],
+    ['Solda ou emenda vazando gordura','Atenção'],['Luminária queimada','Observação'],['Luminária sem proteção','Atenção'],
+    ['Dreno da calha sem tampão','Observação'],['Corrosão na coifa','Observação']]},
+  {grupo:'Exaustor axial',casa:['exaustoraxial','axial'],itens:[
+    ['Exaustor não liga','Crítico'],['Hélice quebrada ou trincada','Crítico'],['Fiação exposta','Crítico'],
+    ['Hélice raspando na carcaça','Atenção'],['Vibração excessiva','Atenção'],['Capacitor queimado','Atenção'],
+    ['Grade de proteção solta ou danificada','Atenção'],['Motor esquentando demais','Atenção'],['Hélice suja de gordura','Observação']]},
+  {grupo:'Caixa de filtros',casa:['caixadefiltro','caixadefiltragem','caixaventiladora','insuflador'],itens:[ /* antes de Exaustor: 'caixaventiladora' contém 'ventilador' */
+    ['Ventilador não liga','Crítico'],['Filtros saturados','Atenção'],['Filtro faltando','Atenção'],['Filtro rasgado ou fora do trilho','Atenção'],
+    ['Vazamento de ar pelas emendas','Observação'],['Porta de acesso sem vedação','Observação'],['Corrosão','Observação']]},
+  {grupo:'Exaustor',casa:['exaustor','ventilador'],itens:[
+    ['Exaustor não liga','Crítico'],['Correia partida','Crítico'],['Lona antichamas rasgada ou solta','Crítico'],
+    ['Correia gasta ou trincada','Atenção'],['Correia frouxa (patinando)','Atenção'],['Rolamento do mancal com ruído','Atenção'],
+    ['Vibração excessiva','Atenção'],['Polias desalinhadas','Atenção'],['Rotor incrustado de gordura','Atenção'],
+    ['Gordura vazando pela voluta','Atenção'],['Coxins ou base soltos','Atenção'],['Carcaça com corrosão ou furo','Atenção'],
+    ['Dreno da voluta sem tampão','Observação'],['Acesso bloqueado (estoque do cliente)','Observação']]},
+  {grupo:'Motor',casa:['motor'],itens:[
+    ['Motor não liga','Crítico'],['Cheiro de queimado','Crítico'],['Cabo ou fiação exposta','Crítico'],
+    ['Motor esquentando demais','Atenção'],['Rolamento com ruído','Atenção'],['Vibração excessiva','Atenção'],
+    ['Disjuntor ou chave desarmando','Atenção'],['Caixa de ligação aberta','Atenção'],['Ventoinha de refrigeração quebrada','Atenção'],
+    ['Fixação na base solta','Atenção'],['Plaqueta ilegível','Observação']]},
+  {grupo:"Bomba d'água",casa:['bomba'],itens:[
+    ['Bomba não liga','Crítico'],['Bomba travada','Crítico'],['Fiação exposta','Crítico'],
+    ['Vazamento pelo selo','Atenção'],['Ruído ou cavitação','Atenção'],['Pressão baixa','Atenção'],
+    ['Filtro de sucção entupido','Atenção'],['Corrosão na carcaça','Observação']]},
+  {grupo:'Damper corta-fogo',casa:['damper'],itens:[
+    ['Damper travado fechado','Crítico'],['Damper não fecha (travado aberto)','Crítico'],['Fusível térmico ausente ou rompido','Crítico'],
+    ['Mecanismo de desarme não funciona','Crítico'],['Não desarma a exaustão ao fechar','Crítico'],
+    ['Lâmina empenada','Atenção'],['Gordura acumulada na lâmina','Atenção'],['Sem acesso para inspeção','Atenção'],['Corrosão','Observação']]},
+  {grupo:'Porta de inspeção',casa:['portadeinspecao','porta'],itens:[
+    ['Vedação vazando gordura','Atenção'],['Parafusos ou fecho faltando','Atenção'],['Porta empenada (não fecha)','Atenção'],
+    ['Porta faltando no trecho','Atenção'],['Gordura acumulada atrás da porta','Atenção'],['Acesso obstruído','Observação'],['Corrosão','Observação']]},
+  {grupo:'Sistema UV',casa:['sistemauv','ultravioleta'],itens:[
+    ['Lâmpada UV quebrada','Crítico'],['Não desliga ao abrir a porta','Crítico'],['Lâmpada UV queimada','Atenção'],
+    ['Reator com defeito','Atenção'],['Lâmpadas sujas de gordura','Atenção'],['Não liga junto com o exaustor','Atenção'],
+    ['Painel com alarme','Atenção'],['Sensor de fluxo com defeito','Atenção']]},
+  {grupo:'Lavador de gases',casa:['lavador','precipitador','scrubber'],itens:[
+    ['Sem água / nível baixo','Crítico'],['Bomba não liga','Crítico'],['Não intertrava com a exaustão','Crítico'],
+    ['Bicos entupidos','Atenção'],['Vazamento de água','Atenção'],['Eliminador de gotas saturado','Atenção'],
+    ['Boia travada','Atenção'],['Água muito suja (sem troca)','Atenção'],['Dreno entupido','Atenção'],['Solda ou carcaça vazando','Atenção']]},
+  {grupo:'Filtro eletrostático',casa:['eletrostatico'],itens:[
+    ['Faiscamento (arco) nas células','Crítico'],['Não intertrava com a exaustão','Crítico'],['Células saturadas de gordura','Atenção'],
+    ['Célula empenada ou danificada','Atenção'],['Fonte de alta tensão com falha','Atenção'],['Não liga / alarme no painel','Atenção'],
+    ['Pré-filtro faltando','Atenção'],['Gordura vazando pela carcaça','Atenção'],['Porta de acesso sem travar','Atenção']]},
+  /* tipos de SISTEMA (ativo-pai): raramente têm etiqueta própria, mas se o técnico ler uma, o problema é da linha */
+  {grupo:'Pressurização de escada',casa:['pressurizacao'],itens:[
+    ['Pressurizador não liga','Crítico'],['Não aciona pelo alarme de incêndio','Crítico'],['Damper de sobrepressão travado','Crítico'],
+    ['Grelha obstruída','Atenção'],['Porta corta-fogo não veda','Atenção'],['Filtro da tomada de ar sujo','Observação']]},
+  {grupo:'Insuflação / ambiente',casa:['insuflacao','exaustaodeambiente','ventilacao','reposicaodear'],itens:[
+    ['Reposição de ar não liga','Atenção'],['Não intertrava com a exaustão','Crítico'],['Filtros da caixa sujos','Atenção'],
+    ['Grelhas ou difusores sujos','Observação'],['Duto com vazamento','Atenção'],['Sem acesso aos filtros','Observação']]},
+  {grupo:'Linha de exaustão',casa:['exaustaomecanica','linhadeexaustao','exaustaodecozinha','sistemadeexaustao'],itens:[
+    ['Gordura acumulada no duto','Crítico'],['Material inflamável na casa de máquinas','Crítico'],['Duto furado por terceiros','Atenção'],
+    ['Duto vazando gordura nas emendas','Atenção'],['Isolamento térmico danificado','Atenção'],['Descarga obstruída','Atenção'],
+    ['Sem porta de inspeção no trecho','Atenção'],['Sem acesso ao duto','Observação']]},
+  /* genérico — tipo desconhecido, sem tipo ou tipo "Sistema" antigo. SEMPRE o último. */
+  {grupo:'',casa:[],itens:[
+    ['Não liga','Crítico'],['Fiação exposta','Crítico'],['Ruído anormal','Atenção'],['Vibração excessiva','Atenção'],
+    ['Vazamento','Atenção'],['Gordura acumulada','Atenção'],['Peça solta ou faltando','Atenção'],['Corrosão','Observação'],
+    ['Sem acesso para manutenção','Observação'],['Sem plaqueta / identificação','Observação']]}
+];
+const ETQ_PROB_SUG_MAX=8; /* pílulas visíveis antes do "mais ›" */
+const ETQ_PROB_SEV_PESO={'Crítico':3,'Atenção':2,'Observação':1};
+/* normaliza igual a cadChave (repetida aqui para o bloco ser autônomo nos harnesses): sem acento, minúsculo, só [a-z0-9] */
+function etqProbChave(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function etqProbGrupo(tipo){
+  const k=etqProbChave(tipo);
+  for(const g of ETQ_PROB_SUGESTOES){ if(!g.casa.length) return g; if(k&&g.casa.some(c=>k.indexOf(c)>=0)) return g; }
+  return ETQ_PROB_SUGESTOES[ETQ_PROB_SUGESTOES.length-1];
+}
+/* gravidade que as pílulas marcadas sugerem: a mais grave entre elas (null se nenhuma) */
+function etqProbSevSugerida(p){
+  let melhor=null; (p.sug||[]).forEach(t=>{ const it=p.grupo.itens.find(x=>x[0]===t); if(it&&(!melhor||ETQ_PROB_SEV_PESO[it[1]]>ETQ_PROB_SEV_PESO[melhor])) melhor=it[1]; });
+  return melhor;
+}
+/* toque na pílula: marca → texto entra na descrição (nova linha se já há texto); desmarca → tira SÓ a linha que ela pôs.
+   A gravidade segue a sugerida enquanto o técnico não escolher uma à mão (p.sevManual). Opera sobre p.txt e re-renderiza:
+   o textarea #etqProbTxt é não controlado, então o que estava digitado é guardado antes (etqProbGuardarTxt). */
+function etqProbSug(i){
+  const p=etqProb; if(!p||!p.grupo) return; etqProbGuardarTxt();
+  const it=p.grupo.itens[i]; if(!it) return; const t=it[0]; p.sug=p.sug||[];
+  const j=p.sug.indexOf(t), linhas=(p.txt||'').split('\n');
+  if(j<0){ p.sug.push(t); p.txt=(p.txt||'').trim()?((p.txt.replace(/\s+$/,''))+'\n'+t):t; }
+  else { p.sug.splice(j,1); const k=linhas.findIndex(l=>l.trim()===t); if(k>=0){ linhas.splice(k,1); p.txt=linhas.join('\n'); } }
+  if(!p.sevManual){ p.sev=etqProbSevSugerida(p); }
   etqProbRender();
 }
+function etqProbSugMais(){ const p=etqProb; if(!p) return; etqProbGuardarTxt(); p.sugTudo=!p.sugTudo; etqProbRender(); }
+function etqProbSugHtml(p){
+  const g=p.grupo; if(!g||!g.itens.length) return '';
+  const sel=p.sug||[], todos=g.itens.length, mostrar=p.sugTudo?g.itens.map((_,i)=>i):g.itens.map((_,i)=>i).filter(i=>i<ETQ_PROB_SUG_MAX||sel.indexOf(g.itens[i][0])>=0);
+  const tit=p.tipo?'Problemas comuns em '+cadEsc(p.tipo):'Problemas comuns';
+  let h='<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:6px">'+tit+' <span style="font-weight:400;color:#686868">(toque para usar)</span></div>'
+    +'<div id="etqProbSug" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">';
+  /* chip claro de CONTORNO (não é pílula de status: fundo branco, sem caixa alta, sem a paleta semântica) */
+  mostrar.forEach(i=>{ const [t]=g.itens[i], on=sel.indexOf(t)>=0;
+    h+='<button type="button" class="etq-sug'+(on?' on':'')+'" data-sug="'+i+'" aria-pressed="'+(on?'true':'false')+'" onclick="etqProbSug('+i+')" style="min-height:48px;padding:0 14px;border-radius:999px;border:1.5px solid '+(on?'#0176D3':'#9FB3C8')+';background:'+(on?'#EAF2FB':'#fff')+';color:#0B2239;font-size:14px;font-weight:'+(on?'700':'600')+';font-family:inherit;text-align:left;line-height:1.2;max-width:100%">'+(on?'✓ ':'')+cadEsc(t)+'</button>'; });
+  if(todos>ETQ_PROB_SUG_MAX) h+='<button type="button" id="etqProbSugMais" onclick="etqProbSugMais()" style="min-height:48px;padding:0 14px;border-radius:999px;border:1.5px dashed #9FB3C8;background:#fff;color:#0176D3;font-size:14px;font-weight:700;font-family:inherit">'+(p.sugTudo?'menos ‹':'mais ›')+'</button>';
+  return h+'</div>';
+}
+/* 12/10/2026 (A2) — o formulário abre INLINE na seção "Pendências deste equipamento" (etqPndSecaoHtml), no lugar da lista; o
+   resto da tela (identidade, ações, leitura) continua visível. Fora da seção (etqPnd de outro equipamento) cai no #etqAcaoBox. */
+function etqAcaoProblema(ativoId,tipo){
+  /* tipo (12/10/2026): vem do parâmetro ou da seção de pendências do mesmo equipamento (etqPnd.tipo = TipoAtivo__c.Name lido na TAG) */
+  tipo=tipo||(typeof etqPnd!=='undefined'&&etqPnd&&etqPnd.ativoId===ativoId?etqPnd.tipo:'')||'';
+  etqProb={ativoId, sev:null, sevManual:false, dano:'', foto:null, fotoUrl:null, enviando:false, tipo, grupo:etqProbGrupo(tipo), sug:[], sugTudo:false};
+  etqProbRender();
+  const s=document.getElementById('etqPndSecao'); if(s&&s.scrollIntoView) s.scrollIntoView({behavior:'smooth',block:'start'});
+  const t=document.getElementById('etqProbTxt'); if(t) try{ t.focus(); }catch(_){}
+}
+function etqProbCancelar(){ etqProb=null; etqProbMsg=''; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); etqAcaoBox(''); }
 /* 12/10/2026 — Raphael: "na tela de registrar problema, tirar o 'Ver como o cliente vê' da parte inferior". Enquanto o
    formulário está aberto, o rodapé do resultado (prévia do cliente e link do portal) some; volta ao cancelar ou registrar. */
 function etqRodape(mostrar){ document.querySelectorAll('#etqCorpo .etq-rodape').forEach(el=>{ el.style.display=mostrar?'':'none'; }); }
 function etqProbRender(msg){
   const p=etqProb; if(!p) return;
-  etqRodape(false);
-  const SEV=[['Observação','#747474','Acompanhar; não impede o funcionamento'],['Atenção','#FE9339','Precisa de ação programada'],['Crítico','#BA0517','Risco: precisa de ação logo']];
-  let h='<div style="background:#fff;border:2px solid #FE9339;border-radius:12px;padding:12px 14px;margin-top:10px">'
+  etqRodape(false); etqProbMsg=msg||'';
+  if(etqPnd&&etqPnd.ativoId===p.ativoId&&document.getElementById('etqPndSecao')){ etqPndPintar(); return; } /* inline na seção (A2) */
+  etqAcaoBox('<div style="background:#fff;border:2px solid #FE9339;border-radius:12px;padding:12px 14px;margin-top:10px">'
     +'<div style="font-weight:800;color:#0B2239;font-size:16px">Registrar problema</div>'
     +'<div style="font-size:12.5px;color:#686868;margin:2px 0 8px">Vira uma pendência deste equipamento. A decisão de abrir OT e de quem paga é da triagem.</div>'
-    +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:6px">O que você viu?</div>'
+    +etqProbFormHtml(etqProbMsg)+'</div>');
+}
+/* só os campos do formulário (sem moldura): a seção de pendências e o fallback no #etqAcaoBox usam o mesmo HTML */
+function etqProbFormHtml(msg){
+  const p=etqProb; if(!p) return '';
+  const SEV=[['Observação','#747474','Acompanhar; não impede o funcionamento'],['Atenção','#FE9339','Precisa de ação programada'],['Crítico','#BA0517','Risco: precisa de ação logo']];
+  let h='<div style="padding:4px 14px 14px">'
+    /* 12/10/2026 — pílulas "Problemas comuns em <tipo>" ACIMA da descrição (etqProbSugHtml); o técnico continua podendo escrever livre */
+    +etqProbSugHtml(p)
+    +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">O que você viu?</div>'
     +'<textarea id="etqProbTxt" rows="3" placeholder="ex.: correia com desgaste e ruído ao ligar" style="width:100%;box-sizing:border-box;border:1px solid #C9D0D8;border-radius:10px;padding:10px;font-size:15px;margin-top:4px;font-family:inherit">'+cadEsc(p.txt||'')+'</textarea>'
     +'<div style="font-size:13px;font-weight:700;color:#0B2239;margin-top:10px">Gravidade</div><div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">';
   SEV.forEach(([v,cor,d])=>{ const on=p.sev===v;
@@ -15495,12 +15912,12 @@ function etqProbRender(msg){
     +(!p.videoPrev?'<span style="font-size:12.5px;color:#686868">Opcional</span>':'')
     +'</div></div>'
     +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
-    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProb=null;etqAcaoBox(\'\');etqRodape(true)" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552">Cancelar</button>'
-    +'<button onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">'+(p.enviando?'Registrando…':'Registrar pendência')+'</button></div></div>';
-  etqAcaoBox(h);
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProbCancelar()" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552;font-family:inherit">Cancelar</button>'
+    +'<button id="etqProbGravar" onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;font-family:inherit">'+(p.enviando?'Registrando…':'Gravar pendência')+'</button></div></div>';
+  return h;
 }
 function etqProbGuardarTxt(){ const t=document.getElementById('etqProbTxt'); if(t&&etqProb) etqProb.txt=t.value; const c=document.getElementById('etqProbCom'); if(c&&etqProb) etqProb.com=c.value; }
-function etqProbSev(v){ etqProbGuardarTxt(); etqProb.sev=v; etqProbRender(); }
+function etqProbSev(v){ etqProbGuardarTxt(); etqProb.sev=v; etqProb.sevManual=true; /* 12/10/2026: escolha à mão vence a sugerida das pílulas */ etqProbRender(); }
 function etqProbFoto(){
   etqProbGuardarTxt();
   const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
@@ -15535,9 +15952,20 @@ async function etqProbEnviar(){
   p.enviando=true; etqProbRender();
   try{
     const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined,comentario:(p.com||'').trim()||undefined});
-    etqProb=null; etqRodape(true); if(document.getElementById('etqBtnPend')) etqPendBadge(p.ativoId,etqSeq);
+    etqProb=null; etqProbMsg=''; etqRodape(true);
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
-    etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
+    /* 12/10/2026 (A2) — sem toast: a prova de que gravou é a lista crescendo. A pendência nova entra no topo da seção, em
+       verde-claro, "agora · por você"; chip, ordenação e filtros voltam ao padrão para ela ficar visível; a pílula
+       "N PENDÊNCIAS" do cartão sobe. Não refaz a consulta ao servidor (o item local já tem tudo que a linha mostra). */
+    if(etqPnd&&etqPnd.ativoId===p.ativoId){
+      const nova={id:(r&&r.id)||null,nome:(r&&r.nome)||null,descricao:p.txt.trim(),severidade:p.sev,status:'Aberta',criadoEm:new Date().toISOString(),idadeDias:0,
+        registradaPor:null,foraDeOt:true,otOrigem:null,corretiva:null,pediuCorretiva:false,fotoDriveId:p.foto||null,videoDriveId:p.video||null,temFoto:!!p.foto,temVideo:!!p.video,quemPaga:null,_nova:true};
+      etqPnd.lista=[nova].concat(etqPnd.lista||[]); etqPnd.erro=null; etqPnd.chip='aberto'; etqPnd.ord='recentes'; etqPnd.fil={sev:[],paga:[],orig:[],midia:false};
+      etqPendPintar(etqPndContagem('aberto')); etqPndPintar();
+      const s=document.getElementById('etqPndSecao'); if(s&&s.scrollIntoView) s.scrollIntoView({behavior:'smooth',block:'start'});
+    } else {
+      etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
+    }
   }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
 }
 /* ===== Avisos de contrato na leitura da TAG (12/10/2026) — DECISAO_avisos-na-leitura-da-tag_12-10-2026.md =====
@@ -15605,6 +16033,19 @@ document.addEventListener('DOMContentLoaded',()=>{ let n=0; const iv=setInterval
 /* 12/10/2026 — consulta pelo código (4ª opção). Reaproveita a tela de resultado da leitura (equipamento, local, sistema,
    ações, avisos), mas sem conferência de etiqueta: a faixa diz "Consulta pelo código" em cinza, nunca "Pode usar" —
    ninguém leu etiqueta nenhuma. Rota: GET /ativos-codigo/:numero. */
+/* desenha os dígitos nas 6 caixas; a caixa da vez fica com a borda azul (só com o campo focado). auto=true vem do teclado:
+   ao completar 6 algarismos, busca sozinho. */
+function tagCodPintar(auto){
+  const inp=document.getElementById('tagCodNum'); if(!inp) return;
+  const v=inp.value||'', foco=document.activeElement===inp;
+  document.querySelectorAll('#tagCodCaixas .tag-cod-cx').forEach((c,i)=>{
+    c.textContent=v[i]||'';
+    const daVez=foco&&(i===Math.min(v.length,5));
+    c.style.borderColor=daVez?'#0176D3':(v[i]?'#3E7EB0':'#C9D0D8');
+    c.style.boxShadow=daVez?'0 0 0 3px rgba(1,118,211,.18)':'none';
+  });
+  if(auto&&v.length===6) tagBuscarCodigo();
+}
 async function tagBuscarCodigo(){
   const inp=document.getElementById('tagCodNum'), btn=document.getElementById('tagCodBtn');
   const num=((inp&&inp.value)||'').replace(/\D/g,'');
@@ -15648,23 +16089,32 @@ function renderTag(){
     +ic(svgQr,'QR code','Use a câmera','tagLerQr()',false)
     +ic(svgNfc,'NFC',nfc?'Encoste a etiqueta':'Este aparelho não tem NFC','tagNfcAbrir()',!nfc)
     +'</div>'
-    +(nfc?'<button onclick="tagParIniciar()" style="width:100%;margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer">'
-      +'<span style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#EAF2FB;border-radius:12px;padding:8px">'+svgQr.replace(/60/g,'28')+'<span style="font-weight:700;color:#3E7EB0;font-size:14px">×</span>'+svgNfc.replace(/60/g,'28')+'</span>'
-      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;color:#0B2239">QR × NFC</span>'
-      +'<span style="display:block;font-size:12px;color:#686868;margin-top:2px">Confere se o QR impresso é do mesmo cartão em que está colado</span></span></button>':'')
     /* 12/10/2026 — Raphael: "quarta opção de consultar pelo código: prefixo ATV- fixo + número + Buscar". Para etiqueta
        rasgada/apagada ou equipamento sem etiqueta. Fica para TODOS os aparelhos (não depende de NFC nem de câmera). */
     +'<div style="margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px">'
       +'<div style="font-size:15px;font-weight:700;color:#0B2239">Código do equipamento</div>'
       +'<div style="font-size:12px;color:#686868;margin:2px 0 10px">Sem etiqueta para ler? Digite o número.</div>'
       +'<div style="display:flex;gap:8px;align-items:stretch">'
-        +'<div style="flex:1;min-width:0;display:flex;align-items:center;border:2px solid #C9D0D8;border-radius:12px;overflow:hidden;background:#fff">'
-          +'<span style="padding:0 4px 0 14px;font-size:20px;font-weight:800;color:#3E7EB0;letter-spacing:.03em">ATV-</span>'
-          +'<input id="tagCodNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" placeholder="000123" '
-            +'onkeydown="if(event.key===\'Enter\')tagBuscarCodigo()" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" '
-            +'style="flex:1;min-width:0;border:none;outline:none;font-size:20px;font-weight:700;color:#0B2239;padding:12px 10px 12px 0;background:transparent"></div>'
+        /* 12/10/2026 — Raphael: "a busca por número do ATV pode usar aqueles retângulos com o exato número de algarismos".
+           Seis caixas (o número do equipamento é autonumeração de 6 dígitos, {000000}). Um único input de verdade, invisível
+           por cima das caixas, recebe o teclado numérico; as caixas só desenham os dígitos (tagCodPintar). Assim colar, apagar
+           e o teclado do Android funcionam sem lógica de "pular de caixa". Completou 6 → busca sozinho. Menos de 6 também
+           vale no Buscar (o servidor completa os zeros à esquerda). */
+        +'<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">'
+          +'<span style="font-size:20px;font-weight:800;color:#3E7EB0;letter-spacing:.03em;flex:0 0 auto">ATV-</span>'
+          +'<div id="tagCodCaixas" style="position:relative;flex:1;min-width:0;display:flex;gap:6px" onclick="var i=document.getElementById(\'tagCodNum\');if(i)i.focus()">'
+            +[0,1,2,3,4,5].map(i=>'<span class="tag-cod-cx" style="flex:1 1 0;min-width:0;max-width:52px;height:56px;border:2px solid #C9D0D8;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#0B2239;font-family:ui-monospace,Menlo,Consolas,monospace"></span>').join('')
+            +'<input id="tagCodNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" aria-label="Número do equipamento, 6 algarismos" '
+              +'onkeydown="if(event.key===\'Enter\')tagBuscarCodigo()" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').slice(0,6);tagCodPintar(true)" onfocus="tagCodPintar()" onblur="tagCodPintar()" '
+              +'style="position:absolute;inset:0;width:100%;height:100%;opacity:0.01;font-size:16px;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent">'
+          +'</div></div>'
         +'<button id="tagCodBtn" onclick="tagBuscarCodigo()" style="flex:0 0 auto;min-width:110px;min-height:56px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:16px">Buscar</button>'
       +'</div></div>'
+    /* 12/10/2026 — Raphael: "deixar o QR x NFC como última opção da página" (uso raro: conferir se o QR impresso é do cartão). */
+    +(nfc?'<button onclick="tagParIniciar()" style="width:100%;margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer">'
+      +'<span style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#EAF2FB;border-radius:12px;padding:8px">'+svgQr.replace(/60/g,'28')+'<span style="font-weight:700;color:#3E7EB0;font-size:14px">×</span>'+svgNfc.replace(/60/g,'28')+'</span>'
+      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;color:#0B2239">QR × NFC</span>'
+      +'<span style="display:block;font-size:12px;color:#686868;margin-top:2px">Confere se o QR impresso é do mesmo cartão em que está colado</span></span></button>':'')
     +(nfc?'<div id="tagNfcStatus" style="margin-top:14px;font-size:12.5px;text-align:center;color:#686868">Ligando o leitor NFC…</div>':'')
     +'</div>';
   if(nfc) tagNfcLigar();
