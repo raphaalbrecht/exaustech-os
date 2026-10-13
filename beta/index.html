@@ -15581,8 +15581,11 @@ const ETQ_PND_CSS='<style>'
 +'.etqp-mais.cheio{width:100%;justify-content:center;min-height:56px;font-size:16.5px;margin-top:12px}'
 +'.etqp-x{width:48px;height:48px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;font-size:22px;color:#686868;flex:none;font-family:inherit}'
 +'.etqp-chips{display:flex;gap:8px;padding:4px 12px 10px 16px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.etqp-chips::-webkit-scrollbar{display:none}'
-+'.etqp-chip{display:inline-flex;align-items:center;gap:7px;min-height:48px;padding:0 14px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none}'
-+'.etqp-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#EEF2F6;color:#0B2239;font-size:12.5px;font-weight:800;letter-spacing:0}'
++'/* 13/10/2026 — Raphael: "as pílulas dos filtros de pendências estão muito altas, reduzir 25%": 48 → 36 px. A área de toque
+   continua com 48 px pelo ::before invisível (6 px acima e abaixo), para não errar o dedo em campo. */
+.etqp-chip{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none}'
++'.etqp-chip::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+.etqp-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#EEF2F6;color:#0B2239;font-size:12.5px;font-weight:800;letter-spacing:0}'
 +'.etqp-chip.on{background:#0B2239;border-color:#0B2239;color:#fff}.etqp-chip.on .n{background:#fff;color:#0B2239}'
 +'.etqp-chip.zero{color:#8A949E;border-color:#E2E5E9}.etqp-chip.zero .n{color:#8A949E}.etqp-chip.zero.on{color:#fff}'
 +'.etqp-ctl{display:flex;align-items:center;gap:10px;padding:0 12px 10px 16px;flex-wrap:wrap}'
@@ -15756,10 +15759,17 @@ const ETQ_PROB_SUGESTOES=[
   {grupo:'Caixa de filtros',casa:['caixadefiltro','caixadefiltragem','caixaventiladora','insuflador'],itens:[ /* antes de Exaustor: 'caixaventiladora' contém 'ventilador' */
     ['Ventilador não liga','Crítico'],['Filtros saturados','Atenção'],['Filtro faltando','Atenção'],['Filtro rasgado ou fora do trilho','Atenção'],
     ['Vazamento de ar pelas emendas','Observação'],['Porta de acesso sem vedação','Observação'],['Corrosão','Observação']]},
+  /* 12/10/2026 — Raphael: "os problemas comuns de exaustores são de CENTRÍFUGOS, portanto não têm hélice. Por outro lado a maioria
+     é de TRANSMISSÃO INDIRETA, então envolve polias, correias, rolamentos e mancais etc." Lista refeita com a transmissão em
+     primeiro plano; as 8 primeiras (visíveis sem "mais") são as mais frequentes em campo. Hélice só existe no grupo
+     "Exaustor axial", que só casa quando o NOME do tipo diz axial. */
   {grupo:'Exaustor',casa:['exaustor','ventilador'],itens:[
-    ['Exaustor não liga','Crítico'],['Correia partida','Crítico'],['Lona antichamas rasgada ou solta','Crítico'],
-    ['Correia gasta ou trincada','Atenção'],['Correia frouxa (patinando)','Atenção'],['Rolamento do mancal com ruído','Atenção'],
-    ['Vibração excessiva','Atenção'],['Polias desalinhadas','Atenção'],['Rotor incrustado de gordura','Atenção'],
+    ['Exaustor não liga','Crítico'],['Correia partida','Crítico'],['Correia gasta ou trincada','Atenção'],
+    ['Correia frouxa (patinando)','Atenção'],['Rolamento do mancal com ruído','Atenção'],['Mancal aquecendo ou sem graxa','Atenção'],
+    ['Polias desalinhadas','Atenção'],['Vibração excessiva','Atenção'],
+    ['Polia com canal gasto','Atenção'],['Polia ou bucha solta no eixo','Atenção'],['Chaveta solta ou faltando','Atenção'],
+    ['Folga no eixo ou mancal solto','Atenção'],['Esticador do motor sem curso','Atenção'],['Correias de jogo diferentes','Observação'],
+    ['Protetor de correia faltando','Atenção'],['Rotor incrustado de gordura','Atenção'],['Lona antichamas rasgada ou solta','Crítico'],
     ['Gordura vazando pela voluta','Atenção'],['Coxins ou base soltos','Atenção'],['Carcaça com corrosão ou furo','Atenção'],
     ['Dreno da voluta sem tampão','Observação'],['Acesso bloqueado (estoque do cliente)','Observação']]},
   {grupo:'Motor',casa:['motor'],itens:[
