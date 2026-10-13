@@ -15581,11 +15581,8 @@ const ETQ_PND_CSS='<style>'
 +'.etqp-mais.cheio{width:100%;justify-content:center;min-height:56px;font-size:16.5px;margin-top:12px}'
 +'.etqp-x{width:48px;height:48px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;font-size:22px;color:#686868;flex:none;font-family:inherit}'
 +'.etqp-chips{display:flex;gap:8px;padding:4px 12px 10px 16px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.etqp-chips::-webkit-scrollbar{display:none}'
-+'/* 13/10/2026 — Raphael: "as pílulas dos filtros de pendências estão muito altas, reduzir 25%": 48 → 36 px. A área de toque
-   continua com 48 px pelo ::before invisível (6 px acima e abaixo), para não errar o dedo em campo. */
-.etqp-chip{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none}'
-+'.etqp-chip::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
-.etqp-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#EEF2F6;color:#0B2239;font-size:12.5px;font-weight:800;letter-spacing:0}'
++'/* 13/10/2026 Raphael: pilulas dos filtros 25% mais baixas (48 para 36 px); toque segue com 48 px pelo ::before */.etqp-chip{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none}'
++'.etqp-chip::before{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}.etqp-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#EEF2F6;color:#0B2239;font-size:12.5px;font-weight:800;letter-spacing:0}'
 +'.etqp-chip.on{background:#0B2239;border-color:#0B2239;color:#fff}.etqp-chip.on .n{background:#fff;color:#0B2239}'
 +'.etqp-chip.zero{color:#8A949E;border-color:#E2E5E9}.etqp-chip.zero .n{color:#8A949E}.etqp-chip.zero.on{color:#fff}'
 +'.etqp-ctl{display:flex;align-items:center;gap:10px;padding:0 12px 10px 16px;flex-wrap:wrap}'
