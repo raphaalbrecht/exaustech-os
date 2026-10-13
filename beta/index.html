@@ -1515,6 +1515,128 @@
   .cst-ok .hd{background:#EBF7EE}
   .cst-ok .hd b{color:#2E844A}
   .cst-ok a{color:#0176D3;font-weight:800}
+  /* 13/10/2026 — Plano → Pendências agrupado por equipamento (proposta 3 aprovada; mockup prototipos/mockup-plano-pendencias-3_13-10-2026.html,
+     decisão docs/07-MANUTENCAO/DECISAO_plano-pendencias-agrupado-por-equipamento_13-10-2026.md). Mesma linguagem visual da seção
+     "Pendências deste equipamento" da TAG (.etqp-*): chips de 36 px com área de toque de 48 pelo ::before, pílulas de fundo sólido
+     em caixa alta nos 6 tons, toque >= 48 px no resto. Prefixo pnd3- para não colidir com o cartão antigo (.pnd-*), que segue no
+     código por "adicionar sim, apagar não". */
+  .pnd3-ctx{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--pln-border);border-radius:14px;padding:8px 14px;min-height:56px;margin-bottom:10px}
+  .pnd3-ctx .t{flex:1;min-width:0;line-height:1.25}
+  .pnd3-ctx .t b{display:block;font-size:16px;color:var(--pln-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pnd3-ctx .t small{display:block;font-size:12.5px;color:var(--pln-text-soft);margin-top:2px}
+  .pnd3-ctx .x{min-height:48px;padding:0 12px 0 14px;display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#FFF4E5;border:1px solid #F7C88F;color:#7a3e00;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer;font-family:inherit}
+  .pnd3-ctx .x i{font-style:normal;font-weight:900;font-size:17px;opacity:.75}
+  .pnd3-aviso{font-size:12.5px;color:#7a3e00;background:#FFF4E5;border:1px solid #F7C88F;border-radius:10px;padding:8px 12px;margin-bottom:10px;line-height:1.4}
+  .pnd3-chips{display:flex;gap:8px;overflow-x:auto;white-space:nowrap;scrollbar-width:none;padding:6px 0 10px}
+  .pnd3-chips::-webkit-scrollbar{display:none}
+  .pnd3-chip{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:var(--pln-navy);font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1;font-family:inherit;flex:none;cursor:pointer}
+  .pnd3-chip::before{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+  .pnd3-chip .n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#EEF2F6;color:var(--pln-navy);font-size:12.5px;font-weight:800;letter-spacing:0}
+  .pnd3-chip.on{background:var(--pln-navy);border-color:var(--pln-navy);color:#fff}
+  .pnd3-chip.on .n{background:#fff;color:var(--pln-navy)}
+  .pnd3-chip.zero{color:#8A949E;border-color:#E2E5E9}
+  .pnd3-chip.zero .n{color:#8A949E}
+  .pnd3-chip.zero.on{color:#fff}
+  .pnd3-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .pnd3-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;white-space:nowrap}
+  .pnd3-segm{display:inline-flex;border:1.5px solid #C9D0D8;border-radius:10px;overflow:hidden;background:#fff}
+  .pnd3-segm button{min-height:48px;min-width:72px;padding:0 12px;border:none;border-left:1.5px solid #C9D0D8;background:#fff;font-size:13px;font-weight:700;color:var(--pln-navy);font-family:inherit;cursor:pointer}
+  .pnd3-segm button:first-child{border-left:none}
+  .pnd3-segm button.on{background:#EEF2F6;box-shadow:inset 0 -3px 0 #0176D3}
+  .pnd3-segm.modo button{text-transform:uppercase;font-size:12px;letter-spacing:.05em;font-weight:800;min-width:0}
+  .pnd3-segm.modo button.on{background:var(--pln-navy);color:#fff;box-shadow:none}
+  .pnd3-bfil{margin-left:auto;min-height:48px;padding:0 14px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;color:var(--pln-navy);font-weight:800;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;font-family:inherit;cursor:pointer}
+  .pnd3-bfil .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:999px;background:#FE9339;color:#2B1A00;font-size:12px}
+  .pnd3-bfil.on{border-color:#FE9339;background:#FFF4E5}
+  .pnd3-ativos{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .pnd3-tag{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 10px 0 12px;border-radius:999px;background:#FFF4E5;border:1px solid #F7C88F;color:#7a3e00;font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer}
+  .pnd3-tag i{font-style:normal;font-weight:900;font-size:15px;opacity:.7}
+  .pnd3-limpar{margin-left:auto;min-height:44px;border:none;background:none;color:#0176D3;font-weight:800;font-size:13.5px;padding:0 8px;font-family:inherit;cursor:pointer}
+  .pnd3-resumo{font-size:13px;color:var(--pln-text-soft);margin-bottom:10px;line-height:1.4}
+  .pnd3-resumo b{color:var(--pln-navy)}
+  .pnd3-secli{display:flex;align-items:center;gap:10px;padding:8px 4px 6px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8A949E}
+  .pnd3-secli b{color:var(--pln-navy);font-size:13px;letter-spacing:.06em}
+  .pnd3-secli:after{content:"";flex:1;height:1px;background:#C9D0D8}
+  .pnd3-g{background:#fff;border:1px solid var(--pln-border);border-radius:14px;overflow:hidden;margin-bottom:10px}
+  .pnd3-gh{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 12px 8px 14px;background:#F7F9FB;border-bottom:1px solid var(--pln-border);cursor:pointer}
+  .pnd3-g.fechado .pnd3-gh{border-bottom:none}
+  .pnd3-gh .eq{flex:1;min-width:0;line-height:1.2}
+  .pnd3-gh .eq b{display:block;font-size:17px;color:var(--pln-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pnd3-gh .eq b span{font-weight:500;color:var(--pln-text-soft)}
+  .pnd3-gh .eq small{display:block;font-size:12.5px;color:var(--pln-text-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pnd3-gh .cont{display:flex;align-items:center;gap:6px;flex:none}
+  .pnd3-gh .cont .n{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 8px;border-radius:999px;background:#fff;border:1.5px solid #C9D0D8;color:var(--pln-navy);font-weight:800;font-size:13px}
+  .pnd3-gh .cont .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+  .pnd3-gh .chev{color:#8A949E;font-size:22px;width:22px;text-align:center}
+  .pnd3-cbwrap{display:flex;flex-direction:column;align-items:center;flex:none;width:64px}
+  .pnd3-cbwrap .cst-cb{width:40px;height:40px;font-size:18px}
+  .pnd3-cbwrap .cst-cb::before{content:"";position:absolute;inset:-4px}
+  .pnd3-cbwrap .cst-cb{position:relative}
+  .pnd3-cbwrap .cst-motivo{font-size:10px;max-width:70px;margin-top:3px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden} /* "já na proposta <nome longo>" não pode empurrar a linha */
+  .pnd3-f{display:flex;align-items:center;gap:10px;min-height:60px;padding:6px 12px 6px 0;border-top:1px solid var(--pln-border);cursor:pointer;background:#fff}
+  .pnd3-f:first-child{border-top:none}
+  .pnd3-f .sv{width:6px;align-self:stretch;border-radius:0 3px 3px 0;background:#747474;flex:none}
+  .pnd3-f.s-erro .sv{background:#BA0517}
+  .pnd3-f.s-atencao .sv{background:#FE9339}
+  .pnd3-f .d{flex:1;min-width:0;line-height:1.25}
+  .pnd3-f .d b{display:block;font-size:15px;color:var(--pln-navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pnd3-f .d small{display:block;font-size:12.5px;color:var(--pln-text-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pnd3-f .d small i{font-style:normal;color:#B25E00;font-weight:700}
+  .pnd3-f .dir{display:flex;align-items:center;gap:8px;flex:none}
+  .pnd3-f .chev{color:#8A949E;font-size:20px;width:16px}
+  .pnd3-f.enc{opacity:.78}
+  .pnd3-f .pnd3-cbwrap{width:52px}
+  .pnd3-f .pnd3-cbwrap .cst-motivo{max-width:52px;font-size:9.5px}
+  .pnd3-pil{display:inline-block;border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;line-height:1.25;white-space:nowrap;flex:none;color:#fff}
+  .pnd3-pil.t-sucesso{background:#2E844A} .pnd3-pil.t-concluido{background:#0B827C} .pnd3-pil.t-info{background:#0176D3}
+  .pnd3-pil.t-atencao{background:#FE9339;color:#2B1A00} .pnd3-pil.t-erro{background:#BA0517} .pnd3-pil.t-neutro{background:#747474}
+  .pnd3-x{border-top:1px dashed #C9D0D8;background:#FBFCFD;padding:10px 14px 12px 16px;display:flex;flex-direction:column;gap:10px}
+  .pnd3-x .onde{display:flex;gap:12px;align-items:flex-start}
+  .pnd3-x .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px;color:var(--pln-text-soft);line-height:1.35;min-width:0}
+  .pnd3-x .kv b{color:var(--pln-navy);font-weight:600;min-width:0;overflow-wrap:anywhere}
+  .pnd3-x .pnd-foto{width:72px;height:72px;cursor:zoom-in}
+  .pnd3-k{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8A949E}
+  .pnd3-nota{background:#FFF8E1;border:1px solid #F2D27A;border-left:5px solid #E0B43C;border-radius:10px;padding:8px 12px;font-size:13.5px;color:#4a3b05;line-height:1.35;display:flex;gap:8px;align-items:flex-start}
+  .pnd3-nota .pnd3-k{color:#8a6d0a;flex:none;margin-top:2px}
+  .pnd3-trilha{display:flex;align-items:stretch;gap:0}
+  .pnd3-trilha .et{flex:1;min-width:0;padding:8px 8px 6px 10px;border-top:4px solid #D9DEE4;line-height:1.2}
+  .pnd3-trilha .et.ok{border-top-color:#2E844A} .pnd3-trilha .et.ok .pnd3-k{color:#2E844A}
+  .pnd3-trilha .et.now{border-top-color:#FE9339} .pnd3-trilha .et.now .pnd3-k{color:#B25E00}
+  .pnd3-trilha .et.erro{border-top-color:#BA0517} .pnd3-trilha .et.erro .pnd3-k{color:#BA0517}
+  .pnd3-trilha .et b{display:block;font-size:13px;color:var(--pln-navy);margin-top:3px;font-weight:700;overflow-wrap:anywhere}
+  .pnd3-trilha .et small{display:block;font-size:11.5px;color:var(--pln-text-soft);margin-top:2px}
+  .pnd3-trilha .et.fut b{color:#8A949E;font-weight:600}
+  .pnd3-pa{display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--pln-border);flex-wrap:wrap}
+  .pnd3-pa .pnd3-k{margin-right:auto}
+  .pnd3-bt{min-height:48px;padding:0 16px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;color:var(--pln-navy);font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-family:inherit;cursor:pointer}
+  .pnd3-bt.p{background:var(--pln-navy);border-color:var(--pln-navy);color:#fff}
+  .pnd3-bt.az{background:#0176D3;border-color:#0176D3;color:#fff}
+  .pnd3-bt.l{border-color:#3E7EB0;color:#0176D3}
+  .pnd3-bt.ico{width:48px;padding:0;font-size:22px;letter-spacing:.1em}
+  .pnd3-bt:disabled{opacity:.5}
+  .pnd3-menu{background:#fff;border:1px solid var(--pln-border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);overflow:hidden}
+  .pnd3-menu button{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;font-size:15px;font-weight:700;color:var(--pln-navy);border:none;border-top:1px solid var(--pln-border);background:#fff;text-align:left;font-family:inherit;cursor:pointer}
+  .pnd3-menu button:first-child{border-top:none}
+  .pnd3-menu button small{margin-left:auto;font-weight:600;color:#8A949E;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-left:12px}
+  .pnd3-menu button.d{color:#BA0517}
+  .pnd3-menu .sec{background:#F7F9FB;min-height:34px;display:flex;align-items:center;padding:0 16px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;font-weight:800;border-top:1px solid var(--pln-border)}
+  .pnd3-mais{background:#fff;border:1px solid var(--pln-border);border-radius:14px;padding:12px 14px;font-size:13.5px;color:var(--pln-text-soft);line-height:1.4;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .pnd3-mais span{flex:1} .pnd3-mais b{color:var(--pln-navy)}
+  .pnd3-vazio{background:#fff;border:1px solid var(--pln-border);border-radius:14px;padding:18px 16px;text-align:center;color:var(--pln-text-soft);font-size:14.5px;line-height:1.4}
+  .pnd3-vazio b{display:block;color:var(--pln-navy);font-size:16px;margin-bottom:4px}
+  .pnd3-folha-fundo{position:fixed;inset:0;z-index:100016;background:rgba(11,34,57,.45);display:flex;align-items:flex-end;justify-content:center}
+  .pnd3-folha{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:92vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.25);padding:10px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+  .pnd3-folha .alca{width:52px;height:5px;border-radius:3px;background:#C9D0D8;margin:0 auto 4px}
+  .pnd3-folha .fh{display:flex;align-items:center;gap:12px} .pnd3-folha .fh b{font-size:19px;color:var(--pln-navy);flex:1}
+  .pnd3-folha .fecha{width:48px;height:48px;border-radius:50%;border:1px solid var(--pln-border);background:#fff;font-size:22px;color:var(--pln-text-soft);flex:none;font-family:inherit;cursor:pointer}
+  .pnd3-folha .grp label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;display:block;margin-bottom:7px}
+  .pnd3-folha .ops{display:flex;flex-wrap:wrap;gap:8px}
+  .pnd3-op{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;color:var(--pln-navy);font-weight:700;font-size:14.5px;font-family:inherit;cursor:pointer}
+  .pnd3-op .q{width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid #C9D0D8;flex:none}
+  .pnd3-op.on{background:#FFF4E5;border-color:#FE9339;box-shadow:inset 0 0 0 1px #FE9339}
+  .pnd3-op.on:before{content:"✓";font-weight:900;color:#7a3e00}
+  .pnd3-folha select{width:100%;min-height:52px;padding:0 14px;border:1.5px solid #C9D0D8;border-radius:12px;background:#fff;font-size:15px;color:var(--pln-navy);font-weight:600;font-family:inherit;box-sizing:border-box}
+  .pnd3-aplicar{min-height:56px;border:none;border-radius:12px;background:var(--pln-navy);color:#fff;font-weight:800;font-size:16.5px;font-family:inherit;cursor:pointer}
   .pln-legend{font-size:.62rem;color:var(--pln-text-soft);margin-top:10px;line-height:1.5}
   /* agendar visita (retaguarda) — 19/09/2026 */
   .pln-btn{border:1px solid var(--pln-border);background:#fff;color:var(--pln-navy);border-radius:8px;padding:9px 13px;font:700 .7rem inherit;cursor:pointer}
@@ -20301,7 +20423,11 @@ function plnReset(){
     /* R7 — montador da regra logica */
     regraEdit:null, salvandoRegra:false, erroRegra:null,
     /* 19/09 — agendar visita pela retaguarda */
-    agendar:null, visitasPorOt:null };
+    agendar:null, visitasPorOt:null,
+    /* 13/10/2026 — aba Pendências agrupada (pnd*): chip de situação (pndFiltro, vocabulário da TAG), ordenação, agrupamento
+       (lembrado no aparelho), filtros da folha, item aberto, grupos recolhidos, menu "⋯" aberto, folha de filtros aberta */
+    pndFiltro:'aberto', pndOrd:'recentes', pndAgrupar:null, pndFil:null, pndAberta:null, pndFechados:{}, pndMenu:null, pndFolha:false,
+    pndSoLocal:false, pndAtivo:null, pndId:null, pndSev:'', pndEdit:null, pndTri:null, pndMaisEq:null, achados:null };
 }
 function renderPlano(){
   const root=document.getElementById('pln-root'); if(!root) return;
@@ -20343,7 +20469,10 @@ function plnRenderShell(root){
     '<button class="'+(PLN.tab==='agenda'?'on':'')+'" data-tab="agenda">Agenda de OTs</button>'+
     '<button class="'+(PLN.tab==='pendencias'?'on':'')+'" data-tab="pendencias">Pendências</button>'+
   '</div>';
-  if(PLN.locais.length>1){
+  /* 13/10/2026 — na aba Pendências o seletor de local sai do topo: ele não filtrava nada ali (só com "Só este local") e mostrava o
+     primeiro local da lista como se fosse o da pendência. Lá ele mora na folha "Filtros" como "Cliente e local" (pndFolhaHtml).
+     Nas outras abas continua igual. DECISAO_plano-pendencias-agrupado-por-equipamento_13-10-2026.md */
+  if(PLN.locais.length>1 && PLN.tab!=='pendencias'){
     // texto truncado no próprio option — <select> nativo nem sempre respeita text-overflow no
     // valor fechado, então garante que nenhuma option force o container a alargar (achado no
     // teste E2E, 22/07: overflow horizontal do #app inteiro com nome de local longo).
@@ -21456,19 +21585,364 @@ function cestaWire(body){
   });
 }
 
+/* ===== 13/10/2026 — Plano → Pendências AGRUPADO POR EQUIPAMENTO (proposta 3 APROVADA pelo Raphael) =====
+   Decisão: docs/07-MANUTENCAO/DECISAO_plano-pendencias-agrupado-por-equipamento_13-10-2026.md · mockup de referência:
+   prototipos/mockup-plano-pendencias-3_13-10-2026.html. Por quê: a cena decidida em 12/10 é a vistoria com o cliente (20
+   equipamentos, 2–3 pendências cada) escolhendo o que entra na proposta; a conversa é por equipamento e a cesta também.
+   Como funciona:
+   - Cabeçalho diz o recorte real ("todos os clientes", ou o cliente/local do filtro, ou — vindo da TAG — o cliente/local DA
+     PENDÊNCIA com chip "Só a pendência AT-… ×" / "Só este equipamento ×"). O seletor de local do topo saiu desta aba: mora na
+     folha "Filtros" como "Cliente e local" (mesmo efeito do antigo "Só este local": PLN.localId + PLN.pndSoLocal).
+   - Chips de situação com contagem, MESMO vocabulário e regras da leitura da TAG (ETQ_PND_CHIPS): EM ABERTO · SÓ AS NOVAS ·
+     EM ANÁLISE · COM ORÇAMENTO · RECUSADAS · ENCERRADAS · TUDO. As contagens vêm do servidor (GET /plano/achados?comContagens=1,
+     sem o filtro de situação); se a resposta vier sem `contagens` (servidor antigo), os chips ficam sem número e nada quebra.
+   - Ordenar Recentes/Gravidade/Antigas e "Agrupar: Equipamento · Cliente · Nada". Padrão Equipamento; a escolha fica lembrada
+     no aparelho (localStorage, com try/catch como os outros lembretes do app).
+   - Agrupado por Equipamento: faixa por cliente · local → cabeçalho por equipamento (apelido em destaque — sem apelido, o nº
+     ATV —, tipo, nº, contagem, bolinha com a pior gravidade, chevron; caixa "todas que podem (n)" para Coordenador+) →
+     pendências em linhas compactas que abrem NO LUGAR: foto (só se houver), origem/dano/causa, nota interna, proposta UMA vez,
+     trilha "Status" (Registrada → Quem paga → Encaminhar/Proposta/OT corretiva → Encerrar) e "Próximo passo" com UMA ação
+     primária conforme situação e papel; o resto no menu "⋯" (Descartar discreto, por último).
+   - Papéis inalterados: decidir quem paga e cesta = Coordenador+; resolver, descartar, resolvida pelo cliente, reabrir, pegar
+     para análise, pedir corretiva = quem tem Plano (Supervisor+). As chamadas ao servidor são as mesmas de antes (pndWire).
+   - O cartão antigo (plnRenderPendenciasCartoes) fica no código sem uso, para comparação; "adicionar sim, apagar não". */
+const PND_ABERTO=['Aberta','Em análise'], PND_ENC=['Resolvida','Resolvida pelo cliente','Descartada'];
+/* rótulo de "quem paga", igual ao que o servidor manda para a TAG (quemPaga): a cobertura decidida, ou Emergência, ou nada */
+function pndQuemPaga(a){ if(a.emergencia&&!a.cobertura) return 'Emergência'; return a.cobertura||null; }
+/* [rótulo, regra no aparelho, consulta ao servidor]. Chaves = ETQ_PND_CHIPS (as duas telas contam igual). A consulta é a
+   MENOR que cobre o chip: "aberto"/"orcamento" = padrão do servidor (Aberta + Em análise); "encerradas" precisa de todos. */
+const PND_CHIPS={
+  aberto:['Em aberto',a=>PND_ABERTO.indexOf(a.status||'Aberta')>=0,''],
+  novas:['Só as novas',a=>(a.status||'Aberta')==='Aberta','status=Aberta'],
+  analise:['Em análise',a=>a.status==='Em análise','status='+encodeURIComponent('Em análise')],
+  orcamento:['Com orçamento',a=>PND_ABERTO.indexOf(a.status||'Aberta')>=0&&a.cobertura==='Cobrada com orçamento',''],
+  recusadas:['Recusadas',a=>a.status==='Recusada pelo cliente','status='+encodeURIComponent('Recusada pelo cliente')],
+  encerradas:['Encerradas',a=>PND_ENC.indexOf(a.status)>=0,'status=todos'],
+  tudo:['Tudo',()=>true,'status=todos']
+};
+/* valores antigos de PLN.pndFiltro (chips de 16/09 e os links etqIrPlano* da TAG) → chip novo. Ninguém precisa mudar quem chama. */
+const PND_FILTRO_ANTIGO={abertas:'aberto','Aberta':'novas','Em análise':'analise','Resolvida':'encerradas','Descartada':'encerradas','Resolvida pelo cliente':'encerradas','Recusada pelo cliente':'recusadas',todos:'tudo'};
+function pndChipAtual(){ const f=PLN.pndFiltro||'aberto'; return PND_CHIPS[f]?f:(PND_FILTRO_ANTIGO[f]||'aberto'); }
+const PND_SEVN={'Crítico':0,'Atenção':1,'Observação':2}, PND_SEVTOM={'Crítico':'erro','Atenção':'atencao','Observação':'neutro'};
+const PND_PIL={'Aberta':'info','Em análise':'atencao','Resolvida':'sucesso','Resolvida pelo cliente':'sucesso','Descartada':'neutro','Recusada pelo cliente':'erro'};
+const PND_PAGA={'Coberta pelo contrato':'Coberta pelo contrato','Garantia ou cortesia':'Garantia ou cortesia','Cobrada com orçamento':'Cobrada com orçamento','Emergência':'Emergência',sem:'Ainda sem decisão'};
+const PND_ORIG={tag:'Leitura da TAG',ot:'Visita (OT)',corretiva:'Com OT corretiva'};
+const PND_AGRUPAR_KEY='pln_pnd_agrupar';
+const pndCoord=()=>['Coordenador','Gerente','Sócio'].includes(ROLE); /* a mesma lista de "decidir quem paga" (12/10) e da cesta */
+function pndAgrupar(){
+  if(!PLN.pndAgrupar){ let v=null; try{ v=localStorage.getItem(PND_AGRUPAR_KEY); }catch(e){} PLN.pndAgrupar=['equipamento','cliente','nada'].indexOf(v)>=0?v:'equipamento'; }
+  return PLN.pndAgrupar;
+}
+function pndAgruparSet(v){ PLN.pndAgrupar=v; try{ localStorage.setItem(PND_AGRUPAR_KEY,v); }catch(e){} }
+function pndFil(){ if(!PLN.pndFil) PLN.pndFil={sev:[],paga:[],orig:[],midia:false}; return PLN.pndFil; }
+function pndNFil(){ const f=pndFil(); return f.sev.length+f.paga.length+f.orig.length+(f.midia?1:0)+(PLN.pndSoLocal&&PLN.localId?1:0); }
+function pndPassaFolha(a,f){
+  if(f.sev.length&&f.sev.indexOf(a.severidade)<0) return false;
+  if(f.paga.length&&f.paga.indexOf(pndQuemPaga(a)||'sem')<0) return false;
+  if(f.orig.length&&!((f.orig.indexOf('tag')>=0&&a.foraDeOt)||(f.orig.indexOf('ot')>=0&&!a.foraDeOt)||(f.orig.indexOf('corretiva')>=0&&!!a.corretiva))) return false;
+  if(f.midia&&!(a.fotoDriveId||a.videoDriveId)) return false;
+  return true;
+}
+function pndTempo(a){ if(a.criadoEm){ const t=new Date(a.criadoEm).getTime(); if(!isNaN(t)) return t; } return a.idadeDias!=null?Date.now()-a.idadeDias*86400000:0; }
+function pndOrdenar(l,ord){
+  const rec=(a,b)=>pndTempo(b)-pndTempo(a);
+  const f=ord==='gravidade'?((a,b)=>(((PND_SEVN[a.severidade]!=null?PND_SEVN[a.severidade]:3)-(PND_SEVN[b.severidade]!=null?PND_SEVN[b.severidade]:3))||rec(a,b)))
+    :ord==='antigas'?((a,b)=>pndTempo(a)-pndTempo(b)):rec;
+  return l.slice().sort(f);
+}
+function pndIdade(a){ const d=a.idadeDias; if(d==null) return ''; return d===0?'hoje':d===1?'há 1 dia':d<60?'há '+d+' dias':'há '+Math.round(d/30)+' meses'; }
+function pndLista(){ return (PLN.achados&&PLN.achados.achados)||[]; }
+/* lista mostrada: chip + folha + ordenação. O corte de situação é do SERVIDOR (como sempre foi); no aparelho só se corta nos dois
+   chips cuja consulta é mais larga que o chip — "Com orçamento" (consulta = em aberto) e "Encerradas" (consulta = todos). Vindo
+   da TAG por uma pendência (pndId) nada corta: ela pode estar em qualquer situação. */
+function pndListaFiltrada(){
+  const k=pndChipAtual(), c=PND_CHIPS[k], f=pndFil(), corta=!PLN.pndId&&(k==='orcamento'||k==='encerradas');
+  return pndOrdenar(pndLista().filter(a=>corta?c[1](a):true).filter(a=>pndPassaFolha(a,f)),PLN.pndOrd||'recentes');
+}
+/* contagem do chip: do servidor quando veio; senão, só do que está carregado e só quando a consulta carregada cobre o chip
+   (sem inventar número). null = sem número no chip. */
+function pndContagem(k){
+  const d=PLN.achados, c=d&&d.contagens;
+  if(c&&typeof c[k]==='number') return c[k];
+  const q=PLN.pndQ!=null?PLN.pndQ:PND_CHIPS[pndChipAtual()][2];
+  const cobre=q==='status=todos'||q===PND_CHIPS[k][2]||(q===''&&['aberto','novas','analise','orcamento'].indexOf(k)>=0);
+  if(cobre) return pndLista().filter(PND_CHIPS[k][1]).length;
+  return null;
+}
+/* ---- equipamento / cliente / local de uma pendência (o servidor manda `ativo` com a mesma forma para visita e TAG) ---- */
+function pndEqTitulo(a){ const e=a.ativo; if(!e) return 'Sem equipamento'; return e.apelido||e.nome||e.descricao||'Equipamento'; }
+function pndEqSub(a){ const e=a.ativo; if(!e) return ''; const p=[]; if(e.apelido&&e.nome) p.push(e.nome); if(e.descricao&&e.descricao!==e.apelido) p.push(e.descricao); return p.join(' · '); }
+function pndEqCurto(a){ const e=a.ativo; if(!e) return ''; return e.apelido?e.apelido+(e.nome?' · '+e.nome:''):(e.descricao||e.nome||''); }
+function pndCliNome(a){ return (a.ativo&&a.ativo.contaNome)||(a.otOrigem&&a.otOrigem.contaNome)||null; }
+function pndCliId(a){ return (a.ativo&&a.ativo.contaId)||a.contaId||null; }
+function pndLocalNome(a){ return (a.ativo&&a.ativo.localNome)||(a.otOrigem&&a.otOrigem.localNome)||null; }
+function pndPior(itens){ return itens.slice().sort((a,b)=>(PND_SEVN[a.severidade]!=null?PND_SEVN[a.severidade]:3)-(PND_SEVN[b.severidade]!=null?PND_SEVN[b.severidade]:3))[0]; }
+function pndPil(txt,tom,cls){ return '<span class="pnd3-pil t-'+(tom||'neutro')+(cls?' '+cls:'')+'">'+motEsc(txt||'—')+'</span>'; }
+/* ---- trilha "Status" (Raphael, 13/10: o rótulo é "Status", não "Em que pé"): registrada → quem paga → encaminhamento → encerramento ---- */
+function pndEtapas(a){
+  const e=[], qp=pndQuemPaga(a), enc=PND_ENC.indexOf(a.status)>=0;
+  const origem=a.foraDeOt?('leitura da TAG'+(a.registradaPor?' · '+a.registradaPor:'')):('visita '+((a.otOrigem&&a.otOrigem.nome)||'OT'));
+  e.push({c:'ok',k:'Registrada',b:pndIdade(a)||'—',s:origem});
+  if(!qp) e.push({c:'now',k:'Quem paga?',b:'Sem decisão',s:'Coordenador decide'});
+  else if(a.emergencia&&!a.cobertura) e.push({c:'erro',k:'Quem paga?',b:'Emergência',s:'decide-se antes de faturar'});
+  else e.push({c:'ok',k:'Quem paga',b:a.cobertura,s:a.emergencia?'emergência':''});
+  if(a.proposta&&!a.proposta.fechada) e.push({c:'now',k:'Proposta',b:'Aguardando o cliente',s:a.proposta.fase||''});
+  else if(a.proposta&&a.proposta.fechada&&!a.proposta.ganha) e.push({c:'erro',k:'Proposta',b:'Recusada',s:'pode voltar à cesta'});
+  else if(a.corretiva) e.push({c:(a.corretiva.status==='Concluída'||a.corretiva.status==='Concluida')?'ok':'now',k:'OT corretiva',b:(a.corretiva.nome||'OT')+(a.corretiva.status?' · '+a.corretiva.status:''),s:a.proposta&&a.proposta.ganha?'proposta aceita':''});
+  else if(a.proposta&&a.proposta.ganha) e.push({c:'ok',k:'Proposta',b:'Aceita',s:a.proposta.fase||''});
+  else if(a.pediuCorretiva) e.push({c:'now',k:'OT corretiva',b:'Pedida',s:'ainda não gerada'});
+  else if(qp) e.push({c:enc?'ok':'now',k:'Encaminhar',b:a.cobertura==='Cobrada com orçamento'?'Pôr na cesta':'Abrir OT',s:''});
+  else e.push({c:'fut',k:'Encaminhar',b:'Proposta ou OT',s:'depois da decisão'});
+  if(enc) e.push({c:'ok',k:'Encerrada',b:a.status,s:a.baixaPor?'por '+a.baixaPor:''});
+  else if(a.status==='Recusada pelo cliente') e.push({c:'erro',k:'Recusada',b:'pelo cliente',s:'reabrir ou nova proposta'});
+  else e.push({c:'fut',k:'Encerrar',b:'Resolver / descartar',s:''});
+  return e;
+}
+function pndTrilhaHtml(a){
+  return '<div><div class="pnd3-k" style="margin-bottom:4px">Status</div><div class="pnd3-trilha">'+pndEtapas(a).map(x=>'<div class="et '+x.c+'"><span class="pnd3-k">'+motEsc(x.k)+'</span><b>'+motEsc(x.b)+'</b>'+(x.s?'<small>'+motEsc(x.s)+'</small>':'')+'</div>').join('')+'</div></div>';
+}
+/* ---- próximo passo: UMA ação primária por situação e papel; `attr` é o mesmo data-* que o pndWire já entende ---- */
+function pndPrimaria(a){
+  const coord=pndCoord(), enc=PND_ENC.indexOf(a.status)>=0, na=cestaTem(a.id), podeCesta=coord&&(na||!pndMotivoForaDaCesta(a));
+  const cesta=(t)=>({t:na?'Tirar da cesta':t,cls:'az',attr:'data-pndcesta="'+a.id+'"'});
+  if(a.status==='Recusada pelo cliente') return podeCesta?cesta('Pôr na cesta de novo'):{t:'Reabrir',cls:'p',attr:'data-pndsit="Aberta"'};
+  if(enc) return {t:'Reabrir',cls:'',attr:'data-pndsit="Aberta"'};
+  if(!pndQuemPaga(a)&&!a.corretiva) return coord?{t:'Decidir quem paga',cls:'p',attr:'data-pndtri="'+a.id+'"'}
+    :((a.status||'Aberta')==='Aberta'?{t:'Pegar para análise',cls:'p',attr:'data-pndsit="Em análise"'}:{t:'Resolver',cls:'p',attr:'data-pndform="Resolvida"'});
+  if(a.cobertura==='Cobrada com orçamento'&&podeCesta&&!(a.proposta&&!a.proposta.fechada)) return cesta('Pôr na cesta');
+  return {t:'Resolver',cls:'p',attr:'data-pndform="Resolvida"'};
+}
+/* menu "⋯": todas as ações de antes (mesmas regras de papel e de situação do cartão de 16/09 e 12/10), menos a primária */
+function pndMenuItens(a){
+  const it=[], prim=pndPrimaria(a).attr, coord=pndCoord(), enc=PND_ENC.indexOf(a.status)>=0, na=cestaTem(a.id);
+  const add=(sec,attr,t,quem,cls)=>{ if(attr===prim) return; it.push({sec,attr,t,quem:quem||'',cls:cls||''}); };
+  if(a.status!=='Em análise'&&a.status!=='Resolvida'&&a.status!=='Descartada') add('Situação','data-pndsit="Em análise"','Pegar para análise','Supervisor+');
+  if(a.status!=='Resolvida') add('Situação','data-pndform="Resolvida"','Resolver','Supervisor+');
+  if(['Resolvida','Descartada','Recusada pelo cliente','Resolvida pelo cliente'].indexOf(a.status)<0) add('Situação','data-pndform="Resolvida pelo cliente"','Resolvida pelo cliente','Supervisor+');
+  if(enc||a.status==='Recusada pelo cliente') add('Situação','data-pndsit="Aberta"','Reabrir','Supervisor+');
+  if(coord&&!a.corretiva&&!a.cobertura&&!a.emergencia&&PND_ABERTO.indexOf(a.status||'Aberta')>=0) add('Situação','data-pndtri="'+a.id+'"','Decidir quem paga','Coordenador+');
+  if(!a.pediuCorretiva&&!a.corretiva&&!a.foraDeOt) add('Situação','data-pndcorr="'+a.id+'"','Pedir corretiva','Supervisor+');
+  if(coord&&(na||!pndMotivoForaDaCesta(a))) add('Situação','data-pndcesta="'+a.id+'"',na?'Tirar da cesta':'Pôr na cesta','Coordenador+');
+  if(a.videoDriveId) add('Mídia','data-pndvideo="'+motEsc(a.videoDriveId)+'"','▶ Ver o vídeo');
+  if(a.fotoDriveId) add('Mídia','data-pndfotover="'+motEsc(a.fotoDriveId)+'"','📷 Ver a foto');
+  if(a.status!=='Descartada') add('Cuidado','data-pndform="Descartada"','Descartar (exige motivo)','Supervisor+','d');
+  return it;
+}
+function pndMenuHtml(a){
+  let h='<div class="pnd3-menu" data-pndmenubox>', sec=null;
+  pndMenuItens(a).forEach(i=>{ if(i.sec!==sec){ sec=i.sec; h+='<div class="sec">'+motEsc(sec)+'</div>'; }
+    h+='<button class="'+i.cls+'" data-id="'+motEsc(a.id)+'" '+i.attr+'>'+i.t+(i.quem?'<small>'+i.quem+'</small>':'')+'</button>'; });
+  return h+'</div>';
+}
+/* ---- a caixa da cesta (Coordenador+), com o motivo de "não entra" visível; mesmas classes cst-cb / data-cstcb de 12/10 ---- */
+function pndCbHtml(a){
+  const na=cestaTem(a.id), motivo=na?null:pndMotivoForaDaCesta(a);
+  return '<div class="pnd3-cbwrap"><button class="cst-cb'+(na?' on':motivo?' off':'')+'" data-cstcb="'+a.id+'" title="'+(motivo?'não entra na cesta: '+motEsc(motivo):(na?'tirar da cesta':'pôr na cesta'))+'" aria-pressed="'+(na?'true':'false')+'">'+(na?'✓':'')+'</button>'+
+    (motivo?'<span class="cst-motivo">'+motEsc(motivo)+'</span>':'')+'</div>';
+}
+/* ---- a pendência: linha compacta + (aberta) detalhe no lugar ---- */
+function pndItemHtml(a,opt){ opt=opt||{};
+  const podeCesta=canCestaProposta(ROLE), enc=PND_ENC.indexOf(a.status)>=0||a.status==='Recusada pelo cliente', qp=pndQuemPaga(a);
+  const ed=PLN.pndEdit&&PLN.pndEdit.id===a.id?PLN.pndEdit:null;
+  const aberta=PLN.pndAberta===a.id||!!ed||PLN.pndTri===a.id;
+  const partes=[];
+  if(!opt.semEquip&&a.ativo) partes.push(pndEqCurto(a));
+  partes.push(a.severidade||'—'); const id=pndIdade(a); if(id) partes.push(id);
+  partes.push(qp?qp:'<i>quem paga? sem decisão</i>');
+  if(a.proposta&&!a.proposta.fechada) partes.push('na proposta'); else if(a.corretiva) partes.push((a.corretiva.nome||'OT')+(a.corretiva.status?' '+a.corretiva.status.toLowerCase():''));
+  const md=(a.fotoDriveId?'📷':'')+(a.videoDriveId?'🎥':''); if(md) partes.push(md);
+  let h='<div class="pnd3-f s-'+(PND_SEVTOM[a.severidade]||'neutro')+(enc?' enc':'')+'" data-pndabrir="'+motEsc(a.id)+'" data-pid="'+motEsc(a.id)+'"><span class="sv"></span>';
+  if(podeCesta) h+=pndCbHtml(a);
+  h+='<div class="d"><b>'+motEsc(a.descricao||'(sem descrição)')+'</b><small>'+partes.map(p=>p.indexOf('<i>')===0?p:motEsc(p)).join(' · ')+'</small></div>';
+  h+='<div class="dir">'+pndPil(a.status||'Aberta',PND_PIL[a.status||'Aberta']||'neutro')+'<span class="chev">'+(aberta?'⌃':'⌄')+'</span></div></div>';
+  if(!aberta) return h;
+  /* ---- detalhe ---- */
+  h+='<div class="pnd3-x" data-pndx="'+motEsc(a.id)+'">';
+  let kv='';
+  kv+='<span>Registrada</span><b>'+(a.foraDeOt?'na leitura da TAG'+(a.registradaPor?' por '+motEsc(a.registradaPor):''):'visita '+motEsc((a.otOrigem&&a.otOrigem.nome)||'OT')+(a.perguntaOrigem?' · pergunta '+motEsc(a.perguntaOrigem.ordem+' · '+a.perguntaOrigem.descricao):''))+(a.nome?' · '+motEsc(a.nome):'')+'</b>';
+  if(a.dano) kv+='<span>Dano</span><b>'+motEsc(a.dano)+'</b>';
+  if(a.causa) kv+='<span>Causa</span><b>'+motEsc(a.causa)+'</b>';
+  if(opt.comEquip&&a.ativo) kv+='<span>Equipamento</span><b>'+motEsc(pndEqCurto(a))+(a.ativo.tipo?' · '+motEsc(a.ativo.tipo):'')+'</b>';
+  /* a proposta UMA vez (antes aparecia no nome e na linha "Proposta") */
+  if(a.proposta) kv+='<span>Proposta</span><b>'+motEsc(a.proposta.nome||'')+(a.proposta.fase?' · '+motEsc(a.proposta.fase):'')+(a.proposta.fechada?(a.proposta.ganha?' · aceita':' · perdida — pode voltar à cesta'):' · aguardando o comercial/cliente')+'</b>';
+  if(a.corretiva) kv+='<span>OT corretiva</span><b>'+motEsc((a.corretiva.nome||'')+(a.corretiva.status?' · '+a.corretiva.status:''))+'</b>';
+  else if(a.pediuCorretiva) kv+='<span>OT corretiva</span><b>pedida, ainda não gerada</b>';
+  if(a.medidaCorretiva) kv+='<span>'+(a.status==='Resolvida pelo cliente'?'O que o cliente fez':'O que foi feito')+'</span><b>'+motEsc(a.medidaCorretiva)+'</b>';
+  if(a.motivoDescarte) kv+='<span>Motivo do descarte</span><b>'+motEsc(a.motivoDescarte)+'</b>';
+  if(a.baixaPor) kv+='<span>Baixa</span><b>'+motEsc(a.status)+' por '+motEsc(a.baixaPor)+(a.baixaEm?' em '+motEsc(new Date(a.baixaEm).toLocaleDateString('pt-BR')):'')+(a.fotoBaixaDriveId?' <span class="pnd-foto" data-pndfoto="'+motEsc(a.fotoBaixaDriveId)+'" title="foto da baixa" style="display:inline-block;width:42px;height:42px;vertical-align:middle"></span>':'')+'</b>';
+  /* a foto só se houver (a caixa vazia de antes sumiu); vem pelo proxy autenticado /arquivos/:driveId, como no cartão antigo */
+  h+='<div class="onde">'+(a.fotoDriveId?'<div class="pnd-foto" data-pndfoto="'+motEsc(a.fotoDriveId)+'" title="ver foto do achado"></div>':'')+'<div class="kv">'+kv+'</div></div>';
+  if(a.comentario) h+='<div class="pnd3-nota"><span class="pnd3-k">Nota interna</span><span style="flex:1">'+motEsc(a.comentario)+'</span></div>';
+  h+=pndTrilhaHtml(a);
+  if(PLN.pndTri===a.id){
+    const op=(k,t,d,cor)=>'<button class="pnd-bt" data-pndtrid="'+k+'" data-id="'+a.id+'" style="display:block;width:100%;text-align:left;padding:10px 12px;margin:0 0 6px;border:2px solid '+cor+';border-radius:10px;background:#fff;min-height:48px"><b style="color:'+cor+'">'+t+'</b><br><span style="font-size:12px;color:#686868">'+d+'</span></button>';
+    h+='<div class="pnd-form"><span class="lbl">Quem paga? A decisão fica registrada com o seu nome.</span>'
+      +op('coberta','Coberta pelo contrato','Abre a OT corretiva agora, ligada ao contrato de MPP vigente do cliente.','#2E844A')
+      +op('garantia','Garantia ou cortesia','Abre a OT corretiva agora; no faturamento a linha recebe aviso de crédito.','#0B827C')
+      +op('orcamento','Cobrar com orçamento','Não abre OT: a OT nasce depois que o cliente aceitar a proposta.','#0176D3')
+      +op('emergencia','Emergência','Abre a OT agora e vai para a escala; quem paga se decide antes de faturar.','#BA0517')
+      +'<button class="pnd-bt" data-pndtricancel style="min-height:48px">cancelar</button></div>';
+  }
+  if(ed){
+    h+='<div class="pnd-form">';
+    h+='<span class="lbl">'+(ed.acao==='Resolvida'?'O que foi feito para resolver':ed.acao==='Resolvida pelo cliente'?'O que o cliente fez (obrigatório)':'Por que este achado não exige ação')+'</span>';
+    h+='<textarea data-pndtxt placeholder="'+(ed.acao==='Resolvida'?'ex: mancal realinhado e rolamento trocado':'ex: desgaste dentro do aceitável para o intervalo do contrato')+'">'+motEsc(ed.txt||'')+'</textarea>';
+    if(ed.acao==='Descartada') h+='<span class="lbl" style="color:var(--pln-warn)">Descartar exige o motivo. Resolver não exige, mas ajuda a próxima visita.</span>';
+    if(ed.acao==='Resolvida pelo cliente') h+='<div style="display:flex;gap:8px;align-items:center"><button class="pnd-bt" data-pndfotobaixa style="min-height:48px">'+(ed.foto?'📷 trocar foto':'📷 foto (opcional)')+'</button><span class="lbl" style="margin:0">'+(ed.foto==='enviando'?'enviando…':ed.foto?'✓ foto anexada':'')+'</span></div>';
+    h+='<div style="display:flex;gap:7px"><button class="pnd-bt prim" data-pndok="'+a.id+'" style="min-height:48px">Confirmar '+motEsc(ed.acao)+'</button>'+
+      '<button class="pnd-bt" data-pndcancel style="min-height:48px">Cancelar</button></div>';
+    if(ed.erro) h+='<div class="pln-berr" style="margin:0">'+motEsc(ed.erro)+'</div>';
+    h+='</div>';
+  } else {
+    const p=pndPrimaria(a);
+    h+='<div class="pnd3-pa"><span class="pnd3-k">Próximo passo</span>'+(a.videoDriveId?'<button class="pnd3-bt l" data-pndvideo="'+motEsc(a.videoDriveId)+'">▶ Vídeo</button>':'')+
+      '<button class="pnd3-bt '+p.cls+'" data-id="'+motEsc(a.id)+'" '+p.attr+'>'+p.t+'</button><button class="pnd3-bt ico" data-pndmenu="'+motEsc(a.id)+'" aria-label="Mais ações" aria-expanded="'+(PLN.pndMenu===a.id?'true':'false')+'">⋯</button></div>';
+    if(PLN.pndMenu===a.id) h+=pndMenuHtml(a);
+  }
+  return h+'</div>';
+}
+/* ---- grupo por equipamento (cabeçalho + linhas) ---- */
+function pndGrupoHtml(chave,itens,opt){ opt=opt||{};
+  const a0=itens[0], e=a0.ativo, coord=canCestaProposta(ROLE), fechado=!!(PLN.pndFechados&&PLN.pndFechados[chave]), pior=pndPior(itens);
+  const podem=itens.filter(a=>cestaTem(a.id)||!pndMotivoForaDaCesta(a)), todasNa=podem.length>0&&podem.every(a=>cestaTem(a.id));
+  let h='<div class="pnd3-g'+(fechado?' fechado':'')+'" data-pndg="'+motEsc(chave)+'"><div class="pnd3-gh" data-pndgrupo="'+motEsc(chave)+'">';
+  if(coord) h+='<div class="pnd3-cbwrap"><button class="cst-cb'+(todasNa?' on':podem.length?'':' off')+'" data-cstgrp="'+motEsc(chave)+'" title="'+(podem.length?(todasNa?'tirar todas da cesta':'pôr na cesta todas que podem'):'nenhuma entra na cesta')+'" aria-pressed="'+(todasNa?'true':'false')+'">'+(todasNa?'✓':'')+'</button><span class="cst-motivo">'+(podem.length?'todas que podem ('+podem.length+')':'nenhuma entra')+'</span></div>';
+  h+='<div class="eq"><b>'+motEsc(pndEqTitulo(a0))+(e&&e.tipo?' <span>· '+motEsc(e.tipo)+'</span>':'')+'</b><small>'+motEsc([pndEqSub(a0),opt.comCli?[pndCliNome(a0),pndLocalNome(a0)].filter(Boolean).join(' · '):''].filter(Boolean).join(' · '))+'</small></div>';
+  h+='<div class="cont"><span class="dot t-'+(PND_SEVTOM[pior.severidade]||'neutro')+'" style="background:'+({erro:'#BA0517',atencao:'#FE9339',neutro:'#747474'}[PND_SEVTOM[pior.severidade]||'neutro'])+'" title="pior gravidade: '+motEsc(pior.severidade||'—')+'"></span><span class="n">'+itens.length+'</span><span class="chev">'+(fechado?'›':'⌄')+'</span></div></div>';
+  if(!fechado) h+=itens.map(a=>pndItemHtml(a,{semEquip:true})).join('');
+  return h+'</div>';
+}
+/* ordem dos grupos acompanha a ordenação: Gravidade sobe o grupo com Crítico inteiro; Recentes, o grupo com a mais recente */
+function pndOrdemGrupos(grupos,ord){
+  const chaves=Object.keys(grupos);
+  const t=(k)=>grupos[k].map(pndTempo), s=(k)=>Math.min.apply(null,grupos[k].map(a=>PND_SEVN[a.severidade]!=null?PND_SEVN[a.severidade]:3));
+  if(ord==='gravidade') chaves.sort((x,y)=>(s(x)-s(y))||(Math.max.apply(null,t(y))-Math.max.apply(null,t(x))));
+  else if(ord==='antigas') chaves.sort((x,y)=>Math.min.apply(null,t(x))-Math.min.apply(null,t(y)));
+  else chaves.sort((x,y)=>Math.max.apply(null,t(y))-Math.max.apply(null,t(x)));
+  return chaves;
+}
+function pndSecaoHtml(titulo,sub,n){ return '<div class="pnd3-secli"><b>'+motEsc(titulo)+'</b>'+(sub?' · '+motEsc(sub):'')+' · '+n+'</div>'; }
+function pndCorpoHtml(l){
+  const modo=pndAgrupar(), ord=PLN.pndOrd||'recentes';
+  let h='';
+  if(modo==='equipamento'){
+    /* seção = cliente · local; grupo = equipamento */
+    const secs={}, itensSec={};
+    l.forEach(a=>{ const sk=(pndCliId(a)||pndCliNome(a)||'?')+'|'+(pndLocalNome(a)||''); if(!secs[sk]){ secs[sk]={a:a,grupos:{}}; itensSec[sk]=[]; } const gk=(a.ativo&&a.ativo.id)||'sem'; (secs[sk].grupos[gk]=secs[sk].grupos[gk]||[]).push(a); itensSec[sk].push(a); });
+    pndOrdemGrupos(itensSec,ord).forEach(sk=>{ const s=secs[sk];
+      h+=pndSecaoHtml(pndCliNome(s.a)||'Cliente não identificado',pndLocalNome(s.a),itensSec[sk].length);
+      pndOrdemGrupos(s.grupos,ord).forEach(gk=>{ h+=pndGrupoHtml(sk+'|'+gk,s.grupos[gk]); }); });
+  } else if(modo==='cliente'){
+    const secs={}; const ordem=[];
+    l.forEach(a=>{ const k=pndCliId(a)||pndCliNome(a)||'?'; if(!secs[k]){ secs[k]=[]; ordem.push(k); } secs[k].push(a); });
+    pndOrdemGrupos(secs,ord).forEach(k=>{ const g=secs[k]; h+=pndSecaoHtml(pndCliNome(g[0])||'Cliente não identificado',null,g.length)+'<div class="pnd3-g">'+g.map(a=>pndItemHtml(a,{comEquip:true})).join('')+'</div>'; });
+  } else {
+    h+='<div class="pnd3-g">'+l.map(a=>pndItemHtml(a,{comEquip:true})).join('')+'</div>';
+  }
+  return h;
+}
+function pndChipsHtml(){
+  const atual=pndChipAtual();
+  let h='<div class="pnd3-chips">';
+  Object.keys(PND_CHIPS).forEach(k=>{ const n=pndContagem(k);
+    h+='<button class="pnd3-chip'+(k===atual?' on':'')+(n===0?' zero':'')+'" data-pndchip="'+k+'">'+PND_CHIPS[k][0]+(n!=null?'<span class="n">'+n+(PLN.achados&&PLN.achados.contagens&&PLN.achados.contagens.teto?'+':'')+'</span>':'')+'</button>'; });
+  return h+'</div>';
+}
+function pndCtlHtml(){
+  const nf=pndNFil(), modo=pndAgrupar();
+  return '<div class="pnd3-ctl"><span class="pnd3-lbl">Ordenar</span><div class="pnd3-segm">'
+    +[['recentes','Recentes'],['gravidade','Gravidade'],['antigas','Antigas']].map(([k,r])=>'<button class="'+((PLN.pndOrd||'recentes')===k?'on':'')+'" data-pndord="'+k+'">'+r+'</button>').join('')
+    +'</div><span class="pnd3-lbl">Agrupar</span><div class="pnd3-segm modo">'
+    +[['equipamento','Equipamento'],['cliente','Cliente'],['nada','Nada']].map(([k,r])=>'<button class="'+(modo===k?'on':'')+'" data-pndagrupar="'+k+'">'+r+'</button>').join('')
+    +'</div><button class="pnd3-bfil'+(nf?' on':'')+'" data-pndbfil>⚙ Filtros'+(nf?'<span class="n">'+nf+'</span>':'')+'</button></div>';
+}
+function pndLocalAtual(){ return (PLN.locais||[]).find(l=>l.id===PLN.localId)||null; }
+function pndAtivosHtml(){
+  const f=pndFil(), tags=[];
+  if(PLN.pndSoLocal&&PLN.localId){ const l=pndLocalAtual(); tags.push(['local','',l?[l.contaNome,l.nome].filter(Boolean).join(' · '):'Cliente e local']); }
+  f.sev.forEach(v=>tags.push(['sev',v,v])); f.paga.forEach(v=>tags.push(['paga',v,PND_PAGA[v]||v])); f.orig.forEach(v=>tags.push(['orig',v,PND_ORIG[v]||v])); if(f.midia) tags.push(['midia','1','Com foto ou vídeo']);
+  if(!tags.length) return '';
+  return '<div class="pnd3-ativos">'+tags.map(t=>'<button class="pnd3-tag" data-pndtag="'+t[0]+'" data-v="'+motEsc(t[1])+'">'+motEsc(t[2])+' <i>×</i></button>').join('')+'<button class="pnd3-limpar" data-pndlimpar>Limpar</button></div>';
+}
+/* folha "Filtros": Cliente e local (era o seletor do topo) · gravidade · quem paga · origem · mídia. Renderizada dentro do
+   corpo da aba (fixed) para o pndWire ligar os botões junto com o resto. */
+function pndFolhaHtml(){
+  const f=pndFil();
+  const op=(g,val,r,on,cor)=>'<button class="pnd3-op'+(on?' on':'')+'" data-pndfil="'+g+'" data-v="'+motEsc(val)+'">'+(cor?'<span class="q" style="background:'+cor+';border-color:'+cor+'"></span>':'')+motEsc(r)+'</button>';
+  const n=pndListaFiltrada().length;
+  const locais=PLN.locais||[];
+  return '<div class="pnd3-folha-fundo" data-pndfolhafundo><div class="pnd3-folha"><div class="alca"></div><div class="fh"><b>Filtros</b><button class="pnd3-limpar" data-pndlimpar>Limpar</button><button class="fecha" data-pndfolhafechar aria-label="Fechar">×</button></div>'
+    +'<div class="grp"><label>Cliente e local</label><select data-pndlocalsel><option value=""'+(PLN.pndSoLocal&&PLN.localId?'':' selected')+'>📍 Todos os clientes e locais</option>'
+    +locais.map(l=>'<option value="'+motEsc(l.id)+'"'+(PLN.pndSoLocal&&l.id===PLN.localId?' selected':'')+'>'+motEsc(((l.contaNome?l.contaNome+' — ':'')+l.nome).slice(0,60))+'</option>').join('')+'</select></div>'
+    +'<div class="grp"><label>Gravidade</label><div class="ops">'+[['Crítico','#BA0517'],['Atenção','#FE9339'],['Observação','#747474']].map(([s,c])=>op('sev',s,s,f.sev.indexOf(s)>=0,c)).join('')+'</div></div>'
+    +'<div class="grp"><label>Quem paga</label><div class="ops">'+Object.keys(PND_PAGA).map(k=>op('paga',k,PND_PAGA[k],f.paga.indexOf(k)>=0)).join('')+'</div></div>'
+    +'<div class="grp"><label>Origem</label><div class="ops">'+Object.keys(PND_ORIG).map(k=>op('orig',k,PND_ORIG[k],f.orig.indexOf(k)>=0)).join('')+'</div></div>'
+    +'<div class="grp"><label>Mídia</label><div class="ops">'+op('midia','1','Com foto ou vídeo',f.midia)+'</div></div>'
+    +'<button class="pnd3-aplicar" data-pndfolhafechar>'+(PLN.pndRecarregar?'Mostrar pendências':'Mostrar '+n+' pendência'+(n===1?'':'s'))+'</button></div></div>';
+}
 async function pndCarregar(){
-  const q=[];
-  /* "abertas" e o padrao do servidor, que devolve Aberta mais Em analise: mandar o parametro
+  const q=['comContagens=1']; /* 13/10/2026: contagens dos chips na mesma resposta; servidor antigo ignora e devolve só {achados} */
+  /* "aberto" e o padrao do servidor, que devolve Aberta mais Em analise: mandar o parametro
      seria repetir a mesma coisa de outro jeito. */
-  const f=PLN.pndFiltro||'abertas';
-  if(f!=='abertas') q.push('status='+encodeURIComponent(f));
+  const sq=PND_CHIPS[pndChipAtual()][2]; if(sq) q.push(sq);
   if(PLN.pndSev) q.push('severidade='+encodeURIComponent(PLN.pndSev));
   if(PLN.pndSoLocal && PLN.localId) q.push('localId='+PLN.localId);
   if(PLN.pndAtivo) q.push('ativoId='+encodeURIComponent(PLN.pndAtivo)); /* 12/10/2026: vindo do Consultar TAG (Tratar no Plano) */
-  if(PLN.pndId){ PLN.achados=await beGet('/plano/achados?pendenciaId='+encodeURIComponent(PLN.pndId)); return; } /* 12/10/2026: "abrir ›" de uma pendência */
-  PLN.achados=await beGet('/plano/achados'+(q.length?'?'+q.join('&'):''));
+  PLN.pndRecarregar=false;
+  if(PLN.pndId){ /* 12/10/2026: "abrir ›" de uma pendência — 13/10: ela já abre aberta, e o rodapé "mais deste equipamento" vem de uma 2ª consulta, tolerante */
+    PLN.pndQ='pendenciaId'; PLN.achados=await beGet('/plano/achados?pendenciaId='+encodeURIComponent(PLN.pndId)+'&comContagens=1'); PLN.pndAberta=PLN.pndId;
+    const a=(PLN.achados&&PLN.achados.achados||[])[0]; PLN.pndMaisEq=null;
+    if(a&&a.ativo&&a.ativo.id){ try{ const r=await beGet('/plano/achados?ativoId='+encodeURIComponent(a.ativo.id)+'&comContagens=1'); PLN.pndMaisEq={ativoId:a.ativo.id,contagens:r&&r.contagens||null}; }catch(e){ PLN.pndMaisEq={ativoId:a.ativo.id,contagens:null,erro:e.message||'erro'}; } }
+    return;
+  }
+  PLN.pndQ=sq; PLN.achados=await beGet('/plano/achados?'+q.join('&'));
 }
 function plnRenderPendencias(body){
+  const d=PLN.achados, lista=pndLista();
+  /* 12/10/2026 — a cesta aberta ("Ver cesta" / "Montar proposta") toma o lugar da lista; Coordenador+ */
+  const podeCesta=canCestaProposta(ROLE);
+  if(podeCesta && (CESTA.aberta||CESTA.resultado)){ body.innerHTML=cestaFolhaHtml(); cestaWire(body); return; }
+  const l=pndListaFiltrada(), chip=pndChipAtual(), veioTag=!!(PLN.pndId||PLN.pndAtivo);
+  let h='';
+  /* ---- cabeçalho: o recorte real ---- */
+  if(veioTag){
+    const a0=lista[0];
+    const cli=a0?[pndCliNome(a0),pndLocalNome(a0)].filter(Boolean).join(' · '):'';
+    h+='<div class="pnd3-ctx"><div class="t"><b>'+motEsc(cli||'Pendências')+'</b><small>'+motEsc([a0?pndEqCurto(a0):'',a0&&a0.ativo&&a0.ativo.tipo?a0.ativo.tipo:'','veio da leitura da TAG'].filter(Boolean).join(' · '))+'</small></div>'
+      +(PLN.pndId?'<button class="x" data-pndid>Só a pendência '+motEsc(a0&&a0.nome||'')+' <i>×</i></button>':'<button class="x" data-pndativo>Só este equipamento <i>×</i></button>')+'</div>';
+  } else {
+    const loc=PLN.pndSoLocal&&PLN.localId?pndLocalAtual():null;
+    const nEq=new Set(l.map(a=>(a.ativo&&a.ativo.id)||'sem')).size, nCli=new Set(l.map(a=>pndCliId(a)||pndCliNome(a)||'?')).size;
+    h+='<div class="pnd3-ctx"><div class="t"><b>Pendências · '+motEsc(loc?[loc.contaNome,loc.nome].filter(Boolean).join(' · '):'todos os clientes')+'</b><small>'+l.length+' '+PND_CHIPS[chip][0].toLowerCase()+' · '+nEq+' equipamento'+(nEq===1?'':'s')+(loc?'':' · '+nCli+' cliente'+(nCli===1?'':'s'))+'</small></div></div>';
+  }
+  if(d&&d.truncado) h+='<div class="pnd3-aviso">A lista parou em '+(d.teto||300)+' pendências — há mais que isso neste recorte. Use <b>Filtros → Cliente e local</b> para ver tudo de um cliente.</div>';
+  if(!PLN.pndId){ h+=pndChipsHtml()+pndCtlHtml()+pndAtivosHtml(); }
+  else h+='<div class="pnd3-resumo">Mostrando <b>só esta pendência</b> · o grupo é o equipamento dela</div>';
+  /* ---- corpo ---- */
+  if(!l.length){
+    const nf=pndNFil();
+    if(!lista.length&&!nf) h+='<div class="pnd3-vazio"><b>Nenhuma pendência '+motEsc(PND_CHIPS[chip][0].toLowerCase())+'</b>'+(chip==='tudo'?'Nada registrado neste recorte.':'Se você acabou de mudar o chip, tente <b>Tudo</b>.')+'</div>';
+    else h+='<div class="pnd3-vazio"><b>Nenhuma pendência com esses filtros</b>Há '+lista.length+' pendência'+(lista.length===1?'':'s')+' carregada'+(lista.length===1?'':'s')+' neste recorte, mas nenhuma passa pelos filtros.<br><button class="pnd3-bt l" data-pndlimpar style="margin-top:12px">Limpar filtros</button></div>';
+  } else if(PLN.pndId){
+    /* veio da TAG por UMA pendência: o grupo é o equipamento dela, com cliente e local, e ela já aberta */
+    const a0=l[0]; h+=pndGrupoHtml('tag|'+((a0.ativo&&a0.ativo.id)||'sem'),l,{comCli:true});
+    const m=PLN.pndMaisEq;
+    if(m&&m.contagens){ const c=m.contagens, outras=Math.max(0,(c.tudo||0)-1);
+      h+='<div class="pnd3-mais"><span>Mais deste equipamento: <b>'+(c.aberto||0)+' em aberto</b> · '+(c.encerradas||0)+' encerrada'+((c.encerradas||0)===1?'':'s')+(c.recusadas?' · '+c.recusadas+' recusada'+(c.recusadas===1?'':'s'):'')+'</span>'
+        +(outras>0?'<button class="pnd3-bt l" data-pndmaiseq="'+motEsc(m.ativoId)+'">Ver todas ('+c.tudo+') ›</button>':'<span style="color:#8A949E">nenhuma outra</span>')+'</div>'; }
+    else if(m&&m.ativoId) h+='<div class="pnd3-mais"><span>Mais deste equipamento</span><button class="pnd3-bt l" data-pndmaiseq="'+motEsc(m.ativoId)+'">Ver todas ›</button></div>';
+  } else {
+    h+='<div class="pln-bhint" style="margin:0 0 9px">'+l.length+' pendência'+(l.length===1?'':'s')+' · '+({recentes:'a mais recente primeiro',gravidade:'Crítico primeiro, depois Atenção, depois Observação',antigas:'a mais antiga primeiro'})[PLN.pndOrd||'recentes']+
+      (podeCesta?' · <b>marque</b> o que o cliente topou tratar agora; a caixa do equipamento marca todas que podem':'')+'</div>';
+    h+=pndCorpoHtml(l);
+  }
+  if(podeCesta) h+=cestaRodapeHtml();
+  if(PLN.pndFolha) h+=pndFolhaHtml();
+  body.innerHTML=h;
+  pndWire(body);
+}
+/* 16/09–12/10/2026 — o cartão antigo, SEM USO desde 13/10/2026 (substituído por plnRenderPendencias acima). Fica para comparação. */
+function plnRenderPendenciasCartoes(body){
   const d=PLN.achados, lista=(d&&d.achados)||[];
   /* 12/10/2026 — a cesta aberta ("Ver cesta" / "Montar proposta") toma o lugar da lista; Coordenador+ */
   const podeCesta=canCestaProposta(ROLE);
@@ -21598,7 +22072,47 @@ function pndWire(body){
   body.querySelectorAll('[data-pnds]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSev=b.dataset.pnds; recarrega(); }));
   body.querySelectorAll('[data-pndlocal]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndSoLocal=!PLN.pndSoLocal; recarrega(); }));
   body.querySelectorAll('[data-pndativo]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndAtivo=null; recarrega(); }));
-  body.querySelectorAll('[data-pndid]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndId=null; PLN.pndFiltro='abertas'; recarrega(); }));
+  body.querySelectorAll('[data-pndid]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndId=null; PLN.pndFiltro='aberto'; PLN.pndAberta=null; recarrega(); }));
+  /* ===== 13/10/2026 — controles da tela agrupada (DECISAO_plano-pendencias-agrupado-por-equipamento_13-10-2026.md) ===== */
+  const repinta=()=>plnRenderTabBody();
+  /* chip de situação: só vai ao servidor se a consulta que cobre o chip for outra (encerradas/tudo pedem status=todos) */
+  body.querySelectorAll('[data-pndchip]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.pndchip; if(!PND_CHIPS[k]) return; PLN.pndFiltro=k; PLN.pndId=null; PLN.pndMenu=null; if(PLN.pndQ!==PND_CHIPS[k][2]) recarrega(); else repinta(); }));
+  body.querySelectorAll('[data-pndord]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndOrd=b.dataset.pndord; repinta(); }));
+  body.querySelectorAll('[data-pndagrupar]').forEach(b=>b.addEventListener('click',()=>{ pndAgruparSet(b.dataset.pndagrupar); repinta(); }));
+  /* linha compacta abre/fecha o detalhe no lugar; toque em botão/caixa dentro da linha não conta */
+  body.querySelectorAll('[data-pndabrir]').forEach(el=>el.addEventListener('click',ev=>{ if(ev.target.closest('button,a,input,textarea,select')) return; const id=el.dataset.pndabrir; PLN.pndAberta=PLN.pndAberta===id?null:id; PLN.pndMenu=null; repinta(); }));
+  body.querySelectorAll('[data-pndgrupo]').forEach(el=>el.addEventListener('click',ev=>{ if(ev.target.closest('button,a,input,select')) return; const k=el.dataset.pndgrupo; if(!PLN.pndFechados) PLN.pndFechados={}; PLN.pndFechados[k]=!PLN.pndFechados[k]; repinta(); }));
+  body.querySelectorAll('[data-pndmenu]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndMenu=PLN.pndMenu===b.dataset.pndmenu?null:b.dataset.pndmenu; repinta(); }));
+  body.querySelectorAll('[data-pndvideo]').forEach(b=>b.addEventListener('click',()=>verVideoPendencia(b.dataset.pndvideo)));
+  body.querySelectorAll('[data-pndfotover]').forEach(b=>b.addEventListener('click',()=>verImagem(b.dataset.pndfotover,'Foto do achado')));
+  /* cesta pela ação primária / menu (mesma regra da caixa) e "todas que podem" do grupo */
+  if(canCestaProposta(ROLE)){
+    body.querySelectorAll('[data-pndcesta]').forEach(b=>b.addEventListener('click',()=>{ const a=pndLista().find(x=>x.id===b.dataset.pndcesta); if(!a) return; PLN.pndMenu=null; if(cestaAlternar(a)) repinta(); }));
+    body.querySelectorAll('[data-cstgrp]').forEach(b=>b.addEventListener('click',ev=>{ ev.stopPropagation();
+      const g=body.querySelector('[data-pndg="'+b.dataset.cstgrp.replace(/"/g,'\\"')+'"]'); const ids=g?Array.from(g.querySelectorAll('[data-pid]')).map(x=>x.dataset.pid):[];
+      let itens=pndLista().filter(a=>ids.indexOf(a.id)>=0);
+      if(!itens.length){ /* grupo recolhido: as linhas não estão no DOM — pega pelo estado */ const l=pndListaFiltrada(); const ch=b.dataset.cstgrp; itens=l.filter(a=>{ const sk=(pndCliId(a)||pndCliNome(a)||'?')+'|'+(pndLocalNome(a)||''); const gk=(a.ativo&&a.ativo.id)||'sem'; return ch===sk+'|'+gk||ch==='tag|'+gk; }); }
+      const podem=itens.filter(a=>cestaTem(a.id)||!pndMotivoForaDaCesta(a)); if(!podem.length){ toast('Nenhuma deste equipamento entra na cesta'); return; }
+      const todasNa=podem.every(a=>cestaTem(a.id));
+      if(todasNa){ podem.forEach(a=>{ if(cestaTem(a.id)) cestaAlternar(a); }); }
+      else { for(const a of podem){ if(!cestaTem(a.id)){ if(!cestaAlternar(a)) break; } } }
+      repinta(); }));
+  }
+  /* folha de filtros */
+  const fechaFolha=()=>{ PLN.pndFolha=false; if(PLN.pndRecarregar){ PLN.pndRecarregar=false; recarrega(); } else repinta(); };
+  body.querySelectorAll('[data-pndbfil]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFolha=true; repinta(); }));
+  body.querySelectorAll('[data-pndfolhafechar]').forEach(b=>b.addEventListener('click',fechaFolha));
+  const fundo=body.querySelector('[data-pndfolhafundo]'); if(fundo) fundo.addEventListener('click',ev=>{ if(ev.target===fundo) fechaFolha(); });
+  body.querySelectorAll('[data-pndfil]').forEach(b=>b.addEventListener('click',()=>{ const f=pndFil(), g=b.dataset.pndfil, v=b.dataset.v; if(g==='midia') f.midia=!f.midia; else if(f[g]){ const i=f[g].indexOf(v); if(i<0) f[g].push(v); else f[g].splice(i,1); } repinta(); }));
+  /* "Cliente e local" (era o seletor do topo): mesmo efeito do antigo "Só este local" — PLN.localId é compartilhado com as outras
+     abas, por isso ficha e agenda são zeradas como o seletor fazia. Recarrega ao fechar a folha. */
+  const lsel=body.querySelector('[data-pndlocalsel]');
+  if(lsel) lsel.addEventListener('change',()=>{ const v=lsel.value; if(v){ PLN.localId=v; PLN.pndSoLocal=true; PLN.ficha=null; PLN.agenda=null; } else PLN.pndSoLocal=false; PLN.pndRecarregar=true; PLN.achados=null; repinta(); });
+  body.querySelectorAll('[data-pndtag]').forEach(b=>b.addEventListener('click',()=>{ const g=b.dataset.pndtag, v=b.dataset.v, f=pndFil();
+    if(g==='local'){ PLN.pndSoLocal=false; recarrega(); return; } if(g==='midia') f.midia=false; else if(f[g]){ const i=f[g].indexOf(v); if(i>=0) f[g].splice(i,1); } repinta(); }));
+  body.querySelectorAll('[data-pndlimpar]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndFil={sev:[],paga:[],orig:[],midia:false}; const tinhaLocal=PLN.pndSoLocal; PLN.pndSoLocal=false; PLN.pndFolha=false; if(tinhaLocal||PLN.pndRecarregar){ PLN.pndRecarregar=false; recarrega(); } else repinta(); }));
+  /* rodapé "mais deste equipamento" (veio da TAG por uma pendência): vira "só este equipamento", chip Tudo */
+  body.querySelectorAll('[data-pndmaiseq]').forEach(b=>b.addEventListener('click',()=>{ PLN.pndId=null; PLN.pndAberta=null; PLN.pndAtivo=b.dataset.pndmaiseq; PLN.pndFiltro='tudo'; recarrega(); }));
   body.querySelectorAll('[data-pndform]').forEach(b=>b.addEventListener('click',()=>{
     PLN.pndEdit={id:b.dataset.id, acao:b.dataset.pndform, txt:'', erro:null}; plnRenderTabBody();
   }));
