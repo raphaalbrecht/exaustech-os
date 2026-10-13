@@ -15749,7 +15749,9 @@ const ETQ_PROB_SUGESTOES=[
     ['Gordura acumulada na calha','Atenção'],['Gordura escorrendo pela borda','Atenção'],['Captação fraca (fumaça escapa)','Atenção'],
     ['Solda ou emenda vazando gordura','Atenção'],['Luminária queimada','Observação'],['Luminária sem proteção','Atenção'],
     ['Dreno da calha sem tampão','Observação'],['Corrosão na coifa','Observação']]},
-  {grupo:'Exaustor axial',casa:['exaustoraxial','axial'],itens:[
+  /* 13/10/2026 — Raphael: "não temos exaustor axial em nenhum cliente". Grupo DESLIGADO (desligado:true), não apagado: se um dia
+     houver axial, basta tirar a marca. Sem ele, um tipo com "axial" no nome cai no grupo Exaustor (centrífugo). */
+  {grupo:'Exaustor axial',desligado:true,casa:['exaustoraxial','axial'],itens:[
     ['Exaustor não liga','Crítico'],['Hélice quebrada ou trincada','Crítico'],['Fiação exposta','Crítico'],
     ['Hélice raspando na carcaça','Atenção'],['Vibração excessiva','Atenção'],['Capacitor queimado','Atenção'],
     ['Grade de proteção solta ou danificada','Atenção'],['Motor esquentando demais','Atenção'],['Hélice suja de gordura','Observação']]},
@@ -15820,7 +15822,7 @@ const ETQ_PROB_SEV_PESO={'Crítico':3,'Atenção':2,'Observação':1};
 function etqProbChave(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 function etqProbGrupo(tipo){
   const k=etqProbChave(tipo);
-  for(const g of ETQ_PROB_SUGESTOES){ if(!g.casa.length) return g; if(k&&g.casa.some(c=>k.indexOf(c)>=0)) return g; }
+  for(const g of ETQ_PROB_SUGESTOES){ if(g.desligado) continue; if(!g.casa.length) return g; if(k&&g.casa.some(c=>k.indexOf(c)>=0)) return g; }
   return ETQ_PROB_SUGESTOES[ETQ_PROB_SUGESTOES.length-1];
 }
 /* gravidade que as pílulas marcadas sugerem: a mais grave entre elas (null se nenhuma) */
