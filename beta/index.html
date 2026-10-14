@@ -1833,7 +1833,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=49;
+const APP_NUM=52;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -13366,7 +13366,11 @@ async function cadStepConta(){
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:10px">Em qual conta você está?</div>'
     +'<div id="cadContaWrap" style="color:#686868"><span class="ld-spin"></span>Carregando…</div></div>';
   try{
-    if(!cadSt.contas.length) cadSt.contas=await beGet('/contas');
+    /* 14/10/2026 — Raphael: "cadastrei uma conta no SF MOB3 e demorou para estar disponível no cadastro de ativos". A lista era
+       buscada UMA vez e guardada até o app ser fechado — conta criada depois não aparecia. Agora busca de novo toda vez que este
+       passo abre (são até 500 nomes, é rápido); se a busca falhar, usa a lista que já tinha. */
+    try{ const nova=await beGet('/contas'); if(Array.isArray(nova)) cadSt.contas=nova; }
+    catch(e){ if(!cadSt.contas.length) throw e; }
     /* 06/10/2026 — busca por texto no lugar da lista suspensa (pedido do Raphael): com até 500
        contas, rolar um <select> no celular não funciona. Filtra enquanto digita, sem acento nem
        maiúscula, pedaços de palavra em qualquer ordem ("jazz leb"). Tocar no cliente já avança.
@@ -13401,7 +13405,7 @@ function cadContaFiltrar(){
   const total=lista.length; lista=lista.slice(0,CAD_CONTA_MAX);
   let h='';
   if(!total) h='<div style="font-size:13px;color:#686868;padding:10px 2px">Nenhum cliente com esse nome. Confira a grafia ou cadastre uma nova conta abaixo.</div>';
-  h+=lista.map(x=>opcCard({onclick:'cadContaChosen('+x.i+')',icone:'conta',titulo:x.c.nome,atual:x.c.id===atual})).join(''); /* padrão opc-* (06/10/2026) */
+  h+=lista.map(x=>opcCard({onclick:'cadContaChosen('+x.i+')',icone:'conta',titulo:x.c.nome+(x.c.tipo==='Cliente potencial'?' · potencial':''),atual:x.c.id===atual})).join(''); /* 14/10/2026: cliente potencial entra na lista, marcado */ /* padrão opc-* (06/10/2026) */
   if(total>CAD_CONTA_MAX) h+=`<div style="font-size:12px;color:#7A8794;padding:4px 2px">Mostrando ${CAD_CONTA_MAX} de ${total}. Digite mais do nome para encontrar.</div>`;
   box.innerHTML=h;
 }
@@ -15921,17 +15925,19 @@ function etqPndSecaoSucintaHtml(h,mais){
   const p=etqPnd;
   const total=(p.lista||[]).length, abertas=p.lista?etqPndOrdenar(p.lista.filter(ETQ_PND_CHIPS.aberto[1]),'recentes'):[], nAb=abertas.length, nc=etqPndCriticas();
   const cab=(tit,sub,btn)=>'<div class="etqp-cab etqp-cab-suc"><div class="etqp-tit">'+tit+(sub?'<small>'+cadEsc(sub)+'</small>':'')+'</div>'+(btn?mais(''):'')+'</div>';
-  if(p.lista===null&&!p.erro) return h+cab('Em aberto neste equipamento','buscando…',true)+'<div class="etqp-vazio" style="color:#3E7EB0"><span class="ld-spin"></span> Buscando pendências…</div></div>';
-  if(p.erro) return h+cab('Em aberto neste equipamento','não consegui buscar a lista',true)+'<div class="etqp-vazio">Não consegui buscar as pendências: '+cadEsc(p.erro)+'<br><button class="etqp-limp" onclick="etqPndCarregar(\''+p.ativoId+'\',etqSeq)">Tentar de novo</button></div></div>';
+  if(p.lista===null&&!p.erro) return h+cab('Pendências em aberto','buscando…',true)+'<div class="etqp-vazio" style="color:#3E7EB0"><span class="ld-spin"></span> Buscando pendências…</div></div>';
+  if(p.erro) return h+cab('Pendências em aberto','não consegui buscar a lista',true)+'<div class="etqp-vazio">Não consegui buscar as pendências: '+cadEsc(p.erro)+'<br><button class="etqp-limp" onclick="etqPndCarregar(\''+p.ativoId+'\',etqSeq)">Tentar de novo</button></div></div>';
   /* sem NADA na vida do equipamento: convite verde com o botão laranja de largura total (um só botão, como na A2) */
-  if(!total) return h+cab('Em aberto neste equipamento · 0','',false)+'<div class="etqp-vazio"><div class="etqp-ok">✓ Equipamento sem pendências</div><br>Viu algo errado? Registre aqui — vira pendência “Aberta” para o supervisor tratar.'+mais(' cheio')+'</div></div>';
+  if(!total) return h+cab('Pendências','',false)+'<div class="etqp-vazio"><div class="etqp-ok">✓ Equipamento sem pendências</div><br>Viu algo errado? Registre aqui — vira pendência “Aberta” para o supervisor tratar.'+mais(' cheio')+'</div></div>';
   const enc=total-nAb;
   /* rodapé: lista completa (etqPndCheia) com os filtros de sempre; abre no recorte EM ABERTO */
-  const pe='<button class="etqs-pe" id="etqPndVerTodas" onclick="etqPndCheia(true)"><span>'+(nAb?'Ver todas ('+nAb+') e as encerradas ›':'Ver as encerradas ('+enc+') ›')+'</span><small>filtros e ordenação lá</small></button>';
-  if(!nAb) return h+cab('Em aberto neste equipamento · 0','nenhuma em aberto · '+enc+' encerrada'+(enc>1?'s':'')+' na vida do equipamento',true)
+  const pe='<button class="etqs-pe" id="etqPndVerTodas" onclick="etqPndCheia(true)"><span>'+(nAb?'Lista completa ›':'Ver as encerradas ('+enc+') ›')+'</span><small>'+(nAb?'filtros · encerradas':'filtros e ordenação lá')+'</small></button>';
+  if(!nAb) return h+cab('Pendências em aberto','nenhuma em aberto · '+enc+' encerrada'+(enc>1?'s':'')+' na vida do equipamento',true)
     +'<div class="etqs-vazio">✓ Nenhuma pendência em aberto<small>Viu algo errado? Registre — vira pendência “Aberta” para o supervisor tratar.</small></div>'+pe+'</div>';
-  const sub=(nc?nc+' crítica'+(nc>1?'s':''):'nenhuma crítica')+' · mais recente '+etqPndIdadeCurta(abertas[0]);
-  return h+cab('Em aberto neste equipamento · '+nAb,sub,true)+abertas.slice(0,3).map(etqPndItemSucintoHtml).join('')+pe+'</div>';
+  /* 14/10/2026 — Raphael (limpeza de repetições): a pílula "N PENDÊNCIAS · K CRÍTICAS" do cartão "pode manter" e o "· 2 / 1 crítica"
+     do título da seção "pode tirar, já tem essa informação na página". A pílula é a dona dos números; a seção só lista. O rodapé
+     também perdeu o "(N)". Cada item segue com a sua gravidade ("Crítico") — é informação do item, não contagem. */
+  return h+cab('Pendências em aberto','',true)+abertas.slice(0,3).map(etqPndItemSucintoHtml).join('')+pe+'</div>';
 }
 /* 12/10/2026 (A2) — seção completa com chips, ordenação e Filtros. DESLIGADA em 13/10 (ETQ_RESULTADO_SUCINTO), mantida intacta. */
 function etqPndSecaoA2Html(h,mais,plano){
