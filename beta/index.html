@@ -1842,7 +1842,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=56;
+const APP_NUM=57;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -12783,7 +12783,9 @@ function roleAtLeast(r,min){ return ROLES.indexOf(r)>=ROLES.indexOf(min); }
 /* Gerenciar estrutura (Área/Setor/Posição/Nível do Estoque): Gerente ou Sócio. */
 function canGerenciarEstoque(r){ return roleAtLeast(r,'Gerente'); }
 /* módulo Cadastro de Ativos: Supervisor pra cima (Auxiliar/Líder de MPP não cadastram) */
-function canCadastrar(r){ return ['Supervisor','Coordenador','Gerente','Sócio'].includes(r); }
+/* 14/10/2026 — ADM entra ("DEVE VER E EDITAR" a ficha do equipamento; editar é o fluxo do cadastro). O servidor tem a mesma
+   lista em checklistRoutes.js (FUNCAO_CADASTRO). DECISAO_ficha-do-ativo-tecnico-somente-leitura_14-10-2026.md */
+function canCadastrar(r){ return ['Supervisor','Coordenador','Gerente','Sócio','ADM'].includes(r); }
 /* Acompanhamento de Pedido de Compra (15/07/2026, extensão da proposta de recebimento): decisão
    explícita do Raphael — Supervisor pra cima confirma/atualiza a previsão de entrega. */
 function canAcompanharPedidos(r){ return roleAtLeast(r,'Supervisor'); }
