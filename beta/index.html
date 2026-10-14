@@ -1833,7 +1833,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=47;
+const APP_NUM=48;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -17066,19 +17066,37 @@ async function verAtivo(ativoId){
   if(!ativoId) return;
   const md=document.getElementById('ativoDetModal'); if(!md) return;
   const seq=++ativoDetSeq, jaAberta=md.classList.contains('show');
+  /* 14/10/2026 — Raphael: "clicando em Ver ficha, nada acontece". A ficha só aparecia DEPOIS de o servidor responder (agora ele
+     monta o resumo — pendências, preventiva, filhos — e pode levar alguns segundos); até lá a tela ficava parada, e um erro virava
+     só um toast que some. Agora a ficha abre NA HORA com "Carregando a ficha…", e se der erro a mensagem fica DENTRO dela, com
+     "Tentar de novo". */
+  const body0=document.getElementById('ativoDetBody');
+  md.style.zIndex='100015'; /* acima do painel da TAG (100012) */
+  if(!jaAberta){
+    ativoDetSt=null; ativoDetMenu(false);
+    { const t=document.getElementById('ativoDetTitulo'); if(t) t.textContent='Carregando…'; }
+    if(body0) body0.innerHTML='<div style="padding:40px 16px;text-align:center;color:#3E7EB0;font-size:14px"><span class="ld-spin"></span> Carregando a ficha…</div>';
+    navAbriu('ficha',closeAtivoDet); md.classList.add('show');
+  }
+  etqAcaoAlvo='ativoDetAcaoBox'; /* Fotos/Histórico/Registrar problema desenham dentro da ficha enquanto ela estiver aberta */
   try{
     const d=await beGet('/ativos/'+ativoId);
     if(seq!==ativoDetSeq) return; /* outra ficha foi pedida enquanto esta carregava */
     ativoDetSt=d; ativoDetAberto={dados:true};
     ativoDetMenu(false);
     ativoDetPintar(false);
-    md.style.zIndex='100015'; /* acima do painel da TAG (100012) */
-    if(!jaAberta) navAbriu('ficha',closeAtivoDet);
-    etqAcaoAlvo='ativoDetAcaoBox'; /* Fotos/Histórico/Registrar problema desenham dentro da ficha enquanto ela estiver aberta */
     md.classList.add('show');
     const body=document.getElementById('ativoDetBody'); if(body) body.scrollTop=0;
     ativoDetMiniaturas(d,seq);
-  }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
+  }catch(e){
+    if(seq!==ativoDetSeq) return;
+    const msg='Não consegui abrir a ficha: '+(e&&e.message?e.message:'erro');
+    if(md.classList.contains('show')&&!ativoDetSt&&body0){
+      const idL=String(ativoId).replace(/[^A-Za-z0-9]/g,'');
+      body0.innerHTML='<div style="padding:32px 16px;text-align:center"><div style="color:#BA0517;font-size:14px;font-weight:600">'+cadEsc(msg)+'</div>'
+        +'<button onclick="verAtivo(\''+idL+'\')" style="margin-top:14px;min-height:48px;padding:0 20px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">Tentar de novo</button></div>';
+    } else toast(msg);
+  }
 }
 /* desenha o corpo inteiro a partir de ativoDetSt. manter=true preserva o que Fotos/Histórico/ação já desenharam (é HTML
    que veio do servidor; redesenhar a ficha por causa de um acordeão não pode apagar a galeria aberta). */
