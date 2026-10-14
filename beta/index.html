@@ -1833,7 +1833,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=48;
+const APP_NUM=49;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -5006,8 +5006,26 @@ async function gMaybeUploadExtra(eq,f){
 function setFotoExtraPDF(ii,idx,val){ if(!canPDF(ROLE)){ toast('Apenas Coordenador para cima decide as fotos do PDF'); return; } curOS._itens[ii].fotos[idx].usarPDF=val; toast(val?'✓ Foto adicional no PDF':'Foto adicional fora do PDF'); }
 
 /* ===== rede / toast ===== */
-function toggleNet(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Sincronizado');},1100);} updateNet(); }
-function updateNet(){const b=document.getElementById('netBtn');b.classList.toggle('off',!NET.online);b.title=NET.online?'Online':'Offline'+(NET.queue?(' · '+NET.queue+' na fila'):'');}
+/* 14/10/2026 — Raphael: "por que existe aquela bolinha verde do Online que, quando clicamos, fica laranja?" Era uma sobra do
+   protótipo: o toque FINGIA ficar offline (simulação) e não media nada. Decisão dele (opção a): virar indicador de verdade.
+   Agora: verde = tablet com internet e nada esperando; laranja = sem internet OU com itens na fila offline esperando envio
+   (mesma fila do selo do topo, offBadge/offCount). O toque não muda nada — só diz o estado. A versão antiga do toque ficou
+   como toggleNetSimulado, sem chamador. */
+function toggleNetSimulado(){ NET.online=!NET.online; if(NET.online&&NET.queue>0){toast(`☁️ Sincronizando ${NET.queue}…`);setTimeout(()=>{NET.queue=0;updateNet();toast('✅ Sincronizado');},1100);} updateNet(); }
+async function toggleNet(){
+  const on=navigator.onLine!==false; let n=0; try{ n=await offCount(); }catch(_){}
+  toast(on?(n?'Com internet · '+n+' item(ns) enviando…':'Com internet · tudo enviado'):('Sem internet'+(n?' · '+n+' item(ns) esperando para enviar':' · o que você fizer em campo fica guardado e vai depois')));
+  updateNet();
+}
+async function updateNet(){
+  const b=document.getElementById('netBtn'); if(!b) return;
+  NET.online=navigator.onLine!==false; /* 14/10/2026: estado real do aparelho, não mais simulado */
+  let n=0; try{ n=typeof offCount==='function'?await offCount():0; }catch(_){}
+  b.classList.toggle('off',!NET.online||n>0);
+  b.title=NET.online?(n?'Online · '+n+' na fila':'Online'):'Sem internet'+(n?' · '+n+' na fila':'');
+}
+window.addEventListener('online',()=>{ try{ updateNet(); }catch(_){} });
+window.addEventListener('offline',()=>{ try{ updateNet(); }catch(_){} });
 let toastT;
 function toast(msg){ toastAcao(msg,null,null,2200); }
 /* Fase 3 (item 16, endr* — Desfazer/editar depois): toast com botão de ação opcional, sem mudar o
@@ -18575,6 +18593,7 @@ async function offRecusadosCount(){ try{ const a=await offGet('off_recusados'); 
 const OFF_INSUBSTITUIVEL=['assinatura','midia','midiaMotor'];
 
 async function offBadge(){
+  try{ if(typeof updateNet==='function') updateNet(); }catch(_){} /* 14/10/2026: bolinha do topo acompanha a fila */
   let el=document.getElementById('offBadge');
   if(!el){ el=document.createElement('div'); el.id='offBadge';
     el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:100002;background:#0B2239;color:#fff;font:600 12px system-ui,-apple-system,sans-serif;padding:6px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;align-items:center;gap:6px;white-space:nowrap';
