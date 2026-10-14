@@ -1833,7 +1833,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=46;
+const APP_NUM=47;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15260,7 +15260,13 @@ function etqRender(st){
     const ICV={ok:'<path d="M4 12.5l5 5L20 7"/>',er:'<path d="M6 6l12 12M18 6L6 18"/>',at:'<path d="M12 5v8M12 17.5v.5"/>',ne:'<path d="M12 5v8M12 17.5v.5"/>'};
     /* 12/10/2026 — Raphael: "a faixa de aviso no topo pode ser mais discreta; reduzir em 60%". Uma linha: ícone pequeno,
        palavra + motivo lado a lado; o "o que fazer" continua embaixo, menor. */
-    h+='<div style="background:'+COR[v.tom]+';color:'+TXT+';border-radius:10px;padding:7px 12px;display:flex;gap:8px;align-items:center">'
+    /* 14/10/2026 — Raphael: "retirar esse aviso sobre a forma como foi feita a leitura da TAG ou se foi por código; essa faixa no
+       alto da página; vale para código digitado, NFC e QR". A faixa some quando é só informativa: leitura OK ("Pode usar") e
+       consulta pelo código. CONTINUA quando há problema (Não use, Atenção, Equipamento errado, chip não confere, não encontrado,
+       sem conexão) — aí ela é o aviso de segurança da etiqueta, não a forma da leitura. A forma (NFC/QR/código) segue na linha
+       fina "Sobre esta leitura", no pé. */
+    const etqFaixaSo=(typeof ETQ_RESULTADO_SUCINTO==='undefined'||ETQ_RESULTADO_SUCINTO)&&(v.tom==='ok'||(st.porCodigo&&v.t1==='Consulta pelo código'));
+    if(!etqFaixaSo) h+='<div style="background:'+COR[v.tom]+';color:'+TXT+';border-radius:10px;padding:7px 12px;display:flex;gap:8px;align-items:center">'
       +'<svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 18px" fill="none" stroke="'+TXT+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'+ICV[v.tom]+'</svg>'
       +'<div style="flex:1;min-width:0;line-height:1.25"><span style="font-size:14px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">'+cadEsc(v.t1)+'</span>'
       +(v.t2?'<span style="font-size:13px;font-weight:500"> · '+cadEsc(v.t2)+'</span>':'')
