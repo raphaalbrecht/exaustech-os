@@ -1762,6 +1762,67 @@
 #ativoDetModal .fa-btn{font-size:12.5px}
 #ativoDetModal .fa-pil{font-size:10.5px;padding:3px 9px}
 #ativoDetModal .fa-lab,#ativoDetModal .fa-grupo{font-size:10px}
+/* 13/10/2026 — resultado do scan SUCINTO (proposta 2 aprovada pelo Raphael: "a tela que é o resultado de um scan deve ser mais
+   sucinta, pois ali foi só um scan; para ver dados técnicos, entra na ficha"). Cartão de identidade curto na escala B da ficha
+   (apelido 24 px), seção "Em aberto neste equipamento" sem controles, "Ver ficha" único, "Sobre esta leitura" em linha fina.
+   Mockup: prototipos/mockup-tag-resultado-sucinto-2_13-10-2026.html · DECISAO_resultado-do-scan-sucinto_13-10-2026.md.
+   CSS AQUI (e não numa string JS) porque CSS dentro de string com quebra de linha ou aspas simples já derrubou o app em 13/10. */
+.etqs-card{background:#fff;border:1px solid #E2E5E9;border-radius:14px;padding:12px 16px;margin-top:12px}
+.etqs-card.etqs-err{border:2px solid #BA0517}
+.etqs-erro-lab{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#BA0517;margin-bottom:4px}
+.etqs-topo{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:start}
+.etqs-tipo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0176D3}
+.etqs-apelido{font-size:24px;font-weight:700;color:#0B2239;line-height:1.1;margin-top:2px;word-break:break-word}
+.etqs-desc{font-size:13px;color:#3A4552;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etqs-cod{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:#0B2239;background:#EEF2F6;border-radius:8px;padding:5px 9px;letter-spacing:.03em;white-space:nowrap}
+.etqs-cod small{font-family:system-ui,sans-serif;font-size:10px;font-weight:700;color:#8A949E;letter-spacing:.08em;margin-right:5px}
+.etqs-lado{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.etqs-lado .etqs-pil{font-size:10.5px;padding:3px 9px}
+.etqs-onde{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid #E2E5E9}
+.etqs-cli{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:3px 10px;border-radius:999px;background:#F3F5F8;border:1px solid #D6DCE3;color:#0B2239;font-size:12.5px;font-weight:600;line-height:1.2;word-break:break-word}
+.etqs-cli small,.etqs-local small{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A949E;white-space:nowrap;flex:none} /* 13/10/2026: rotulo CLIENTE quebrava em CLIENT/E com nome longo */
+.etqs-leit summary b{white-space:nowrap}
+.etqs-local{font-size:13.5px;font-weight:600;color:#0B2239;display:inline-flex;align-items:center;gap:5px}
+.etqs-local .etqs-ni{font-weight:500;color:#AEB8C2}
+.etqs-esperado{background:#fff;border:1px solid #2E844A;border-radius:12px;padding:9px 14px;margin-top:8px;font-size:13px;color:#2E844A;font-weight:700}
+/* seção de pendências enxuta (reaproveita .etqp da A2 para moldura, botão laranja e vazio) */
+/* .etqp-cab.etqp-cab-suc: dupla classe para vencer o .etqp-cab da ETQ_PND_CSS, que entra no DOM depois deste <style> */
+.etqp-cab.etqp-cab-suc{min-height:56px;padding:10px 12px 8px 14px}
+.etqp-cab.etqp-cab-suc .etqp-tit{font-size:13.5px;font-weight:700}
+.etqp-cab.etqp-cab-suc .etqp-tit small{font-size:11.5px;margin-top:1px}
+.etqp-cab.etqp-cab-suc .etqp-mais{font-size:13.5px;padding:0 14px;border-radius:10px}
+.etqs-it{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px 8px 10px;border-left:6px solid #747474;border-top:1px solid #E2E5E9;background:#fff}
+.etqs-it .etqs-tx{flex:1;min-width:0}
+.etqs-it .etqs-t{font-size:13.5px;font-weight:600;color:#0B2239;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etqs-it .etqs-m{font-size:11.5px;color:#686868;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etqs-it .etqs-m b{color:#BA0517;font-weight:700}
+.etqs-it.etqp-nova{background:#F3FBF5}
+.etqs-pe{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:48px;padding:0 14px;border:none;border-top:1px solid #E2E5E9;background:#fff;font-size:13px;color:#0176D3;font-weight:700;font-family:inherit;text-align:left;cursor:pointer}
+.etqs-pe small{color:#686868;font-weight:500;font-size:12px;white-space:nowrap}
+.etqs-vazio{border-top:1px solid #E2E5E9;padding:14px;text-align:center;color:#2E844A;font-size:13.5px;font-weight:600;line-height:1.4}
+.etqs-vazio small{display:block;color:#686868;font-weight:500;font-size:12px;margin-top:2px}
+.etqs-nao{padding:0 14px 12px;font-size:11.5px;color:#686868}
+/* lista de ações: uma linha, Ver ficha com subtítulo */
+.etqs-acoes{background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px}
+.etqs-acoes>button{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 16px;border:none;border-top:1px solid #E2E5E9;background:#fff;font-size:14px;font-weight:700;color:#0B2239;text-align:left;cursor:pointer;font-family:inherit}
+.etqs-acoes>button:first-child{border-top:none}
+.etqs-acoes .etqs-ic{font-size:18px;width:26px;text-align:center;flex:0 0 26px}
+.etqs-acoes .etqs-sub{display:block;font-size:11.5px;font-weight:500;color:#686868;margin-top:1px}
+.etqs-acoes .etqs-chev{margin-left:auto;color:#8A949E;font-size:18px}
+/* "Sobre esta leitura": linha fina sem moldura; vira cartão com borda vermelha só quando há problema (details[open]) */
+.etqs-leit{margin-top:10px;border-radius:12px;border:1px solid transparent}
+.etqs-leit[open]{background:#fff;border-color:#F3B4BB;padding:0 14px 8px}
+.etqs-leit summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:0 6px;font-size:12px;color:#686868;line-height:1.3}
+.etqs-leit summary::-webkit-details-marker{display:none}
+.etqs-leit[open] summary{padding:0;min-height:40px}
+.etqs-leit summary b{color:#0B2239;font-weight:600}
+.etqs-leit .etqs-chev{color:#8A949E;flex:0 0 auto}
+.etqs-leit .etqs-chev::before{content:"▾"}.etqs-leit[open] .etqs-chev::before{content:"▴"}
+.etqs-leit .etqs-chk{display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:1px solid #E2E5E9;font-size:12.5px;color:#0B2239;line-height:1.35}
+.etqs-leit .etqs-chk small{display:block;color:#686868;font-size:11.5px;word-break:break-all}
+.etqs-bol{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+.etqs-leit-fixa{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 6px;margin-top:10px;font-size:12px;color:#686868;line-height:1.3;word-break:break-word}
+.etqs-leit-fixa b{color:#0B2239;font-weight:600}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15083,6 +15144,10 @@ async function cadProvisionarEtiqueta(){
    GET /ativos/previa-portal/:token — mesma busca do portal, mas pela sessão do TÉCNICO; o portal do cliente continua
    exigindo login. Ver docs/09-CADASTROS/DECISAO_teste-etiqueta-nfc_11-10-2026.md */
 let etqCtrl=null;
+/* 13/10/2026 — resultado do scan SUCINTO (proposta 2, aprovada pelo Raphael; DECISAO_resultado-do-scan-sucinto_13-10-2026.md).
+   true = cartão curto (escala B), seção "Em aberto neste equipamento" sem controles, só "Ver ficha", linha fina da leitura.
+   false = tela B2 + A2 de 12/10 (o código continua abaixo, desligado — regra do projeto: adicionar sim, apagar não). */
+const ETQ_RESULTADO_SUCINTO=true;
 /* 11/10/2026 — Raphael: "enquanto a pessoa não clica em 'Testar outra vez', deve inibir a leitura do NFC, porque está
    aproveitando a página de resultado da consulta original mesmo lendo um segundo cartão diferente". Com o resultado
    na tela, novas leituras são IGNORADAS (o leitor continua ligado só para o Android não abrir o portal); só
@@ -15166,7 +15231,39 @@ function etqRender(st){
        direita"). Local/Sistema/Dentro de um embaixo do outro, título pequeno e valor grande (Raphael: "não em pílulas").
        Pílula = caixa alta, fundo sólido, 6 tons (diretriz de 02/09/2026). */
     const pil=(tom,txt,id,oculta,cls)=>'<span'+(id?' id="'+id+'"':'')+(cls?' class="'+cls+'"':'')+' style="display:'+(oculta?'none':'inline-block')+';border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;line-height:1.25;white-space:nowrap;background:'+({sucesso:'#2E844A',concluido:'#0B827C',info:'#0176D3',atencao:'#FE9339',erro:'#BA0517',neutro:'#747474'})[tom]+';color:'+(tom==='atencao'?'#2B1A00':'#fff')+'">'+txt+'</span>';
-    if(a){
+    if(a&&ETQ_RESULTADO_SUCINTO){
+      /* 13/10/2026 — cartão de identidade CURTO (mockup sucinto-2): tipo em texto azul pequeno (pílula sólida é situação, não
+         identidade), apelido 24 px na escala B da ficha, descrição em 1 linha cortada, nº em chip monoespaçado com a pílula
+         "N PENDÊNCIAS" embaixo, e "Cliente · Local" numa linha. Sistema e Dentro de SAÍRAM desta tela (estão na ficha —
+         Raphael: "para ver dados técnicos, entra na ficha do ativo"). Local continua sempre (vazio = "não informado", regra de 12/10). */
+      const titulo=a.apelido||a.nome||'—'; /* sem apelido, o nº ATV é o título — nunca fica sem nome grande */
+      h+='<div class="etqs-card'+(st.errado?' etqs-err':'')+'">'
+        +(st.errado?'<div class="etqs-erro-lab">✕ Etiqueta lida pertence a</div>':'')
+        +'<div class="etqs-topo"><div style="min-width:0">'
+        +(a.tipo?'<div class="etqs-tipo">'+cadEsc(a.tipo)+'</div>':'')
+        +'<div class="etqs-apelido">'+cadEsc(titulo)+'</div>'
+        +(a.descricao?'<div class="etqs-desc">'+cadEsc(a.descricao)+'</div>':'')
+        +'</div><div class="etqs-lado">'
+        +(a.nome?'<span class="etqs-cod"><small>Nº</small>'+cadEsc(a.nome)+'</span>':'')
+        /* mesma pílula/ids da B2 (#etqPilhaSit/#etqPilPend): etqPendPintar preenche depois do render com "N pendências · 1 crítica" */
+        +'<div id="etqPilhaSit" class="etqs-lado"><span id="etqPilPend" style="display:none;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.3;white-space:nowrap;background:#BA0517;color:#fff"></span></div>'
+        +'</div></div>'
+        +'<div class="etqs-onde">'
+        +(a.conta?'<span class="etqs-cli"><small>Cliente</small>'+cadEsc(a.conta)+'</span>':'')
+        +'<span class="etqs-local"><small>Local</small>'+(a.local?cadEsc(a.local):'<span class="etqs-ni">não informado</span>')+'</span>'
+        +'</div></div>';
+      if(st.errado){
+        /* mockup: "Equipamento esperado: Coifa 1 · ATV-000213 (o deste cadastro)". O apelido e o nº só existem quando a leitura
+           veio do cadastro (cadSt) e o esperado é o ativo dele; senão fica "o deste cadastro", como antes. */
+        let esp='';
+        try{ if(typeof cadSt!=='undefined'&&cadSt&&cadSt.ativoId&&st.esperado&&String(cadSt.ativoId).slice(0,15)===String(st.esperado).slice(0,15)) esp=[cadSt.apelido,cadSt.ativoNome].filter(Boolean).join(' · '); }catch(_){}
+        h+='<div class="etqs-esperado">✓ Equipamento esperado: '+(esp?cadEsc(esp)+' (o deste cadastro)':'o deste cadastro')+'</div>';
+        h+=ETQ_PND_CSS /* a moldura .etqp vem da ETQ_PND_CSS, que neste estado não é injetada pela seção (não há seção) */
+          +'<div class="etqp" style="margin-top:8px"><div class="etqp-cab etqp-cab-suc" style="min-height:0"><div class="etqp-tit">Pendências<small>Não mostradas: a etiqueta é de outro equipamento</small></div></div></div>';
+        if(st.esperado&&typeof canCadastrar==='function'&&canCadastrar(ROLE))
+          h+='<div class="etqs-acoes"><button onclick="etqAcaoFicha(\''+String(st.esperado).replace(/[^A-Za-z0-9]/g,'')+'\')"><span class="etqs-ic">📄</span><span style="flex:1;min-width:0">Ver ficha do equipamento esperado</span><span class="etqs-chev">›</span></button></div>';
+      }
+    } else if(a){
       const titulo=a.apelido||a.nome||'—'; /* sem apelido, o nº ATV é o título — nunca fica sem nome grande */
       h+='<div style="background:#fff;border:'+(st.errado?'2px solid #BA0517':'1px solid #E2E5E9')+';border-radius:16px;padding:14px 16px 12px;margin-top:12px;position:relative">'
         +(st.errado?'<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#BA0517;margin-bottom:6px">✕ Etiqueta lida pertence a</div>':'')
@@ -15231,7 +15328,10 @@ function etqRender(st){
           +'<span style="font-size:20px;width:28px;text-align:center;flex:0 0 28px">'+ic+'</span>'
           +'<span style="flex:1;min-width:0">'+txt+(opt.sub?'<span style="display:block;font-weight:500;font-size:13px;color:#686868;margin-top:1px">'+opt.sub+'</span>':'')+'</span>'
           +'<span style="display:flex;align-items:center;gap:10px">'+(opt.dir||'')+'<span style="color:#8A949E;font-size:20px">›</span></span></button>'; };
-      if(cad) h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px" class="etq-lista-acoes">'
+      /* 13/10/2026 (sucinto) — só "Ver ficha", com subtítulo dizendo o que tem lá. Fotos e Histórico SAÍRAM desta tela (são seções
+         da ficha, com contagem no título); etqAcaoFotos/etqAcaoHistorico continuam no arquivo — a ficha as usa. Mesma regra de papel. */
+      if(cad&&ETQ_RESULTADO_SUCINTO) h+='<div class="etqs-acoes etq-lista-acoes"><button onclick="etqAcaoFicha(\''+idA+'\')"><span class="etqs-ic">📄</span><span style="flex:1;min-width:0">Ver ficha<span class="etqs-sub">Dados técnicos · componentes · fotos · histórico</span></span><span class="etqs-chev">›</span></button></div>';
+      else if(cad) h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px" class="etq-lista-acoes">'
         +lin('📄','Ver ficha',"etqAcaoFicha('"+idA+"')")
         +lin('📷','Fotos',"etqAcaoFotos('"+idA+"')")
         +lin('🕘','Histórico',"etqAcaoHistorico('"+idA+"')")
@@ -15249,7 +15349,16 @@ function etqRender(st){
     const bol=t=>'<span style="flex:0 0 20px;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
     const fonte=st.uid?'NFC':(st.porCodigo?'Código digitado':'QR code');
     const resumo=st.porCodigo?'consulta sem etiqueta':(ruim?'<span style="color:#BA0517;font-weight:700">'+ruim+' problema'+(ruim>1?'s':'')+'</span>':'<b style="color:#0B2239;font-weight:600">'+okN+' checage'+(okN===1?'m':'ns')+' OK</b>');
-    h+='<details id="etqSobre" style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-top:12px"'+(ruim?' open':'')+'>'
+    /* 13/10/2026 (sucinto) — "Sobre esta leitura" vira LINHA FINA sem moldura: hora · fonte · chip inteiro · resumo. As bolinhas
+       saíram da linha (repetiam o veredito) e o diagnóstico do leitor (#etqNfcEstado) saiu desta tela — tagNfcEstadoSet já tolera
+       o elemento não existir (if(el)). As checagens continuam dentro, abrem sozinhas só com problema (tom er/at). Consulta pelo
+       código não tem o que abrir: linha fixa, sem seta (mockup, estado 2). */
+    const carimbo='<b>'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+fonte+'</b>'+(st.uid?' · chip '+cadEsc(chipTxt):(st.porCodigo?'':' · sem número de chip'))+' · '+resumo;
+    const bolS=t=>'<span class="etqs-bol" style="background:'+({ok:'#2E844A',er:'#BA0517',at:'#FE9339',ne:'#C9D0D8'})[t]+';color:'+(t==='at'?'#2B1A00':t==='ne'?'#555':'#fff')+'">'+({ok:'✓',er:'✕',at:'!',ne:'–'})[t]+'</span>';
+    if(ETQ_RESULTADO_SUCINTO&&(st.porCodigo||!chk.length)) h+='<div id="etqSobre" class="etqs-leit-fixa"><span>'+carimbo+'</span></div>';
+    else if(ETQ_RESULTADO_SUCINTO) h+='<details id="etqSobre" class="etqs-leit"'+(ruim?' open':'')+'><summary><span style="min-width:0;word-break:break-all">'+carimbo+'</span><span class="etqs-chev"></span></summary>'
+      +chk.map(x=>'<div class="etqs-chk">'+bolS(x[0])+'<div style="min-width:0"><div>'+cadEsc(x[1])+'</div>'+(x[2]?'<small>'+cadEsc(x[2])+'</small>':'')+'</div></div>').join('')+'</details>';
+    else h+='<details id="etqSobre" style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-top:12px"'+(ruim?' open':'')+'>'
       +'<summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;min-height:52px;font-size:14px;color:#686868;line-height:1.3">'
       +'<span style="min-width:0;word-break:break-all"><b style="color:#0B2239;font-weight:600">'+p2(hr.getHours())+':'+p2(hr.getMinutes())+':'+p2(hr.getSeconds())+' · '+fonte+'</b>'
       +(st.uid?' · chip '+cadEsc(chipTxt):(st.porCodigo?'':' · sem número de chip'))+' · '+resumo+'</span>'
@@ -15640,10 +15749,12 @@ async function etqPndCarregar(ativoId,seq){
   etqPendPintar(etqPnd.lista?etqPndContagem('aberto'):0); etqPndPintar();
 }
 /* pílula "N PENDÊNCIAS" do cartão de identidade (#etqPilPend): só as em aberto; zero esconde ("0 PENDÊNCIAS" seria alarme falso) */
+/* 13/10/2026 (sucinto): ganha "· 1 crítica" quando há pendência em aberto com gravidade Crítico (mockup: "4 pendências · 1 crítica"). */
+function etqPndCriticas(){ return (etqPnd&&etqPnd.lista||[]).filter(a=>ETQ_PND_ABERTO.indexOf(a.status)>=0&&a.severidade==='Crítico').length; }
 function etqPendPintar(n){
-  n=Number(n)||0; const txt=n>99?'99+':String(n);
+  n=Number(n)||0; const txt=n>99?'99+':String(n), nc=(n&&typeof ETQ_RESULTADO_SUCINTO!=='undefined'&&ETQ_RESULTADO_SUCINTO)?etqPndCriticas():0; /* sufixo só na tela sucinta; a B2 desligada fica como era */
   const p=document.getElementById('etqPilPend');
-  if(p){ p.style.display=n?'inline-block':'none'; p.textContent=n?txt+' pendência'+(n>1?'s':''):''; }
+  if(p){ p.style.display=n?'inline-block':'none'; p.textContent=n?txt+' pendência'+(n>1?'s':'')+(nc?' · '+nc+' crítica'+(nc>1?'s':''):''):''; }
   const b=document.getElementById('etqBtnPend'); if(!b) return; /* linha antiga da lista de ações — já não é desenhada (A2) */
   const v=b.querySelector('.etq-badge');
   if(v){ v.style.display=n?'inline-block':'none'; v.textContent=n?txt+' aberta'+(n>1?'s':''):''; }
@@ -15708,11 +15819,48 @@ function etqPndSecaoHtml(){
   const plano=typeof canPlano!=='function'||canPlano(ROLE);
   const mais=(cls)=>'<button class="etqp-mais'+(cls||'')+'" onclick="etqAcaoProblema(\''+p.ativoId+'\')"><span class="plus">+</span> Registrar problema</button>';
   let h='<div class="etqp" id="etqPndSecao">';
-  /* formulário inline: o cabeçalho vira "Registrar problema" (faixa laranja) e o corpo é o formulário */
+  /* formulário inline: o cabeçalho vira "Registrar problema" (faixa laranja) e o corpo é o formulário.
+     13/10/2026: o mockup sucinto-2 não desenha o formulário → continua INLINE, como a A2 decidiu (vale para as duas versões da seção). */
   if(etqProb&&etqProb.ativoId===p.ativoId){
     return h+'<div class="etqp-cab etqp-cab-form"><div class="etqp-tit">Registrar problema<small>'+cadEsc([p.titulo,p.nome].filter(Boolean).join(' · '))+(p.titulo||p.nome?' · ':'')+'vira pendência “Aberta” neste equipamento</small></div><button class="etqp-x" onclick="etqProbCancelar()" aria-label="Fechar">×</button></div>'
       +'<div id="etqPndCorpo">'+etqProbFormHtml(etqProbMsg)+'</div></div>';
   }
+  if(typeof ETQ_RESULTADO_SUCINTO!=='undefined'&&ETQ_RESULTADO_SUCINTO) return etqPndSecaoSucintaHtml(h,mais);
+  return etqPndSecaoA2Html(h,mais,plano);
+}
+/* 13/10/2026 — seção ENXUTA do resultado sucinto (proposta 2): "Em aberto neste equipamento · N", até 3 pendências em aberto
+   (Aberta/Em análise), mais recentes primeiro, SEM chips, ordenação, Filtros, "abrir ›" ou "Tratar no Plano" — tudo isso continua
+   na lista completa (etqPndCheia, aberta pelo rodapé "Ver todas (N) e as encerradas ›"). Motivo (Raphael): no segundo do scan a
+   pessoa quer saber se tem algo urgente e registrar o que viu; analisar é na lista completa ou na ficha. */
+function etqPndIdadeCurta(a){ if(a._nova) return 'agora'; const d=a.idadeDias; if(d==null) return ''; return d===0?'hoje':d<60?'há '+d+' d':'há '+Math.round(d/30)+' m'; }
+function etqPndItemSucintoHtml(a){
+  const tom=ETQ_PND_PIL[a.status]||'neutro';
+  /* linha pequena (mockup): [Crítico em vermelho ·] idade · origem (TAG | visita OT-x) · quem registrou */
+  const origem=a._nova?'por você':(a.foraDeOt?'TAG':('visita '+((a.otOrigem&&a.otOrigem.nome)||'OT')));
+  const m=[a.severidade==='Crítico'?'<b>Crítico</b>':'',cadEsc(etqPndIdadeCurta(a)),cadEsc(origem),a._nova?'':cadEsc(a.registradaPor||'')].filter(Boolean).join(' · ');
+  return '<div class="etqs-it'+(a._nova?' etqp-nova':'')+'" data-pid="'+cadEsc(a.id||'')+'" style="border-left-color:'+(ETQ_PND_SEVCOR[a.severidade]||'#747474')+'">'
+    +'<div class="etqs-tx"><div class="etqs-t">'+cadEsc(a.descricao||'(sem descrição)')+'</div><div class="etqs-m">'+m+'</div></div>'
+    +'<span class="etqp-pil" style="background:'+ETQ_PND_COR[tom]+';color:'+(tom==='atencao'?'#2B1A00':'#fff')+'">'+cadEsc(a.status||'—')+'</span></div>';
+}
+function etqPndSecaoSucintaHtml(h,mais){
+  const p=etqPnd;
+  const total=(p.lista||[]).length, abertas=p.lista?etqPndOrdenar(p.lista.filter(ETQ_PND_CHIPS.aberto[1]),'recentes'):[], nAb=abertas.length, nc=etqPndCriticas();
+  const cab=(tit,sub,btn)=>'<div class="etqp-cab etqp-cab-suc"><div class="etqp-tit">'+tit+(sub?'<small>'+cadEsc(sub)+'</small>':'')+'</div>'+(btn?mais(''):'')+'</div>';
+  if(p.lista===null&&!p.erro) return h+cab('Em aberto neste equipamento','buscando…',true)+'<div class="etqp-vazio" style="color:#3E7EB0"><span class="ld-spin"></span> Buscando pendências…</div></div>';
+  if(p.erro) return h+cab('Em aberto neste equipamento','não consegui buscar a lista',true)+'<div class="etqp-vazio">Não consegui buscar as pendências: '+cadEsc(p.erro)+'<br><button class="etqp-limp" onclick="etqPndCarregar(\''+p.ativoId+'\',etqSeq)">Tentar de novo</button></div></div>';
+  /* sem NADA na vida do equipamento: convite verde com o botão laranja de largura total (um só botão, como na A2) */
+  if(!total) return h+cab('Em aberto neste equipamento · 0','',false)+'<div class="etqp-vazio"><div class="etqp-ok">✓ Equipamento sem pendências</div><br>Viu algo errado? Registre aqui — vira pendência “Aberta” para o supervisor tratar.'+mais(' cheio')+'</div></div>';
+  const enc=total-nAb;
+  /* rodapé: lista completa (etqPndCheia) com os filtros de sempre; abre no recorte EM ABERTO */
+  const pe='<button class="etqs-pe" id="etqPndVerTodas" onclick="etqPndCheia(true)"><span>'+(nAb?'Ver todas ('+nAb+') e as encerradas ›':'Ver as encerradas ('+enc+') ›')+'</span><small>filtros e ordenação lá</small></button>';
+  if(!nAb) return h+cab('Em aberto neste equipamento · 0','nenhuma em aberto · '+enc+' encerrada'+(enc>1?'s':'')+' na vida do equipamento',true)
+    +'<div class="etqs-vazio">✓ Nenhuma pendência em aberto<small>Viu algo errado? Registre — vira pendência “Aberta” para o supervisor tratar.</small></div>'+pe+'</div>';
+  const sub=(nc?nc+' crítica'+(nc>1?'s':''):'nenhuma crítica')+' · mais recente '+etqPndIdadeCurta(abertas[0]);
+  return h+cab('Em aberto neste equipamento · '+nAb,sub,true)+abertas.slice(0,3).map(etqPndItemSucintoHtml).join('')+pe+'</div>';
+}
+/* 12/10/2026 (A2) — seção completa com chips, ordenação e Filtros. DESLIGADA em 13/10 (ETQ_RESULTADO_SUCINTO), mantida intacta. */
+function etqPndSecaoA2Html(h,mais,plano){
+  const p=etqPnd;
   const total=(p.lista||[]).length, nAb=p.lista?etqPndContagem('aberto'):0;
   let sub;
   if(p.lista===null&&!p.erro) sub='buscando…';
