@@ -1842,7 +1842,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=53;
+const APP_NUM=54;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15350,7 +15350,7 @@ function etqRender(st){
         h+='<div class="etqs-esperado">✓ Equipamento esperado: '+(esp?cadEsc(esp)+' (o deste cadastro)':'o deste cadastro')+'</div>';
         h+=ETQ_PND_CSS /* a moldura .etqp vem da ETQ_PND_CSS, que neste estado não é injetada pela seção (não há seção) */
           +'<div class="etqp" style="margin-top:8px"><div class="etqp-cab etqp-cab-suc" style="min-height:0"><div class="etqp-tit">Pendências<small>Não mostradas: a etiqueta é de outro equipamento</small></div></div></div>';
-        if(st.esperado&&typeof canCadastrar==='function'&&canCadastrar(ROLE))
+        if(st.esperado) /* 14/10/2026: todos os papéis (ficha só leitura para quem não cadastra) */
           h+='<div class="etqs-acoes"><button onclick="etqAcaoFicha(\''+String(st.esperado).replace(/[^A-Za-z0-9]/g,'')+'\')"><span class="etqs-ic">📄</span><span style="flex:1;min-width:0">Ver ficha do equipamento esperado</span><span class="etqs-chev">›</span></button></div>';
       }
     } else if(a){
@@ -15420,7 +15420,10 @@ function etqRender(st){
           +'<span style="display:flex;align-items:center;gap:10px">'+(opt.dir||'')+'<span style="color:#8A949E;font-size:20px">›</span></span></button>'; };
       /* 13/10/2026 (sucinto) — só "Ver ficha", com subtítulo dizendo o que tem lá. Fotos e Histórico SAÍRAM desta tela (são seções
          da ficha, com contagem no título); etqAcaoFotos/etqAcaoHistorico continuam no arquivo — a ficha as usa. Mesma regra de papel. */
-      if(cad&&ETQ_RESULTADO_SUCINTO) h+='<div class="etqs-acoes etq-lista-acoes"><button onclick="etqAcaoFicha(\''+idA+'\')"><span class="etqs-ic">📄</span><span style="flex:1;min-width:0">Ver ficha<span class="etqs-sub">Dados técnicos · componentes · fotos · histórico</span></span><span class="etqs-chev">›</span></button></div>';
+      /* 14/10/2026 — Raphael: o técnico abre a ficha "SIM — SOMENTE LEITURA". Na tela sucinta "Ver ficha" vale para todos os papéis;
+         o que é escrita dentro da ficha continua preso a canCadastrar (ativoDetPodeCad). A tela antiga (ETQ_RESULTADO_SUCINTO=false)
+         fica como estava. DECISAO_ficha-do-ativo-tecnico-somente-leitura_14-10-2026.md */
+      if(ETQ_RESULTADO_SUCINTO) h+='<div class="etqs-acoes etq-lista-acoes"><button onclick="etqAcaoFicha(\''+idA+'\')"><span class="etqs-ic">📄</span><span style="flex:1;min-width:0">Ver ficha<span class="etqs-sub">Dados técnicos · componentes · fotos · histórico</span></span><span class="etqs-chev">›</span></button></div>';
       else if(cad) h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:14px;overflow:hidden;margin-top:12px" class="etq-lista-acoes">'
         +lin('📄','Ver ficha',"etqAcaoFicha('"+idA+"')")
         +lin('📷','Fotos',"etqAcaoFotos('"+idA+"')")
@@ -15632,6 +15635,8 @@ async function etqFotoBlobUrl(driveId){
   if(!r.ok) throw new Error('Erro '+r.status);
   return (etqFotoCache[driveId]=URL.createObjectURL(await r.blob()));
 }
+/* 14/10/2026 — ficha só leitura para quem não cadastra: adicionar foto e pedir exclusão são escrita */
+function etqPodeEscreverFoto(){ return typeof canCadastrar!=='function'||canCadastrar(typeof ROLE!=='undefined'?ROLE:''); }
 async function etqAcaoFotos(ativoId){
   const seq=etqSeq;
   etqAcaoBox('<div style="padding:12px 2px;color:#3E7EB0;font-size:14px"><span class="ld-spin"></span> Buscando as fotos…</div>');
@@ -15641,7 +15646,8 @@ async function etqAcaoFotos(ativoId){
     const dt=s=>{ try{ return s?new Date(s).toLocaleDateString('pt-BR'):''; }catch(e){ return ''; } };
     let h='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:10px 14px;margin-top:10px">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="font-weight:700;color:#0B2239;font-size:14px">Fotos do equipamento — '+l.length+' de 10</div>'
-      +(l.length<10?'<button onclick="etqAcaoFoto(\''+ativoId+'\')" style="min-height:44px;padding:0 14px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📷 Adicionar foto</button>':'<span style="font-size:12px;color:#8C4B02">Limite de 10 atingido</span>')+'</div>';
+      /* 14/10/2026: quem não cadastra vê a galeria só para ler (sem "Adicionar foto") */
+      +(!etqPodeEscreverFoto()?'':l.length<10?'<button onclick="etqAcaoFoto(\''+ativoId+'\')" style="min-height:44px;padding:0 14px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px">📷 Adicionar foto</button>':'<span style="font-size:12px;color:#8C4B02">Limite de 10 atingido</span>')+'</div>';
     if(!l.length) h+='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma foto registrada ainda.</div>';
     else{
       h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px">';
@@ -15680,7 +15686,8 @@ function etqFotoBarra(f){
     bar.innerHTML='<div style="flex:1 1 100%;text-align:center;font-size:13.5px"><b>Exclusão solicitada</b>'+(f.exclusaoPor?' por '+cadEsc(f.exclusaoPor):'')+(f.exclusaoMotivo?' — '+cadEsc(f.exclusaoMotivo):'')+'</div>'
       +(ROLE==='Sócio'?btn('✓ Aprovar exclusão','etqFotoDecidir(\''+f.id+'\',true)','#BA0517')+btn('Manter a foto','etqFotoDecidir(\''+f.id+'\',false)','#2E844A')
         :'<div style="font-size:12.5px;opacity:.85">Aguardando a aprovação do Sócio.</div>');
-  } else bar.innerHTML=btn('🗑 Solicitar exclusão','etqFotoPedirExclusao(\''+f.id+'\')','#747474');
+  } else if(!etqPodeEscreverFoto()) return; /* 14/10/2026: só leitura — sem barra vazia */
+  else bar.innerHTML=btn('🗑 Solicitar exclusão','etqFotoPedirExclusao(\''+f.id+'\')','#747474');
   ov.appendChild(bar);
 }
 async function etqFotoPedirExclusao(id){
@@ -17229,9 +17236,9 @@ function ativoDetPintar(manter){
      o título de Dados técnicos deixou de repetir. */
   if(incompleto) como+=L('at',ATIVO_DET_LIMPEZA_V53?'Cadastro':'Cadastro incompleto',total!=null?respondidos+' de '+total+' campos':'sem respostas',cad?'ativoDetEditar()':null);
   if(R&&R.ultimaPreventiva){ const u=R.ultimaPreventiva, dd=ativoDetDias(u.data);
-    como+=L('in',dd!=null?'Preventiva há '+ativoDetPlural(dd,'dia','dias'):'Preventiva feita',[ativoDetFmtData(u.data),u.ot].filter(Boolean).map(cadEsc).join(' · '),cad?'ativoDetSecaoAbrir(\'hist\')':null); }
-  else if(C.preventivas===0) como+=L('ne','Nenhuma preventiva','',cad?'ativoDetSecaoAbrir(\'hist\')':null);
-  else como+=L('ne','Preventivas','não consultado',cad?'ativoDetSecaoAbrir(\'hist\')':null);
+    como+=L('in',dd!=null?'Preventiva há '+ativoDetPlural(dd,'dia','dias'):'Preventiva feita',[ativoDetFmtData(u.data),u.ot].filter(Boolean).map(cadEsc).join(' · '),'ativoDetSecaoAbrir(\'hist\')'); }
+  else if(C.preventivas===0) como+=L('ne','Nenhuma preventiva','','ativoDetSecaoAbrir(\'hist\')');
+  else como+=L('ne','Preventivas','não consultado','ativoDetSecaoAbrir(\'hist\')');
   if(g.criticidade){ const c=String(g.criticidade).toUpperCase(); como+=L(c==='A'?'er':c==='B'?'at':'in','Criticidade '+cadEsc(g.criticidade),c==='A'?'parada crítica':'',cad?'ativoDetEditar()':null); }
   else como+=L('ne','Criticidade não informada','',cad?'ativoDetEditar()':null);
   if(d.conferenciaPlaqueta){ const cp=d.conferenciaPlaqueta;
@@ -17316,9 +17323,10 @@ function ativoDetPintar(manter){
   h+='<div class="fa-card fa-acc">'
     +H('dados','Dados técnicos',subDados,dados)
     +H('comp','Componentes',subComp,comp)
-    +(cad?H('fotos','Fotos',subFotos,guard.ativoDetSec_fotos||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando as fotos…</div>',tira):'')
+    /* 14/10/2026: Fotos e Histórico abertos a todos para LER; adicionar/pedir exclusão de foto seguem de quem cadastra */
+    +(true?H('fotos','Fotos',subFotos,guard.ativoDetSec_fotos||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando as fotos…</div>',tira):'')
     +H('etq','Etiqueta',subEtq,etq)
-    +(cad?H('hist','Histórico',subHist,guard.ativoDetSec_hist||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando o histórico…</div>'):'');
+    +(true?H('hist','Histórico',subHist,guard.ativoDetSec_hist||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando o histórico…</div>'):'');
   if(d.conferenciaPlaqueta||d.linkFabricante){
     const kv=(k,v)=>v?'<div class="fa-kv"><span class="fa-k">'+k+'</span><span class="fa-v">'+v+'</span></div>':'';
     /* 14/10 (v53): título sem o resultado — "Motor confere / diferente" já está em "Como está" */
@@ -17346,7 +17354,7 @@ function ativoDetSecao(k){
 function ativoDetSecaoAbrir(k){ if(!ativoDetSt) return; if(!ativoDetAberto[k]) ativoDetSecao(k); const el=document.getElementById('ativoDetSec_'+k); if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'start'}); }
 /* miniaturas na linha "Fotos" (até 3): uma chamada à galeria + as imagens pelo proxy autenticado; qualquer falha deixa a linha só com a contagem */
 async function ativoDetMiniaturas(d,seq){
-  const C=(d.resumo&&d.resumo.contadores)||{}; if(C.fotos===0||!ativoDetPodeCad()) return;
+  const C=(d.resumo&&d.resumo.contadores)||{}; if(C.fotos===0) return; /* 14/10/2026: miniaturas para todos (só leitura) */
   try{
     const l=(await beGet('/ativos/'+ativoDetIdLimpo(d.id)+'/fotos'))||[];
     if(seq!==ativoDetSeq||ativoDetSt!==d) return;
@@ -17411,7 +17419,9 @@ function ativoDetMenu(abrir){
   let h='';
   if(cad) h+=it('✎','Editar cadastro','ativoDetEditar()');
   h+=it('📋','Ver pendências','ativoDetPendencias()')+it('⚠️','Registrar problema','ativoDetProblema()');
-  if(cad){ h+=it('📷','Fotos do equipamento','ativoDetSecaoAbrir(\'fotos\')')+it('📷','Adicionar foto','ativoDetFotoNova()')+it('🕘','Histórico','ativoDetSecaoAbrir(\'hist\')');
+  /* 14/10/2026: Fotos e Histórico (leitura) para todos; o resto do bloco é escrita e segue de quem cadastra */
+  h+=it('📷','Fotos do equipamento','ativoDetSecaoAbrir(\'fotos\')')+it('🕘','Histórico','ativoDetSecaoAbrir(\'hist\')');
+  if(cad){ h+=it('📷','Adicionar foto','ativoDetFotoNova()');
     if(etAtiva&&nfc) h+=it('📶','Testar etiqueta','ativoDetTestar()');
     if(est==='ok'||est==='sem_impressao') h+=it('🖨','Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')');
     if(est!=='ok') h+=it('🏷',est==='sem'?'Iniciar etiqueta':'Continuar etiqueta','ativoDetEtiqueta()');
