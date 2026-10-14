@@ -1832,6 +1832,8 @@
 <script>
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
+/* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
+const APP_NUM=46;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -2862,7 +2864,7 @@ function go(scr){
 }
 /* ===== perfil (seletor) ===== */
 const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
-function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return; c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'; c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
+function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return; c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'+(typeof APP_NUM!=='undefined'?'<span style="opacity:.75;font-weight:600;margin-left:6px">v'+APP_NUM+'</span>':''); /* 14/10/2026: versão no chip (pedido do Raphael) */ c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
 /* ===== Sobre este app (14/10/2026) =====
    Raphael: "poderia ter um local do app mostrando a versão atual". Toque no chip do perfil (canto de cima) → janela com o perfil,
    a versão que ESTE aparelho está usando (perguntada ao service worker ativo) e a versão publicada no site (sw-beta.js baixado na
@@ -2877,7 +2879,9 @@ function appSobreVersaoLocal(){
   });
 }
 async function appSobreVersaoPublicada(){
-  try{ const r=await fetch('sw-beta.js?v='+Date.now(),{cache:'no-store'}); const t=await r.text(); const m=t.match(/BETA_SW_VERSION\s*=\s*'([^']+)'/); return m?m[1]:null; }
+  try{ const r=await fetch('sw-beta.js?v='+Date.now(),{cache:'no-store'}); const t=await r.text();
+    const n=t.match(/BETA_NUM\s*=\s*(\d+)/), d=t.match(/BETA_SW_VERSION\s*=\s*'([^']+)'/);
+    return n?{num:Number(n[1]),data:d?d[1]:''}:null; }
   catch(e){ return null; }
 }
 async function appSobreAbrir(){
@@ -2896,10 +2900,14 @@ async function appSobreAbrir(){
     +'<button id="appSobreAtualizar" onclick="location.reload()" style="display:none;width:100%;min-height:48px;margin-top:8px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">Atualizar agora</button>'
     +'</div>';
   document.body.appendChild(ov);
-  const [loc,pub]=await Promise.all([appSobreVersaoLocal(),appSobreVersaoPublicada()]);
+  /* 14/10/2026: compara pelo NÚMERO (v46…). "Neste aparelho" = APP_NUM do index.html que está rodando (é o que a pessoa vê);
+     a data do service worker vai junto, entre parênteses, só para conferência. */
+  const [locData,pubO]=await Promise.all([appSobreVersaoLocal(),appSobreVersaoPublicada()]);
+  const locN=(typeof APP_NUM!=='undefined')?APP_NUM:null;
   const el=id=>document.getElementById(id);
-  if(el('appSobreLocal')) el('appSobreLocal').textContent=loc||'não identificada';
-  if(el('appSobrePub')) el('appSobrePub').textContent=pub||'sem conexão';
+  if(el('appSobreLocal')) el('appSobreLocal').textContent=locN?('v'+locN+(locData?' ('+locData+')':'')):'não identificada';
+  if(el('appSobrePub')) el('appSobrePub').textContent=pubO?('v'+pubO.num+(pubO.data?' ('+pubO.data+')':'')):'sem conexão';
+  const loc=locN, pub=pubO&&pubO.num;
   const msg=el('appSobreMsg'), bt=el('appSobreAtualizar'); if(!msg) return;
   if(loc&&pub&&loc===pub) msg.innerHTML='<span style="color:#2E844A;font-weight:700">✓ Você está na versão mais nova.</span>';
   else if(pub&&loc!==pub){ msg.innerHTML='<span style="color:#B45309;font-weight:700">Há uma versão nova.</span> Toque em Atualizar agora (ou feche e abra o app).'; if(bt) bt.style.display='block'; }
