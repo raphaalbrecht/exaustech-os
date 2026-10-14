@@ -15132,6 +15132,7 @@ function etqRender(st){
   } else if(st.fase==='conferindo'){
     h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
   } else if(st.fase==='resultado'){
+    if(st.ativo&&st.ativo.id&&!st.errado&&typeof tagHistAdd==='function') try{ tagHistAdd(st); }catch(_){} /* 13/10/2026: últimos 5 consultados na home do Consultar TAG */
     /* 11/10/2026 — layout A "Veredito primeiro" (prototipos/tag-resultado-A.html, escolhido pelo Raphael). A tela estava
        na ordem em que o sistema CONFERE (checagens, URL) e não na ordem em que o técnico LÊ: "posso usar?" e "de qual
        equipamento é?". Agora: 1) faixa de veredito em uma palavra + o que fazer; 2) equipamento em letra grande;
@@ -16273,6 +16274,46 @@ document.addEventListener('DOMContentLoaded',()=>{ let n=0; const iv=setInterval
    ninguém leu etiqueta nenhuma. Rota: GET /ativos-codigo/:numero. */
 /* desenha os dígitos nas 6 caixas; a caixa da vez fica com a borda azul (só com o campo focado). auto=true vem do teclado:
    ao completar 6 algarismos, busca sozinho. */
+/* ===== Últimos consultados na home do Consultar TAG (13/10/2026) =====
+   Raphael: "na home de Consultar TAG, poderia ter histórico dos últimos 5 scans". Guarda NESTE aparelho (localStorage, chave
+   tag_hist_v1, com try/catch: sem storage o bloco só não aparece) os 5 últimos EQUIPAMENTOS consultados — por NFC, QR ou código —
+   sem repetir (o mesmo equipamento sobe para o topo). Tocar reabre pelo número (GET /ativos-codigo), então a faixa diz "Consulta
+   pelo código": reabrir não confere etiqueta nenhuma, e a tela não pode fingir que conferiu. Não é o registro de leituras do
+   servidor (isso é outra entrega, "registrar toda leitura de TAG"). */
+const TAG_HIST_CHAVE='tag_hist_v1', TAG_HIST_MAX=5;
+function tagHistLer(){ try{ const v=JSON.parse(localStorage.getItem(TAG_HIST_CHAVE)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function tagHistAdd(st){
+  const a=st.ativo; if(!a||!a.id) return;
+  const via=st.uid?'NFC':(st.porCodigo?'Código':'QR');
+  const it={id:a.id,nome:a.nome||'',apelido:a.apelido||'',tipo:a.tipo||'',conta:a.conta||'',via,em:Date.now()};
+  const l=[it].concat(tagHistLer().filter(x=>x&&x.id!==a.id)).slice(0,TAG_HIST_MAX);
+  try{ localStorage.setItem(TAG_HIST_CHAVE,JSON.stringify(l)); }catch(e){ return; }
+  const el=document.getElementById('tagHist'); if(el) el.innerHTML=tagHistHtml();
+}
+function tagHistQuando(t){
+  const d=new Date(t), h=new Date(), p2=n=>String(n).padStart(2,'0'), hm=p2(d.getHours())+':'+p2(d.getMinutes());
+  if(d.toDateString()===h.toDateString()) return 'hoje '+hm;
+  const o=new Date(h); o.setDate(h.getDate()-1); if(d.toDateString()===o.toDateString()) return 'ontem '+hm;
+  return p2(d.getDate())+'/'+p2(d.getMonth()+1)+' '+hm;
+}
+function tagHistHtml(){
+  const l=tagHistLer(); if(!l.length) return '';
+  return '<div style="margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:12px 12px 6px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 6px"><span style="font-size:15px;font-weight:700;color:#0B2239">Últimos consultados</span><span style="font-size:11.5px;color:#8A949E">neste aparelho</span></div>'
+    +l.map((x,i)=>'<button onclick="tagHistAbrir('+i+')" style="width:100%;min-height:56px;display:flex;align-items:center;gap:10px;background:none;border:none;border-top:'+(i?'1px solid #EEF1F4':'none')+';padding:8px 2px;text-align:left;cursor:pointer;font-family:inherit">'
+      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:14.5px;font-weight:700;color:#0B2239;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cadEsc(x.apelido||x.nome||'Equipamento')+(x.apelido&&x.nome?' <span style="font-weight:500;color:#8A949E;font-size:12.5px">· '+cadEsc(x.nome)+'</span>':'')+'</span>'
+      +'<span style="display:block;font-size:12px;color:#686868;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cadEsc([x.tipo,x.conta].filter(Boolean).join(' · '))+'</span></span>'
+      +'<span style="flex:none;text-align:right;font-size:11.5px;color:#8A949E;line-height:1.3">'+cadEsc(tagHistQuando(x.em))+'<br>'+cadEsc(x.via)+'</span>'
+      +'<span style="flex:none;color:#AEB8C2;font-size:20px">›</span></button>').join('')
+    +'</div>';
+}
+function tagHistAbrir(i){
+  const x=tagHistLer()[i]; if(!x) return;
+  const num=String(x.nome||'').replace(/\D/g,'');
+  if(!num){ toast('Não consegui reabrir este equipamento — leia a etiqueta de novo'); return; }
+  const inp=document.getElementById('tagCodNum'); if(inp){ inp.value=num; if(typeof tagCodPintar==='function') tagCodPintar(); }
+  tagBuscarCodigo();
+}
 function tagCodPintar(auto){
   const inp=document.getElementById('tagCodNum'); if(!inp) return;
   const v=inp.value||'', foco=document.activeElement===inp;
@@ -16348,6 +16389,7 @@ function renderTag(){
           +'</div></div>'
         +'<button id="tagCodBtn" onclick="tagBuscarCodigo()" style="flex:0 0 auto;min-width:110px;min-height:56px;background:#0176D3;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:16px">Buscar</button>'
       +'</div></div>'
+    +'<div id="tagHist">'+tagHistHtml()+'</div>'
     /* 12/10/2026 — Raphael: "deixar o QR x NFC como última opção da página" (uso raro: conferir se o QR impresso é do cartão). */
     +(nfc?'<button onclick="tagParIniciar()" style="width:100%;margin-top:12px;background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px 12px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer">'
       +'<span style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#EAF2FB;border-radius:12px;padding:8px">'+svgQr.replace(/60/g,'28')+'<span style="font-weight:700;color:#3E7EB0;font-size:14px">×</span>'+svgNfc.replace(/60/g,'28')+'</span>'
