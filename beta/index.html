@@ -1842,7 +1842,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=57;
+const APP_NUM=58;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -2482,8 +2482,8 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 
   <!-- MODAL PERFIL -->
   <div class="modal" id="roleModal"><div class="modal-card">
-    <div class="modal-title">Trocar perfil</div>
-    <div class="modal-sub">Demonstração: muda o que você vê e pode fazer (aprovar, liberar, PDF).</div>
+    <div class="modal-title" id="roleTit">Trocar perfil</div>
+    <div class="modal-sub" id="roleSub">Demonstração: muda o que você vê e pode fazer (aprovar, liberar, PDF).</div>
     <div id="roleList"></div>
     <div class="modal-actions" style="margin-top:4px"><button class="btn btn-neutral" onclick="closeRole()">Fechar</button></div>
   </div></div>
@@ -2874,8 +2874,35 @@ function go(scr){
   renderRoleChip(); updateApprBadge(); updateBell(); updateEstoqueBadge(); updateNavRole();
 }
 /* ===== perfil (seletor) ===== */
-const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
-function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return; c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'+(typeof APP_NUM!=='undefined'?'<span style="opacity:.75;font-weight:600;margin-left:6px">v'+APP_NUM+'</span>':''); /* 14/10/2026: versão no chip (pedido do Raphael) */ c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
+const ROLE_DESC={'ADM':'Escritório: cadastro de ativos, cotações (14/10/2026)','Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
+/* ===== Ver como (14/10/2026) — DECISAO_ver-como-outro-perfil_14-10-2026.md =====
+   Raphael: "até pouco tempo atrás eu conseguia mudar de perfil só tocando no botão 'Sócio'… preciso que volte, ainda mais nessa
+   fase de testes; seria insano fazer login e logout toda hora". Só o Sócio de verdade (papel do login, be_papel_real) vê a
+   lista. A troca pede ao servidor uma sessão nova (POST /sessao/ver-como): o servidor também passa a tratar a pessoa como o
+   papel escolhido, então o teste vale para as travas dele. Enquanto simula, o chip fica laranja com "(teste)". */
+function verComoAtivo(){ try{ return !!localStorage.getItem('be_ver_como'); }catch(e){ return false; } }
+function papelReal(){ try{ return localStorage.getItem('be_papel_real')||localStorage.getItem('be_funcao')||''; }catch(e){ return ''; } }
+async function verComoTrocar(r){
+  closeRole();
+  if(r===ROLE) return;
+  try{ if(!localStorage.getItem('be_papel_real')) localStorage.setItem('be_papel_real',papelReal()); }catch(e){} /* sessão de antes da v58: guarda o papel real antes de simular */
+  try{
+    const j=await bePost('/sessao/ver-como',{papel:r});
+    if(!j||!j.token) throw new Error('resposta sem sessão');
+    localStorage.setItem('be_tok',j.token); localStorage.setItem('be_funcao',j.funcao||r);
+    if(j.verComo) localStorage.setItem('be_ver_como',j.funcao||r); else localStorage.removeItem('be_ver_como');
+    ROLE=j.funcao||r; renderRoleChip(); try{ updateNavRole(); }catch(e){}
+    toast(j.verComo?'Vendo o app como '+roleShort(ROLE)+' (teste)':'De volta ao seu perfil');
+    try{ go('schedule'); }catch(e){}
+    beHydrate(true);
+  }catch(e){ toast('Não consegui trocar o perfil: '+(e&&e.message?e.message:'erro')); }
+}
+function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return;
+  if(typeof verComoAtivo==='function'&&verComoAtivo()){ /* 14/10/2026: simulando — chip laranja, papel simulado e "(teste)" */
+    c.innerHTML=svgI('user')+'<span>'+roleShort(ROLE)+' (teste)</span>'+(typeof APP_NUM!=='undefined'?'<span style="opacity:.75;font-weight:600;margin-left:6px">v'+APP_NUM+'</span>':'');
+    c.style.background='#FE9339'; c.style.color='#2B1A00'; c.title='Você é Sócio vendo o app como '+ROLE+'. Toque para trocar ou voltar.'; return; }
+  c.style.background=''; c.style.color='';
+  c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'+(typeof APP_NUM!=='undefined'?'<span style="opacity:.75;font-weight:600;margin-left:6px">v'+APP_NUM+'</span>':''); /* 14/10/2026: versão no chip (pedido do Raphael) */ c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
 /* ===== Sobre este app (14/10/2026) =====
    Raphael: "poderia ter um local do app mostrando a versão atual". Toque no chip do perfil (canto de cima) → janela com o perfil,
    a versão que ESTE aparelho está usando (perguntada ao service worker ativo) e a versão publicada no site (sw-beta.js baixado na
@@ -2929,12 +2956,19 @@ function openRole(){
      escolher Socio no chip e abrir todos os modulos; o servidor recusava a gravacao, mas o app
      parecia quebrado e expunha tela de gestao para quem nao e gestao. */
   /* 14/10/2026: com sessão, o toque no chip do perfil abre "Sobre este app" (perfil + versão), em vez de só um aviso */
-  if(SF_LIVE||(typeof beTok==='function'&&beTok())){ appSobreAbrir(); return; }
+  const comSessao=SF_LIVE||(typeof beTok==='function'&&beTok());
+  /* 14/10/2026: com sessão, só o Sócio de verdade troca (ver como); os demais seguem vendo "Sobre este app" */
+  if(comSessao&&papelReal()!=='Sócio'){ appSobreAbrir(); return; }
+  { const t=document.getElementById('roleTit'), sb=document.getElementById('roleSub');
+    if(t) t.textContent=comSessao?'Ver o app como…':'Trocar perfil';
+    if(sb) sb.textContent=comSessao?'Modo de teste do Sócio: o app e o servidor tratam você como o perfil escolhido. O que você gravar fica no seu nome.':'Demonstração: muda o que você vê e pode fazer (aprovar, liberar, PDF).'; }
   const list=document.getElementById('roleList'); list.innerHTML='';
-  ROLES.forEach(r=>{ const ini=r.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  (comSessao?ROLES.concat(['ADM']):ROLES).forEach(r=>{ const ini=r.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const el=document.createElement('div'); el.className='role-opt'+(r===ROLE?' on':'');
     el.innerHTML=`<div class="ra">${ini}</div><div style="flex:1"><div class="rn">${r}</div><div class="rc">${ROLE_DESC[r]}</div></div>${r===ROLE?'<span class="lz lz-info" style="font-size:10px">atual</span>':''}`;
-    el.onclick=()=>setRole(r); list.appendChild(el); });
+    el.onclick=()=>comSessao?verComoTrocar(r):setRole(r); list.appendChild(el); });
+  if(comSessao){ const v=document.createElement('div'); v.className='role-opt'; v.innerHTML='<div class="ra">ℹ️</div><div style="flex:1"><div class="rn">Versão do app</div><div class="rc">Ver a versão e atualizar</div></div>';
+    v.onclick=()=>{ closeRole(); appSobreAbrir(); }; list.appendChild(v); }
   document.getElementById('roleModal').classList.add('show');
 }
 function closeRole(){ document.getElementById('roleModal').classList.remove('show'); }
@@ -19025,6 +19059,7 @@ async function beDoLogin(payload){
     const nm=_noDemo(j.name||'');
     localStorage.setItem('be_tok', j.token); localStorage.setItem('be_name', nm); exaTecCookie(true); localStorage.setItem('be_rid', j.resourceId||'');
     localStorage.setItem('be_funcao', j.funcao||''); localStorage.setItem('be_cargo', j.funcaoReal||'');
+    localStorage.setItem('be_papel_real', j.funcao||''); localStorage.removeItem('be_ver_como'); /* 14/10/2026: ver como */
     CARGO_REAL=j.funcaoReal||'';
     /* 20/09/2026: sem papel traduzido a pessoa entra no piso da escada, nunca em Líder de Equipe.
        O padrão antigo dava a quem não tem cadastro um papel que ele não tem. */
@@ -19039,7 +19074,7 @@ function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).valu
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ ['be_tok','be_name','be_rid','be_funcao','be_cargo'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); exaTecCookie(false); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ ['be_tok','be_name','be_rid','be_funcao','be_cargo','be_papel_real','be_ver_como'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); exaTecCookie(false); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
