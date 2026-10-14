@@ -2863,11 +2863,54 @@ function go(scr){
 /* ===== perfil (seletor) ===== */
 const ROLE_DESC={'Líder de Equipe':'Executa e envia o relatório','Auxiliar de Manutenção (MPP)':'Vê sua alocação, treinamentos e EXP','Estoquista':'Check-in/out, avarias e manutenção','Supervisor':'Revisa e aprova a 1ª etapa','Coordenador':'Aprova, acessa PDF e libera ao cliente','Gerente':'Gestão e exceções','Sócio':'Direção e acesso total'};
 function renderRoleChip(){ const c=document.getElementById('roleChip'); if(!c) return; c.innerHTML=svgI('user')+'<span>'+(CARGO_REAL||roleShort(ROLE))+'</span>'; c.title=(SF_LIVE||(typeof beTok==='function'&&beTok()))?'Perfil definido pelo seu cadastro':'Trocar perfil'; }
+/* ===== Sobre este app (14/10/2026) =====
+   Raphael: "poderia ter um local do app mostrando a versão atual". Toque no chip do perfil (canto de cima) → janela com o perfil,
+   a versão que ESTE aparelho está usando (perguntada ao service worker ativo) e a versão publicada no site (sw-beta.js baixado na
+   hora, sem cache). Se forem diferentes, botão "Atualizar agora" (recarrega a página; o service worker novo assume). */
+function appSobreVersaoLocal(){
+  return new Promise(res=>{
+    try{
+      const sw=navigator.serviceWorker&&navigator.serviceWorker.controller; if(!sw) return res(null);
+      const ch=new MessageChannel(); ch.port1.onmessage=e=>res(e.data||null);
+      sw.postMessage('versao',[ch.port2]); setTimeout(()=>res(null),1500);
+    }catch(e){ res(null); }
+  });
+}
+async function appSobreVersaoPublicada(){
+  try{ const r=await fetch('sw-beta.js?v='+Date.now(),{cache:'no-store'}); const t=await r.text(); const m=t.match(/BETA_SW_VERSION\s*=\s*'([^']+)'/); return m?m[1]:null; }
+  catch(e){ return null; }
+}
+async function appSobreAbrir(){
+  const v=document.getElementById('appSobreOv'); if(v) v.remove();
+  const ov=document.createElement('div'); ov.id='appSobreOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:100040;background:rgba(11,34,57,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  const lin=(k,v,id)=>'<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #E2E5E9"><span style="font-size:13px;color:#686868">'+k+'</span><b id="'+(id||'')+'" style="font-size:14px;color:#0B2239;font-family:ui-monospace,Menlo,Consolas,monospace;text-align:right">'+v+'</b></div>';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:16px 18px 14px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px;color:#0B2239">Sobre este app</b>'
+    +'<button onclick="document.getElementById(\'appSobreOv\').remove()" aria-label="Fechar" style="min-width:44px;min-height:44px;border:none;background:none;font-size:22px;color:#686868">×</button></div>'
+    +lin('Perfil',cadEsc(String(typeof ROLE!=='undefined'?ROLE:'—')))
+    +lin('Versão neste aparelho','…','appSobreLocal')
+    +lin('Versão publicada','…','appSobrePub')
+    +'<div id="appSobreMsg" style="font-size:12.5px;color:#686868;margin-top:8px;min-height:18px"></div>'
+    +'<button id="appSobreAtualizar" onclick="location.reload()" style="display:none;width:100%;min-height:48px;margin-top:8px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px">Atualizar agora</button>'
+    +'</div>';
+  document.body.appendChild(ov);
+  const [loc,pub]=await Promise.all([appSobreVersaoLocal(),appSobreVersaoPublicada()]);
+  const el=id=>document.getElementById(id);
+  if(el('appSobreLocal')) el('appSobreLocal').textContent=loc||'não identificada';
+  if(el('appSobrePub')) el('appSobrePub').textContent=pub||'sem conexão';
+  const msg=el('appSobreMsg'), bt=el('appSobreAtualizar'); if(!msg) return;
+  if(loc&&pub&&loc===pub) msg.innerHTML='<span style="color:#2E844A;font-weight:700">✓ Você está na versão mais nova.</span>';
+  else if(pub&&loc!==pub){ msg.innerHTML='<span style="color:#B45309;font-weight:700">Há uma versão nova.</span> Toque em Atualizar agora (ou feche e abra o app).'; if(bt) bt.style.display='block'; }
+  else msg.textContent='Sem conexão: não deu para conferir a versão publicada.';
+}
 function openRole(){
   /* 20/09/2026: com sessao real o perfil vem do cadastro e nao se troca na tela. Antes dava para
      escolher Socio no chip e abrir todos os modulos; o servidor recusava a gravacao, mas o app
      parecia quebrado e expunha tela de gestao para quem nao e gestao. */
-  if(SF_LIVE||(typeof beTok==='function'&&beTok())){ toast('Seu perfil vem do cadastro do Salesforce'); return; }
+  /* 14/10/2026: com sessão, o toque no chip do perfil abre "Sobre este app" (perfil + versão), em vez de só um aviso */
+  if(SF_LIVE||(typeof beTok==='function'&&beTok())){ appSobreAbrir(); return; }
   const list=document.getElementById('roleList'); list.innerHTML='';
   ROLES.forEach(r=>{ const ini=r.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const el=document.createElement('div'); el.className='role-opt'+(r===ROLE?' on':'');
