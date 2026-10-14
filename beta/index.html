@@ -1762,6 +1762,15 @@
 #ativoDetModal .fa-btn{font-size:12.5px}
 #ativoDetModal .fa-pil{font-size:10.5px;padding:3px 9px}
 #ativoDetModal .fa-lab,#ativoDetModal .fa-grupo{font-size:10px}
+/* 14/10/2026 (v53) — limpeza de repetições da ficha (variação A + pílula mantida; decisão em
+   docs/09-CADASTROS/DECISAO_ficha-do-ativo-resumo-primeiro_13-10-2026.md, acréscimo 14/10). CSS aqui, no <style> principal,
+   nunca em string JS (quebrou o app em 13/10). */
+#ativoDetModal .fa-como button.fa-l{min-height:48px} /* toque ≥ 48 px nas linhas de "Como está", que agora são o caminho para o detalhe */
+#ativoDetModal .fa-como button.fa-l .fa-seta{margin-left:auto;flex:none;color:#8A949E;font-size:18px;line-height:1} /* "›" = esta linha leva a algum lugar */
+#ativoDetModal .fa-como button.fa-l small+.fa-seta{margin-left:6px} /* quando há texto pequeno à direita, ele é quem empurra; a seta fica colada */
+#ativoDetModal #ativoDetPilPend{position:relative} /* a pílula é pequena por desenho; a área de toque cresce por pseudo-elemento, sem mudar o visual */
+#ativoDetModal #ativoDetPilPend::before{content:'';position:absolute;top:-13px;bottom:-13px;left:-8px;right:-8px}
+#ativoDetModal .fa-vazios b.fa-falta{color:#686868}
 /* 13/10/2026 — resultado do scan SUCINTO (proposta 2 aprovada pelo Raphael: "a tela que é o resultado de um scan deve ser mais
    sucinta, pois ali foi só um scan; para ver dados técnicos, entra na ficha"). Cartão de identidade curto na escala B da ficha
    (apelido 24 px), seção "Em aberto neste equipamento" sem controles, "Ver ficha" único, "Sobre esta leitura" em linha fina.
@@ -1833,7 +1842,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=52;
+const APP_NUM=53;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -2405,7 +2414,9 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
       <button class="fa-x" id="ativoDetMenuBtn" onclick="ativoDetMenu()" aria-label="Mais ações" style="font-size:22px;letter-spacing:.05em">⋯</button>
     </div>
     <div id="ativoDetMenuBox" class="fa-menu" style="display:none"></div>
-    <div id="ativoDetBody" style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px 16px;background:#F4F6F8"></div>
+    <!-- 14/10/2026 (v53): onscroll → ativoDetTopoRolar: o topo diz "Ficha do equipamento" e só mostra o apelido quando o cartão de
+         identidade rolou para fora (senão o nome aparecia duas vezes, topo e cartão) -->
+    <div id="ativoDetBody" onscroll="ativoDetTopoRolar()" style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px 16px;background:#F4F6F8"></div>
     </div></div>
 
   <!-- MODAL ASSINATURA · campo tipo Assinatura no Cadastro de Ativos (canvas próprio, isolado do
@@ -17080,6 +17091,29 @@ function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} c
    (etqResolverEtiquetaAtivo / etfAbrir) são os de antes. Navegar para sistema/dentro de/filho abre a ficha deles por cima
    (pilha ativoDetPilha) e "‹" volta para a anterior. */
 let ativoDetSt=null, ativoDetPilha=[], ativoDetAberto={dados:true}, ativoDetSeq=0;
+/* 14/10/2026 (v53) — LIMPEZA DE REPETIÇÕES, variação A aprovada pelo Raphael com um ajuste ("mantém a pílula e verifica
+   duplicidades"). Mockup: prototipos/mockup-limpeza-duplicacoes_14-10-2026.html · decisão: acréscimo 14/10 no DECISAO_ficha-do-ativo-
+   resumo-primeiro_13-10-2026.md. Regra: cada fato tem UM dono na tela; o resto some ou vira atalho "›" sem número.
+   - Pílula do cartão é a dona do NÚMERO de pendências ("N PENDÊNCIAS · K CRÍTICAS", igual à tela do scan) e leva à lista completa.
+   - "Como está" é o dono do resto da situação (etiqueta, cadastro x de y, preventiva, criticidade, motor), cada linha com "›".
+     A linha de pendências só aparece quando a pílula NÃO está lá (zero ou não consultado) — senão era o mesmo número duas vezes.
+   - "O que fazer" só verbos: "Ver pendências (N)" saiu (a pílula é o caminho; o ⋯ continua tendo).
+   - Títulos de seção sem resumo de situação (Dados técnicos, Etiqueta, Histórico, Conferência do motor); ficam só contagens que
+     não são situação (Componentes, Fotos). Histórico perde "N anotações" (eram as mesmas pendências com outro nome).
+   - Dados técnicos: "Falta informar:" com os nomes, sem "(N)" e sem o link; criticidade sai (está em "Como está").
+   - Seção Etiqueta só com detalhe, sem botões; "Fazer uma etiqueta nova" só no ⋯. Topo = "Ficha do equipamento".
+   O flag abaixo deixa o desenho de 13/10 no código, desligado (regra "adicionar sim, apagar não"); false volta ao de antes. */
+const ATIVO_DET_LIMPEZA_V53=true;
+/* topo: "Ficha do equipamento" enquanto o cartão de identidade está à vista; o apelido sobe ao topo só quando o cartão rolou para
+   fora (aí deixa de ser repetição e vira referência). Nas fichas empilhadas o subtítulo continua "Voltar para …". */
+function ativoDetTopoRolar(){
+  const d=ativoDetSt, t=document.getElementById('ativoDetTitulo'), body=document.getElementById('ativoDetBody'); if(!d||!t||!body) return;
+  if(!ATIVO_DET_LIMPEZA_V53) return;
+  const hero=body.querySelector('.fa-hero');
+  const fora=!!hero&&body.scrollTop>(hero.offsetTop+hero.offsetHeight);
+  const nome=fora?(d.apelido||d.nome||'Equipamento'):'Ficha do equipamento';
+  if(t.textContent!==nome) t.textContent=nome;
+}
 function ativoDetPodeCad(){ return typeof canCadastrar!=='function'||canCadastrar(typeof ROLE!=='undefined'?ROLE:''); }
 function ativoDetPodePlano(){ return typeof canPlano!=='function'||canPlano(typeof ROLE!=='undefined'?ROLE:''); }
 function ativoDetIdLimpo(x){ return String(x||'').replace(/[^A-Za-z0-9]/g,''); }
@@ -17140,14 +17174,23 @@ function ativoDetPintar(manter){
   const titulo=d.apelido||d.nome||'Equipamento'; /* sem apelido, o nº ATV é o título — nunca fica sem nome grande (regra B2 da TAG) */
   /* topo */
   { const t=document.getElementById('ativoDetTitulo'), s=document.getElementById('ativoDetSub'), vb=document.getElementById('ativoDetVoltarBtn');
-    if(t) t.textContent=titulo;
-    if(s) s.textContent=ativoDetPilha.length?'Voltar para '+(ativoDetPilha[ativoDetPilha.length-1].titulo||'a ficha anterior'):'Cadastro de ativos · Ficha do equipamento';
+    /* 14/10 (v53): o título do topo não repete o apelido do cartão — "Ficha do equipamento" (ativoDetTopoRolar troca pelo nome só
+       quando o cartão rola para fora). O subtítulo perde "· Ficha do equipamento", que subiu para o título. */
+    if(t) t.textContent=ATIVO_DET_LIMPEZA_V53?'Ficha do equipamento':titulo;
+    if(s) s.textContent=ativoDetPilha.length?'Voltar para '+(ativoDetPilha[ativoDetPilha.length-1].titulo||'a ficha anterior'):(ATIVO_DET_LIMPEZA_V53?'Cadastro de ativos':'Cadastro de ativos · Ficha do equipamento');
     if(vb){ vb.textContent=ativoDetPilha.length?'‹':'×'; vb.setAttribute('aria-label',ativoDetPilha.length?'Voltar':'Fechar'); } }
   const pil=(tom,txt,mini)=>'<span class="fa-pil '+tom+(mini?' mini':'')+'">'+txt+'</span>';
   /* (1) identidade */
   let topoPil='';
-  if(P&&P.abertas>0) topoPil='<span class="fa-pil erro" id="ativoDetPilPend" role="button" onclick="ativoDetPendencias()" style="cursor:pointer">'+ativoDetPlural(P.abertas,'pendência','pendências')+'</span>';
-  else if(est!=='ok') topoPil=etqPilulaHtml(est,'ativoDetEtiqueta()');
+  const pilPendOn=!!(P&&P.abertas>0); /* 14/10 (v53): quando a pílula está no cartão, ela é a dona do número — "Como está" não o repete */
+  if(pilPendOn){
+    /* 14/10 (v53): mesmo texto da pílula do scan (etqPendPintar): "N pendências · K críticas", K só quando > 0, 99+ acima de 99.
+       O CSS (.fa-pil) põe em caixa alta. Tocável → lista completa (ativoDetPendencias), o mesmo destino de antes. */
+    const nTxt=P.abertas>99?'99+':String(P.abertas), nc=ATIVO_DET_LIMPEZA_V53?(Number(P.criticas)||0):0;
+    topoPil='<span class="fa-pil erro" id="ativoDetPilPend" role="button" onclick="ativoDetPendencias()" style="cursor:pointer" aria-label="Ver as pendências">'+nTxt+' pendência'+(P.abertas>1?'s':'')+(nc?' · '+nc+' crítica'+(nc>1?'s':''):'')+'</span>'; }
+  else if(est!=='ok'&&!ATIVO_DET_LIMPEZA_V53) topoPil=etqPilulaHtml(est,'ativoDetEtiqueta()');
+  /* 14/10 (v53): a pílula "SEM ETIQUETA / SEM NFC / SEM IMPRESSÃO" do cartão (sem pendência) está desligada: a linha de etiqueta de
+     "Como está", logo abaixo, já diz a mesma coisa com a bolinha vermelha/laranja — regra "um dono só". */
   let h='<div class="fa-card fa-hero"><div style="min-width:0">'
     +'<div class="fa-tipo">'+cadEsc(d.tipo||'Equipamento')+'</div>'
     +'<div class="fa-apelido">'+cadEsc(titulo)+'</div>'
@@ -17165,19 +17208,26 @@ function ativoDetPintar(manter){
     +lin('Sistema',d.sistema?[d.sistema.tipo,nm(d.sistema)].filter(Boolean).join(' · '):'',d.sistema&&d.sistema.id)
     +(d.dentroDe?lin('Dentro de',[d.dentroDe.tipo,nm(d.dentroDe)].filter(Boolean).join(' · '),d.dentroDe.id):'')
     +'</div></div>';
-  const L=(tom,txt,sub,on)=>(on?'<button class="fa-l" onclick="'+on+'">':'<div class="fa-l">')+'<span class="fa-d '+tom+'"></span><span>'+txt+'</span>'+(sub?'<small>'+sub+'</small>':'')+(on?'</button>':'</div>');
+  /* 14/10 (v53): linha clicável ganha "›" no fim — é ela que leva ao detalhe (lista, seção Etiqueta, editor, histórico) */
+  const L=(tom,txt,sub,on)=>(on?'<button class="fa-l" onclick="'+on+'">':'<div class="fa-l">')+'<span class="fa-d '+tom+'"></span><span>'+txt+'</span>'+(sub?'<small>'+sub+'</small>':'')+(on&&ATIVO_DET_LIMPEZA_V53?'<span class="fa-seta" aria-hidden="true">›</span>':'')+(on?'</button>':'</div>');
   let como='';
+  /* 14/10 (v53): com a pílula no cartão (N > 0) a linha de pendências SAI daqui — era o mesmo número dito duas vezes. Fica só quando
+     a pílula não existe: zero ("Nenhuma pendência aberta") ou servidor antigo ("não consultado"); aí ela é o único dono. */
   if(!R||!P) como+=L('ne','Pendências','não consultado','ativoDetPendencias()');
-  else if(P.abertas>0) como+=L(P.criticas?'er':'at',ativoDetPlural(P.abertas,'pendência aberta','pendências abertas'),P.criticas?ativoDetPlural(P.criticas,'crítica','críticas'):(P.maisAntigaDias!=null?'a mais antiga há '+ativoDetPlural(P.maisAntigaDias,'dia','dias'):''),'ativoDetPendencias()');
+  else if(P.abertas>0){ if(!ATIVO_DET_LIMPEZA_V53) como+=L(P.criticas?'er':'at',ativoDetPlural(P.abertas,'pendência aberta','pendências abertas'),P.criticas?ativoDetPlural(P.criticas,'crítica','críticas'):(P.maisAntigaDias!=null?'a mais antiga há '+ativoDetPlural(P.maisAntigaDias,'dia','dias'):''),'ativoDetPendencias()'); }
   else como+=L('ne','Nenhuma pendência aberta','','ativoDetPendencias()');
   { const ETAPA_SUB={'Impressa':'falta ler o QR e gravar o chip','Chip gravado':'falta conferir e a foto','Foto':'falta conferir','Conferida':'falta a foto da etiqueta colada'};
-    const onE=cad?'ativoDetEtiqueta()':null;
+    /* 14/10 (v53): etiqueta OK → a linha abre a seção Etiqueta (detalhe: chip, endereço, datas), para qualquer papel; etiqueta
+       faltando → fluxo (Supervisor+, como antes) ou a seção, para quem não pode cadastrar. Antes a linha só ia ao fluxo. */
+    const onE=ATIVO_DET_LIMPEZA_V53?((est==='ok'||!cad)?'ativoDetSecaoAbrir(\'etq\')':'ativoDetEtiqueta()'):(cad?'ativoDetEtiqueta()':null);
     if(est==='ok'){ const e=etAtiva||{}; const pronta=e.etapa==='Conferida'&&e.temFoto;
       como+=L(pronta?'ok':'at','Etiqueta ativa'+(e.versao!=null?' · v'+cadEsc(e.versao):''),pronta?(e.conferidaEm?'NFC conferido '+ativoDetFmtData(e.conferidaEm):'conferida'):(e.etapa?cadEsc(ETAPA_SUB[e.etapa]||e.etapa):'sem o passo a passo'),onE); }
     else if(est==='sem') como+=L('er','Sem etiqueta','fluxo não iniciado',onE);
     else if(est==='sem_nfc') como+=L('at','Etiqueta impressa, sem chip','falta gravar o NFC',onE);
     else como+=L('at','Chip gravado, sem etiqueta impressa','falta imprimir',onE); }
-  if(incompleto) como+=L('at','Cadastro incompleto',total!=null?respondidos+' de '+total+' campos':'sem respostas',cad?'ativoDetEditar()':null);
+  /* 14/10 (v53): "Cadastro · x de y campos" (mockup A); a bolinha laranja já diz que está incompleto. É o único lugar com o x de y —
+     o título de Dados técnicos deixou de repetir. */
+  if(incompleto) como+=L('at',ATIVO_DET_LIMPEZA_V53?'Cadastro':'Cadastro incompleto',total!=null?respondidos+' de '+total+' campos':'sem respostas',cad?'ativoDetEditar()':null);
   if(R&&R.ultimaPreventiva){ const u=R.ultimaPreventiva, dd=ativoDetDias(u.data);
     como+=L('in',dd!=null?'Preventiva há '+ativoDetPlural(dd,'dia','dias'):'Preventiva feita',[ativoDetFmtData(u.data),u.ot].filter(Boolean).map(cadEsc).join(' · '),cad?'ativoDetSecaoAbrir(\'hist\')':null); }
   else if(C.preventivas===0) como+=L('ne','Nenhuma preventiva','',cad?'ativoDetSecaoAbrir(\'hist\')':null);
@@ -17191,7 +17241,9 @@ function ativoDetPintar(manter){
   const B=(txt,on,cls,extra)=>'<button class="fa-btn'+(cls?' '+cls:'')+'" onclick="'+on+'">'+txt+(extra||'')+'</button>';
   let fazer='';
   if(cad) fazer+=B(incompleto?'✎ Completar cadastro':'✎ Editar cadastro','ativoDetEditar()','pri');
-  fazer+=B('📋 Ver pendências','ativoDetPendencias()','',P&&P.abertas?'<span class="fa-n fa-pil erro mini">'+P.abertas+'</span>':'');
+  /* 14/10 (v53): "Ver pendências (N)" saiu de "O que fazer" — ver é navegação, não ação, e o número já está na pílula do cartão,
+     que leva ao mesmo lugar (ativoDetPendencias). Continua no menu ⋯. */
+  if(!ATIVO_DET_LIMPEZA_V53) fazer+=B('📋 Ver pendências','ativoDetPendencias()','',P&&P.abertas?'<span class="fa-n fa-pil erro mini">'+P.abertas+'</span>':'');
   fazer+=B('⚠️ Registrar problema','ativoDetProblema()','terco');
   if(cad){
     if(est==='ok'){ if(nfc&&etAtiva) fazer+=B('📶 Testar etiqueta','ativoDetTestar()','terco'); fazer+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco'); }
@@ -17213,15 +17265,22 @@ function ativoDetPintar(manter){
     const kv=(k,v)=>'<div class="fa-kv"><span class="fa-k">'+cadEsc(k)+'</span><span class="fa-v">'+v+'</span></div>';
     let tab='';
     Object.keys(por).forEach(sx=>{ tab+='<div class="fa-grupo">'+cadEsc(sx)+'</div>'+por[sx].map(r=>kv(r.campo||'',valor(r))).join(''); });
-    const ger=[['Criticidade',g.criticidade],['Ano de fabricação',g.ano],['Plaqueta',g.plaqueta],['Acesso',g.acesso]], gerOk=ger.filter(x=>x[1]!=null&&x[1]!==''), gerNao=ger.filter(x=>x[1]==null||x[1]==='');
+    /* 14/10 (v53): criticidade sai de Dados técnicos (tabela e rodapé) — "Como está" é o dono dela, informada ou não */
+    const ger=(ATIVO_DET_LIMPEZA_V53?[]:[['Criticidade',g.criticidade]]).concat([['Ano de fabricação',g.ano],['Plaqueta',g.plaqueta],['Acesso',g.acesso]]), gerOk=ger.filter(x=>x[1]!=null&&x[1]!==''), gerNao=ger.filter(x=>x[1]==null||x[1]==='');
     if(gerOk.length) tab+='<div class="fa-grupo">Dados gerais</div>'+gerOk.map(x=>kv(x[0],cadEsc(x[1]))).join('');
     dados+=tab?'<div class="fa-tab2">'+tab+'</div>':'<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
     const nomesVazios=vazias.map(r=>r.campo||'').filter(Boolean);
     if(faltam>0||nomesVazios.length){ const extra=faltam-nomesVazios.length;
-      dados+='<div class="fa-vazios"><b>Não informado ('+Math.max(faltam,nomesVazios.length)+'):</b> '+(nomesVazios.map(cadEsc).join(' · ')||'')+(extra>0?(nomesVazios.length?' · ':'')+'mais '+ativoDetPlural(extra,'pergunta da ficha sem resposta','perguntas da ficha sem resposta'):'')
+      if(ATIVO_DET_LIMPEZA_V53){
+        /* 14/10 (v53): "Falta informar:" só com os nomes (o dado). Sem "(N)" — o x de y já está em "Como está" — e sem o link
+           "Completar cadastro ›" — o botão de "O que fazer" é o único. O "e mais N perguntas" fica: são as que a ficha não nomeia
+           (sem registro de resposta), e esse N não aparece em lugar nenhum; sem ele a lista pareceria completa. */
+        dados+='<div class="fa-vazios"><b class="fa-falta">Falta informar:</b> '+(nomesVazios.map(cadEsc).join(' · ')||'')+(extra>0?(nomesVazios.length?' · e mais ':'')+ativoDetPlural(extra,'pergunta da ficha sem resposta','perguntas da ficha sem resposta'):'')+'</div>'; }
+      else dados+='<div class="fa-vazios"><b>Não informado ('+Math.max(faltam,nomesVazios.length)+'):</b> '+(nomesVazios.map(cadEsc).join(' · ')||'')+(extra>0?(nomesVazios.length?' · ':'')+'mais '+ativoDetPlural(extra,'pergunta da ficha sem resposta','perguntas da ficha sem resposta'):'')
         +(cad?' <button class="fa-nav" style="display:inline-flex;min-height:36px;color:#0176D3;text-decoration-color:#0176D3" onclick="ativoDetEditar()">Completar cadastro ›</button>':'')+'</div>'; }
     if(gerNao.length) dados+='<div class="fa-vazios" style="border-top:none;padding-top:2px"><b>Dados gerais:</b> '+(gerOk.length?'não informado':'nada informado')+' ('+gerNao.map(x=>x[0]).join(' · ')+')</div>'; }
-  const subDados=total!=null?(incompleto?respondidos+' de '+total+' campos':total+' campos'+(faltam?' · '+faltam+' não informados':'')):preenchidas.length+' campos'+(vazias.length?' · '+vazias.length+' não informados':'');
+  /* 14/10 (v53): título "Dados técnicos" sem "x de y campos" — já está em "Como está" */
+  const subDados=ATIVO_DET_LIMPEZA_V53?'':(total!=null?(incompleto?respondidos+' de '+total+' campos':total+' campos'+(faltam?' · '+faltam+' não informados':'')):preenchidas.length+' campos'+(vazias.length?' · '+vazias.length+' não informados':''));
   /* Componentes (filhos): navegáveis, com estado da etiqueta */
   let comp='', subComp='—';
   if(F===null||F===undefined) comp='<div style="font-size:13px;color:#686868;padding:10px 0">'+(ativoDetAberto.comp&&d._filhosErro?cadEsc(d._filhosErro):'Buscando componentes…')+'</div>';
@@ -17230,24 +17289,30 @@ function ativoDetPintar(manter){
     const P2={ok:['sucesso','etiqueta'],sem:['erro','sem etiqueta'],sem_nfc:['atencao','sem NFC'],sem_impressao:['atencao','sem impressão']};
     comp='<div class="fa-lista">'+F.map(x=>'<button class="fa-r" onclick="ativoDetNavegar(\''+ativoDetIdLimpo(x.id)+'\')"><span style="min-width:0"><b>'+cadEsc(x.apelido||x.nome||'')+'</b><span class="fa-sub">'+cadEsc([x.tipo,x.apelido&&x.nome?'nº '+x.nome:null,x.descricao].filter(Boolean).join(' · '))+'</span></span><span class="fa-dir">'+(x.etiquetaEstado&&P2[x.etiquetaEstado]?pil(P2[x.etiquetaEstado][0],P2[x.etiquetaEstado][1],true):'')+'<span class="fa-chev">›</span></span></button>').join('')+'</div>'; }
   /* Fotos: a galeria da TAG (etqAcaoFotos, com exclusão/marca d'água) desenha dentro da seção */
-  const subFotos=C.fotos!=null?(C.fotos?C.fotos+' de 10':'nenhuma'):'—';
+  /* 14/10 (v53): "3 fotos" em vez de "3 de 10" — o "de 10" é limite, não fato (mockup A) */
+  const subFotos=C.fotos!=null?(C.fotos?(ATIVO_DET_LIMPEZA_V53?ativoDetPlural(C.fotos,'foto','fotos'):C.fotos+' de 10'):'nenhuma'):'—';
   const tira='<span class="fa-tira" id="ativoDetTira">'+(d._fotos||[]).slice(0,3).map(f=>'<img alt="" data-etqfoto="'+cadEsc(f.driveId)+'"'+(f._src?' src="'+f._src+'"':'')+'>').join('')+'</span>';
   /* Etiqueta: versão, etapas x de 5, NFC conferido */
   let etq='', subEtq='';
   { const e=etAtiva||ets.find(x=>x.etapa==='Impressa'&&x.etapa!=='Cancelada')||null;
     const etapas=!e?0:e.ativa?(e.etapa==='Conferida'?(e.temFoto?5:4):e.etapa==='Chip gravado'?3:e.etapa==='Foto'?4:e.etapa==='Impressa'?1:3):1;
-    subEtq=est==='sem'?'não iniciada':est==='sem_nfc'?'impressa · 1 de 5 etapas':est==='sem_impressao'?'chip gravado · sem impressão':('v'+cadEsc(e&&e.versao!=null?e.versao:'')+' · ativa · '+etapas+' de 5 etapas');
+    /* 14/10 (v53): título "Etiqueta" sem resumo (v2 · ativa · 5 de 5) — "Como está" é o dono; o corpo é só detalhe */
+    subEtq=ATIVO_DET_LIMPEZA_V53?'':(est==='sem'?'não iniciada':est==='sem_nfc'?'impressa · 1 de 5 etapas':est==='sem_impressao'?'chip gravado · sem impressão':('v'+cadEsc(e&&e.versao!=null?e.versao:'')+' · ativa · '+etapas+' de 5 etapas'));
     const kv=(k,v)=>v?'<div class="fa-kv"><span class="fa-k">'+k+'</span><span class="fa-v" style="word-break:break-all">'+v+'</span></div>':'';
     if(!e) etq='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma etiqueta impressa nem chip gravado para este equipamento.</div>';
     else etq=kv('Estado',est==='ok'?'Ativa':est==='sem_nfc'?'Impressa, sem chip':'Chip gravado sem etiqueta impressa')+kv('Versão',e.versao!=null?'v'+cadEsc(e.versao):'')+kv('Etapas',etapas+' de 5'+(e.etapa?' · '+cadEsc(e.etapa):''))
       +kv('NFC conferido',e.conferidaEm?ativoDetFmtData(e.conferidaEm,true):'')+kv('Chip gravado',e.chipGravadoEm?ativoDetFmtData(e.chipGravadoEm,true):'')+kv('Nº do chip',e.uid?cadEsc(String(e.uid).match(/.{1,2}/g).join(':')):'')
       +kv('Endereço',e.token&&typeof PORTAL_BASE!=='undefined'?cadEsc(PORTAL_BASE+'/a/'+e.token):'');
-    if(cad){ etq+='<div class="fa-fazer" style="margin-top:10px">';
+    /* 14/10 (v53): sem botões dentro da seção — Imprimir/Testar/Iniciar/Continuar moram em "O que fazer" (eram os mesmos botões
+       duas vezes); "Fazer uma etiqueta nova" (rara) só no menu ⋯. */
+    if(cad&&!ATIVO_DET_LIMPEZA_V53){ etq+='<div class="fa-fazer" style="margin-top:10px">';
       if(est==='ok'){ etq+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco'); if(nfc) etq+=B('📶 Testar etiqueta','ativoDetTestar()','terco'); etq+=B('🏷 Fazer uma etiqueta nova','ativoDetEtiqueta(\'nova\')','terco'); }
       else etq+=B('🏷 '+(est==='sem'?'Iniciar etiqueta':'Continuar etiqueta'),'ativoDetEtiqueta()','terco');
       etq+='</div>'; } }
-  /* Histórico: contagens no título; o histórico existente (etqAcaoHistorico) desenha dentro da seção */
-  const subHist=C.preventivas!=null?[ativoDetPlural(C.preventivas,'preventiva','preventivas'),C.chamados!=null?ativoDetPlural(C.chamados,'chamado','chamados'):null,C.anotacoes!=null?ativoDetPlural(C.anotacoes,'anotação','anotações'):null].filter(Boolean).join(' · '):'—';
+  /* Histórico: o histórico existente (etqAcaoHistorico) desenha dentro da seção.
+     14/10 (v53): título sem contagens — "nenhuma preventiva" já está em "Como está" e "N anotações" era a contagem das pendências com
+     outro nome (contadores.anotacoes continua vindo do servidor, só deixa de ser exibido). */
+  const subHist=ATIVO_DET_LIMPEZA_V53?'':(C.preventivas!=null?[ativoDetPlural(C.preventivas,'preventiva','preventivas'),C.chamados!=null?ativoDetPlural(C.chamados,'chamado','chamados'):null,C.anotacoes!=null?ativoDetPlural(C.anotacoes,'anotação','anotações'):null].filter(Boolean).join(' · '):'—');
   h+='<div class="fa-card fa-acc">'
     +H('dados','Dados técnicos',subDados,dados)
     +H('comp','Componentes',subComp,comp)
@@ -17256,11 +17321,13 @@ function ativoDetPintar(manter){
     +(cad?H('hist','Histórico',subHist,guard.ativoDetSec_hist||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando o histórico…</div>'):'');
   if(d.conferenciaPlaqueta||d.linkFabricante){
     const kv=(k,v)=>v?'<div class="fa-kv"><span class="fa-k">'+k+'</span><span class="fa-v">'+v+'</span></div>':'';
-    h+=H('motor','Conferência do motor',cadEsc(d.conferenciaPlaqueta||'não conferido'),
+    /* 14/10 (v53): título sem o resultado — "Motor confere / diferente" já está em "Como está" */
+    h+=H('motor','Conferência do motor',ATIVO_DET_LIMPEZA_V53?'':cadEsc(d.conferenciaPlaqueta||'não conferido'),
       kv('Resultado',cadEsc(d.conferenciaPlaqueta||'Não conferido'))+kv('Motivo',cadEsc(d.motivoDivergencia||''))+kv('Conferido em',ativoDetFmtData(d.conferidoEm,true))
       +kv('Ficha do fabricante',d.linkFabricante?'<a href="'+cadEsc(d.linkFabricante)+'" target="_blank" rel="noopener" style="color:#0176D3">abrir no site do fabricante ↗</a>':'')); }
   h+='</div>';
   body.innerHTML=h;
+  ativoDetTopoRolar(); /* 14/10 (v53): o título do topo depende de o cartão estar à vista */
 }
 /* abre/fecha uma seção; Fotos e Histórico buscam o conteúdo ao abrir (mesmas funções da TAG, desenhando na seção) */
 function ativoDetSecao(k){
