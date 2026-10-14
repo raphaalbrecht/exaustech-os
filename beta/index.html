@@ -16225,7 +16225,10 @@ function etqProbSugHtml(p){
   mostrar.forEach(i=>{ const [t]=g.itens[i], on=sel.indexOf(t)>=0;
     h+='<button type="button" class="etq-sug'+(on?' on':'')+'" data-sug="'+i+'" aria-pressed="'+(on?'true':'false')+'" onclick="etqProbSug('+i+')" style="min-height:48px;padding:0 14px;border-radius:999px;border:1.5px solid '+(on?'#0176D3':'#9FB3C8')+';background:'+(on?'#EAF2FB':'#fff')+';color:#0B2239;font-size:14px;font-weight:'+(on?'700':'600')+';font-family:inherit;text-align:left;line-height:1.2;max-width:100%">'+(on?'✓ ':'')+cadEsc(t)+'</button>'; });
   if(todos>ETQ_PROB_SUG_MAX) h+='<button type="button" id="etqProbSugMais" onclick="etqProbSugMais()" style="min-height:48px;padding:0 14px;border-radius:999px;border:1.5px dashed #9FB3C8;background:#fff;color:#0176D3;font-size:14px;font-weight:700;font-family:inherit">'+(p.sugTudo?'menos ‹':'mais ›')+'</button>';
-  return h+'</div>';
+  h+='</div>';
+  /* 14/10/2026: com 2+ pílulas marcadas, avisa que cada uma vira uma pendência separada */
+  if(sel.length>=2) h+='<div style="font-size:12.5px;color:#3E7EB0;margin-top:6px">Cada problema marcado vira uma pendência separada ('+sel.length+').</div>';
+  return h;
 }
 /* 12/10/2026 (A2) — o formulário abre INLINE na seção "Pendências deste equipamento" (etqPndSecaoHtml), no lugar da lista; o
    resto da tela (identidade, ações, leitura) continua visível. Fora da seção (etqPnd de outro equipamento) cai no #etqAcaoBox. */
@@ -16294,7 +16297,7 @@ function etqProbFormHtml(msg){
     +'</div></div>'
     +(msg?'<div style="font-size:13px;color:#BA0517;margin-top:8px">'+cadEsc(msg)+'</div>':'')
     +'<div style="display:flex;gap:8px;margin-top:12px"><button onclick="etqProbCancelar()" style="flex:0 0 auto;min-height:50px;padding:0 16px;background:#fff;border:1px solid #C9D0D8;border-radius:10px;font-weight:700;color:#3A4552;font-family:inherit">Cancelar</button>'
-    +'<button id="etqProbGravar" onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;font-family:inherit">'+(p.enviando?'Registrando…':'Gravar pendência')+'</button></div></div>';
+    +'<button id="etqProbGravar" onclick="etqProbEnviar()" style="flex:1;min-height:50px;background:#0176D3;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:15px;font-family:inherit">'+(p.enviando?'Registrando…':(function(){ const n=etqProbDividir(p).length; return n>1?'Gravar '+n+' pendências':'Gravar pendência'; })())+'</button></div></div>';
   return h;
 }
 function etqProbGuardarTxt(){ const t=document.getElementById('etqProbTxt'); if(t&&etqProb) etqProb.txt=t.value; const c=document.getElementById('etqProbCom'); if(c&&etqProb) etqProb.com=c.value; }
@@ -16323,6 +16326,20 @@ function etqProbRemoverFoto(){
   if(p.fotoPrev){ try{ URL.revokeObjectURL(p.fotoPrev); }catch(_){} }
   p.foto=null; p.fotoUrl=null; p.fotoPrev=null; etqProbRender();
 }
+/* 14/10/2026 — Raphael: "quero que mude: cada pílula marcada vira uma pendência separada" (antes, várias pílulas viravam UMA
+   pendência com o título emendado — "Polias desalinhadas Mancal aquecendo… Rola…"). Separadas, cada item é tratado, orçado e
+   encerrado sozinho. Regras (escolhas minhas, a confirmar com o Raphael — ver DECISAO_sugestoes-de-problema-por-tipo):
+   - só divide quando há 2+ linhas que são exatamente pílulas marcadas; texto livre sozinho = 1 pendência, como sempre;
+   - cada pendência leva a gravidade sugerida da SUA pílula; se o técnico escolheu a gravidade à mão, ela vale para todas;
+   - o texto livre que o técnico escreveu (linhas que não são pílula) vai junto em cada uma, abaixo do título;
+   - foto, vídeo, dano e comentário interno vão em todas (mesmo arquivo do Drive, não duplica upload). */
+function etqProbDividir(p){
+  const linhas=(p.txt||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  const sel=p.sug||[], pil=linhas.filter(l=>sel.indexOf(l)>=0), livre=linhas.filter(l=>sel.indexOf(l)<0);
+  if(pil.length<2) return [{descricao:(p.txt||'').trim(),severidade:p.sev}];
+  const extra=livre.length?'\n'+livre.join('\n'):'';
+  return pil.map(t=>{ const it=p.grupo&&p.grupo.itens.find(x=>x[0]===t); return {descricao:t+extra,severidade:(p.sevManual||!it)?p.sev:it[1]}; });
+}
 async function etqProbEnviar(){
   const p=etqProb; if(!p||p.enviando) return; etqProbGuardarTxt();
   if(!p.txt||p.txt.trim().length<3) return etqProbRender('Descreva o que você viu.');
@@ -16332,16 +16349,24 @@ async function etqProbEnviar(){
   if(navigator.onLine===false) return etqProbRender('Sem internet: registrar pendência precisa de conexão.');
   p.enviando=true; etqProbRender();
   try{
-    const r=await bePost('/pendencias',{ativoId:p.ativoId,descricao:p.txt.trim(),severidade:p.sev,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined,comentario:(p.com||'').trim()||undefined});
+    const partes=etqProbDividir(p), feitas=[];
+    /* uma por vez e na ordem: se a 3ª falhar, as 2 primeiras já ficaram gravadas e o técnico vê quais (não regrava ao tentar de novo) */
+    p.feitas=p.feitas||[];
+    for(const pt of partes){
+      if(p.feitas.indexOf(pt.descricao)>=0) continue;
+      const rr=await bePost('/pendencias',{ativoId:p.ativoId,descricao:pt.descricao,severidade:pt.severidade,dano:p.dano||undefined,fotoDriveId:p.foto||undefined,fotoUrl:p.fotoUrl||undefined,videoDriveId:p.video||undefined,videoUrl:p.videoUrl||undefined,comentario:(p.com||'').trim()||undefined});
+      p.feitas.push(pt.descricao); feitas.push({r:rr,pt});
+    }
+    const r=feitas.length?feitas[feitas.length-1].r:null;
     etqProb=null; etqProbMsg=''; etqRodape(true);
     try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
     /* 12/10/2026 (A2) — sem toast: a prova de que gravou é a lista crescendo. A pendência nova entra no topo da seção, em
        verde-claro, "agora · por você"; chip, ordenação e filtros voltam ao padrão para ela ficar visível; a pílula
        "N PENDÊNCIAS" do cartão sobe. Não refaz a consulta ao servidor (o item local já tem tudo que a linha mostra). */
     if(etqPnd&&etqPnd.ativoId===p.ativoId){
-      const nova={id:(r&&r.id)||null,nome:(r&&r.nome)||null,descricao:p.txt.trim(),severidade:p.sev,status:'Aberta',criadoEm:new Date().toISOString(),idadeDias:0,
-        registradaPor:null,foraDeOt:true,otOrigem:null,corretiva:null,pediuCorretiva:false,fotoDriveId:p.foto||null,videoDriveId:p.video||null,temFoto:!!p.foto,temVideo:!!p.video,quemPaga:null,_nova:true};
-      etqPnd.lista=[nova].concat(etqPnd.lista||[]); etqPnd.erro=null; etqPnd.chip='aberto'; etqPnd.ord='recentes'; etqPnd.fil={sev:[],paga:[],orig:[],midia:false};
+      const novas=feitas.map(f=>({id:(f.r&&f.r.id)||null,nome:(f.r&&f.r.nome)||null,descricao:f.pt.descricao,severidade:f.pt.severidade,status:'Aberta',criadoEm:new Date().toISOString(),idadeDias:0,
+        registradaPor:null,foraDeOt:true,otOrigem:null,corretiva:null,pediuCorretiva:false,fotoDriveId:p.foto||null,videoDriveId:p.video||null,temFoto:!!p.foto,temVideo:!!p.video,quemPaga:null,_nova:true}));
+      etqPnd.lista=novas.reverse().concat(etqPnd.lista||[]); etqPnd.erro=null; etqPnd.chip='aberto'; etqPnd.ord='recentes'; etqPnd.fil={sev:[],paga:[],orig:[],midia:false};
       etqPendPintar(etqPndContagem('aberto')); etqPndPintar();
       const s=document.getElementById('etqPndSecao'); if(s&&s.scrollIntoView) s.scrollIntoView({behavior:'smooth',block:'start'});
     }
@@ -16349,11 +16374,11 @@ async function etqProbEnviar(){
        mostra a confirmação e atualiza a contagem de pendências dela (ativoDetPendenciaNova). */
     if(typeof etqAcaoAlvo==='string'&&etqAcaoAlvo){
       etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
-      if(typeof ativoDetPendenciaNova==='function') ativoDetPendenciaNova(p.ativoId,p.sev);
+      if(typeof ativoDetPendenciaNova==='function') feitas.forEach(f=>ativoDetPendenciaNova(p.ativoId,f.pt.severidade));
     } else if(!(etqPnd&&etqPnd.ativoId===p.ativoId)) {
       etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
     }
-  }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
+  }catch(e){ p.enviando=false; const tot=etqProbDividir(p).length, ok=(p.feitas||[]).length; etqProbRender(ok&&tot>1?('Gravei '+ok+' de '+tot+'. As outras não foram: '+e.message+' — toque em Gravar para tentar só as que faltam.'):('Não registrei: '+e.message)); }
 }
 /* ===== Avisos de contrato na leitura da TAG (12/10/2026) — DECISAO_avisos-na-leitura-da-tag_12-10-2026.md =====
    Raphael: "se o equipamento tem um alerta gravado para ele, deve abrir assim que for escaneado ou lido o NFC". Abrem os
