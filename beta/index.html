@@ -1673,6 +1673,78 @@
   .cad-sec{background:var(--card);border:1px solid #E2E5E9;border-radius:14px;margin:14px 0;overflow:hidden;box-shadow:0 1px 3px rgba(11,34,57,.05)}
   .cad-sec-cab{background:#EAF1F7;border-bottom:1px solid #BFD5E6;padding:10px 14px;font-size:14px;font-weight:800;color:var(--brand-d)}
   .cad-sec-cont{padding:12px 14px 4px}
+  /* FICHA DO ATIVO "RESUMO PRIMEIRO" (fa-*), 13/10/2026 — proposta 3 aprovada pelo Raphael
+     (prototipos/mockup-ficha-ativo-3_13-10-2026.html; docs/09-CADASTROS/DECISAO_ficha-do-ativo-resumo-primeiro_13-10-2026.md).
+     O CSS mora AQUI, e não numa string JS: em 13/10 uma quebra de linha dentro de string de CSS derrubou o app inteiro.
+     Cores fixas como o resto desta tela (PWA sem SLDS); 6 tons da paleta semântica de 02/09/2026. */
+  .fa-topo{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-bottom:1px solid #E2E5E9;min-height:64px}
+  .fa-topo .fa-tit{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E}
+  .fa-topo .fa-nome{font-size:16px;font-weight:700;color:#0B2239;line-height:1.2}
+  .fa-x{width:48px;height:48px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;font-size:24px;line-height:1;color:#686868;flex:none;font-family:inherit;cursor:pointer;padding:0}
+  .fa-card{background:#fff;border:1px solid #E2E5E9;border-radius:14px}
+  .fa-hero{padding:14px 16px 12px;display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:start}
+  .fa-hero .fa-tipo{font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#3E7EB0}
+  .fa-hero .fa-apelido{font-size:clamp(28px,7vw,40px);font-weight:800;color:#0B2239;line-height:1;margin-top:4px;word-break:break-word}
+  .fa-hero .fa-desc{font-size:16px;color:#3A4552;margin-top:8px;line-height:1.3}
+  .fa-hero .fa-desc.vazio{color:#AEB8C2}
+  .fa-hero .fa-lado{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .fa-cod{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;font-weight:700;color:#0B2239;background:#EEF2F6;border-radius:8px;padding:6px 10px;letter-spacing:.03em;white-space:nowrap;display:inline-block}
+  .fa-cod small{font-family:system-ui,sans-serif;font-size:11px;font-weight:700;color:#8A949E;letter-spacing:.08em;margin-right:6px}
+  .fa-pil{display:inline-block;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#fff;line-height:1.25;white-space:nowrap}
+  .fa-pil.mini{font-size:10.5px;padding:3px 9px}
+  .fa-pil.sucesso{background:#2E844A}.fa-pil.concluido{background:#0B827C}.fa-pil.info{background:#0176D3}.fa-pil.atencao{background:#FE9339;color:#2B1A00}.fa-pil.erro{background:#BA0517}.fa-pil.neutro{background:#747474}
+  .fa-hero .fa-cli{grid-column:1/-1;border-top:1px solid #E2E5E9;padding-top:10px}
+  .fa-cli span{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:4px 12px;border-radius:999px;background:#0B2239;color:#fff;font-size:14px;font-weight:800;line-height:1.2;word-break:break-word}
+  .fa-cli span small{font-weight:600;color:#9FB6CC;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;flex:none} /* 13/10/2026: o rótulo CLIENTE quebrava em CLIENT/E com nome de cliente longo */
+  .fa-quad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  @media (max-width:560px){.fa-quad{grid-template-columns:1fr}}
+  .fa-bloco{padding:12px 14px 14px}
+  .fa-lab{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;margin-bottom:8px}
+  .fa-pilha{display:flex;flex-direction:column;gap:9px}
+  .fa-pilha .fa-lin{display:flex;flex-direction:column;line-height:1.25}
+  .fa-pilha .fa-lin small{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8A949E}
+  .fa-pilha .fa-lin b{font-size:15.5px;font-weight:700;color:#0B2239;margin-top:1px;word-break:break-word}
+  .fa-pilha .fa-lin .vazio{font-size:14px;font-weight:500;color:#AEB8C2;margin-top:1px}
+  .fa-nav{background:none;border:none;padding:0;font:inherit;font-size:15.5px;font-weight:700;color:#0B2239;text-align:left;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#B9C4CF;min-height:44px;display:flex;align-items:center;gap:4px;cursor:pointer;word-break:break-word}
+  .fa-como{display:flex;flex-direction:column;gap:4px}
+  .fa-como .fa-l{display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;color:#0B2239;font-weight:600;background:none;border:none;padding:0;font-family:inherit;text-align:left;width:100%}
+  .fa-como button.fa-l{cursor:pointer;min-height:44px}
+  .fa-como .fa-l .fa-d{width:12px;height:12px;border-radius:50%;flex:none}
+  .fa-d.ok{background:#2E844A}.fa-d.er{background:#BA0517}.fa-d.in{background:#0176D3}.fa-d.ne{background:#C9D0D8}.fa-d.at{background:#FE9339}
+  .fa-como .fa-l small{color:#686868;font-weight:500;font-size:12px;margin-left:auto;white-space:nowrap;text-align:right}
+  .fa-fazer{display:flex;flex-wrap:wrap;gap:8px}
+  .fa-btn{display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;min-height:48px;padding:0 12px;border-radius:10px;font-size:14px;font-weight:700;border:1px solid #E2E5E9;background:#fff;color:#0B2239;font-family:inherit;cursor:pointer;flex:1 1 46%;text-align:left}
+  .fa-btn.pri{background:#0B2239;color:#fff;border-color:#0B2239;justify-content:center}
+  .fa-btn.terco{flex:1 1 30%}
+  .fa-btn .fa-n{margin-left:auto}
+  .fa-acc{overflow:hidden;margin-top:10px}
+  .fa-acc .fa-h{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 14px;border:none;border-top:1px solid #E2E5E9;background:#fff;width:100%;font-size:15px;font-weight:800;color:#0B2239;font-family:inherit;text-align:left;cursor:pointer}
+  .fa-acc .fa-h:first-child{border-top:none}
+  .fa-acc .fa-h .fa-s{font-weight:500;color:#686868;font-size:12.5px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+  .fa-acc .fa-h .fa-chev{color:#8A949E;font-size:20px;width:20px;text-align:center;transition:transform .15s}
+  .fa-acc .fa-h.on .fa-chev{transform:rotate(90deg)}
+  .fa-acc .fa-b{padding:0 14px 12px;background:#FAFBFC;border-top:1px solid #EEF1F4}
+  .fa-tab2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  @media (max-width:560px){.fa-tab2{grid-template-columns:1fr}}
+  .fa-kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:0 12px;align-items:baseline;min-height:36px;padding:5px 0;border-top:1px solid #EEF1F4;font-size:14px;line-height:1.35}
+  .fa-kv .fa-k{color:#686868;font-weight:500;overflow-wrap:anywhere}
+  .fa-kv .fa-v{color:#0B2239;font-weight:700;overflow-wrap:anywhere}
+  .fa-kv .fa-v small{display:block;font-size:12px;color:#8C4B02;font-weight:500}
+  .fa-grupo{font-size:11px;font-weight:800;color:#3E7EB0;text-transform:uppercase;letter-spacing:.07em;padding:10px 0 2px;grid-column:1/-1}
+  .fa-vazios{font-size:13px;color:#8A949E;padding:10px 0 4px;line-height:1.5;border-top:1px dashed #E2E5E9;margin-top:6px}
+  .fa-vazios b{color:#686868;font-weight:700}
+  .fa-lista .fa-r{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 4px;border-top:1px solid #E2E5E9;font-size:15px;color:#0B2239;background:none;border-left:none;border-right:none;border-bottom:none;width:100%;font-family:inherit;text-align:left;cursor:pointer}
+  .fa-lista .fa-r:first-child{border-top:none}
+  .fa-lista .fa-r b{font-weight:700}
+  .fa-lista .fa-r .fa-sub{display:block;font-size:12.5px;color:#686868;font-weight:500;margin-top:1px}
+  .fa-lista .fa-r .fa-dir{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .fa-lista .fa-r .fa-chev{color:#8A949E;font-size:22px}
+  .fa-tira{display:flex;gap:6px;margin-left:8px}
+  .fa-tira img{width:40px;height:40px;border-radius:6px;object-fit:cover;background:#E2E5E9;border:1px solid #D7DEE6}
+  .fa-menu{position:absolute;top:60px;right:12px;z-index:5;background:#fff;border:1px solid #E2E5E9;border-radius:12px;box-shadow:0 8px 24px rgba(11,34,57,.18);min-width:240px;overflow:hidden}
+  .fa-menu button{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:0 16px;border:none;border-top:1px solid #EEF1F4;background:#fff;font-size:14.5px;font-weight:600;color:#0B2239;font-family:inherit;text-align:left;cursor:pointer}
+  .fa-menu button:first-child{border-top:none}
+  .fa-aviso{font-size:13px;color:#8C4B02;background:#FFF4E5;border:1px solid #F9C77F;border-radius:10px;padding:8px 12px;margin-top:8px;line-height:1.4}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2243,16 +2315,18 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
   <!-- 12/10/2026 (Raphael: "melhore o layout dessa página, além disso está quebrando"): ficha do equipamento em
        coluna — cabeçalho fixo, corpo com rolagem própria e rodapé fixo. Antes: 420 px de largura, rótulo que não
        encolhia e o valor encostado na borda (cortado pela barra de rolagem do Android). -->
-  <div class="modal" id="ativoDetModal"><div class="modal-card" style="max-width:680px;padding:0;display:flex;flex-direction:column;overflow:hidden">
-    <div id="ativoDetHead" style="padding:18px 20px 14px;border-bottom:1px solid var(--border)">
-      <div class="modal-title" id="ativoDetTitulo">Ativo</div>
-      <div class="modal-sub" id="ativoDetSub"></div>
+  <!-- 13/10/2026 — ficha "Resumo primeiro" (proposta 3 aprovada): topo com Voltar/Fechar e menu "⋯"; o corpo inteiro é
+       desenhado por verAtivo (identidade → Onde / Como está → O que fazer → seções recolhidas). O rodapé com "Editar cadastro"
+       saiu: a ação primária mora em "O que fazer" (ativoDetEditar continua a mesma função). -->
+  <div class="modal" id="ativoDetModal"><div class="modal-card" style="max-width:720px;padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative">
+    <div id="ativoDetHead" class="fa-topo">
+      <button class="fa-x" id="ativoDetVoltarBtn" onclick="ativoDetVoltar()" aria-label="Voltar">‹</button>
+      <div style="flex:1;min-width:0"><span class="fa-tit" id="ativoDetSub">Cadastro de ativos</span><span class="fa-nome" id="ativoDetTitulo">Ficha do equipamento</span></div>
+      <button class="fa-x" id="ativoDetMenuBtn" onclick="ativoDetMenu()" aria-label="Mais ações" style="font-size:22px;letter-spacing:.05em">⋯</button>
     </div>
-    <div id="ativoDetBody" style="flex:1;min-height:0;overflow-y:auto;padding:12px 20px 16px;background:#F4F6F8"></div>
-    <div class="modal-actions" style="margin:0;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);background:#fff">
-      <button class="btn btn-neutral" onclick="closeAtivoDet()">Fechar</button>
-      <button class="btn btn-brand" onclick="ativoDetEditar()">✏️ Editar cadastro</button>
-    </div></div></div>
+    <div id="ativoDetMenuBox" class="fa-menu" style="display:none"></div>
+    <div id="ativoDetBody" style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px 16px;background:#F4F6F8"></div>
+    </div></div>
 
   <!-- MODAL ASSINATURA · campo tipo Assinatura no Cadastro de Ativos (canvas próprio, isolado do
        sigPad/padModal da OS — aquele tem estado global de outro fluxo, legal/CPF/OTP) -->
@@ -14860,7 +14934,8 @@ function etqResolverEtiquetaAtivo(ativoId,estado){
   try{ const md=document.getElementById('ativoDetModal'); if(md&&md.classList.contains('show')) closeAtivoDet(); }catch(e){}
   try{ if(document.getElementById('etqModal')) etqFechar(); }catch(e){}
   go('cadastro');
-  setTimeout(()=>{ cadSt._jaCad={sis:'__externo',lista:[{id:ativoId,tipo:''}]}; cadSt._depoisRetomar=estado==='sem_impressao'?'etf1':'etf'; cadRetomarAtivo(0); },50);
+  /* 13/10/2026: estado 'nova' (ficha → "Fazer uma etiqueta nova") abre o fluxo como etiqueta nova (etfAbrir(true)) */
+  setTimeout(()=>{ cadSt._jaCad={sis:'__externo',lista:[{id:ativoId,tipo:''}]}; cadSt._depoisRetomar=estado==='sem_impressao'?'etf1':estado==='nova'?'etfNova':'etf'; cadRetomarAtivo(0); },50);
 }
 /* pílula da lista: abre o equipamento (mesma tela de sucesso) e, em seguida, o fluxo da etiqueta no passo certo:
    sem etiqueta → etapa 1 (imprimir); sem NFC → etapa 2 (ler o QR e gravar o chip); sem etiqueta impressa (chip do jeito
@@ -14895,7 +14970,7 @@ async function cadRetomarAtivo(i){
       berliner,daBerliner:{},sugBerliner:{},berlinerModo:null,galeria:[],galeriaFalhou:false,motorConf:null,modoEdicao:false,
       etiqueta:cadEtiquetaDoAtivo(d),retomada:true,ident:{local:d.local||null,fotosN:fotos?fotos.length:null,motor},criando:false,step:'done'});
     cadStepDone();
-    if(cadSt._depoisRetomar){ const m=cadSt._depoisRetomar; cadSt._depoisRetomar=null; etfAbrir(false,m==='etf1'?1:null); } /* 12/10/2026: veio da pílula da lista */
+    if(cadSt._depoisRetomar){ const m=cadSt._depoisRetomar; cadSt._depoisRetomar=null; etfAbrir(m==='etfNova',m==='etf1'?1:null); } /* 12/10/2026: veio da pílula da lista · 13/10: 'etfNova' = etiqueta nova pela ficha */
   }catch(e){ st.criando=false; toast('Não consegui abrir o equipamento: '+e.message); if(cadSt===st) cadStepEquip(); }
 }
 /* "Conferir o motor na plaqueta" num exaustor RETOMADO: com o link do fabricante já lido, segue o fluxo normal; sem ele,
@@ -15294,7 +15369,11 @@ async function etqConferir(url,uid,esperado){
       }
 }
 /* ===== Ações na leitura da TAG — entrega 1 (12/10/2026) ===== ver DECISAO_acoes-na-leitura-da-tag_12-10-2026.md */
-function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); } /* outra ação fecha o formulário de problema (12/10 A2: o formulário mora na seção de pendências — repinta a lista) */ const b=document.getElementById('etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
+/* 13/10/2026 — a ficha do ativo (verAtivo) reaproveita Fotos, Histórico e Registrar problema da leitura da TAG, que desenham
+   em #etqAcaoBox (dentro do painel da TAG). etqAcaoAlvo = id do contêiner que recebe o HTML enquanto a ficha está aberta
+   (a ficha abre POR CIMA do painel da TAG, então o alvo precisa ser trocado, não duplicado). null = comportamento de antes. */
+let etqAcaoAlvo=null;
+function etqAcaoBox(html){ if(typeof etqProb!=='undefined'&&etqProb&&html.indexOf('etqProbTxt')<0){ etqProb=null; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); } /* outra ação fecha o formulário de problema (12/10 A2: o formulário mora na seção de pendências — repinta a lista) */ const b=document.getElementById((typeof etqAcaoAlvo==='string'&&etqAcaoAlvo)||'etqAcaoBox'); if(b){ b.innerHTML=html; b.scrollIntoView({behavior:'smooth',block:'nearest'}); } return b; }
 /* a ficha é o modal de detalhe do cadastro (z-index menor que o painel da TAG): fecha o resultado antes. O leitor da tela
    continua em espera, então encostar outra etiqueta depois não abre o portal. */
 /* 12/10/2026 — Raphael: "depois da leitura, se eu clico em Ver ficha não consigo voltar para o registro; tenho que ler a
@@ -15359,7 +15438,7 @@ async function etqAcaoFotos(ativoId){
     }
     etqAcaoBox(h+'</div>');
     /* miniaturas uma a uma (rede de campo é fraca) */
-    for(const img of document.querySelectorAll('#etqAcaoBox img[data-etqfoto]')){
+    for(const img of document.querySelectorAll('#'+((typeof etqAcaoAlvo==='string'&&etqAcaoAlvo)||'etqAcaoBox')+' img[data-etqfoto]')){ /* 13/10/2026: ou o contêiner da ficha */
       if(seq!==etqSeq) return;
       try{ img.src=await etqFotoBlobUrl(img.dataset.etqfoto); img.style.opacity='1'; }catch(e){ img.alt='não carregou'; img.style.opacity='1'; }
     }
@@ -15415,15 +15494,20 @@ async function etqFotoVer(driveId,data,foto){
 /* 12/10/2026 — fatia 1 de DECISAO_pendencias-para-proposta: cada pendência/anotação tem "abrir ›", que leva ao Plano →
    Pendências mostrando SÓ ela (qualquer situação), para tratar ali. */
 function etqIrPlanoPendencia(id){
+  etqIrPlanoFecharFicha();
   if(!PLN) plnReset();
   PLN.tab='pendencias'; PLN.pndId=id; PLN.pndAtivo=null; PLN.pndFiltro='todos'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
   etqFechar(); go('plano');
 }
 function etqIrPlanoPendencias(ativoId){
+  etqIrPlanoFecharFicha();
   if(!PLN) plnReset();
   PLN.tab='pendencias'; PLN.pndId=null; PLN.pndAtivo=ativoId; PLN.pndFiltro='abertas'; PLN.pndSev=''; PLN.achados=null; PLN.pndEdit=null; PLN.pndTri=null;
   etqFechar(); go('plano');
 }
+/* 13/10/2026: a ficha do ativo também abre a lista de pendências por cima dela (ativoDetPendencias) — ao ir para o Plano,
+   a ficha tem que fechar, senão fica sobre a tela do Plano. */
+function etqIrPlanoFecharFicha(){ try{ const md=document.getElementById('ativoDetModal'); if(md&&md.classList.contains('show')&&typeof closeAtivoDet==='function') closeAtivoDet(); }catch(e){} }
 /* 12/10/2026 (A2) — a linha "Pendências" da lista de ações saiu: a lista mora na seção fixa "Pendências deste equipamento"
    (etqPndSecaoHtml). Esta função ficou como atalho para a lista completa, para quem ainda a chamar. */
 function etqAcaoPendencias(ativoId){ if(etqPnd&&etqPnd.ativoId===ativoId&&etqPnd.lista) etqPndCheia(true); }
@@ -15994,7 +16078,7 @@ function etqRodape(mostrar){ document.querySelectorAll('#etqCorpo .etq-rodape').
 function etqProbRender(msg){
   const p=etqProb; if(!p) return;
   etqRodape(false); etqProbMsg=msg||'';
-  if(etqPnd&&etqPnd.ativoId===p.ativoId&&document.getElementById('etqPndSecao')){ etqPndPintar(); return; } /* inline na seção (A2) */
+  if(!(typeof etqAcaoAlvo==='string'&&etqAcaoAlvo)&&etqPnd&&etqPnd.ativoId===p.ativoId&&document.getElementById('etqPndSecao')){ etqPndPintar(); return; } /* inline na seção (A2); 13/10: com a ficha aberta por cima, o formulário vai para a ficha (etqAcaoAlvo) */
   etqAcaoBox('<div style="background:#fff;border:2px solid #FE9339;border-radius:12px;padding:12px 14px;margin-top:10px">'
     +'<div style="font-weight:800;color:#0B2239;font-size:16px">Registrar problema</div>'
     +'<div style="font-size:12.5px;color:#686868;margin:2px 0 8px">Vira uma pendência deste equipamento. A decisão de abrir OT e de quem paga é da triagem.</div>'
@@ -16094,7 +16178,13 @@ async function etqProbEnviar(){
       etqPnd.lista=[nova].concat(etqPnd.lista||[]); etqPnd.erro=null; etqPnd.chip='aberto'; etqPnd.ord='recentes'; etqPnd.fil={sev:[],paga:[],orig:[],midia:false};
       etqPendPintar(etqPndContagem('aberto')); etqPndPintar();
       const s=document.getElementById('etqPndSecao'); if(s&&s.scrollIntoView) s.scrollIntoView({behavior:'smooth',block:'start'});
-    } else {
+    }
+    /* 13/10/2026 — registrado pela FICHA (etqAcaoAlvo): a seção da TAG (se estiver embaixo) já foi atualizada acima; a ficha
+       mostra a confirmação e atualiza a contagem de pendências dela (ativoDetPendenciaNova). */
+    if(typeof etqAcaoAlvo==='string'&&etqAcaoAlvo){
+      etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
+      if(typeof ativoDetPendenciaNova==='function') ativoDetPendenciaNova(p.ativoId,p.sev);
+    } else if(!(etqPnd&&etqPnd.ativoId===p.ativoId)) {
       etqAcaoBox('<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:12px 14px;margin-top:10px"><div style="font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+cadEsc(r.nome):'')+'</div><div style="font-size:13px;margin-top:4px">Ela aparece em Pendências deste equipamento e vai para a triagem.</div></div>');
     }
   }catch(e){ p.enviando=false; etqProbRender('Não registrei: '+e.message); }
@@ -16662,72 +16752,279 @@ async function etqPrevia(token){
 }
 function cadNfcCancelar(){ cadNfcDesativar(); cadSt.etiqueta={status:'idle'}; cadStepDone(); }
 function cadNfcDesativar(){ if(cadNfcCtrl){ try{cadNfcCtrl.abort();}catch(e){} cadNfcCtrl=null; } }
-/* Tela de detalhe do Ativo — GET /ativos/:id já devolvia respostas+etiquetas prontos, órfão no front
-   (cadStepDone() só levava pro "Cadastrar outro"/agenda, sem link de volta pro ativo criado). */
-let ativoDetSt=null;
+/* ===== Ficha do ativo "Resumo primeiro" (13/10/2026) — proposta 3 APROVADA pelo Raphael =====
+   Mockup: prototipos/mockup-ficha-ativo-3_13-10-2026.html · decisão: docs/09-CADASTROS/DECISAO_ficha-do-ativo-resumo-primeiro_13-10-2026.md
+   Antes (12/10) a ficha era o nº ATV grande, pílulas misturando situação com dado (plaqueta, ano) e a ficha de cadastro inteira
+   com campos vazios no meio; fotos, filhos, histórico e impressão só existiam na leitura da TAG. Agora a primeira tela responde
+   quatro perguntas sem rolar: O QUE É (apelido grande, nº em chip, tipo, descrição, cliente) → ONDE (local, sistema, dentro de —
+   navegáveis) e COMO ESTÁ (pendências, etiqueta, preventiva, criticidade, motor, com bolinha semântica) → O QUE FAZER (ações do
+   papel). O resto fica em seções recolhidas com resumo no título (Dados técnicos, Componentes, Fotos, Etiqueta, Histórico,
+   Conferência do motor). Os números vêm do bloco `resumo` de GET /ativos/:id; servidor antigo (sem o bloco) mostra "não
+   consultado" e a ficha abre igual.
+   Comportamentos preservados: a ficha abre POR CIMA do resultado da TAG e Fechar/Voltar do Android volta para ele (navAbriu
+   'ficha'); Fotos, Histórico e Registrar problema são as MESMAS funções da TAG (etqAcaoFotos/etqAcaoHistorico/etqAcaoProblema),
+   desenhando dentro da ficha via etqAcaoAlvo; Editar (ativoDetEditar), Testar etiqueta (etqTestar) e o fluxo da etiqueta
+   (etqResolverEtiquetaAtivo / etfAbrir) são os de antes. Navegar para sistema/dentro de/filho abre a ficha deles por cima
+   (pilha ativoDetPilha) e "‹" volta para a anterior. */
+let ativoDetSt=null, ativoDetPilha=[], ativoDetAberto={dados:true}, ativoDetSeq=0;
+function ativoDetPodeCad(){ return typeof canCadastrar!=='function'||canCadastrar(typeof ROLE!=='undefined'?ROLE:''); }
+function ativoDetPodePlano(){ return typeof canPlano!=='function'||canPlano(typeof ROLE!=='undefined'?ROLE:''); }
+function ativoDetIdLimpo(x){ return String(x||'').replace(/[^A-Za-z0-9]/g,''); }
+function ativoDetFmtData(s,comAno){ if(!s) return ''; try{ const dt=new Date(s); if(isNaN(dt.getTime())) return ''; return dt.toLocaleDateString('pt-BR',comAno?{day:'2-digit',month:'2-digit',year:'numeric'}:{day:'2-digit',month:'2-digit'}); }catch(e){ return ''; } }
+function ativoDetDias(s){ if(!s) return null; const t=new Date(s).getTime(); if(isNaN(t)) return null; return Math.max(0,Math.floor((Date.now()-t)/86400000)); }
+function ativoDetPlural(n,um,varios){ return n+' '+(n===1?um:varios); }
 async function verAtivo(ativoId){
   if(!ativoId) return;
+  const md=document.getElementById('ativoDetModal'); if(!md) return;
+  const seq=++ativoDetSeq, jaAberta=md.classList.contains('show');
   try{
     const d=await beGet('/ativos/'+ativoId);
-    ativoDetSt=d;
-    /* 12/10/2026 — ficha reformulada: número grande + tipo em pílula + onde está; resumo (etiqueta, criticidade,
-       plaqueta, motor); seções em cartões; rótulo e valor quebram linha em vez de cortar; múltipla escolha vira lista. */
-    const pil=(t,cor,esc)=>'<span style="display:inline-block;background:'+cor+';color:'+(esc?'#2B1A00':'#fff')+';border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">'+cadEsc(t)+'</span>';
-    document.getElementById('ativoDetTitulo').innerHTML='<div style="font-size:11.5px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.07em">Equipamento</div>'
-      +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:2px"><span style="font-size:30px;font-weight:800;color:#0B2239;letter-spacing:.03em;font-variant-numeric:tabular-nums">'+cadEsc(d.nome||'Ativo')+'</span>'
-      /* 12/10/2026 — Raphael: "o tipo do equipamento deve ter mais destaque; pode continuar pílula, mas maior" */
-      +(d.tipo?'<span style="display:inline-block;background:#0176D3;color:#fff;border-radius:999px;padding:7px 18px;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;line-height:1.1">'+cadEsc(d.tipo)+'</span>':'')+'</div>';
-    if(d.apelido) document.getElementById('ativoDetTitulo').innerHTML+='<div style="font-size:20px;font-weight:800;color:#3E7EB0;margin-top:4px">'+cadEsc(d.apelido)+'</div>'; /* 12/10/2026: apelido sequencial */
-    document.getElementById('ativoDetSub').innerHTML='<div style="font-size:14px;color:#1B2733;margin-top:4px;line-height:1.4">'
-      +(d.local?'<span style="color:#686868">Local</span> <b style="font-weight:600">'+cadEsc(d.local)+'</b>':'')
-      +(d.local&&d.conta?' &nbsp;·&nbsp; ':'')+(d.conta?'<span style="color:#686868">Conta</span> <b style="font-weight:600">'+cadEsc(d.conta)+'</b>':'')+'</div>';
-    /* 12/10/2026 — sistema ao qual o equipamento pertence (ativo-pai; Raphael pediu na ficha) */
-    { const nm=x=>x?[x.descricao||x.nome,x.descricao&&x.nome?'nº '+x.nome:null].filter(Boolean).join(' · '):'';
-      if(d.sistema||d.dentroDe) document.getElementById('ativoDetSub').innerHTML+='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">'
-        +(d.sistema?'<div style="background:#EAF2FB;border:1px solid #BFD5E6;border-radius:10px;padding:7px 12px;font-size:14px;color:#0B2239"><span style="font-size:11px;font-weight:700;color:#3E7EB0;text-transform:uppercase;letter-spacing:.06em;display:block">Sistema</span><b>'+cadEsc(nm(d.sistema))+'</b></div>':'')
-        +(d.dentroDe?'<div style="background:#F4F6F8;border:1px solid #E2E5E9;border-radius:10px;padding:7px 12px;font-size:14px;color:#0B2239"><span style="font-size:11px;font-weight:700;color:#686868;text-transform:uppercase;letter-spacing:.06em;display:block">Dentro de</span><b>'+cadEsc([d.dentroDe.tipo,nm(d.dentroDe)].filter(Boolean).join(' · '))+'</b></div>':'')+'</div>';
-      else document.getElementById('ativoDetSub').innerHTML+='<div style="margin-top:6px;font-size:13px;color:#8C4B02">Sem sistema associado</div>'; }
-    let h='';
-    /* resumo */
-    const etAtiva=(d.etiquetas||[]).find(e=>e.ativa), g=d.dadosGerais||{};
-    const res=[];
-    { const est=etqEstadoDe(d.etiquetas); /* 12/10/2026: pílula clicável do que falta na etiqueta */
-      res.push(est==='ok'?pil('Etiqueta ativa · v'+(etAtiva?etAtiva.versao:''),'#2E844A'):etqPilulaHtml(est,"etqResolverEtiquetaAtivo('"+d.id+"','"+est+"')")); }
-    if(g.criticidade) res.push(pil('Criticidade: '+g.criticidade,/alta|cr[ií]t/i.test(g.criticidade)?'#BA0517':(/m[eé]dia/i.test(g.criticidade)?'#FE9339':'#747474'),/m[eé]dia/i.test(g.criticidade)));
-    if(g.plaqueta) res.push(pil('Plaqueta: '+g.plaqueta,'#747474'));
-    if(g.ano) res.push(pil('Fabricação '+g.ano,'#747474'));
-    if(d.conferenciaPlaqueta) res.push(pil('Motor: '+d.conferenciaPlaqueta,/confere com/i.test(d.conferenciaPlaqueta)?'#2E844A':(/n[aã]o conferido|n[aã]o vis/i.test(d.conferenciaPlaqueta)?'#FE9339':'#BA0517'),/n[aã]o conferido|n[aã]o vis/i.test(d.conferenciaPlaqueta)));
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">'+res.join('')+'</div>';
-    /* respostas por seção */
-    const porSessao={};
-    (d.respostas||[]).forEach(r=>{ const sx=r.sessao||'Outros'; (porSessao[sx]=porSessao[sx]||[]).push(r); });
-    const valor=r=>{
-      const v=(r.resposta==null?'':String(r.resposta)).trim();
-      if(!v) return '<span style="color:#AEB8C2;font-weight:500">não informado</span>';
-      if(r.tipo==='Multi-Picklist'||v.indexOf(';')>=0) return v.split(';').map(x=>x.trim()).filter(Boolean).map(x=>'<div>'+cadEsc(x)+'</div>').join('');
-      if(r.valorFabricante!=null&&String(r.valorFabricante)!==v) return cadEsc(v)+'<div style="font-size:12px;color:#8C4B02;font-weight:500">fábrica: '+cadEsc(r.valorFabricante)+'</div>';
-      return cadEsc(v);
-    };
-    Object.keys(porSessao).forEach(sx=>{
-      h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;padding:4px 14px 6px;margin-bottom:10px">'
-        +'<div style="font-size:12px;font-weight:700;color:#3E7EB0;text-transform:uppercase;letter-spacing:.06em;padding:10px 0 4px">'+cadEsc(sx)+'</div>';
-      porSessao[sx].forEach((r,k)=>{
-        h+='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:4px 16px;align-items:start;padding:9px 0;'+(k?'border-top:1px solid #EEF1F4;':'')+'font-size:14px;line-height:1.35">'
-          +'<span style="color:#3A4552;min-width:0;overflow-wrap:anywhere">'+cadEsc(r.campo||'')+'</span>'
-          +'<span style="font-weight:700;color:#0B2239;text-align:right;min-width:0;max-width:52vw;overflow-wrap:anywhere">'+valor(r)+'</span></div>';
-      });
-      h+='</div>';
-    });
-    if(!(d.respostas||[]).length) h+='<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
-    if(etAtiva&&estoqNfcSuportado()) h+='<button onclick="closeAtivoDet();etqTestar(\''+ativoId+'\')" style="width:100%;min-height:48px;background:#fff;border:2px solid #3E7EB0;border-radius:12px;margin-top:4px;color:#0176D3;font-size:14px;font-weight:700">📶 Testar a etiqueta deste equipamento</button>';
-    document.getElementById('ativoDetBody').innerHTML=h;
-    document.getElementById('ativoDetBody').scrollTop=0;
-    const md=document.getElementById('ativoDetModal'); md.style.zIndex='100015'; /* acima do painel da TAG (100012) */
-    if(!md.classList.contains('show')) navAbriu('ficha',closeAtivoDet);
+    if(seq!==ativoDetSeq) return; /* outra ficha foi pedida enquanto esta carregava */
+    ativoDetSt=d; ativoDetAberto={dados:true};
+    ativoDetMenu(false);
+    ativoDetPintar(false);
+    md.style.zIndex='100015'; /* acima do painel da TAG (100012) */
+    if(!jaAberta) navAbriu('ficha',closeAtivoDet);
+    etqAcaoAlvo='ativoDetAcaoBox'; /* Fotos/Histórico/Registrar problema desenham dentro da ficha enquanto ela estiver aberta */
     md.classList.add('show');
+    const body=document.getElementById('ativoDetBody'); if(body) body.scrollTop=0;
+    ativoDetMiniaturas(d,seq);
   }catch(e){ toast('Erro ao carregar ativo: '+e.message); }
 }
-function closeAtivoDet(){ document.getElementById('ativoDetModal').classList.remove('show'); navFechou('ficha'); }
+/* desenha o corpo inteiro a partir de ativoDetSt. manter=true preserva o que Fotos/Histórico/ação já desenharam (é HTML
+   que veio do servidor; redesenhar a ficha por causa de um acordeão não pode apagar a galeria aberta). */
+function ativoDetPintar(manter){
+  const d=ativoDetSt; if(!d) return;
+  const body=document.getElementById('ativoDetBody'); if(!body) return;
+  const guard={}; if(manter!==false){ ['ativoDetSec_fotos','ativoDetSec_hist','ativoDetAcaoBox'].forEach(k=>{ const el=document.getElementById(k); if(el) guard[k]=el.innerHTML; }); }
+  const id=ativoDetIdLimpo(d.id);
+  const R=d.resumo||null, P=R?R.pendencias:null, C=(R&&R.contadores)||{}, F=R?R.filhos:null, CF=R?R.camposFicha:null;
+  const g=d.dadosGerais||{}, ets=d.etiquetas||[], etAtiva=ets.find(e=>e.ativa), est=etqEstadoDe(ets);
+  const cad=ativoDetPodeCad(), nfc=typeof estoqNfcSuportado==='function'&&estoqNfcSuportado();
+  const resp=d.respostas||[], val=r=>String(r.resposta==null?'':r.resposta).trim();
+  const preenchidas=resp.filter(r=>val(r)!==''), vazias=resp.filter(r=>val(r)==='');
+  const total=CF&&CF.total!=null?CF.total:null, respondidos=CF&&CF.respondidos!=null?CF.respondidos:preenchidas.length;
+  const faltam=total!=null?Math.max(0,total-respondidos):vazias.length;
+  const incompleto=total!=null?respondidos<total:!preenchidas.length;
+  const titulo=d.apelido||d.nome||'Equipamento'; /* sem apelido, o nº ATV é o título — nunca fica sem nome grande (regra B2 da TAG) */
+  /* topo */
+  { const t=document.getElementById('ativoDetTitulo'), s=document.getElementById('ativoDetSub'), vb=document.getElementById('ativoDetVoltarBtn');
+    if(t) t.textContent=titulo;
+    if(s) s.textContent=ativoDetPilha.length?'Voltar para '+(ativoDetPilha[ativoDetPilha.length-1].titulo||'a ficha anterior'):'Cadastro de ativos · Ficha do equipamento';
+    if(vb){ vb.textContent=ativoDetPilha.length?'‹':'×'; vb.setAttribute('aria-label',ativoDetPilha.length?'Voltar':'Fechar'); } }
+  const pil=(tom,txt,mini)=>'<span class="fa-pil '+tom+(mini?' mini':'')+'">'+txt+'</span>';
+  /* (1) identidade */
+  let topoPil='';
+  if(P&&P.abertas>0) topoPil='<span class="fa-pil erro" id="ativoDetPilPend" role="button" onclick="ativoDetPendencias()" style="cursor:pointer">'+ativoDetPlural(P.abertas,'pendência','pendências')+'</span>';
+  else if(est!=='ok') topoPil=etqPilulaHtml(est,'ativoDetEtiqueta()');
+  let h='<div class="fa-card fa-hero"><div style="min-width:0">'
+    +'<div class="fa-tipo">'+cadEsc(d.tipo||'Equipamento')+'</div>'
+    +'<div class="fa-apelido">'+cadEsc(titulo)+'</div>'
+    +(d.descricao?'<div class="fa-desc">'+cadEsc(d.descricao)+'</div>':'<div class="fa-desc vazio">Sem descrição</div>')
+    +'</div><div class="fa-lado">'
+    +(d.apelido&&d.nome?'<span class="fa-cod"><small>Nº</small>'+cadEsc(d.nome)+'</span>':'')
+    +topoPil+'</div>'
+    +(d.conta?'<div class="fa-cli"><span><small>Cliente</small>'+cadEsc(d.conta)+'</span></div>':'')
+    +'</div>';
+  /* (2) Onde · Como está */
+  const nm=x=>x?[x.apelido||x.descricao||x.nome,(x.apelido||x.descricao)&&x.nome?'nº '+x.nome:null].filter(Boolean).join(' · '):'';
+  const lin=(k,v,navId)=>'<div class="fa-lin"><small>'+k+'</small>'+(v?(navId?'<button class="fa-nav" onclick="ativoDetNavegar(\''+ativoDetIdLimpo(navId)+'\')">'+cadEsc(v)+' ›</button>':'<b>'+cadEsc(v)+'</b>'):'<span class="vazio">não informado</span>')+'</div>';
+  h+='<div class="fa-quad"><div class="fa-card fa-bloco"><span class="fa-lab">Onde</span><div class="fa-pilha">'
+    +lin('Local',d.local)
+    +lin('Sistema',d.sistema?[d.sistema.tipo,nm(d.sistema)].filter(Boolean).join(' · '):'',d.sistema&&d.sistema.id)
+    +(d.dentroDe?lin('Dentro de',[d.dentroDe.tipo,nm(d.dentroDe)].filter(Boolean).join(' · '),d.dentroDe.id):'')
+    +'</div></div>';
+  const L=(tom,txt,sub,on)=>(on?'<button class="fa-l" onclick="'+on+'">':'<div class="fa-l">')+'<span class="fa-d '+tom+'"></span><span>'+txt+'</span>'+(sub?'<small>'+sub+'</small>':'')+(on?'</button>':'</div>');
+  let como='';
+  if(!R||!P) como+=L('ne','Pendências','não consultado','ativoDetPendencias()');
+  else if(P.abertas>0) como+=L(P.criticas?'er':'at',ativoDetPlural(P.abertas,'pendência aberta','pendências abertas'),P.criticas?ativoDetPlural(P.criticas,'crítica','críticas'):(P.maisAntigaDias!=null?'a mais antiga há '+ativoDetPlural(P.maisAntigaDias,'dia','dias'):''),'ativoDetPendencias()');
+  else como+=L('ne','Nenhuma pendência aberta','','ativoDetPendencias()');
+  { const ETAPA_SUB={'Impressa':'falta ler o QR e gravar o chip','Chip gravado':'falta conferir e a foto','Foto':'falta conferir','Conferida':'falta a foto da etiqueta colada'};
+    const onE=cad?'ativoDetEtiqueta()':null;
+    if(est==='ok'){ const e=etAtiva||{}; const pronta=e.etapa==='Conferida'&&e.temFoto;
+      como+=L(pronta?'ok':'at','Etiqueta ativa'+(e.versao!=null?' · v'+cadEsc(e.versao):''),pronta?(e.conferidaEm?'NFC conferido '+ativoDetFmtData(e.conferidaEm):'conferida'):(e.etapa?cadEsc(ETAPA_SUB[e.etapa]||e.etapa):'sem o passo a passo'),onE); }
+    else if(est==='sem') como+=L('er','Sem etiqueta','fluxo não iniciado',onE);
+    else if(est==='sem_nfc') como+=L('at','Etiqueta impressa, sem chip','falta gravar o NFC',onE);
+    else como+=L('at','Chip gravado, sem etiqueta impressa','falta imprimir',onE); }
+  if(incompleto) como+=L('at','Cadastro incompleto',total!=null?respondidos+' de '+total+' campos':'sem respostas',cad?'ativoDetEditar()':null);
+  if(R&&R.ultimaPreventiva){ const u=R.ultimaPreventiva, dd=ativoDetDias(u.data);
+    como+=L('in',dd!=null?'Preventiva há '+ativoDetPlural(dd,'dia','dias'):'Preventiva feita',[ativoDetFmtData(u.data),u.ot].filter(Boolean).map(cadEsc).join(' · '),cad?'ativoDetSecaoAbrir(\'hist\')':null); }
+  else if(C.preventivas===0) como+=L('ne','Nenhuma preventiva','',cad?'ativoDetSecaoAbrir(\'hist\')':null);
+  else como+=L('ne','Preventivas','não consultado',cad?'ativoDetSecaoAbrir(\'hist\')':null);
+  if(g.criticidade){ const c=String(g.criticidade).toUpperCase(); como+=L(c==='A'?'er':c==='B'?'at':'in','Criticidade '+cadEsc(g.criticidade),c==='A'?'parada crítica':'',cad?'ativoDetEditar()':null); }
+  else como+=L('ne','Criticidade não informada','',cad?'ativoDetEditar()':null);
+  if(d.conferenciaPlaqueta){ const cp=d.conferenciaPlaqueta;
+    como+=L(/confere com/i.test(cp)?'ok':/n[aã]o vis/i.test(cp)?'at':'er',/confere com/i.test(cp)?'Motor confere':/n[aã]o vis/i.test(cp)?'Plaqueta do motor não vista':'Motor diferente da fábrica',cadEsc(d.motivoDivergencia||(d.conferidoEm?'plaqueta '+ativoDetFmtData(d.conferidoEm):'')),'ativoDetSecaoAbrir(\'motor\')'); }
+  h+='<div class="fa-card fa-bloco"><span class="fa-lab">Como está</span><div class="fa-como">'+como+'</div></div></div>';
+  /* (3) O que fazer — só o que o papel pode; o resto fica no menu "⋯" (ativoDetMenu) */
+  const B=(txt,on,cls,extra)=>'<button class="fa-btn'+(cls?' '+cls:'')+'" onclick="'+on+'">'+txt+(extra||'')+'</button>';
+  let fazer='';
+  if(cad) fazer+=B(incompleto?'✎ Completar cadastro':'✎ Editar cadastro','ativoDetEditar()','pri');
+  fazer+=B('📋 Ver pendências','ativoDetPendencias()','',P&&P.abertas?'<span class="fa-n fa-pil erro mini">'+P.abertas+'</span>':'');
+  fazer+=B('⚠️ Registrar problema','ativoDetProblema()','terco');
+  if(cad){
+    if(est==='ok'){ if(nfc&&etAtiva) fazer+=B('📶 Testar etiqueta','ativoDetTestar()','terco'); fazer+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco'); }
+    else fazer+=B('🏷 '+(est==='sem'?'Iniciar etiqueta':'Continuar etiqueta'),'ativoDetEtiqueta()','terco');
+    if(C.fotos===0) fazer+=B('📷 Adicionar foto','ativoDetFotoNova()','terco');
+  }
+  h+='<div class="fa-card fa-bloco" style="margin-top:10px"><span class="fa-lab">O que fazer</span><div class="fa-fazer">'+fazer+'</div></div>';
+  h+='<div id="ativoDetAcaoBox">'+(guard.ativoDetAcaoBox||'')+'</div>';
+  /* (4) seções recolhidas, com resumo no título */
+  const H=(k,tit,sub,corpo,extra)=>'<button class="fa-h'+(ativoDetAberto[k]?' on':'')+'" onclick="ativoDetSecao(\''+k+'\')"><span class="fa-chev">›</span><span>'+tit+'</span>'+(extra||'')+'<span class="fa-s">'+sub+'</span></button>'
+    +(ativoDetAberto[k]?'<div class="fa-b" id="ativoDetSec_'+k+'">'+corpo+'</div>':'');
+  /* Dados técnicos: respostas por seção em 2 colunas, valor com mais peso que o rótulo; vazios agrupados no fim */
+  let dados='';
+  { const por={}; preenchidas.forEach(r=>{ const sx=r.sessao||'Outros'; (por[sx]=por[sx]||[]).push(r); });
+    const valor=r=>{ const v=val(r);
+      if(r.tipo==='Multi-Picklist'||v.indexOf(';')>=0) return v.split(';').map(x=>x.trim()).filter(Boolean).map(cadEsc).join('<br>');
+      if(r.valorFabricante!=null&&String(r.valorFabricante)!==v) return cadEsc(v)+'<small>de fábrica: '+cadEsc(r.valorFabricante)+'</small>';
+      return cadEsc(v); };
+    const kv=(k,v)=>'<div class="fa-kv"><span class="fa-k">'+cadEsc(k)+'</span><span class="fa-v">'+v+'</span></div>';
+    let tab='';
+    Object.keys(por).forEach(sx=>{ tab+='<div class="fa-grupo">'+cadEsc(sx)+'</div>'+por[sx].map(r=>kv(r.campo||'',valor(r))).join(''); });
+    const ger=[['Criticidade',g.criticidade],['Ano de fabricação',g.ano],['Plaqueta',g.plaqueta],['Acesso',g.acesso]], gerOk=ger.filter(x=>x[1]!=null&&x[1]!==''), gerNao=ger.filter(x=>x[1]==null||x[1]==='');
+    if(gerOk.length) tab+='<div class="fa-grupo">Dados gerais</div>'+gerOk.map(x=>kv(x[0],cadEsc(x[1]))).join('');
+    dados+=tab?'<div class="fa-tab2">'+tab+'</div>':'<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
+    const nomesVazios=vazias.map(r=>r.campo||'').filter(Boolean);
+    if(faltam>0||nomesVazios.length){ const extra=faltam-nomesVazios.length;
+      dados+='<div class="fa-vazios"><b>Não informado ('+Math.max(faltam,nomesVazios.length)+'):</b> '+(nomesVazios.map(cadEsc).join(' · ')||'')+(extra>0?(nomesVazios.length?' · ':'')+'mais '+ativoDetPlural(extra,'pergunta da ficha sem resposta','perguntas da ficha sem resposta'):'')
+        +(cad?' <button class="fa-nav" style="display:inline-flex;min-height:36px;color:#0176D3;text-decoration-color:#0176D3" onclick="ativoDetEditar()">Completar cadastro ›</button>':'')+'</div>'; }
+    if(gerNao.length) dados+='<div class="fa-vazios" style="border-top:none;padding-top:2px"><b>Dados gerais:</b> '+(gerOk.length?'não informado':'nada informado')+' ('+gerNao.map(x=>x[0]).join(' · ')+')</div>'; }
+  const subDados=total!=null?(incompleto?respondidos+' de '+total+' campos':total+' campos'+(faltam?' · '+faltam+' não informados':'')):preenchidas.length+' campos'+(vazias.length?' · '+vazias.length+' não informados':'');
+  /* Componentes (filhos): navegáveis, com estado da etiqueta */
+  let comp='', subComp='—';
+  if(F===null||F===undefined) comp='<div style="font-size:13px;color:#686868;padding:10px 0">'+(ativoDetAberto.comp&&d._filhosErro?cadEsc(d._filhosErro):'Buscando componentes…')+'</div>';
+  else if(!F.length){ subComp='nenhum'; comp='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhum componente cadastrado dentro deste equipamento.</div>'; }
+  else { subComp=F.map(x=>x.apelido||x.nome||'').filter(Boolean).join(' · ');
+    const P2={ok:['sucesso','etiqueta'],sem:['erro','sem etiqueta'],sem_nfc:['atencao','sem NFC'],sem_impressao:['atencao','sem impressão']};
+    comp='<div class="fa-lista">'+F.map(x=>'<button class="fa-r" onclick="ativoDetNavegar(\''+ativoDetIdLimpo(x.id)+'\')"><span style="min-width:0"><b>'+cadEsc(x.apelido||x.nome||'')+'</b><span class="fa-sub">'+cadEsc([x.tipo,x.apelido&&x.nome?'nº '+x.nome:null,x.descricao].filter(Boolean).join(' · '))+'</span></span><span class="fa-dir">'+(x.etiquetaEstado&&P2[x.etiquetaEstado]?pil(P2[x.etiquetaEstado][0],P2[x.etiquetaEstado][1],true):'')+'<span class="fa-chev">›</span></span></button>').join('')+'</div>'; }
+  /* Fotos: a galeria da TAG (etqAcaoFotos, com exclusão/marca d'água) desenha dentro da seção */
+  const subFotos=C.fotos!=null?(C.fotos?C.fotos+' de 10':'nenhuma'):'—';
+  const tira='<span class="fa-tira" id="ativoDetTira">'+(d._fotos||[]).slice(0,3).map(f=>'<img alt="" data-etqfoto="'+cadEsc(f.driveId)+'"'+(f._src?' src="'+f._src+'"':'')+'>').join('')+'</span>';
+  /* Etiqueta: versão, etapas x de 5, NFC conferido */
+  let etq='', subEtq='';
+  { const e=etAtiva||ets.find(x=>x.etapa==='Impressa'&&x.etapa!=='Cancelada')||null;
+    const etapas=!e?0:e.ativa?(e.etapa==='Conferida'?(e.temFoto?5:4):e.etapa==='Chip gravado'?3:e.etapa==='Foto'?4:e.etapa==='Impressa'?1:3):1;
+    subEtq=est==='sem'?'não iniciada':est==='sem_nfc'?'impressa · 1 de 5 etapas':est==='sem_impressao'?'chip gravado · sem impressão':('v'+cadEsc(e&&e.versao!=null?e.versao:'')+' · ativa · '+etapas+' de 5 etapas');
+    const kv=(k,v)=>v?'<div class="fa-kv"><span class="fa-k">'+k+'</span><span class="fa-v" style="word-break:break-all">'+v+'</span></div>':'';
+    if(!e) etq='<div style="font-size:13px;color:#686868;padding:10px 0">Nenhuma etiqueta impressa nem chip gravado para este equipamento.</div>';
+    else etq=kv('Estado',est==='ok'?'Ativa':est==='sem_nfc'?'Impressa, sem chip':'Chip gravado sem etiqueta impressa')+kv('Versão',e.versao!=null?'v'+cadEsc(e.versao):'')+kv('Etapas',etapas+' de 5'+(e.etapa?' · '+cadEsc(e.etapa):''))
+      +kv('NFC conferido',e.conferidaEm?ativoDetFmtData(e.conferidaEm,true):'')+kv('Chip gravado',e.chipGravadoEm?ativoDetFmtData(e.chipGravadoEm,true):'')+kv('Nº do chip',e.uid?cadEsc(String(e.uid).match(/.{1,2}/g).join(':')):'')
+      +kv('Endereço',e.token&&typeof PORTAL_BASE!=='undefined'?cadEsc(PORTAL_BASE+'/a/'+e.token):'');
+    if(cad){ etq+='<div class="fa-fazer" style="margin-top:10px">';
+      if(est==='ok'){ etq+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco'); if(nfc) etq+=B('📶 Testar etiqueta','ativoDetTestar()','terco'); etq+=B('🏷 Fazer uma etiqueta nova','ativoDetEtiqueta(\'nova\')','terco'); }
+      else etq+=B('🏷 '+(est==='sem'?'Iniciar etiqueta':'Continuar etiqueta'),'ativoDetEtiqueta()','terco');
+      etq+='</div>'; } }
+  /* Histórico: contagens no título; o histórico existente (etqAcaoHistorico) desenha dentro da seção */
+  const subHist=C.preventivas!=null?[ativoDetPlural(C.preventivas,'preventiva','preventivas'),C.chamados!=null?ativoDetPlural(C.chamados,'chamado','chamados'):null,C.anotacoes!=null?ativoDetPlural(C.anotacoes,'anotação','anotações'):null].filter(Boolean).join(' · '):'—';
+  h+='<div class="fa-card fa-acc">'
+    +H('dados','Dados técnicos',subDados,dados)
+    +H('comp','Componentes',subComp,comp)
+    +(cad?H('fotos','Fotos',subFotos,guard.ativoDetSec_fotos||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando as fotos…</div>',tira):'')
+    +H('etq','Etiqueta',subEtq,etq)
+    +(cad?H('hist','Histórico',subHist,guard.ativoDetSec_hist||'<div style="font-size:13px;color:#3E7EB0;padding:10px 0"><span class="ld-spin"></span> Buscando o histórico…</div>'):'');
+  if(d.conferenciaPlaqueta||d.linkFabricante){
+    const kv=(k,v)=>v?'<div class="fa-kv"><span class="fa-k">'+k+'</span><span class="fa-v">'+v+'</span></div>':'';
+    h+=H('motor','Conferência do motor',cadEsc(d.conferenciaPlaqueta||'não conferido'),
+      kv('Resultado',cadEsc(d.conferenciaPlaqueta||'Não conferido'))+kv('Motivo',cadEsc(d.motivoDivergencia||''))+kv('Conferido em',ativoDetFmtData(d.conferidoEm,true))
+      +kv('Ficha do fabricante',d.linkFabricante?'<a href="'+cadEsc(d.linkFabricante)+'" target="_blank" rel="noopener" style="color:#0176D3">abrir no site do fabricante ↗</a>':'')); }
+  h+='</div>';
+  body.innerHTML=h;
+}
+/* abre/fecha uma seção; Fotos e Histórico buscam o conteúdo ao abrir (mesmas funções da TAG, desenhando na seção) */
+function ativoDetSecao(k){
+  const d=ativoDetSt; if(!d) return;
+  ativoDetAberto[k]=!ativoDetAberto[k];
+  ativoDetPintar(true);
+  if(!ativoDetAberto[k]) return;
+  const id=ativoDetIdLimpo(d.id);
+  if(k==='fotos'){ etqAcaoAlvo='ativoDetSec_fotos'; etqAcaoFotos(id); }
+  else if(k==='hist'){ etqAcaoAlvo='ativoDetSec_hist'; etqAcaoHistorico(id); }
+  else if(k==='comp'&&!(d.resumo&&d.resumo.filhos)){ /* servidor antigo (sem resumo): busca os filhos como a lista do cadastro */
+    const seq=ativoDetSeq;
+    beGet('/ativos?paiId='+id+'&comEtiqueta=1').then(l=>{ if(seq!==ativoDetSeq||ativoDetSt!==d) return; d.resumo=d.resumo||{}; d.resumo.filhos=(l||[]).map(x=>({id:x.id,nome:x.nome,apelido:x.apelido||null,tipo:x.tipo||null,descricao:x.descricao||null,etiquetaEstado:x.etiquetaEstado||null})); ativoDetPintar(true); })
+      .catch(e=>{ if(seq!==ativoDetSeq||ativoDetSt!==d) return; d._filhosErro='Não consegui buscar os componentes: '+e.message; ativoDetPintar(true); }); }
+}
+function ativoDetSecaoAbrir(k){ if(!ativoDetSt) return; if(!ativoDetAberto[k]) ativoDetSecao(k); const el=document.getElementById('ativoDetSec_'+k); if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+/* miniaturas na linha "Fotos" (até 3): uma chamada à galeria + as imagens pelo proxy autenticado; qualquer falha deixa a linha só com a contagem */
+async function ativoDetMiniaturas(d,seq){
+  const C=(d.resumo&&d.resumo.contadores)||{}; if(C.fotos===0||!ativoDetPodeCad()) return;
+  try{
+    const l=(await beGet('/ativos/'+ativoDetIdLimpo(d.id)+'/fotos'))||[];
+    if(seq!==ativoDetSeq||ativoDetSt!==d) return;
+    d._fotos=l.slice(0,3);
+    if(C.fotos==null){ d.resumo=d.resumo||{}; d.resumo.contadores=Object.assign({},C,{fotos:l.length}); } /* servidor antigo: a contagem vem da galeria */
+    for(const f of d._fotos){ try{ f._src=await etqFotoBlobUrl(f.driveId); }catch(e){} if(seq!==ativoDetSeq||ativoDetSt!==d) return; }
+    ativoDetPintar(true);
+  }catch(e){ /* a linha fica só com a contagem */ }
+}
+/* ---- navegação entre fichas (sistema, dentro de, componente) ---- */
+function ativoDetNavegar(id){
+  const d=ativoDetSt; if(!d||!id) return;
+  ativoDetPilha.push({id:ativoDetIdLimpo(d.id),titulo:d.apelido||d.nome||''});
+  navAbriu('ficha-nav',()=>ativoDetVoltar(true)); /* Voltar do Android volta para a ficha anterior, não fecha tudo */
+  verAtivo(id);
+}
+function ativoDetVoltar(doHistorico){
+  if(!ativoDetPilha.length){ closeAtivoDet(); return; }
+  if(!doHistorico) navFechou('ficha-nav');
+  const p=ativoDetPilha.pop(); verAtivo(p.id);
+}
+function closeAtivoDet(){
+  const md=document.getElementById('ativoDetModal'); if(md) md.classList.remove('show');
+  navFechou('ficha');
+  if(typeof navPilha!=='undefined'){ while(navPilha.some(x=>x.nome==='ficha-nav')) navFechou('ficha-nav'); }
+  ativoDetPilha=[]; etqAcaoAlvo=null; ativoDetMenu(false);
+}
+/* ---- ações (as mesmas funções de antes) ---- */
+function ativoDetProblema(){ const d=ativoDetSt; if(!d) return; etqAcaoAlvo='ativoDetAcaoBox'; etqAcaoProblema(ativoDetIdLimpo(d.id),d.tipo||''); const b=document.getElementById('ativoDetAcaoBox'); if(b&&b.scrollIntoView) b.scrollIntoView({behavior:'smooth',block:'start'}); }
+/* registrou pela ficha: sobe a contagem de "Como está" sem nova consulta */
+function ativoDetPendenciaNova(ativoId,sev){ const d=ativoDetSt; if(!d||ativoDetIdLimpo(d.id)!==ativoDetIdLimpo(ativoId)) return; d.resumo=d.resumo||{}; const P=d.resumo.pendencias=d.resumo.pendencias||{abertas:0,criticas:0,maisAntigaDias:null}; P.abertas=(P.abertas||0)+1; if(sev==='Crítico') P.criticas=(P.criticas||0)+1; if(P.maisAntigaDias==null) P.maisAntigaDias=0; const C=d.resumo.contadores=d.resumo.contadores||{}; if(C.anotacoes!=null) C.anotacoes++; ativoDetPintar(true); }
+/* Ver pendências: a lista completa da TAG (#etqPndCheia) por cima da ficha, com os mesmos chips/filtros. Se a ficha está por
+   cima do resultado da TAG do mesmo equipamento, reaproveita a lista já carregada; senão carrega. */
+async function ativoDetPendencias(){
+  const d=ativoDetSt; if(!d) return; const id=ativoDetIdLimpo(d.id);
+  const sobe=()=>{ const v=document.getElementById('etqPndCheia'); if(v) v.style.zIndex='100017'; /* acima da ficha (100015) */ };
+  if(typeof etqPnd!=='undefined'&&etqPnd&&etqPnd.ativoId===id&&etqPnd.lista){ etqPndCheia(true); sobe(); return; }
+  if(typeof etqPnd!=='undefined'&&etqPnd&&etqPnd.ativoId!==id&&document.getElementById('etqModal')){ /* a TAG embaixo é de OUTRO equipamento: não mexe no estado dela */
+    if(ativoDetPodePlano()){ closeAtivoDet(); etqIrPlanoPendencias(id); } else toast('Leia a etiqueta deste equipamento para ver as pendências.'); return; }
+  if(navigator.onLine===false){ toast('📴 Sem sinal: as pendências precisam de internet.'); return; }
+  etqPnd=etqPndNovo(id); etqPnd.titulo=d.apelido||d.nome||''; etqPnd.nome=d.nome||''; etqPnd.conta=d.conta||''; etqPnd.tipo=d.tipo||'';
+  const p=etqPnd;
+  try{ const r=await beGet('/pendencias/equipamento/'+id); if(etqPnd!==p) return; p.lista=(r&&r.pendencias)||[]; p.erro=null; etqPndCheia(true); sobe(); }
+  catch(e){ if(etqPnd===p) toast('Não consegui buscar as pendências: '+e.message); }
+}
+function ativoDetTestar(){ const d=ativoDetSt; if(!d) return; const id=ativoDetIdLimpo(d.id); closeAtivoDet(); etqTestar(id); } /* como antes: a ficha fecha, o leitor abre */
+/* fluxo da etiqueta: modo '' = retomar de onde parou · 'imprimir' = etapa 1 com a etiqueta que já existe · 'nova' = etiqueta nova.
+   Com o cadastro já aberto neste equipamento (tela de sucesso), abre direto; senão passa pelo cadastro (etqResolverEtiquetaAtivo). */
+function ativoDetEtiqueta(modo){
+  const d=ativoDetSt; if(!d) return; modo=modo||''; const est=etqEstadoDe(d.etiquetas);
+  if(typeof cadSt!=='undefined'&&cadSt&&cadSt.ativoId===d.id&&cadSt.step==='done'&&typeof etfAbrir==='function'){ closeAtivoDet(); etfAbrir(modo==='nova',modo==='imprimir'?1:null); return; }
+  etqResolverEtiquetaAtivo(d.id,modo==='imprimir'?'sem_impressao':modo==='nova'?'nova':est);
+}
+function ativoDetFotoNova(){ const d=ativoDetSt; if(!d) return; if(!ativoDetAberto.fotos){ ativoDetAberto.fotos=true; ativoDetPintar(true); } etqAcaoAlvo='ativoDetSec_fotos'; etqAcaoFoto(ativoDetIdLimpo(d.id)); }
+/* menu "⋯": tudo o que a tela sabe fazer, inclusive o que não coube em "O que fazer" */
+function ativoDetMenu(abrir){
+  const box=document.getElementById('ativoDetMenuBox'); if(!box) return;
+  if(abrir===false||(abrir===undefined&&box.style.display!=='none')){ box.style.display='none'; return; }
+  const d=ativoDetSt; if(!d) return;
+  const cad=ativoDetPodeCad(), est=etqEstadoDe(d.etiquetas), etAtiva=(d.etiquetas||[]).find(e=>e.ativa), nfc=typeof estoqNfcSuportado==='function'&&estoqNfcSuportado();
+  const it=(ic,txt,on)=>'<button onclick="ativoDetMenu(false);'+on+'"><span style="width:24px;text-align:center">'+ic+'</span>'+txt+'</button>';
+  let h='';
+  if(cad) h+=it('✎','Editar cadastro','ativoDetEditar()');
+  h+=it('📋','Ver pendências','ativoDetPendencias()')+it('⚠️','Registrar problema','ativoDetProblema()');
+  if(cad){ h+=it('📷','Fotos do equipamento','ativoDetSecaoAbrir(\'fotos\')')+it('📷','Adicionar foto','ativoDetFotoNova()')+it('🕘','Histórico','ativoDetSecaoAbrir(\'hist\')');
+    if(etAtiva&&nfc) h+=it('📶','Testar etiqueta','ativoDetTestar()');
+    if(est==='ok'||est==='sem_impressao') h+=it('🖨','Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')');
+    if(est!=='ok') h+=it('🏷',est==='sem'?'Iniciar etiqueta':'Continuar etiqueta','ativoDetEtiqueta()');
+    else h+=it('🏷','Fazer uma etiqueta nova','ativoDetEtiqueta(\'nova\')'); }
+  if(d.linkFabricante) h+=it('🔗','Ficha do fabricante','window.open(\''+cadEsc(d.linkFabricante).replace(/'/g,'')+'\',\'_blank\')');
+  if(typeof PORTAL_ATIVO!=='undefined'&&PORTAL_ATIVO&&etAtiva&&etAtiva.token&&typeof PORTAL_BASE!=='undefined') h+=it('👁️','Abrir no portal (pede o login do cliente)','window.open(\''+PORTAL_BASE+'/a/'+etAtiva.token+'\',\'_blank\')');
+  h+=it('×','Fechar a ficha','closeAtivoDet()');
+  box.innerHTML=h; box.style.display='block';
+}
+/* A ficha de 12/10 (nº grande + pílulas + ficha inteira) foi substituída acima em 13/10/2026; o desenho antigo fica no
+   histórico do git (commit anterior a esta data) e no comparativo prototipos/mockup-ficha-ativo_13-10-2026.html. */
 /* reabre o wizard direto na Ficha (pula conta/sistema/equipamento, já resolvidos) pré-preenchida com
    as respostas existentes — upsert por (Ativo,Campo) em POST /respostas já suporta editar no lugar.
    Limitação conhecida: campos tipo Foto não trazem preview da foto já salva (mapResposta não devolve
