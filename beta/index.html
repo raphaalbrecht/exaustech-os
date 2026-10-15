@@ -1842,7 +1842,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=58;
+const APP_NUM=59;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15318,6 +15318,8 @@ function etqRender(st){
     h+='<div style="text-align:center;padding:22px 6px;font-size:14px;color:#3E7EB0">Conferindo a etiqueta…</div>';
   } else if(st.fase==='resultado'){
     if(st.ativo&&st.ativo.id&&!st.errado&&typeof tagHistAdd==='function') try{ tagHistAdd(st); }catch(_){} /* 13/10/2026: últimos 5 consultados na home do Consultar TAG */
+    /* 14/10/2026 — toda leitura fica gravada (uma vez por leitura: o mesmo st pode ser redesenhado) */
+    if(st.ativo&&st.ativo.id&&!st._gravada&&typeof leituraTagGravar==='function'){ st._gravada=true; try{ leituraTagGravar(st,'Consulta'); }catch(_){} }
     /* 11/10/2026 — layout A "Veredito primeiro" (prototipos/tag-resultado-A.html, escolhido pelo Raphael). A tela estava
        na ordem em que o sistema CONFERE (checagens, URL) e não na ordem em que o técnico LÊ: "posso usar?" e "de qual
        equipamento é?". Agora: 1) faixa de veredito em uma palavra + o que fazer; 2) equipamento em letra grande;
@@ -16846,6 +16848,29 @@ document.addEventListener('DOMContentLoaded',()=>{ let n=0; const iv=setInterval
    servidor (isso é outra entrega, "registrar toda leitura de TAG"). */
 const TAG_HIST_CHAVE='tag_hist_v1', TAG_HIST_MAX=5;
 function tagHistLer(){ try{ const v=JSON.parse(localStorage.getItem(TAG_HIST_CHAVE)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+/* ===== Toda leitura de TAG gravada (14/10/2026) — DECISAO_leitura-da-tag-por-contexto-ronda-e-ot_14-10-2026.md =====
+   Decisão de 12/10 ("toda leitura fica gravada — prova de ronda") e Raphael, 14/10: "com GPS". Grava quem/quando/equipamento/
+   etiqueta/NFC-QR-código/contexto e o GPS do tablet. Não trava nada: roda depois de a tela já mostrar o resultado; o GPS tem
+   4 s para responder (senão grava sem); sem internet vai para a fila offline (bePost com rótulo) e a hora é a do tablet. */
+function leituraTagGps(){
+  return new Promise(res=>{
+    if(!navigator.geolocation) return res(null);
+    let feito=false; const fim=v=>{ if(!feito){ feito=true; res(v); } };
+    setTimeout(()=>fim(null),4000);
+    try{ navigator.geolocation.getCurrentPosition(p=>fim({lat:p.coords.latitude,lng:p.coords.longitude,precisao:p.coords.accuracy}),()=>fim(null),{enableHighAccuracy:true,timeout:4000,maximumAge:60000}); }
+    catch(e){ fim(null); }
+  });
+}
+async function leituraTagGravar(st,contexto,otId){
+  const a=st&&st.ativo; if(!a||!a.id) return null;
+  const body={ativoId:String(a.id).replace(/[^A-Za-z0-9]/g,''),metodo:st.uid?'NFC':(st.porCodigo?'Código':'QR'),contexto:contexto||'Consulta',
+    resultado:st.errado?'Equipamento errado':((st.ver&&st.ver.t1)||''),em:new Date().toISOString()};
+  if(st.token) body.token=st.token;
+  if(otId) body.otId=otId;
+  const g=await leituraTagGps(); if(g){ body.lat=g.lat; body.lng=g.lng; body.precisao=g.precisao; }
+  try{ return await bePost('/leituras-tag',body,'Leitura de TAG'); }
+  catch(e){ return null; } /* servidor sem o objeto (503) ou outro erro: a leitura na tela segue normal */
+}
 function tagHistAdd(st){
   const a=st.ativo; if(!a||!a.id) return;
   const via=st.uid?'NFC':(st.porCodigo?'Código':'QR');
