@@ -1881,7 +1881,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=63;
+const APP_NUM=64;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -16435,7 +16435,7 @@ function etqAcaoProblema(ativoId,tipo){
   const s=document.getElementById('etqPndSecao'); if(s&&s.scrollIntoView) s.scrollIntoView({behavior:'smooth',block:'start'});
   const t=document.getElementById('etqProbTxt'); if(t) try{ t.focus(); }catch(_){}
 }
-function etqProbCancelar(){ etqProb=null; etqProbMsg=''; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); etqAcaoBox(''); }
+function etqProbCancelar(){ if(etqProb&&etqProb.motor&&typeof motAchadoFechar==='function'){ motAchadoFechar(); return; } /* 15/10/2026 */ etqProb=null; etqProbMsg=''; etqRodape(true); if(typeof etqPndPintar==='function') etqPndPintar(); etqAcaoBox(''); }
 /* 12/10/2026 — Raphael: "na tela de registrar problema, tirar o 'Ver como o cliente vê' da parte inferior". Enquanto o
    formulário está aberto, o rodapé do resultado (prévia do cliente e link do portal) some; volta ao cancelar ou registrar. */
 function etqRodape(mostrar){ document.querySelectorAll('#etqCorpo .etq-rodape').forEach(el=>{ el.style.display=mostrar?'':'none'; }); }
@@ -16759,7 +16759,7 @@ function etqPpFormHtml(msg){
         +'<textarea id="etqPpCom_'+b.k+'" rows="2" placeholder="ex.: peça difícil de achar" style="width:100%;box-sizing:border-box;border:1px solid #C9D0D8;border-radius:10px;padding:10px;font-size:15px;margin-top:4px;font-family:inherit">'+cadEsc(b.com||'')+'</textarea>';
       const outro=p.itens.some(x=>x.k!==b.k&&!x.feita&&etqPpFalta(x));
       h+='<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap">'
-        +'<button type="button" class="etq-pp-tirar" onclick="etqPpTirar('+b.k+')" style="min-height:44px;padding:0 4px;background:none;border:none;color:#BA0517;font-weight:700;font-size:13.5px;font-family:inherit;text-decoration:underline">Tirar este problema</button>'
+        +(p.motor?'<span></span>':'<button type="button" class="etq-pp-tirar" onclick="etqPpTirar('+b.k+')" style="min-height:44px;padding:0 4px;background:none;border:none;color:#BA0517;font-weight:700;font-size:13.5px;font-family:inherit;text-decoration:underline">Tirar este problema</button>')
         +(!falta?'<button type="button" class="etq-pp-prox" onclick="etqPpProximo('+b.k+')" style="min-height:44px;padding:0 14px;background:#EAF6F0;border:1px solid #BFE3CC;border-radius:10px;color:#1B7A3D;font-weight:800;font-size:14px;font-family:inherit">✓ Pronto'+(outro?' — próximo problema ›':'')+'</button>':'')
         +'</div></div>';
     }
@@ -16786,7 +16786,8 @@ async function etqPpEnviar(){
     /* uma por vez e na ordem: se a 3ª falhar, as 2 primeiras ficam "✓ Gravada" e não se repetem ao tentar de novo */
     for(const b of pend){
       const fotos=b.fotos.filter(f=>f.id&&f.id!=='enviando').map(f=>({driveId:f.id,url:f.url||undefined}));
-      const rr=await bePost('/pendencias',{ativoId:p.ativoId,descricao:etqPpDescricao(b),severidade:b.sev,dano:b.dano||undefined,fotos,
+      const rr=await bePost(p.motor?('/motor/execucao/itens/'+p.motor.itemId+'/achado'):'/pendencias',{ativoId:p.ativoId,descricao:etqPpDescricao(b),severidade:b.sev,dano:b.dano||undefined,fotos,
+        passoItemId:p.motor?p.motor.passoId:undefined,pedeCorretiva:p.motor?!!p.motor.corretiva:undefined, /* 15/10/2026: achado da OT (Aceitar) */
         fotoDriveId:fotos[0].driveId,fotoUrl:fotos[0].url, /* servidor antigo (antes de 14/10) só lê estes dois */
         videoDriveId:(b.video&&b.video!=='enviando')?b.video:undefined,videoUrl:b.videoUrl||undefined,comentario:String(b.com||'').trim()||undefined});
       b.feita=true; b.r=rr; feitasAgora.push(b);
@@ -16809,6 +16810,7 @@ function etqPpNaLista(p,blocos){
   etqPnd.lista=novas.reverse().concat(etqPnd.lista||[]); etqPnd.erro=null;
 }
 function etqPpConcluir(p,blocos){
+  if(p.motor&&typeof motAchadoFeito==='function'){ motAchadoFeito(p,blocos); return; } /* 15/10/2026: registro aberto pelo Aceitar da OT */
   const r=blocos.length?blocos[blocos.length-1].r:null, n=blocos.length;
   const naSecao=typeof etqPnd!=='undefined'&&etqPnd&&etqPnd.ativoId===p.ativoId;
   if(naSecao) etqPpNaLista(p,blocos); /* antes de zerar etqProb */
@@ -20648,6 +20650,43 @@ function motFallbackRowHtml(p){
 const MOT_SEV_DA_GRAVIDADE={ 'Leve':{sev:'Observação',corretiva:false},
   'Média':{sev:'Atenção',corretiva:false}, 'Grave':{sev:'Atenção',corretiva:true},
   'Crítica':{sev:'Crítico',corretiva:true} };
+/* ===== "Aceitar" a Anotação Técnica sugerida abre o registro na hora (15/10/2026) — DECISAO_aceitar-anotacao-sugerida-abre-registro_15-10-2026.md =====
+   Raphael: "mesmo clicando em Aceitar, não abre a página para criar a pendência. Não deveria abrir imediatamente?" → "Abrir na hora".
+   Antes, Aceitar só marcava; a anotação nascia no Desfecho e SUMIA se a tarefa fosse concluída como OK. Agora abre o formulário
+   do Registrar problema (um bloco, texto e gravidade da sugestão já preenchidos, foto obrigatória) numa folha por cima da tarefa;
+   gravar cria a pendência ligada ao item, à pergunta e ao equipamento (POST /motor/execucao/itens/:id/achado) e o checklist segue.
+   Cancelar devolve a sugestão para Aceitar/Dispensar. Chave: MOT_ACEITAR_ABRE_REGISTRO=false → comportamento de 16/09. */
+const MOT_ACEITAR_ABRE_REGISTRO=true;
+function motAchadoAbrir(t,p){
+  const prev=(typeof etqAcaoAlvo==='string')?etqAcaoAlvo:null;
+  let ov=document.getElementById('motAchOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='motAchOv'; ov.className='es-ov';
+  ov.innerHTML='<div class="es-sh"><div class="es-tit">Registrar problema</div><div class="es-sub">'+motEsc(p.descricao||'')+' · '+motEsc(t.ativoNome||'')+'</div><div id="motAchBox"></div></div>';
+  document.body.appendChild(ov);
+  etqAcaoAlvo='motAchBox';
+  const sd=motSevDoAchado(p);
+  etqProb=etqPpNovo(String(t.ativoId||'').replace(/[^A-Za-z0-9]/g,''),'');
+  etqProb.grupo=null; etqProb.itens=[]; etqProb.seq=0;
+  const b=etqPpAdd(etqProb,null); b.txt=motSugTexto(p); b.sev=sd.sev; b.sevSug=sd.sev;
+  etqProb.motor={itemId:t.id,passoId:p.id,corretiva:!!sd.corretiva,t,p,prevAlvo:prev};
+  etqProbRender();
+}
+function motAchadoFechar(){
+  const m=etqProb&&etqProb.motor; etqProb=null; etqProbMsg='';
+  const ov=document.getElementById('motAchOv'); if(ov) ov.remove();
+  etqAcaoAlvo=m?m.prevAlvo:null;
+}
+function motAchadoFeito(p,blocos){
+  const m=p.motor, r=blocos&&blocos[0]&&blocos[0].r;
+  m.p._dec='aceita'; m.p._registrada=true; m.p._registradaNome=(r&&r.nome)||null;
+  m.t._achadosRegistrados=(m.t._achadosRegistrados||0)+1;
+  const box=document.getElementById('motAchBox');
+  if(box) box.innerHTML='<div style="background:#EAF6F0;border:1px solid #BFE3CC;color:#1B7A3D;border-radius:12px;padding:14px;margin-top:10px;font-weight:800;font-size:15px">✓ Pendência registrada'+(r&&r.nome?' — '+motEsc(r.nome):'')+'</div>';
+  etqProb=null; etqProbMsg='';
+  try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
+  setTimeout(()=>{ const ov=document.getElementById('motAchOv'); if(ov) ov.remove(); etqAcaoAlvo=m.prevAlvo;
+    if(MOT.tarefas[MOT.atual]===m.t){ motRenderAtual(); if(typeof motMaybeAvancaChecklist==='function') motMaybeAvancaChecklist(m.t); } },900);
+}
 function motSevDoAchado(p){
   /* gravidade declarada por uma regra "Marcar como achado" vence a suposicao */
   const ef=(typeof motEfeitos==='function')?motEfeitos(MOT.tarefas[MOT.atual],p):null;
@@ -20677,12 +20716,12 @@ function motTypedStepHtml(t,p,aff){
       (p.valorNumerico!=null?(fora?'<span class="mot-medflag fora">fora da faixa</span>':'<span class="mot-medflag ok">✓ na faixa</span>'):'')+'</div>'+
       (p.valorMinVigente!=null&&p.valorMaxVigente!=null?'<div class="mot-faixahint">faixa vigente do ativo: '+motFmt(p.valorMinVigente)+'–'+motFmt(p.valorMaxVigente)+' '+motEsc(p.unidade||'')+'</div>':'')+
       (p.valorNumerico!=null&&fora&&!p._dec?motSugBoxHtml(p):'')+
-      (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+      (p._dec==='aceita'?(p._registrada?'<div class="mot-sugfeita">✓ Pendência registrada'+(p._registradaNome?' — '+motEsc(p._registradaNome):'')+' (com foto)</div>':'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>'):'');
   }else if(p.tipoCampo==='Condição'){
     const ops=(p.opcoes&&p.opcoes.length)?p.opcoes:['Bom','Regular','Ruim'];
     h+='<div class="mot-coptrow">'+ops.map(op=>'<button class="mot-copt'+(p.valorOpcao===op?' on':'')+(motRespostaEhAchado(p,op)?' ruim':'')+'" data-pid="'+p.id+'" data-v="'+motEsc(op)+'">'+motEsc(op)+'</button>').join('')+'</div>'+
       (motRespostaEhAchado(p,p.valorOpcao)&&!p._dec?motSugBoxHtml(p):'')+
-      (p._dec==='aceita'?'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>':'');
+      (p._dec==='aceita'?(p._registrada?'<div class="mot-sugfeita">✓ Pendência registrada'+(p._registradaNome?' — '+motEsc(p._registradaNome):'')+' (com foto)</div>':'<div class="mot-sugfeita">📝 Anotação sugerida — inclusa se você registrar Anotação Técnica nesta tarefa</div>'):'');
   }else if(p.tipoCampo==='Cálculo'){
     /* nao ha campo pra digitar: o numero e recalculado a cada toque nas perguntas de origem */
     const v=motCalcular(t,p);
@@ -20942,6 +20981,9 @@ function motWireTyped(cont,t){
   cont.querySelectorAll('.mot-sugok').forEach(b=>{
     b.addEventListener('click',()=>{
       const p=motAcharPassoPorId(t,b.dataset.pid); if(!p) return;
+      /* 15/10/2026 — Raphael: "mesmo clicando em Aceitar, não abre a página para criar a pendência" → abre o registro NA HORA
+         (DECISAO_aceitar-anotacao-sugerida-abre-registro_15-10-2026.md). A chave false volta ao comportamento de 16/09. */
+      if(typeof MOT_ACEITAR_ABRE_REGISTRO!=='undefined'&&MOT_ACEITAR_ABRE_REGISTRO&&typeof motAchadoAbrir==='function'){ motAchadoAbrir(t,p); return; }
       p._dec='aceita'; const _sd=motSevDoAchado(p); t._notasSugeridas=t._notasSugeridas||[]; t._notasSugeridas.push({txt:motSugTexto(p),hora:motHoraAgora(),passoId:p.id,sev:_sd.sev,corretiva:_sd.corretiva});
       motRenderAtual(); motMaybeAvancaChecklist(t);
     });
