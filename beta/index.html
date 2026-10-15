@@ -962,6 +962,12 @@
   .mot-res.obs{background:var(--mot-blue-soft);color:#2B5A7E}
   .mot-res.aten{background:var(--mot-warn-soft);color:var(--mot-warn)}
   .mot-res.crit{background:var(--mot-warn);color:#fff}
+  .mot-pil{display:inline-block;font-size:12.5px;font-weight:800;letter-spacing:.02em;border-radius:999px;padding:5px 11px;white-space:nowrap} /* v68 */
+  .mot-pilbar{display:block;height:4px;background:#E2E5E9;border-radius:9px;margin-top:5px;overflow:hidden}.mot-pilbar b{display:block;height:100%;background:#FE9339}
+  .mot-ckfoot{position:sticky;bottom:-18px;background:#fff;border-top:1px solid #E2E5E9;margin:14px -16px -18px;padding:10px 16px 14px;z-index:2}
+  .mot-ckprox{display:block;width:100%;min-height:52px;border-radius:12px;border:none;background:#FE9339;color:#2B1A00;font-weight:800;font-size:15px;text-align:left;padding:8px 14px;font-family:inherit}
+  .mot-ckprox small{display:block;font-size:12px;font-weight:700;opacity:.85}.mot-ckprox.ok{background:#2E844A;color:#fff;text-align:center}
+  .mot-ckalt{display:flex;gap:8px;margin-top:8px}.mot-ckalt button{flex:1;min-height:44px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;font-weight:700;font-size:14px;color:#0B2239;font-family:inherit}
   .mot-res.skip{background:#EEF1F4;color:#5F6B77}
   .mot-legend{font-size:.64rem;color:var(--mot-text-soft);margin:8px 14px 12px;line-height:1.45}
   .mot-legend b{color:var(--mot-text)}
@@ -1906,7 +1912,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=67;
+const APP_NUM=68;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -20280,6 +20286,7 @@ function motAtualizarLinha(t){
   const dot=document.getElementById('mot-dot-'+i), st=document.getElementById('mot-st-'+i), row=document.getElementById('mot-row-'+i);
   if(!dot||!st) return;
   if(row) row.classList.remove('mot-critrow');
+  if(MOT_PILULA_LINHA){ const pl=motPilulaLinha(t); st.innerHTML=pl.html; dot.className='mot-stdot '+pl.dot; if(pl.crit&&row) row.classList.add('mot-critrow'); return; } /* v68 */
   if(!d) return;
   if(d.tipo==='naoexec'){ dot.className='mot-stdot skip'; st.innerHTML='<span class="mot-res skip">⊘ Não executada</span>'; }
   else if(d.tipo==='ok'){ dot.className='mot-stdot ok'; st.innerHTML='<span class="mot-res ok">✓ OK</span>'; }
@@ -20309,7 +20316,7 @@ function motAbrir(i){
   const t=MOT.tarefas[i];
   motNormalizarFase(t);
   const dot=document.getElementById('mot-dot-'+i), st=document.getElementById('mot-st-'+i);
-  if(dot) dot.className='mot-stdot run'; if(st) st.innerHTML='em execução';
+  if(!MOT_PILULA_LINHA){ if(dot) dot.className='mot-stdot run'; if(st) st.innerHTML='em execução'; } /* v68: abrir não é trabalhar */
   document.getElementById('mot-sheet').classList.add('on');
   document.getElementById('mot-scrim').classList.add('on');
   motRenderAtual();
@@ -20325,7 +20332,8 @@ function motFecharSheet(){
   document.getElementById('mot-scrim').classList.remove('on');
   if(MOT.atual>=0){
     const t=MOT.tarefas[MOT.atual];
-    if(!motDesfecho(t)){
+    if(MOT_PILULA_LINHA) motAtualizarLinha(t); /* v68: a pílula diz o estado real */
+    else if(!motDesfecho(t)){
       const dot=document.getElementById('mot-dot-'+MOT.atual), st=document.getElementById('mot-st-'+MOT.atual);
       if(dot) dot.className='mot-stdot run'; if(st) st.innerHTML='em andamento';
     }
@@ -20422,6 +20430,7 @@ function motRenderAtual(){
   else if(t._fase==='naoexec') motRenderNaoExec();
   else if(t._fase==='leve'&&typeof motRenderLeve==='function') motRenderLeve(); /* 15/10/2026 — OT de ronda */
   motHidratarThumbs(document.getElementById('mot-shBody'));
+  if(MOT_PILULA_LINHA) try{ motAtualizarLinha(t); }catch(e){} /* v68: a pílula da lista anda junto */
 }
 
 /* ---------- fotos ANTES/DEPOIS ---------- */
@@ -20936,8 +20945,9 @@ function motWireNovosTipos(cont,t){
      so acontece quando a pessoa sai do campo. Mesma escolha do .mot-medin. */
   cont.querySelectorAll('.mot-txin').forEach(ta=>{
     const cnt=cont.querySelector('[data-cnt="'+ta.dataset.pid+'"]');
-    ta.addEventListener('input',()=>{ if(cnt) cnt.textContent=ta.value.length+'/255'; });
+    ta.addEventListener('input',()=>{ if(cnt) cnt.textContent=ta.value.length+'/255'; if(MOT_PILULA_LINHA) motDigitandoTexto(t,ta); }); /* v68: conta enquanto digita */
     ta.addEventListener('change',()=>{
+      clearTimeout(ta._motSalvar); /* v68: o change grava; a gravação com folga não precisa mais */
       const p=motAcharPassoPorId(t,ta.dataset.pid); if(!p) return;
       clearTimeout(MOT.timer);
       motGravarValorTexto(t,p,ta.value.trim());
@@ -21002,7 +21012,9 @@ function motWireTyped(cont,t){
   motWireNovosTipos(cont,t);
   motWireFotoPasso(cont,t);
   cont.querySelectorAll('.mot-medin').forEach(inp=>{
+    if(MOT_PILULA_LINHA) inp.addEventListener('input',()=>motDigitandoMedicao(t,inp)); /* v68 */
     inp.addEventListener('change',()=>{
+      clearTimeout(inp._motSalvar);
       const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
       clearTimeout(MOT.timer);
       const val=parseFloat(String(inp.value).trim().replace(',','.')); if(isNaN(val)) return;
@@ -21062,6 +21074,77 @@ function motGravarVideoPasso(t,p,btn){
   };
   inp.click();
 }
+/* ---------- v68 (15/10/2026) — navegação da linha da OT, 1ª etapa: DECISAO_navegacao-da-linha-da-ot_15-10-2026.md ----------
+   Raphael: "às vezes caímos em uma tela onde tudo está preenchido e não consigo avançar. Ao mesmo tempo a linha não fica vista como
+   concluída" → escolheu "A com a pílula da C, mais visível". Aqui: (1) pílula grande na lista, derivada do que foi REGISTRADO (abrir a
+   tarefa não muda o estado); (2) rodapé fixo na execução que sempre diz o que falta e tem saída; (3) texto e medição contam enquanto
+   digita (gravação com 0,9 s de folga; o re-render continua só ao sair do campo, senão o cursor morreria a cada tecla).
+   Chave: MOT_PILULA_LINHA=false devolve a lista e o checklist da v67. */
+const MOT_PILULA_LINHA=true;
+/* "n de m": foto antes + itens que pedem resposta (Instrução e Cálculo não contam: não são trabalho do técnico) + foto depois */
+function motProgressoLinha(t){
+  if(t.leve) return {feito:motDesfecho(t)?1:0,total:1};
+  const ps=(t.passos||[]).filter(p=>p.tipoCampo!=='Instrução'&&p.tipoCampo!=='Cálculo'), f=t.fotos||{};
+  const antes=((f.antes&&f.antes.length)||t._antesJust)?1:0, depois=((f.depois&&f.depois.length)||t._depoisJust)?1:0;
+  return {feito:antes+ps.filter(p=>motItemResolvido(t,p)).length+depois,total:2+ps.length};
+}
+function motPilulaLinha(t){
+  const P=(txt,cor,escuro)=>'<span class="mot-pil" style="background:'+cor+';color:'+(escuro?'#2B1A00':'#fff')+'">'+txt+'</span>';
+  if(t.leve&&t.statusItem==='Com NC') return {html:P('⚠ PROBLEMA','#BA0517'),dot:'nota'}; /* ronda: o servidor transforma o ok em Com NC */
+  const d=motDesfecho(t);
+  if(d){
+    if(d.tipo==='ok') return {html:P('✓ '+(t.leve?'VISTO':'CONCLUÍDA'),'#2E844A'),dot:'ok'};
+    if(d.tipo==='naoexec') return {html:P('⊘ '+(d.motivo==='Não lido na ronda'?'NÃO LIDO':'NÃO EXECUTADA'),'#747474'),dot:'skip'};
+    if(d.sev==='Crítico') return {html:P('⚠ CRÍTICO','#BA0517'),dot:'nota',crit:true};
+    if(d.sev==='Atenção') return {html:P('ATENÇÃO','#FE9339',true),dot:'nota'};
+    return {html:P(t.leve?'⚠ PROBLEMA':'ANOTAÇÃO',t.leve?'#BA0517':'#0176D3'),dot:'nota'};
+  }
+  if(t.leve) return {html:P('FALTA','#FE9339',true),dot:'pend'};
+  const g=motProgressoLinha(t);
+  if(!g.feito) return {html:P('NÃO INICIADA','#747474'),dot:'pend'};
+  return {html:P('EM ANDAMENTO · '+g.feito+' DE '+g.total,'#FE9339',true)+'<i class="mot-pilbar"><b style="width:'+Math.round(g.feito*100/g.total)+'%"></b></i>',dot:'run'};
+}
+/* rodapé fixo da execução: nunca fica sem saída */
+function motCkFaltas(t){ return (t.passos||[]).filter(p=>!motItemResolvido(t,p)); }
+function motCkRodapeHtml(t){
+  const f=motCkFaltas(t);
+  if(!f.length) return (MOT.rev||MOT.edit)?'<div id="mot-ckfoot"></div>'
+    :'<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox ok" data-ckprox="1">✓ Checklist completo — próximo: foto do depois ›</button></div>';
+  const p=f[0];
+  return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-ckir="'+p.id+'"><small>Falta '+f.length+(f.length>1?' itens':' item')+'</small>'+motEsc(p.descricao)+' ›</button>'
+    +'<div class="mot-ckalt">'+(p.tipoCampo==='Texto'?'<button type="button" data-cksemobs="'+p.id+'">Sem observações</button>':'')
+    +'<button type="button" data-ckmotivo="'+p.id+'">⊘ Não deu — motivo</button></div></div>';
+}
+function motCkRodapeWire(t){
+  const foot=document.getElementById('mot-ckfoot'), body=document.getElementById('mot-shBody'); if(!foot||!body) return;
+  const pr=foot.querySelector('[data-ckprox]'); if(pr) pr.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='depois'; motRenderAtual(); });
+  const ir=foot.querySelector('[data-ckir]'); if(ir) ir.addEventListener('click',()=>{
+    const el=body.querySelector('.mot-ckstep[data-pid="'+ir.dataset.ckir+'"],.mot-ckrow[data-pid="'+ir.dataset.ckir+'"]'); if(!el) return;
+    try{ el.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+    const inp=el.querySelector('input,textarea'); if(inp) try{ inp.focus({preventScroll:true}); }catch(e){} });
+  const so=foot.querySelector('[data-cksemobs]'); if(so) so.addEventListener('click',()=>{ const p=motAcharPassoPorId(t,so.dataset.cksemobs); if(p){ clearTimeout(MOT.timer); motGravarValorTexto(t,p,'Sem observações'); } });
+  const mo=foot.querySelector('[data-ckmotivo]'); if(mo) mo.addEventListener('click',()=>motRenderSkipItem(mo.dataset.ckmotivo));
+}
+function motCkRodapeAtualizar(t){
+  const el=document.getElementById('mot-ckfoot'); if(!el) return;
+  const d=document.createElement('div'); d.innerHTML=motCkRodapeHtml(t); el.replaceWith(d.firstChild); motCkRodapeWire(t);
+  try{ motAtualizarLinha(t); }catch(e){}
+}
+/* estado local a cada tecla (rodapé e pílula andam junto) + gravação com folga; o "change" segue fazendo o resto */
+function motDigitandoTexto(t,inp){
+  const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
+  const v=String(inp.value||'').trim().slice(0,255);
+  p.valorTexto=v||null; p.statusPasso=v?'Feito':'Pendente';
+  clearTimeout(inp._motSalvar); if(v) inp._motSalvar=setTimeout(()=>{ p.horaRegistro=new Date().toISOString(); motSalvarPasso(t,p,{statusPasso:'Feito',valorTexto:v}); },900);
+  motCkRodapeAtualizar(t);
+}
+function motDigitandoMedicao(t,inp){
+  const p=motAcharPassoPorId(t,inp.dataset.pid); if(!p) return;
+  const val=parseFloat(String(inp.value).trim().replace(',','.')); if(isNaN(val)) return;
+  p.valorNumerico=val; p._dec=null;
+  clearTimeout(inp._motSalvar); inp._motSalvar=setTimeout(()=>{ p.horaRegistro=new Date().toISOString(); motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:val}); },900);
+  motCkRodapeAtualizar(t);
+}
 function motMaybeAvancaChecklist(t){
   if(MOT.rev||MOT.edit||t._fase!=='exec') return;
   if(motCkTodosResolvidos(t)) MOT.timer=setTimeout(()=>{ t._fase='depois'; motRenderAtual(); },600);
@@ -21097,15 +21180,16 @@ function motRenderCheck(){
      item pendente a tela ficava sem botão nenhum ("tudo feito mas não tem fluxo", teste da OT-1931). Este
      rodapé lista o que falta; tocar no nome leva até a pergunta. */
   const falta=(t.passos||[]).filter(p=>!motItemResolvido(t,p));
-  const rodape=falta.length?('<div class="mot-ckhd" style="margin-top:14px"><b>Falta responder '+falta.length+':</b> '+
+  const rodape=MOT_PILULA_LINHA?motCkRodapeHtml(t):falta.length?('<div class="mot-ckhd" style="margin-top:14px"><b>Falta responder '+falta.length+':</b> '+
       falta.map(p=>'<a href="#" data-irpasso="'+p.id+'">'+motEsc(p.descricao)+'</a>').join(' · ')+
       '<br>Texto e código só contam ao sair do campo. Se um item não pôde ser feito, toque no ⊘ ao lado dele.</div>'):'';
-  body.innerHTML=motAvisosHtml(t)+'<div class="mot-ckhd">Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:</div>'+motCkRowsHtml(t,true)+rodape;
+  body.innerHTML=motAvisosHtml(t)+'<div class="mot-ckhd">'+(MOT_PILULA_LINHA?'Execute e marque — feito ou justificado (⊘). O rodapé mostra o que falta.':'Execute e marque — feito ou justificado (⊘), ao completar avança sozinho:')+'</div>'+motCkRowsHtml(t,true)+rodape;
   body.querySelectorAll('[data-irpasso]').forEach(a=>a.addEventListener('click',ev=>{
     ev.preventDefault(); const el=body.querySelector('.mot-ckstep[data-pid="'+a.dataset.irpasso+'"],.mot-ckrow[data-pid="'+a.dataset.irpasso+'"]');
     if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
   }));
   motWireTyped(body,t); motWireCkRows(body,t);
+  if(MOT_PILULA_LINHA) motCkRodapeWire(t);
   motHidratarThumbs(body);
   body.scrollTop = scrollAntes;
 }
