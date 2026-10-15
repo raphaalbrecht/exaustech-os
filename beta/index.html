@@ -1862,6 +1862,15 @@
 .es-msg{font-size:13px;color:#BA0517;font-weight:600;margin-top:10px}
 .es-btn{display:block;width:100%;min-height:50px;margin-top:10px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
 .es-btn.pri{background:#0176D3;border-color:#0176D3;color:#fff}
+/* 15/10/2026 — botão ✕ da folha da tarefa e o "pronto" da OT ativa */
+#mot-shX{position:absolute;top:6px;right:8px;width:44px;height:44px;border-radius:50%;border:1px solid #E2E5E9;background:#fff;color:#3A4552;font-size:18px;font-weight:800;z-index:2;font-family:inherit}
+#mot-sheet #mot-shHead{padding-right:56px}
+.ota-pronto{padding:18px 4px 6px;text-align:center}
+.ota-pronto .tic{width:64px;height:64px;border-radius:50%;background:#EAF6F0;color:#2E844A;font-size:34px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+.ota-pronto b{display:block;font-size:18px;color:#0B2239}.ota-pronto small{display:block;font-size:13.5px;color:#686868;margin-top:4px}
+.ota-pronto .tag{margin:14px 0 6px;background:#E6F4F3;border:1px dashed #0B827C;color:#0B5F5B;border-radius:12px;padding:12px;font-size:15px;font-weight:800}
+.ota-pronto .bt{display:block;width:100%;min-height:52px;margin-top:10px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
+.ota-pronto .bt.pri{background:#0176D3;border-color:#0176D3;color:#fff}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1872,7 +1881,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=62;
+const APP_NUM=63;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -2110,6 +2119,9 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
           <div class="mot-refbody" id="mot-refbody"></div>
         </div>
         <div id="mot-sheet">
+          <!-- 15/10/2026: Raphael, "aproximei a TAG, preenchi… mas no final fico sem saída". Fechar só existia arrastando a alça
+               para baixo ou tocando fora da folha. Botão ✕ sempre visível (motFecharSheet, o mesmo do arrastar). -->
+          <button type="button" id="mot-shX" onclick="clearTimeout(MOT.timer);motFecharSheet()" aria-label="Fechar a tarefa">✕</button>
           <div id="mot-handle"></div>
           <div id="mot-shHead"></div>
           <div id="mot-shBody"></div>
@@ -20276,6 +20288,9 @@ function motFecharSheet(){
   }
 }
 function motProxima(){
+  /* 15/10/2026 — OT ativa (tarefa aberta pela TAG): depois de concluir NÃO pula sozinho para a tarefa de OUTRO equipamento
+     (o técnico está diante deste). Mostra o "pronto" com as saídas; sem pendente nenhuma, segue para o resumo de sempre. */
+  if(typeof otAtivaDepoisDeConcluir==='function'&&otAtivaDepoisDeConcluir()) return;
   let i=-1; MOT.tarefas.forEach((t,k)=>{ if(i<0&&!motDesfecho(t)) i=k; });
   if(i<0){ motResumo(); return; }
   motAbrir(i);
@@ -24035,6 +24050,28 @@ function motTagLidaHtml(t){
   const l=t&&t._tagLida; if(!l||!l.em) return '';
   const d=new Date(l.em), hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
   return '<div class="mot-tagLida">📶 TAG lida às '+hm+(l.metodo?' ('+motEsc(l.metodo)+')':'')+(l.apelido||l.nome?' · '+motEsc([l.apelido,l.nome].filter(Boolean).join(' · ')):'')+'</div>';
+}
+/* ---- depois de concluir uma tarefa com a OT ativa (15/10/2026) ----
+   Raphael: "aproximei a TAG 4654 e preenchi… mas no final fico sem saída — rever a navegação". O motor, ao concluir, pulava em 1 s
+   para a próxima pendente da OT (outro equipamento), e a folha só fechava arrastando a alça. Com a OT ativa a próxima tarefa vem
+   da TAG que o técnico encostar: o "pronto" diz isso e oferece as saídas (próxima DESTE equipamento, se houver; lista da OT). */
+function otAtivaDepoisDeConcluir(){
+  if(!(OT_ATIVA_ABRE_TAREFA&&OTA&&MOT.otId===OTA.otId)) return false;
+  const t=MOT.tarefas[MOT.atual]; if(!t) return false;
+  const pend=MOT.tarefas.map((x,i)=>i).filter(i=>!motDesfecho(MOT.tarefas[i]));
+  if(!pend.length) return false; /* tudo feito: resumo da OT (motResumo), como sempre */
+  const id15=String(t.ativoId||'').slice(0,15);
+  const mesmo=pend.filter(i=>{ const x=MOT.tarefas[i]; return (x.ativoId&&String(x.ativoId).slice(0,15)===id15)||(!x.ativoId&&x.ativoNome&&x.ativoNome===t.ativoNome); });
+  const head=document.getElementById('mot-shHead'), body=document.getElementById('mot-shBody'); if(!head||!body) return false;
+  head.innerHTML='<b>'+motEsc(t.tarefaNome||'')+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>';
+  const feitas=MOT.tarefas.length-pend.length;
+  body.innerHTML='<div class="ota-pronto"><div class="tic">✓</div><b>Tarefa registrada</b><small>'+feitas+' de '+MOT.tarefas.length+' tarefas da '+motEsc(OTA.otName)+'</small>'
+    +(mesmo.length?'<button type="button" class="bt pri" id="ota-prxeq">Próxima tarefa deste equipamento ›<small style="display:block;font-weight:500;font-size:12.5px;opacity:.9">'+motEsc(MOT.tarefas[mesmo[0]].tarefaNome||'')+'</small></button>':'')
+    +'<div class="tag">📶 Encoste a TAG do próximo equipamento</div>'
+    +'<button type="button" class="bt" id="ota-verlista">Ver as tarefas da OT ('+pend.length+' pendente'+(pend.length>1?'s':'')+')</button></div>';
+  const b1=document.getElementById('ota-prxeq'); if(b1) b1.addEventListener('click',()=>motAbrir(mesmo[0]));
+  document.getElementById('ota-verlista').addEventListener('click',()=>motFecharSheet());
+  return true;
 }
 /* entrada do leitor NFC único (nfcHubLeitura): com OT ativa, a leitura vale em QUALQUER tela. Outros leitores (passo NFC do
    checklist, gravação no cadastro, estoque, recebimento, endereços, teste de etiqueta) e o par QR × NFC têm prioridade. */
