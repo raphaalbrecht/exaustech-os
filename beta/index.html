@@ -1890,6 +1890,10 @@
 .rnd-mais{background:none;border:none;color:#5A3FC0;font-weight:700;font-size:13px;padding:6px 0;font-family:inherit;min-height:36px}
 .rnd-num{display:flex;gap:8px;margin:12px 0 4px}.rnd-num div{flex:1;background:#F4F6F8;border-radius:10px;padding:8px;text-align:center}
 .rnd-num b{display:block;font-size:22px;color:#0B2239}.rnd-num small{font-size:11.5px;color:#686868}
+.rnd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 14px 2px} /* v67 */
+.rnd-chip{min-height:40px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-weight:700;font-size:13.5px;font-family:inherit}
+.rnd-chip b{margin-left:4px;font-weight:800}.rnd-chip.on{background:#5A3FC0;border-color:#5A3FC0;color:#fff}
+.mot-rgrp{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#5A3FC0;padding:10px 4px 4px}
 .mot-leve-sub{font-size:13.5px;color:#4A5560;margin:2px 0 10px} /* 15/10/2026 — linha de ronda */
 .rnd-aviso{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:10px}
 </style>
@@ -1902,7 +1906,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=66;
+const APP_NUM=67;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -20195,29 +20199,34 @@ async function motAbrirOtId(){
 
 /* ---------- shell (ctx + viewbar + progresso + lista + linha do tempo) — construído 1x por OT ---------- */
 function motRowHtml(t,i){
+  if(t.leve) return '<div class="mot-trow" id="mot-row-'+i+'"><span class="mot-stdot pend" id="mot-dot-'+i+'"></span>'+ /* v67: linha de ronda = o equipamento */
+    '<div class="mot-tinfo"><div class="mot-nm">'+motEsc(t.ativoApelido||t.ativoNome||'—')+'</div><div class="mot-meta">'+motEsc([t.ativoApelido?t.ativoNome:'',t.ativoDescricao].filter(Boolean).join(' · '))+'</div></div>'+
+    '<div class="mot-tres" id="mot-st-'+i+'">falta</div></div>';
   return '<div class="mot-trow" id="mot-row-'+i+'"><span class="mot-stdot pend" id="mot-dot-'+i+'"></span>'+
     '<div class="mot-tinfo"><div class="mot-nm">'+motEsc(t.tarefaNome)+'</div><div class="mot-meta">'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</div></div>'+
     '<div class="mot-tres" id="mot-st-'+i+'">pendente</div></div>';
 }
 function motRenderShell(root){
-  const ot=MOT.ot;
+  const ot=MOT.ot, ehR=motEhRonda(); /* v67: ronda tem chips e lista por tipo */
   root.innerHTML=
     '<div class="mot-ctx"><b>'+motEsc(ot.name||'')+'</b><span>'+motEsc(ot.contaNome||'')+(ot.localNome?' · '+motEsc(ot.localNome):'')+'</span>'+
       '<span class="mot-loc">'+motEsc(ot.tipo||'')+'</span></div>'+
     '<div class="mot-viewbar"><div class="mot-vsw"><button class="mot-vbtn on" id="mot-vbLista">☰ Lista</button><button class="mot-vbtn" id="mot-vbTl">🕒 Linha do tempo</button></div></div>'+
     '<div class="mot-progwrap"><div class="mot-progtxt"><span id="mot-progTxt"></span>'+
-      '<select class="mot-fsel" id="mot-fsel" title="filtrar tarefas"><option value="todas">Todas</option><option value="pendentes">Pendentes</option><option value="concluídas">Concluídas</option></select>'+
+      (ehR?'':'<select class="mot-fsel" id="mot-fsel" title="filtrar tarefas"><option value="todas">Todas</option><option value="pendentes">Pendentes</option><option value="concluídas">Concluídas</option></select>')+
       '<small id="mot-progSub"></small></div><div class="mot-progbar"><i id="mot-progFill"></i></div></div>'+
+    (ehR?motRondaChipsHtml():'')+
     '<div class="mot-main">'+
       '<div class="mot-vista on" id="mot-vista-lista">'+
         '<div class="mot-fimchip" id="mot-fimchip">✓ OT concluída</div>'+
         (MOT.visitaId?'<div style="margin:10px 14px 0"><button class="mot-abrirlista" id="mot-shvoltar">‹ Voltar à visita</button></div>':'')+
-        '<div class="mot-sechd">Tarefas da visita</div>'+
-        '<div class="mot-dlist" id="mot-lista">'+MOT.tarefas.map((t,i)=>motRowHtml(t,i)).join('')+'</div>'+
+        '<div class="mot-sechd">'+(ehR?'Equipamentos da ronda':'Tarefas da visita')+'</div>'+
+        '<div class="mot-dlist" id="mot-lista">'+(ehR?motRondaListaHtml():MOT.tarefas.map((t,i)=>motRowHtml(t,i)).join(''))+'</div>'+
         '<div class="mot-fvazio" id="mot-fvazio">nenhuma tarefa neste filtro</div>'+
-        '<div class="mot-legend">Toque numa tarefa pendente pra iniciar; toque numa concluída pra abrir o registro. Filtre por Todas/Pendentes/Concluídas no seletor acima. '+
+        (ehR?'<div class="mot-legend">Encoste a TAG do equipamento (ou toque na linha) e registre: Visto, Problema ou Não foi possível. Os chips acima filtram o que já foi inspecionado e o que falta.</div>':'')+
+        (ehR?'':'<div class="mot-legend">Toque numa tarefa pendente pra iniciar; toque numa concluída pra abrir o registro. Filtre por Todas/Pendentes/Concluídas no seletor acima. '+
         'Cada tarefa: foto ANTES → checklist → foto DEPOIS → <b>✓ Está OK</b> ou <b>Anotação Técnica</b>. Sem foto? "não consigo fotografar" nunca trava. '+
-        'Não dá pra executar? um link discreto registra o motivo. Item de POP que não deu? o <b>⊘</b> registra o motivo em 1 toque e conta como resolvido.</div>'+
+        'Não dá pra executar? um link discreto registra o motivo. Item de POP que não deu? o <b>⊘</b> registra o motivo em 1 toque e conta como resolvido.</div>')+
       '</div>'+
       '<div class="mot-vista" id="mot-vista-tl">'+
         '<div class="mot-hero"><div class="mot-top"><div class="mot-hic">🧰</div><div class="mot-tt"><b>'+motEsc(ot.name||'')+'</b><small>'+motEsc(ot.contaNome||'')+(ot.localNome?' · '+motEsc(ot.localNome):'')+'</small></div></div>'+
@@ -20230,7 +20239,8 @@ function motRenderShell(root){
     '</div>';
   document.getElementById('mot-vbLista').addEventListener('click',()=>motSetVista('lista'));
   document.getElementById('mot-vbTl').addEventListener('click',()=>motSetVista('tl'));
-  document.getElementById('mot-fsel').addEventListener('change',function(){ motSetFiltro(this.value); });
+  const fsel=document.getElementById('mot-fsel'); if(fsel) fsel.addEventListener('change',function(){ motSetFiltro(this.value); });
+  if(ehR) motRondaWire();
   document.getElementById('mot-heroProgCard').addEventListener('click',motAlternarFiltro);
   const sv=document.getElementById('mot-shvoltar'); if(sv) sv.addEventListener('click',motVoltarVisita);
   MOT.tarefas.forEach((t,i)=>{
@@ -20252,6 +20262,7 @@ function motSetVista(v){
 function motSetFiltro(nome){ const i=MOT_FILTROS.indexOf(nome); MOT.filtro=i<0?0:i; motAplicarFiltro(); }
 function motAlternarFiltro(){ MOT.filtro=(MOT.filtro+1)%MOT_FILTROS.length; motAplicarFiltro(); }
 function motAplicarFiltro(){
+  if(typeof motEhRonda==='function'&&motEhRonda()){ motRondaFiltrar(); motRenderTimeline(); return; } /* v67: chips da ronda */
   const nome=MOT_FILTROS[MOT.filtro]; let vis=0;
   MOT.tarefas.forEach((t,i)=>{
     const done=!!motDesfecho(t);
@@ -24068,8 +24079,10 @@ function otaFaixaPintar(){
 }
 async function otAtivaIrOt(){
   if(!OTA) return;
+  if(otaEhRonda()) MOT.rfiltro='faltam'; /* v67: no meio da ronda a pergunta é "o que falta?" */
   if(MOT.otId!==OTA.otId){ toast('Carregando a OT…'); try{ await otAtivaCarregarMotor(); }catch(e){ toast('Não consegui abrir a OT: '+e.message); return; } }
   go('motor');
+  try{ if(otaEhRonda()&&motEhRonda()) motRondaFiltrar(); }catch(e){}
 }
 /* QR pela faixa (Raphael, 15/10: "sim, botão na faixa"): a câmera de QR mora na tela Consultar TAG; vai para lá e abre a
    câmera. O QR lido cai em etqConferir → roteador → tarefa. */
@@ -24353,6 +24366,12 @@ function motLeveProblema(t){
 /* ---- Plano → Rondas (entregas 6 e 7): lista das OTs de ronda dos últimos 30 dias + "Nova ronda neste local" (OT sem visita; a
    visita se agenda pelo "agendar visita" que já existe na Agenda de OTs — o mesmo caminho de toda OT) ---- */
 function plnRenderRondas(body){
+  if(PLN.rondaDet){ /* v67: detalhe da ronda */
+    body.innerHTML=plnRondaDetHtml();
+    const bv=body.querySelector('[data-rndvoltar]'); if(bv) bv.addEventListener('click',()=>{ PLN.rondaDet=null; plnRenderTabBody(); });
+    body.querySelectorAll('[data-prf]').forEach(b=>b.addEventListener('click',()=>{ PLN.rondaDet.filtro=b.dataset.prf; plnRenderTabBody(); }));
+    return;
+  }
   const loc=(PLN.locais||[]).find(l=>l.id===PLN.localId)||{};
   const lista=PLN.rondas||[];
   let h='<div class="pln-card"><div class="pln-sechd" style="margin-top:0">Nova ronda</div>'
@@ -24370,12 +24389,14 @@ function plnRenderRondas(body){
         +(l.naoFeitos?' · '+l.naoFeitos+' não foi possível':'')+(l.pendentes?' · '+l.pendentes+' pendentes':'')+' · '+(l.total||0)+' no total</div>'
       +(v?'<div class="pln-legend">Visita '+motEsc(v.numero||'')+(v.lider?' · líder '+motEsc(v.lider):'')+(v.chegada?' · chegou '+motEsc(plnFmtData(v.chegada)):(v.inicio?' · marcada '+motEsc(plnFmtData(v.inicio)):''))+'</div>'
         :'<button class="pln-btn" data-rndagendar="'+r.id+'" data-rndlocal="'+(r.localId||'')+'" style="margin-top:8px">agendar visita</button>')
+      +'<button class="pln-btn" data-rnddet="'+r.id+'" style="margin-top:8px;margin-left:6px">ver detalhe ›</button>' /* v67 */
       +'</div>';
   });
   body.innerHTML=h;
   const nova=body.querySelector('[data-rndnova]');
   if(nova) nova.addEventListener('click',plnRondaNova);
   body.querySelectorAll('[data-rndagendar]').forEach(b=>b.addEventListener('click',()=>plnRondaAgendar(b.dataset.rndagendar,b.dataset.rndlocal)));
+  body.querySelectorAll('[data-rnddet]').forEach(b=>b.addEventListener('click',()=>plnRondaAbrir(b.dataset.rnddet))); /* v67 */
 }
 async function plnRondaNova(){
   if(PLN.rondaCriando||!PLN.localId) return;
@@ -24386,6 +24407,86 @@ async function plnRondaNova(){
     PLN.rondaCriando=false; PLN.rondas=null;
     plnRondaAgendar(j.otId,PLN.localId);
   }catch(e){ PLN.rondaCriando=false; PLN.rondaErro='Não deu certo: '+e.message; plnRenderTabBody(); }
+}
+/* ---- v67 (15/10/2026) — lista da ronda com filtros e agrupada por tipo; detalhe no Plano → Rondas ----
+   Raphael: "quem sabe alguns filtros: ver tudo, ver o que foi inspecionado, ver o que falta inspecionar" e aprovou, junto, a faixa
+   abrir em "Faltam", o agrupamento por tipo e o detalhe no Plano. Regra das contagens (a MESMA no app e no Plano):
+   Inspecionados = Visto (OK) + Com problema (Com NC); Faltam = sem desfecho + "Não lido na ronda"; "Não foi possível" (motivo dado
+   por quem estava lá) não é inspecionado nem falta — aparece só em Tudo. */
+const RONDA_FILTROS=[['tudo','Tudo'],['feitos','Inspecionados'],['faltam','Faltam'],['problema','Com problema']];
+function motEhRonda(){ return !!(MOT.ot&&MOT.ot.tipo==='Ronda'); }
+function rondaSituacao(status,motivo){
+  const s=status||'Pendente';
+  if(s==='OK') return 'visto'; if(s==='Com NC') return 'problema';
+  if(s==='Pendente') return 'falta'; if(s==='Não Executado'&&motivo==='Não lido na ronda') return 'naolido';
+  return 'naofoi';
+}
+function rondaPassa(sit,f){
+  if(f==='feitos') return sit==='visto'||sit==='problema';
+  if(f==='faltam') return sit==='falta'||sit==='naolido';
+  if(f==='problema') return sit==='problema';
+  return true;
+}
+function rondaContagem(lista){ /* lista de {sit} */
+  const c={tudo:lista.length,feitos:0,faltam:0,problema:0};
+  lista.forEach(x=>{ ['feitos','faltam','problema'].forEach(f=>{ if(rondaPassa(x.sit,f)) c[f]++; }); }); return c;
+}
+function rondaChipsHtml(id,atual,c,attr){
+  return '<div class="rnd-chips" id="'+id+'">'+RONDA_FILTROS.map(([k,r])=>'<button type="button" class="rnd-chip'+(k===atual?' on':'')+'" '+attr+'="'+k+'">'+r+' <b>'+(c[k]||0)+'</b></button>').join('')+'</div>';
+}
+/* grupos por tipo de equipamento (sem tipo por último), na ordem alfabética */
+function rondaGrupos(itens,tipoDe){
+  const g={}; itens.forEach(x=>{ const k=tipoDe(x)||'Sem tipo'; (g[k]=g[k]||[]).push(x); });
+  return Object.keys(g).sort((a,b)=>a==='Sem tipo'?1:b==='Sem tipo'?-1:a.localeCompare(b,'pt-BR')).map(k=>[k,g[k]]);
+}
+/* --- app: lista do motor quando a OT é de ronda --- */
+function motRondaSit(t){ return rondaSituacao(t.statusItem,t.motivoNaoExecucao); }
+function motRondaChipsHtml(){ return rondaChipsHtml('mot-rchips',MOT.rfiltro||'tudo',rondaContagem(MOT.tarefas.map(t=>({sit:motRondaSit(t)}))),'data-rf'); }
+function motRondaListaHtml(){
+  const idx=MOT.tarefas.map((t,i)=>i);
+  return rondaGrupos(idx,i=>MOT.tarefas[i].ativoTipo).map(([k,l],gi)=>
+    '<div class="mot-rgrp" id="mot-rgrp-'+gi+'" data-ris="'+l.join(',')+'">'+motEsc(k)+' <span id="mot-rgrpn-'+gi+'"></span></div>'+l.map(i=>motRowHtml(MOT.tarefas[i],i)).join('')).join('');
+}
+function motRondaWire(){
+  const box=document.getElementById('mot-rchips'); if(!box) return;
+  box.querySelectorAll('[data-rf]').forEach(b=>b.addEventListener('click',()=>{ MOT.rfiltro=b.dataset.rf; motRondaFiltrar(); }));
+}
+function motRondaFiltrar(){
+  const f=MOT.rfiltro||'tudo'; let vis=0;
+  MOT.tarefas.forEach((t,i)=>{ const m=rondaPassa(motRondaSit(t),f); const row=document.getElementById('mot-row-'+i); if(row){ row.style.display=m?'':'none'; if(m) vis++; } });
+  document.querySelectorAll('.mot-rgrp').forEach(h=>{
+    const l=(h.dataset.ris||'').split(',').filter(Boolean).map(Number), q=l.filter(i=>rondaPassa(motRondaSit(MOT.tarefas[i]),f)).length;
+    h.style.display=q?'':'none'; const sp=h.querySelector('span'); if(sp) sp.textContent=q; });
+  const box=document.getElementById('mot-rchips');
+  if(box){ const novo=document.createElement('div'); novo.innerHTML=motRondaChipsHtml(); box.replaceWith(novo.firstChild); motRondaWire(); }
+  const fv=document.getElementById('mot-fvazio'); if(fv){ fv.style.display=vis?'none':'block'; fv.textContent=f==='faltam'?'✓ nada falta — todos os equipamentos têm desfecho':'nenhum equipamento neste filtro'; }
+}
+/* --- Plano → Rondas → detalhe --- */
+async function plnRondaAbrir(id){
+  PLN.rondaDet={id,dados:null,erro:null,filtro:'tudo'}; plnRenderTabBody();
+  try{ PLN.rondaDet.dados=await beGet('/rondas/ot/'+id); }catch(e){ PLN.rondaDet.erro='Não consegui abrir a ronda: '+e.message; }
+  plnRenderTabBody();
+}
+function plnRondaDetHtml(){
+  const D=PLN.rondaDet, voltar='<button class="pln-btn" data-rndvoltar>‹ rondas</button>';
+  if(D.erro) return voltar+'<div class="pln-aviso imp" style="margin-top:10px">'+motEsc(D.erro)+'</div>';
+  if(!D.dados) return voltar+'<div class="pln-legend" style="margin-top:10px">Carregando a ronda…</div>';
+  const r=D.dados.ronda||{}, v=r.visita, linhas=(D.dados.linhas||[]).map(l=>Object.assign({sit:rondaSituacao(l.status,l.motivo)},l));
+  const PIL={visto:['VISTO','#2E844A'],problema:['PROBLEMA','#BA0517'],falta:['FALTA','#FE9339'],naolido:['NÃO LIDO','#747474'],naofoi:['NÃO FOI POSSÍVEL','#747474']};
+  let h=voltar+'<div class="pln-card" style="margin-top:10px"><div class="pln-kv"><span class="k"><b>'+motEsc(r.nome||'')+'</b> · '+motEsc(r.localNome||'—')+'</span><span class="v">'+motEsc((v&&v.status)||r.status||'')+'</span></div>'
+    +(v?'<div class="pln-legend">Visita '+motEsc(v.numero||'')+(v.lider?' · líder '+motEsc(v.lider):'')+(v.chegada?' · chegou '+motEsc(plnFmtData(v.chegada)):'')+(v.saida?' · saiu '+motEsc(plnFmtData(v.saida)):'')+'</div>':'<div class="pln-legend">Sem visita agendada.</div>')+'</div>';
+  h+=rondaChipsHtml('pln-rchips',D.filtro,rondaContagem(linhas),'data-prf');
+  const vis=linhas.filter(l=>rondaPassa(l.sit,D.filtro));
+  if(!vis.length) h+='<div class="pln-card"><div class="pln-legend">'+(D.filtro==='faltam'?'Nada faltou nesta ronda.':'Nenhum equipamento neste filtro.')+'</div></div>';
+  rondaGrupos(vis,l=>l.tipo).forEach(([k,l])=>{
+    h+='<div class="pln-sechd">'+motEsc(k)+' · '+l.length+'</div><div class="pln-card">';
+    l.forEach(x=>{ const p=PIL[x.sit];
+      h+='<div class="rnd-lin"><b>'+motEsc(x.apelido||x.ativoNome||'—')+'<span class="rnd-loc" style="display:block;font-weight:500">'+motEsc([x.apelido?x.ativoNome:'',x.ativoDescricao].filter(Boolean).join(' · '))+(x.sit==='naofoi'&&x.motivo?' — '+motEsc(x.motivo):'')+'</span></b>'
+        +'<span class="rnd-pil" style="background:'+p[1]+';color:'+(p[1]==='#FE9339'?'#2B1A00':'#fff')+'">'+p[0]+'</span></div>'
+        +(x.problemas||[]).map(q=>'<div class="pln-legend" style="padding:0 0 8px 2px">⚠ '+motEsc(q.severidade||'')+(q.nome?' · '+motEsc(q.nome):'')+' — '+motEsc(q.descricao||'')+'</div>').join(''); });
+    h+='</div>';
+  });
+  return h;
 }
 /* vai para a Agenda de OTs do local, com a OT da ronda selecionada e o formulário de agendar aberto */
 function plnRondaAgendar(otId,localId){
