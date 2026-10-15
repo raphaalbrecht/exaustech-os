@@ -1890,6 +1890,7 @@
 .rnd-mais{background:none;border:none;color:#5A3FC0;font-weight:700;font-size:13px;padding:6px 0;font-family:inherit;min-height:36px}
 .rnd-num{display:flex;gap:8px;margin:12px 0 4px}.rnd-num div{flex:1;background:#F4F6F8;border-radius:10px;padding:8px;text-align:center}
 .rnd-num b{display:block;font-size:22px;color:#0B2239}.rnd-num small{font-size:11.5px;color:#686868}
+.mot-leve-sub{font-size:13.5px;color:#4A5560;margin:2px 0 10px} /* 15/10/2026 — linha de ronda */
 .rnd-aviso{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:10px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1901,7 +1902,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=65;
+const APP_NUM=66;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15388,7 +15389,7 @@ function etqRender(st){
     /* 14/10/2026 — toda leitura fica gravada (uma vez por leitura: o mesmo st pode ser redesenhado) */
     if(st.ativo&&st.ativo.id&&!st._gravada&&typeof leituraTagGravar==='function'){ st._gravada=true; try{ leituraTagGravar(st,st.contexto||'Consulta',st.otId); }catch(_){} } /* 15/10/2026: contexto OT quando há OT ativa */
     if(st.foraRonda) h+='<div class="ota-fora"><b>Este equipamento não é do cliente da ronda ('+cadEsc(st.foraRonda)+').</b> A ronda continua; abaixo, o que se sabe dele.</div>'; /* 15/10/2026 */
-    if(st.foraOt) h+='<div class="ota-fora"><b>'+(st.foraOtErro?'Não consegui abrir a '+cadEsc(st.foraOt)+'.':'Este equipamento não está na '+cadEsc(st.foraOt)+'.')+'</b> A leitura foi registrada; abaixo, o que se sabe dele.<button type="button" onclick="etqFechar();otAtivaIrOt()">Voltar à OT ›</button></div>'; /* 15/10/2026 (A4) */
+    if(st.foraOt) h+='<div class="ota-fora"><b>'+(st.foraOtErro?'Não consegui abrir a '+cadEsc(st.foraOt)+'.':(st.foraOtMsg?cadEsc(st.foraOtMsg):'Este equipamento não está na '+cadEsc(st.foraOt)+'.'))+'</b> A leitura foi registrada; abaixo, o que se sabe dele.<button type="button" onclick="etqFechar();otAtivaIrOt()">Voltar à OT ›</button></div>'; /* 15/10/2026 (A4) */
     /* 11/10/2026 — layout A "Veredito primeiro" (prototipos/tag-resultado-A.html, escolhido pelo Raphael). A tela estava
        na ordem em que o sistema CONFERE (checagens, URL) e não na ordem em que o técnico LÊ: "posso usar?" e "de qual
        equipamento é?". Agora: 1) faixa de veredito em uma palavra + o que fazer; 2) equipamento em letra grande;
@@ -15684,6 +15685,7 @@ async function etqConferir(url,uid,esperado){
         const stR={fase:'resultado',chk,ver,ativo:a,errado,token,okEtiqueta:true,esperado,url,uid};
         /* 15/10/2026 — OT ativa: a leitura abre a tarefa do equipamento (otAtivaDesviar devolve true e já mostrou tudo) */
         if(typeof otAtivaDesviar==='function'&&await otAtivaDesviar(stR,r)) return;
+        if(typeof rondaOtDesviar==='function'&&await rondaOtDesviar(stR,r)) return; /* 15/10/2026: OT de ronda — 1ª TAG cria a ronda */
         if(typeof rondaDesviar==='function'&&await rondaDesviar(stR,r)) return; /* 15/10/2026: modo ronda */
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         etqRender(stR);
@@ -17013,6 +17015,7 @@ async function tagBuscarCodigo(){
     const stC={fase:'resultado',porCodigo:true,chk,ativo:a,okEtiqueta:false,ver:{tom:'ne',t1:'Consulta pelo código',t2:'ATV-'+num,t3:'Etiqueta não conferida — para conferir, leia o QR ou o NFC.'}};
     /* 15/10/2026 — com OT ativa o código digitado também abre a tarefa (OT_ATIVA_CODIGO_ABRE; útil com etiqueta danificada) */
     if(typeof OT_ATIVA_CODIGO_ABRE!=='undefined'&&OT_ATIVA_CODIGO_ABRE&&typeof otAtivaDesviar==='function'&&await otAtivaDesviar(stC,r)) return;
+    if(typeof rondaOtDesviar==='function'&&await rondaOtDesviar(stC,r)) return; /* 15/10/2026: OT de ronda (código digitado também conta) */
     if(typeof rondaDesviar==='function'&&await rondaDesviar(stC,r)) return; /* 15/10/2026: modo ronda (código digitado também conta) */
     if(minha!==etqSeq||!document.getElementById('etqModal')) return;
     etqRender(stC);
@@ -17034,6 +17037,7 @@ function renderTag(){
   const svgQr='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M6.5 6.5h1M16.5 6.5h1M6.5 16.5h1"/><path d="M14 14h2v2M18 14h2M14 18v2h2M18 18h2v2"/></svg>';
   const svgNfc='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M12 8a6 6 0 0 1 0 8"/><path d="M14.5 6.5a8.2 8.2 0 0 1 0 11"/></svg>';
   el.innerHTML='<div style="padding:18px 14px 90px">'
+    +(typeof rondaOtCardHtml==='function'?rondaOtCardHtml():'') /* 15/10/2026: OT de ronda */
     +(typeof rondaPainelHtml==='function'?rondaPainelHtml():'') /* 15/10/2026: modo ronda */
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Como você quer ler a etiqueta?</div>'
     +'<div style="font-size:13px;color:#686868;margin-bottom:16px">Mostra a qual equipamento ela pertence e se está ativa.</div>'
@@ -19228,9 +19232,9 @@ window.addEventListener('online', ()=>{ offBadge(); offDrain(); });
 window.addEventListener('offline', ()=>offBadge());
 setInterval(()=>{ if(navigator.onLine && beTok()) offCount().then(n=>{ if(n) offDrain(); }).catch(()=>{}); }, 60000);
 
-async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
-async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
-async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function bePatch(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'PATCH',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; err.dados=j; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'patch',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function bePost(path,body,q){ try{ const r=await fetch(BACKEND+path,{method:'POST',headers:{Authorization:'Bearer '+beTok(),'Content-Type':'application/json'},body:JSON.stringify(body||{})}); let j=null; try{ j=await r.json(); }catch(_){} if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; err.dados=j; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'post',path,body,label:q}); return {ok:true,_queued:true}; } throw e; } }
+async function beDelete(path,q){ try{ const r=await fetch(BACKEND+path,{method:'DELETE',headers:{Authorization:'Bearer '+beTok()}}); const j=await r.json().catch(()=>({})); if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; err.dados=j; throw err; } return j; }catch(e){ if(q&&netFail(e)){ await offAdd({kind:'delete',path,label:q}); return {ok:true,_queued:true}; } throw e; } }
 /* registros de teste levam "[DEMO AS]" no nome no Salesforce; na exibição o marcador é ocultado */
 function _noDemo(s){ return (s==null)?s:String(s).replace(/\s*\[DEMO AS\]/gi,''); }
 async function beDoLogin(payload){
@@ -20030,6 +20034,7 @@ function motItemResolvido(t,p){
 function motCkTodosResolvidos(t){ return (t.passos||[]).every(p=>motItemResolvido(t,p)); }
 function motFaseInicial(t){
   if(t.statusItem!=='Pendente') return 'fim';
+  if(t.leve) return 'leve'; /* 15/10/2026 — linha de ronda: sem fotos antes/depois nem checklist (Visto / Problema / Não foi possível) */
   const temAntes=t.fotos.antes&&t.fotos.antes.length>0, temDepois=t.fotos.depois&&t.fotos.depois.length>0;
   if(!temAntes) return 'antes';
   if(t.passos&&t.passos.length&&!motCkTodosResolvidos(t)) return 'exec';
@@ -20354,6 +20359,7 @@ function motVoltarVisita(){
 
 /* ---------- fase machine (chips Antes/Execução/Depois/Desfecho + revisão) ---------- */
 function motStepsHtml(t){
+  if(t.leve) return ''; /* 15/10/2026 — linha de ronda não tem etapas */
   let seq=[['antes','Antes'],['exec','Execução'],['depois','Depois'],['desfecho','Desfecho']];
   if(!(t.passos&&t.passos.length)) seq=seq.filter(s=>s[0]!=='exec');
   const fase=t._fase;
@@ -20403,6 +20409,7 @@ function motRenderAtual(){
   else if(t._fase==='desfecho'){ if(MOT.edit) motRenderEdicaoDesfecho(); else motRenderDesfecho(); }
   else if(t._fase==='anota') motRenderAnota();
   else if(t._fase==='naoexec') motRenderNaoExec();
+  else if(t._fase==='leve'&&typeof motRenderLeve==='function') motRenderLeve(); /* 15/10/2026 — OT de ronda */
   motHidratarThumbs(document.getElementById('mot-shBody'));
 }
 
@@ -20711,6 +20718,8 @@ function motAchadoFeito(p,blocos){
   etqProb=null; etqProbMsg='';
   try{ if(navigator.vibrate) navigator.vibrate(80); }catch(_){}
   setTimeout(()=>{ const ov=document.getElementById('motAchOv'); if(ov) ov.remove(); etqAcaoAlvo=m.prevAlvo;
+    /* 15/10/2026 — linha de ronda: o problema registrado é o desfecho; fecha como ok e o servidor grava "Com NC" (já tem anotação) */
+    if(m.leve){ if(MOT.tarefas[MOT.atual]===m.t) motConcluir('ok'); return; }
     if(MOT.tarefas[MOT.atual]===m.t){ motRenderAtual(); if(typeof motMaybeAvancaChecklist==='function') motMaybeAvancaChecklist(m.t); } },900);
 }
 function motSevDoAchado(p){
@@ -21230,7 +21239,7 @@ function motRenderNaoExec(){
   });
   body.querySelector('#mot-nevoltar').addEventListener('click',()=>{
     if(MOT.edit){ t._fase='fim'; motRenderEdicaoNaoExec(); return; }
-    t._fase='antes'; motRenderAtual();
+    t._fase=t.leve?'leve':'antes'; motRenderAtual(); /* 15/10/2026: linha de ronda volta para Visto/Problema */
   });
 }
 async function motConcluirNaoExec(motivo){
@@ -21413,7 +21422,7 @@ async function motExecutarAgora(t){
     t.statusItem=(r&&r.statusItem)||'Pendente';
   }catch(e){ toast(e.status===409?'OT travada para edição — não é possível reabrir esta tarefa.':('Não foi possível reabrir: '+e.message)); return; }
   MOT.edit=false; MOT.rev=null;
-  t._desfechoLocal=null; t.motivoNaoExecucao=null; t._fase='antes';
+  t._desfechoLocal=null; t.motivoNaoExecucao=null; t._fase=t.leve?'leve':'antes'; /* 15/10/2026: linha de ronda */
   MOT.ordem=MOT.ordem.filter(k=>k!==MOT.atual);
   motAtualizarProgresso();
   motAbrir(MOT.atual);
@@ -21703,6 +21712,7 @@ function plnRenderShell(root){
     '<button class="'+(PLN.tab==='biblioteca'?'on':'')+'" data-tab="biblioteca">Biblioteca de regras</button>'+
     '<button class="'+(PLN.tab==='agenda'?'on':'')+'" data-tab="agenda">Agenda de OTs</button>'+
     '<button class="'+(PLN.tab==='pendencias'?'on':'')+'" data-tab="pendencias">Pendências</button>'+
+    (typeof RONDA_OT_LIGADA!=='undefined'&&RONDA_OT_LIGADA?'<button class="'+(PLN.tab==='rondas'?'on':'')+'" data-tab="rondas">Rondas</button>':'')+ /* 15/10/2026: OT de ronda */
   '</div>';
   /* 13/10/2026 — na aba Pendências o seletor de local sai do topo: ele não filtrava nada ali (só com "Só este local") e mostrava o
      primeiro local da lista como se fosse o da pendência. Lá ele mora na folha "Filtros" como "Cliente e local" (pndFolhaHtml).
@@ -21727,14 +21737,16 @@ function plnRenderShell(root){
 }
 async function plnCarregarTab(){
   if(!PLN.localId) return;
-  const jaTem=(PLN.tab==='ficha'&&PLN.ficha)||(PLN.tab==='biblioteca'&&PLN.biblioteca)||(PLN.tab==='agenda'&&PLN.agenda)||(PLN.tab==='pendencias'&&PLN.achados);
+  const jaTem=(PLN.tab==='ficha'&&PLN.ficha)||(PLN.tab==='biblioteca'&&PLN.biblioteca)||(PLN.tab==='agenda'&&PLN.agenda)||(PLN.tab==='pendencias'&&PLN.achados)||(PLN.tab==='rondas'&&PLN.rondas);
   if(jaTem){ plnRenderTabBody(); return; }
   PLN.loading=true; PLN.erro=null; plnRenderTabBody();
   try{
     if(PLN.tab==='ficha'){ PLN.ficha=await beGet('/plano/ficha/'+PLN.localId); PLN.selAtivo=0; }
     else if(PLN.tab==='biblioteca'){ PLN.biblioteca=await beGet('/plano/biblioteca'); PLN.selRegra=0; }
     else if(PLN.tab==='pendencias'){ await pndCarregar(); }
-    else { PLN.agenda=await beGet('/plano/agenda/'+PLN.localId); PLN.selVisita=0; }
+    else if(PLN.tab==='rondas'){ PLN.rondas=(await beGet('/rondas/ots?dias=30')).rondas||[]; } /* 15/10/2026 */
+    else { PLN.agenda=await beGet('/plano/agenda/'+PLN.localId); PLN.selVisita=0;
+      if(PLN.selOtId){ const k=(PLN.agenda.visitas||[]).findIndex(v=>v.id===PLN.selOtId); if(k>=0) PLN.selVisita=k; PLN.selOtId=null; } } /* 15/10/2026: vindo de Rondas */
   }catch(e){ PLN.erro='Falha ao carregar: '+e.message; }
   PLN.loading=false;
   plnRenderTabBody();
@@ -21746,6 +21758,7 @@ function plnRenderTabBody(){
   if(PLN.tab==='ficha') plnRenderFicha(body);
   else if(PLN.tab==='biblioteca') plnRenderBiblioteca(body);
   else if(PLN.tab==='pendencias') plnRenderPendencias(body);
+  else if(PLN.tab==='rondas') plnRenderRondas(body); /* 15/10/2026 */
   else plnRenderAgenda(body);
 }
 function plnFmtData(iso){
@@ -24016,9 +24029,10 @@ function otAtivaRecalcular(){
   /* visita esquecida em andamento de outro dia: vale a do check-in mais recente */
   l.sort((a,b)=>String(b.minhaAlocacao.efetivoInicio).localeCompare(String(a.minhaAlocacao.efetivoInicio)));
   const c=l[0];
-  OTA=c?{visitaId:c.id,otId:c.ot.id,otName:c.ot.name||'OT',conta:c.contaNome||'',desde:c.minhaAlocacao.efetivoInicio,recursoId:myRid(),
+  OTA=c?{visitaId:c.id,otId:c.ot.id,otName:c.ot.name||'OT',conta:c.contaNome||'',localNome:c.localNome||'',tipo:(c.ot&&c.ot.tipo)||null,desde:c.minhaAlocacao.efetivoInicio,recursoId:myRid(), /* 15/10/2026: tipo (Ronda) e local */
     total:(c.linhas&&c.linhas.total)||null,resolvidas:(c.linhas&&c.linhas.resolvidas)||0}:null;
   otAtivaSalvar(); otaFaixaPintar();
+  try{ if(typeof rondaOtSeguirProxima==='function') rondaOtSeguirProxima(); }catch(e){} /* 15/10/2026: TAG de outra loja → nova ronda depois da assinatura */
 }
 /* mesma carga de visAbrirChecklist (cópia, sem navegar) — o motor fica com a OT ativa */
 async function otAtivaCarregarMotor(){
@@ -24041,6 +24055,13 @@ function otaFaixaPintar(){
   let n='';
   if(MOT.otId===OTA.otId&&MOT.tarefas&&MOT.tarefas.length){ const tot=MOT.tarefas.length, ok=MOT.tarefas.filter(t=>motDesfecho(t)).length; n=' · '+ok+' de '+tot+' tarefas'; }
   else if(OTA.total) n=' · '+(OTA.resolvidas||0)+' de '+OTA.total+' tarefas';
+  if(typeof otaEhRonda==='function'&&otaEhRonda()){ /* 15/10/2026 — OT de ronda: faixa roxa, contagem por equipamento e "Encerrar" */
+    n=n.replace(' tarefas',' equipamentos');
+    f.innerHTML='<button type="button" class="ota-ir" onclick="otAtivaIrOt()"><b>🧭 Ronda '+motEsc(OTA.otName)+'</b><small>'+(OTA.localNome?motEsc(OTA.localNome):'')+n+' · encoste a TAG</small></button>'
+      +'<button type="button" class="ota-qr" onclick="otAtivaLerQr()" aria-label="Ler QR do equipamento">📷 QR</button>'
+      +'<button type="button" class="ota-qr" onclick="rondaOtResumoAbrir()">Encerrar</button>';
+    f.className='ota-faixa rnd-faixa'; f.style.display='flex'; return;
+  }
   f.innerHTML='<button type="button" class="ota-ir" onclick="otAtivaIrOt()"><b>▶ '+motEsc(OTA.otName)+' em andamento</b><small>'+n+' · encoste a TAG do equipamento</small></button>'
     +'<button type="button" class="ota-qr" onclick="otAtivaLerQr()" aria-label="Ler QR do equipamento">📷 Ler QR</button>';
   f.style.display='flex';
@@ -24072,7 +24093,12 @@ async function otAtivaDesviar(st,r){
     try{ await otAtivaCarregarMotor(); }catch(e){ st.foraOt=OTA.otName; st.foraOtErro=true; return false; } /* sem a OT: mostra a leitura normal */
   }
   const d=leituraRotear(st.ativo);
-  if(d.destino==='ot-fora'){ st.foraOt=OTA.otName; return false; }
+  if(d.destino==='ot-fora'){
+    /* 15/10/2026 — OT de ronda: equipamento do mesmo local fora da lista vira linha extra; de outra loja pergunta se encerra esta */
+    if(typeof rondaOtForaDaLista==='function'&&otaEhRonda()){ const x=await rondaOtForaDaLista(st);
+      if(x==='linha') return otAtivaDesviar(st,r);
+      if(x==='encerrar'){ etqFechar(); return true; } }
+    st.foraOt=OTA.otName; return false; }
   if(d.destino!=='ot-tarefa'&&d.destino!=='ot-lista') return false;
   const lida={em:Date.now(),metodo:st.uid?'NFC':(st.porCodigo?'Código':'QR'),apelido:st.ativo.apelido||'',nome:st.ativo.nome||''};
   d.idx.forEach(i=>{ MOT.tarefas[i]._tagLida=lida; });
@@ -24156,6 +24182,217 @@ function leituraHubRoteia(e){
   if(typeof nfcHubEvento==='function') nfcHubEvento('leitura com OT ativa → tarefa');
   etqProcessar(e,'');
   return true;
+}
+
+/* ===== OT de ronda (15/10/2026, v66) — DECISAO_leitura-da-tag-por-contexto-ronda-e-ot_14-10-2026.md =====
+   Raphael: "essa ronda na verdade precisa ter uma OT por trás" → "OT de ronda, linhas automáticas". A ronda é uma OT do tipo Ronda
+   com uma linha leve por equipamento etiquetado do local (servidor: backend/rondaOtRoutes.js). Daí em diante ela é uma OT ativa
+   como outra qualquer: a TAG abre a linha do equipamento (roteador da v60), a faixa fica roxa e ganha "Encerrar".
+   Regras (15/10): criar na hora é de Supervisor para cima; uma ronda = uma loja (TAG de outra loja pergunta se encerra esta e começa
+   outra); sem contrato de MPP vigente não cria; fica aberta até alguém concluir; o fim exige a assinatura do líder (o concluir visita
+   de sempre); o que não foi lido vira "Não executado — Não lido na ronda".
+   Chave: RONDA_OT_LIGADA=false esconde o cartão "Iniciar ronda", a aba Rondas do Plano e a linha extra (a linha leve continua,
+   porque depende só da OT ser do tipo Ronda). */
+const RONDA_OT_LIGADA=true;
+const RONDA_OT_PAPEIS=['Supervisor','Coordenador','Gerente','Sócio']; /* mesma alçada do servidor (podeCriar) */
+let RNDOT={armada:false,criando:false,proxima:null};
+function rondaOtPodeCriar(){ return RONDA_OT_LIGADA&&RONDA_OT_PAPEIS.includes(typeof ROLE!=='undefined'?ROLE:''); }
+function otaEhRonda(){ return !!(typeof OTA!=='undefined'&&OTA&&OTA.tipo==='Ronda'); }
+function rondaOtRepintar(){ try{ if(document.querySelector('#scr-tag.active')) renderTag(); }catch(e){} try{ otaFaixaPintar(); }catch(e){} }
+/* contagem da ronda a partir das linhas do motor (statusItem é atualizado na hora por motConcluir / motConcluirNaoExec) */
+function rondaOtContar(){
+  const ts=(MOT.otId===(OTA&&OTA.otId)&&MOT.tarefas)?MOT.tarefas:[];
+  const c={total:ts.length,vistos:[],problemas:[],naoFeitos:[],faltam:[]};
+  ts.forEach(t=>{ const s=t.statusItem||'Pendente';
+    if(s==='OK') c.vistos.push(t); else if(s==='Com NC') c.problemas.push(t); else if(s==='Não Executado') c.naoFeitos.push(t); else c.faltam.push(t); });
+  return c;
+}
+/* cartão na tela Consultar TAG (mesmo lugar do cartão da ronda livre, que está desligado) */
+function rondaOtCardHtml(){
+  if(!RONDA_OT_LIGADA) return '';
+  if(typeof OTA!=='undefined'&&OTA){
+    if(!otaEhRonda()) return '';
+    const c=rondaOtContar(), lidos=c.total-c.faltam.length;
+    return '<div class="rnd-card rnd-on"><div class="rnd-tit">🧭 Ronda '+cadEsc(OTA.otName||'')+' em andamento</div><div class="rnd-sub">'+cadEsc([OTA.conta,OTA.localNome].filter(Boolean).join(' · '))
+      +(c.total?'<br><b>'+lidos+' de '+c.total+'</b> equipamentos com desfecho':'')+'. Encoste a TAG do próximo equipamento.</div>'
+      +'<button type="button" class="rnd-btn" id="rndOtEnc" onclick="rondaOtResumoAbrir()">Encerrar ronda</button></div>';
+  }
+  if(!rondaOtPodeCriar()) return '';
+  if(RNDOT.criando) return '<div class="rnd-card rnd-on"><div class="rnd-tit">🧭 Criando a ronda…</div><div class="rnd-sub">Montando a OT com os equipamentos etiquetados do local.</div></div>';
+  if(RNDOT.armada) return '<div class="rnd-card rnd-on"><div class="rnd-tit">🧭 Ronda</div><div class="rnd-sub"><b>Encoste a TAG do primeiro equipamento.</b> A loja e o cliente da ronda vêm dela.</div>'
+    +'<button type="button" class="rnd-btn" onclick="rondaOtCancelar()">Cancelar</button></div>';
+  return '<div class="rnd-card"><div class="rnd-tit">🧭 Ronda</div><div class="rnd-sub">Passe pelos equipamentos de uma loja lendo as TAGs. O app cria a OT de ronda com todos os equipamentos etiquetados do local; o que você não ler fica registrado como "não lido".</div>'
+    +'<button type="button" class="rnd-btn pri" id="rndOtIniciar" onclick="rondaOtArmar()">Iniciar ronda</button></div>';
+}
+function rondaOtArmar(){
+  if(!rondaOtPodeCriar()){ toast('Criar ronda na hora é de Supervisor para cima.'); return; }
+  if(typeof OTA!=='undefined'&&OTA){ toast('Você já está numa OT em andamento ('+(OTA.otName||'')+').'); return; }
+  RNDOT.armada=true; rondaOtRepintar();
+  try{ if(typeof tagNfcLigar==='function') tagNfcLigar(); }catch(e){}
+}
+function rondaOtCancelar(){ RNDOT.armada=false; rondaOtRepintar(); }
+/* desvio dentro de etqConferir / tagBuscarCodigo: ronda armada + 1ª TAG → cria a OT e cai na linha do equipamento */
+async function rondaOtDesviar(st,r){
+  if(!(RONDA_OT_LIGADA&&RNDOT.armada)||(typeof OTA!=='undefined'&&OTA)) return false;
+  if(!st||!st.ativo||!st.ativo.id||st.errado) return false;
+  RNDOT.armada=false;
+  return await rondaOtCriar(st.ativo.id,st,r);
+}
+async function rondaOtCriar(ativoId,st,r){
+  RNDOT.criando=true; rondaOtRepintar(); toast('Criando a ronda…');
+  let j;
+  try{ j=await bePost('/rondas/ot',{ativoId},null); } /* sem fila offline: criar a ronda exige conexão (decisão consciente, como alocar) */
+  catch(e){ RNDOT.criando=false; rondaOtRepintar(); alert('Não deu para criar a ronda.\n\n'+((e&&e.message)||'erro')); return false; }
+  /* check-in pela rota de sempre (hora do aparelho + geo); 409 = já tinha chegada nesta visita (ronda reaberta) */
+  try{ const g=await visGeo(); const corpo={efetivoInicio:new Date().toISOString(),presenca:'Presente'}; if(g) corpo.geoCheckin=g.lat.toFixed(6)+','+g.lng.toFixed(6);
+    await bePost('/compromissos/'+j.visitaId+'/checkin',corpo,null); }
+  catch(e){ if(e&&e.status!==409) toast('Chegada não registrada: '+e.message); }
+  /* visCarregar ignora a chamada se outra carga (sincronização de 90 s) estiver no meio: espera ela acabar para não perder a ronda nova */
+  for(let k=0;k<20&&typeof VIS!=='undefined'&&VIS.loading;k++) await new Promise(res=>setTimeout(res,150));
+  await visCarregar(true);
+  RNDOT.criando=false;
+  if(!(typeof OTA!=='undefined'&&OTA&&j.otId&&String(OTA.otId).slice(0,15)===String(j.otId).slice(0,15))){
+    rondaOtRepintar(); alert('A ronda '+(j.otName||'')+' foi criada, mas não consegui ativá-la aqui. Abra a visita na Agenda e toque "Cheguei no local".'); return false; }
+  toast((j.existente?'Ronda '+(j.otName||'')+' retomada':'Ronda '+(j.otName||'')+' iniciada — '+(j.linhas||0)+' equipamentos')
+    +(j.foraDaJanela?' · fora da regra de acesso do shopping (registrado para a coordenação)':''));
+  try{ await otAtivaCarregarMotor(); }catch(e){}
+  rondaOtRepintar();
+  if(st) return await otAtivaDesviar(st,r); /* cai na linha do equipamento lido */
+  return true;
+}
+/* equipamento lido que não está na lista da ronda: mesmo local → linha extra; outro local → pergunta se encerra esta.
+   Devolve 'linha' (entrou; o roteador tenta de novo), 'encerrar' (abriu o resumo) ou false (fica a leitura normal). */
+async function rondaOtForaDaLista(st){
+  if(!RONDA_OT_LIGADA||!otaEhRonda()||!st||!st.ativo||!st.ativo.id||st._rondaExtra) return false;
+  st._rondaExtra=true;
+  try{
+    await bePost('/rondas/ot/'+OTA.otId+'/linhas',{ativoId:st.ativo.id},null);
+    await otAtivaCarregarMotor();
+    toast('Equipamento fora da lista — entrou na ronda como linha extra');
+    return 'linha';
+  }catch(e){
+    const d=(e&&e.dados)||{};
+    if(e&&e.status===409&&d.outroLocal){
+      const onde=(d.local&&d.local.nome)?'da loja '+d.local.nome:'de outro cliente';
+      if(d.local&&d.local.id&&rondaOtPodeCriar()&&confirm('Este equipamento é '+onde+'. Uma ronda é de uma loja só.\n\nEncerrar a ronda de '+(d.localRonda||OTA.localNome||'agora')+' e começar outra nesta loja?')){
+        RNDOT.proxima={ativoId:st.ativo.id}; rondaOtResumoAbrir(); return 'encerrar'; }
+      st.foraOtMsg='Este equipamento é '+onde+' e não entra nesta ronda.';
+      return false;
+    }
+    st.foraOtMsg='Não consegui incluir na ronda: '+((e&&e.message)||'erro')+'.';
+    return false;
+  }
+}
+/* chamada no fim de otAtivaRecalcular: a ronda anterior foi concluída e havia uma loja esperando → começa a nova */
+function rondaOtSeguirProxima(){
+  if(!RNDOT.proxima||(typeof OTA!=='undefined'&&OTA)) return;
+  const p=RNDOT.proxima; RNDOT.proxima=null;
+  setTimeout(async()=>{ if(await rondaOtCriar(p.ativoId,null,null)) rondaOtAbrirEquip(p.ativoId); },0);
+}
+function rondaOtAbrirEquip(ativoId){
+  const id15=String(ativoId||'').slice(0,15), i=(MOT.tarefas||[]).findIndex(t=>t.ativoId&&String(t.ativoId).slice(0,15)===id15);
+  if(i>=0) otAtivaIrTarefa(i,false); else { try{ otAtivaIrOt(); }catch(e){} }
+}
+/* ---- encerrar (B3): resumo → pendentes viram "Não lido na ronda" → concluir visita com a assinatura do líder ---- */
+async function rondaOtResumoAbrir(){
+  if(!otaEhRonda()) return;
+  if(MOT.otId!==OTA.otId||!(MOT.tarefas&&MOT.tarefas.length)){ try{ await otAtivaCarregarMotor(); }catch(e){ toast('Não consegui abrir a ronda: '+e.message); return; } }
+  const c=rondaOtContar(), nome=t=>[t.ativoNome,t.ativoDescricao].filter(Boolean).join(' · ')||'—';
+  let ov=document.getElementById('rndOtOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='rndOtOv'; ov.className='es-ov';
+  ov.innerHTML='<div class="es-sh"><div class="es-tit">Encerrar a ronda</div><div class="es-sub">'+cadEsc([OTA.otName,OTA.conta,OTA.localNome].filter(Boolean).join(' · '))+'</div>'
+    +'<div class="rnd-num"><div><b>'+c.vistos.length+'</b><small>vistos</small></div><div><b style="color:'+(c.problemas.length?'#BA0517':'#0B2239')+'">'+c.problemas.length+'</b><small>com problema</small></div>'
+    +'<div><b style="color:'+(c.faltam.length?'#BA0517':'#2E844A')+'">'+c.faltam.length+'</b><small>não lidos</small></div></div>'
+    +(c.faltam.length?'<div class="rnd-sep">Não lidos — ficam como "Não lido na ronda"</div>'+c.faltam.map(t=>'<div class="rnd-lin rnd-falta"><b>'+cadEsc(nome(t))+'</b></div>').join(''):'')
+    +(c.problemas.length?'<div class="rnd-sep">Com problema registrado</div>'+c.problemas.map(t=>'<div class="rnd-lin"><b>'+cadEsc(nome(t))+'</b></div>').join(''):'')
+    +(c.naoFeitos.length?'<div class="rnd-sep">Não foi possível</div>'+c.naoFeitos.map(t=>'<div class="rnd-lin"><b>'+cadEsc(nome(t))+'</b><span class="rnd-loc">'+cadEsc(t.motivoNaoExecucao||'')+'</span></div>').join(''):'')
+    +(RNDOT.proxima?'<div class="rnd-aviso">Depois da assinatura, a ronda da outra loja começa sozinha.</div>':'')
+    +'<button type="button" class="rnd-btn pri" id="rndOtEncOk" onclick="rondaOtEncerrar()">Encerrar e assinar</button>'
+    +'<button type="button" class="rnd-btn" onclick="rondaOtResumoFechar()">Continuar a ronda</button></div>';
+  ov.addEventListener('click',e=>{ if(e.target===ov) rondaOtResumoFechar(); });
+  document.body.appendChild(ov);
+}
+function rondaOtResumoFechar(){ const ov=document.getElementById('rndOtOv'); if(ov) ov.remove(); RNDOT.proxima=null; }
+async function rondaOtEncerrar(){
+  if(!otaEhRonda()) return rondaOtResumoFechar();
+  const bt=document.getElementById('rndOtEncOk'); if(bt){ bt.disabled=true; bt.textContent='Encerrando…'; }
+  try{ await bePost('/rondas/ot/'+OTA.otId+'/encerrar',{},null); }
+  catch(e){ if(bt){ bt.disabled=false; bt.textContent='Encerrar e assinar'; } toast('Não deu para encerrar: '+e.message); return; }
+  (MOT.tarefas||[]).forEach(t=>{ if((t.statusItem||'Pendente')==='Pendente'){ t.statusItem='Não Executado'; t.motivoNaoExecucao='Não lido na ronda'; } });
+  const prox=RNDOT.proxima, visitaId=OTA.visitaId;
+  const ov=document.getElementById('rndOtOv'); if(ov) ov.remove(); RNDOT.proxima=prox; /* fechar sem perder a próxima loja */
+  await visAbrir(visitaId);
+  if(VIS.aberta) visConcluir(); /* líder → assinatura; Coordenador+ pode concluir sem; o servidor confere */
+}
+/* ---- linha leve (motor): Visto ✓ / Registrar problema / Não foi possível ---- */
+function motRenderLeve(){
+  const t=MOT.tarefas[MOT.atual]; const body=document.getElementById('mot-shBody'); if(!t||!body) return;
+  body.innerHTML='<div class="mot-leve-sub">Ronda: olhe o equipamento e registre o que viu.</div>'
+    +'<button class="mot-okbig" id="mot-lvok">✓ Visto — sem problema</button>'
+    +'<button class="mot-notabtn" id="mot-lvprob">Registrar problema<small>com foto e gravidade, um por problema</small></button>'
+    +'<button class="mot-voltalink" id="mot-lvne">⊘ Não foi possível ver este equipamento</button>';
+  body.querySelector('#mot-lvok').addEventListener('click',()=>motConcluir('ok'));
+  body.querySelector('#mot-lvprob').addEventListener('click',()=>motLeveProblema(t));
+  body.querySelector('#mot-lvne').addEventListener('click',()=>{ t._fase='naoexec'; motRenderAtual(); });
+}
+/* o mesmo formulário do "Registrar problema" (um bloco por problema, foto obrigatória) usado pelo Aceitar da OT; gravado, a linha
+   fecha como "ok" e o servidor transforma em "Com NC" porque a linha já tem anotação (execucaoMotorRoutes, statusFinal) */
+function motLeveProblema(t){
+  const prev=(typeof etqAcaoAlvo==='string')?etqAcaoAlvo:null;
+  let ov=document.getElementById('motAchOv'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='motAchOv'; ov.className='es-ov';
+  ov.innerHTML='<div class="es-sh"><div class="es-tit">Registrar problema</div><div class="es-sub">'+motEsc([t.ativoNome,t.ativoDescricao].filter(Boolean).join(' · '))+'</div><div id="motAchBox"></div></div>';
+  document.body.appendChild(ov);
+  etqAcaoAlvo='motAchBox';
+  etqProb=etqPpNovo(String(t.ativoId||'').replace(/[^A-Za-z0-9]/g,''),'');
+  etqProb.grupo=null; etqProb.itens=[]; etqProb.seq=0;
+  etqPpAdd(etqProb,null);
+  etqProb.motor={itemId:t.id,passoId:null,corretiva:false,t,p:{},leve:true,prevAlvo:prev};
+  etqProbRender();
+}
+/* ---- Plano → Rondas (entregas 6 e 7): lista das OTs de ronda dos últimos 30 dias + "Nova ronda neste local" (OT sem visita; a
+   visita se agenda pelo "agendar visita" que já existe na Agenda de OTs — o mesmo caminho de toda OT) ---- */
+function plnRenderRondas(body){
+  const loc=(PLN.locais||[]).find(l=>l.id===PLN.localId)||{};
+  const lista=PLN.rondas||[];
+  let h='<div class="pln-card"><div class="pln-sechd" style="margin-top:0">Nova ronda</div>'
+    +'<div class="pln-legend">'+motEsc([loc.contaNome,loc.nome].filter(Boolean).join(' — ')||'Escolha o local acima')+'. A OT nasce com todos os equipamentos etiquetados do local; depois agende a visita e escolha quem vai (o primeiro é o líder).</div>'
+    +(PLN.rondaErro?'<div class="pln-aviso imp">'+motEsc(PLN.rondaErro)+'</div>':'')
+    +'<button class="pln-btn pri" data-rndnova style="margin-top:10px"'+(PLN.rondaCriando?' disabled':'')+'>'+(PLN.rondaCriando?'criando…':'+ nova ronda neste local')+'</button></div>';
+  h+='<div class="pln-sechd">Rondas dos últimos 30 dias</div>';
+  if(!lista.length) h+='<div class="pln-card"><div class="pln-legend">Nenhuma ronda nos últimos 30 dias.</div></div>';
+  lista.forEach(r=>{
+    const l=r.linhas||{}, v=r.visita;
+    const fechada=r.status==='Concluída'||(v&&(v.status==='Concluído'||v.status==='Não Concluído'));
+    h+='<div class="pln-card"><div class="pln-kv"><span class="k"><b>'+motEsc(r.nome||'')+'</b> · '+motEsc(r.localNome||'—')+'</span><span class="v">'+motEsc(plnFmtData(r.criadaEm))+'</span></div>'
+      +'<div class="pln-mbadges"><span class="pln-mini '+(fechada?'g':'w')+'">'+motEsc(String((v&&v.status)||r.status||'').toUpperCase())+'</span></div>'
+      +'<div class="pln-legend" style="margin-top:6px">'+(l.vistos||0)+' vistos · '+(l.problemas||0)+' com problema · '+(l.naoLidos||0)+' não lidos'
+        +(l.naoFeitos?' · '+l.naoFeitos+' não foi possível':'')+(l.pendentes?' · '+l.pendentes+' pendentes':'')+' · '+(l.total||0)+' no total</div>'
+      +(v?'<div class="pln-legend">Visita '+motEsc(v.numero||'')+(v.lider?' · líder '+motEsc(v.lider):'')+(v.chegada?' · chegou '+motEsc(plnFmtData(v.chegada)):(v.inicio?' · marcada '+motEsc(plnFmtData(v.inicio)):''))+'</div>'
+        :'<button class="pln-btn" data-rndagendar="'+r.id+'" data-rndlocal="'+(r.localId||'')+'" style="margin-top:8px">agendar visita</button>')
+      +'</div>';
+  });
+  body.innerHTML=h;
+  const nova=body.querySelector('[data-rndnova]');
+  if(nova) nova.addEventListener('click',plnRondaNova);
+  body.querySelectorAll('[data-rndagendar]').forEach(b=>b.addEventListener('click',()=>plnRondaAgendar(b.dataset.rndagendar,b.dataset.rndlocal)));
+}
+async function plnRondaNova(){
+  if(PLN.rondaCriando||!PLN.localId) return;
+  PLN.rondaCriando=true; PLN.rondaErro=null; plnRenderTabBody();
+  try{
+    const j=await bePost('/rondas/ot',{localId:PLN.localId,semVisita:true},null);
+    toast('Ronda '+(j.otName||'')+' criada — '+(j.linhas||0)+' equipamentos. Agora agende a visita.');
+    PLN.rondaCriando=false; PLN.rondas=null;
+    plnRondaAgendar(j.otId,PLN.localId);
+  }catch(e){ PLN.rondaCriando=false; PLN.rondaErro='Não deu certo: '+e.message; plnRenderTabBody(); }
+}
+/* vai para a Agenda de OTs do local, com a OT da ronda selecionada e o formulário de agendar aberto */
+function plnRondaAgendar(otId,localId){
+  if(localId&&localId!==PLN.localId){ PLN.localId=localId; PLN.ficha=null; }
+  PLN.agenda=null; PLN.tab='agenda'; PLN.selOtId=otId; PLN.visitasPorOt=null;
+  PLN.agendar={otId, dia:null, hora:'09:00', horas:3, equipe:[], erro:null, salvando:false};
+  plnRenderShell(document.getElementById('pln-root')); plnCarregarTab();
 }
 
 /* ===== Modo ronda (15/10/2026, v65) — DECISAO_leitura-da-tag-por-contexto-ronda-e-ot_14-10-2026.md =====
