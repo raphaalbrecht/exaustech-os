@@ -1845,6 +1845,22 @@
 .ota-fechar{display:block;width:100%;min-height:48px;margin-top:12px;border:1.5px solid #C9D0D8;border-radius:12px;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
 .ota-fora{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:10px;line-height:1.35}
 .ota-fora button{display:block;margin-top:8px;min-height:44px;padding:0 14px;border-radius:10px;border:1.5px solid #0B827C;background:#fff;color:#0B827C;font-weight:800;font-size:14px;font-family:inherit}
+.fa-mg{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;padding:10px 14px 4px;background:#F7F9FB}
+.fa-mdest{font-weight:800}
+/* 15/10/2026 — Substituir etiqueta (folha por cima da ficha) */
+.es-ov{position:fixed;inset:0;background:rgba(11,34,57,.5);z-index:100020;display:flex;align-items:flex-end;justify-content:center}
+.es-sh{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:720px;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));box-sizing:border-box;max-height:92vh;overflow:auto}
+.es-tit{font-size:18px;font-weight:800;color:#0B2239}.es-sub{font-size:13px;color:#686868;margin-top:2px}
+.es-op{display:block;width:100%;text-align:left;margin-top:10px;padding:12px;border:1.5px solid #C9D0D8;border-radius:14px;background:#fff;font-family:inherit;color:#0B2239}
+.es-op b{display:block;font-size:15.5px}.es-op span{display:block;font-size:13px;color:#3A4552;margin-top:4px;line-height:1.4}
+.es-op.sel{border:2px solid #0176D3;background:#EAF2FB}.es-op.desl{opacity:.55}
+.es-lab{font-size:13px;font-weight:700;color:#0B2239;margin-top:12px}.es-lab span{color:#BA0517}
+.es-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.es-chip{min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid #9FB3C8;background:#fff;font-size:14px;font-weight:600;font-family:inherit;color:#0B2239}
+.es-chip.on{background:#0176D3;border-color:#0176D3;color:#fff;font-weight:800}
+.es-msg{font-size:13px;color:#BA0517;font-weight:600;margin-top:10px}
+.es-btn{display:block;width:100%;min-height:50px;margin-top:10px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
+.es-btn.pri{background:#0176D3;border-color:#0176D3;color:#fff}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1855,7 +1871,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=60;
+const APP_NUM=61;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -14825,6 +14841,7 @@ function etqFotoFechar(){ navFechou('foto'); const v=document.getElementById('et
    O leitor NFC fica ligado o fluxo inteiro (leituras fora da etapa 3/5 são engolidas): leitor desligado com o chip perto
    devolve a etiqueta ao Android, que abre o portal. Ver docs/09-CADASTROS/DECISAO_fluxo-etiqueta-qr-nfc_11-10-2026.md */
 let etf=null, etfNfcCtrl=null, etfCamStream=null, etfCamRAF=null;
+let etfMotivoPendente=null; /* 15/10/2026: motivo escolhido em "Substituir etiqueta…" (ficha) — etfAbrir(nova) leva para a etiqueta nova */
 /* 12/10/2026 — Raphael: "a etapa de foto da etiqueta aplicada deve ser a última". Ordem: imprimir, ler QR, gravar chip,
    CONFERIR, FOTO (antes a foto era a 4ª e a conferência a 5ª). */
 const ETF_ROT=['Imprimir','Ler QR','Gravar chip','Conferir','Foto'];
@@ -14841,6 +14858,7 @@ async function etfAbrir(nova,etapaInicial){ /* etapaInicial: pílula "sem etique
        busy:false, msg:null, ecoAte:0};
   etfMontar(); etfRender();
   if(estoqNfcSuportado()) etfNfcLigar();
+  if(nova){ etf.motivo=etfMotivoPendente||null; etfMotivoPendente=null; if(etf.motivo) toast('Etiqueta nova — motivo: '+etf.motivo); } /* 15/10/2026 */
   if(nova) return; /* "Fazer uma etiqueta nova": começa na etapa 1, sem código; a atual vale até o chip novo */
   try{
     const d=await beGet('/ativos/'+etf.ativoId);
@@ -14963,7 +14981,7 @@ function etfRodape(){
 async function etfGerar(nova){
   if(!etf||etf.busy) return; etf.busy=true; etf.msg=null; etfRender();
   try{
-    const r=await bePost('/etiquetas',{ativoId:etf.ativoId,nova:!!nova});
+    const r=await bePost('/etiquetas',Object.assign({ativoId:etf.ativoId,nova:!!nova},(nova&&etf.motivo)?{motivo:etf.motivo}:{})); /* 15/10/2026: motivo da substituição */
     Object.assign(etf,{token:r.token,versao:r.versao,url:PORTAL_BASE+'/a/'+r.token,ativa:false,etapaSrv:'Impressa',qrLido:false,urlLida:null,chipOk:false,fotoOk:false,confQr:null,confUid:null,conferida:false});
   }catch(e){ etf.msg={tipo:'erro',txt:e.message}; }
   etf.busy=false; etfRender();
@@ -17596,7 +17614,16 @@ function ativoDetPintar(manter){
      que leva ao mesmo lugar (ativoDetPendencias). Continua no menu ⋯. */
   if(!ATIVO_DET_LIMPEZA_V53) fazer+=B('📋 Ver pendências','ativoDetPendencias()','',P&&P.abertas?'<span class="fa-n fa-pil erro mini">'+P.abertas+'</span>':'');
   fazer+=B('⚠️ Registrar problema','ativoDetProblema()','terco');
-  if(cad){
+  if(cad&&ATIVO_DET_MENU_V61){
+    /* 15/10/2026 (v61) — UMA ação de etiqueta por estado (mockup aprovado prototipos/mockup-menu-ficha-substituir-etiqueta_15-10-2026.html):
+       antes, no estado "ok" vinham Testar + Imprimir, e o resto ganhava "Continuar"; testar, reimprimir e substituir ficam no ⋯. */
+    const pronta=est==='ok'&&etAtiva&&etAtiva.etapa==='Conferida'&&etAtiva.temFoto;
+    if(est==='sem') fazer+=B('🏷 Iniciar etiqueta','ativoDetEtiqueta()','terco');
+    else if(est==='sem_nfc') fazer+=B('📶 Gravar o chip','ativoDetEtiqueta()','terco');
+    else if(est==='sem_impressao') fazer+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco');
+    else if(!pronta) fazer+=B('✓ Concluir etiqueta','ativoDetEtiqueta()','terco');
+    if(C.fotos===0) fazer+=B('📷 Adicionar foto','ativoDetFotoNova()','terco');
+  } else if(cad){
     if(est==='ok'){ if(nfc&&etAtiva) fazer+=B('📶 Testar etiqueta','ativoDetTestar()','terco'); fazer+=B('🖨 Imprimir etiqueta','ativoDetEtiqueta(\'imprimir\')','terco'); }
     else fazer+=B('🏷 '+(est==='sem'?'Iniciar etiqueta':'Continuar etiqueta'),'ativoDetEtiqueta()','terco');
     if(C.fotos===0) fazer+=B('📷 Adicionar foto','ativoDetFotoNova()','terco');
@@ -17678,7 +17705,7 @@ function ativoDetPintar(manter){
       kv('Resultado',cadEsc(d.conferenciaPlaqueta||'Não conferido'))+kv('Motivo',cadEsc(d.motivoDivergencia||''))+kv('Conferido em',ativoDetFmtData(d.conferidoEm,true))
       +kv('Ficha do fabricante',d.linkFabricante?'<a href="'+cadEsc(d.linkFabricante)+'" target="_blank" rel="noopener" style="color:#0176D3">abrir no site do fabricante ↗</a>':'')); }
   h+='</div>';
-  body.innerHTML=h;
+  body.innerHTML=h; try{ ativoDetMenuBotao(); }catch(e){} /* 15/10/2026 (v61): ⋯ some se o menu ficaria vazio */
   ativoDetTopoRolar(); /* 14/10 (v53): o título do topo depende de o cartão estar à vista */
 }
 /* abre/fecha uma seção; Fotos e Histórico buscam o conteúdo ao abrir (mesmas funções da TAG, desenhando na seção) */
@@ -17753,6 +17780,68 @@ function ativoDetEtiqueta(modo){
   etqResolverEtiquetaAtivo(d.id,modo==='imprimir'?'sem_impressao':modo==='nova'?'nova':est);
 }
 function ativoDetFotoNova(){ const d=ativoDetSt; if(!d) return; if(!ativoDetAberto.fotos){ ativoDetAberto.fotos=true; ativoDetPintar(true); } etqAcaoAlvo='ativoDetSec_fotos'; etqAcaoFoto(ativoDetIdLimpo(d.id)); }
+/* ===== Menu "⋯" racionalizado + Substituir etiqueta (15/10/2026, v61) — DECISAO_menu-da-ficha-e-substituir-etiqueta_15-10-2026.md =====
+   Raphael (print da ficha): 10 itens no menu, 8 repetidos na tela, e "Continuar + Imprimir + Testar" numa etiqueta que funciona;
+   "preciso gravar outro [cartão]… temos que ter uma opção de Substituir TAG NFC / Substituir etiqueta danificada". Mockup aprovado:
+   o ⋯ guarda só o que não está na tela e o que é raro, agrupado (Etiqueta / Equipamento); "Substituir etiqueta…" em qualquer
+   estado com etiqueta ativa (antes "Fazer uma etiqueta nova" só aparecia com a etiqueta 100%, por isso não foi achada).
+   Motivo obrigatório (Raphael). A troca só do chip (mantendo o QR colado) é a v62: aqui aparece desligada, "na próxima versão".
+   Chave: ATIVO_DET_MENU_V61=false devolve o menu e o "O que fazer" de 14/10. */
+const ATIVO_DET_MENU_V61=true;
+const ETQ_TROCA_CHIP_APP=false; /* v62 liga: "Só o chip falhou" */
+function ativoDetMenuV61Html(d){
+  const cad=ativoDetPodeCad(), etAtiva=(d.etiquetas||[]).find(e=>e.ativa), nfc=typeof estoqNfcSuportado==='function'&&estoqNfcSuportado();
+  const it=(ic,txt,sub,on,cls)=>'<button class="'+(cls||'')+'" onclick="ativoDetMenu(false);'+on+'"><span style="width:24px;text-align:center">'+ic+'</span><span style="flex:1;min-width:0;text-align:left">'+txt+(sub?'<small style="display:block;font-weight:500;font-size:12px;color:#686868">'+sub+'</small>':'')+'</span></button>';
+  const g=t=>'<div class="fa-mg">'+t+'</div>';
+  let etq='', eq='';
+  if(cad&&etAtiva){
+    if(nfc) etq+=it('📶','Testar etiqueta','encoste o cartão para conferir','ativoDetTestar()');
+    etq+=it('🖨','Reimprimir a mesma etiqueta','adesivo rasgou, chip bom','ativoDetEtiqueta(\'imprimir\')');
+    etq+=it('🔁','Substituir etiqueta…','perdida, danificada ou chip com defeito','ativoDetSubstituir()','fa-mdest');
+  }
+  if(cad) eq+=it('📷','Adicionar foto','','ativoDetFotoNova()');
+  if(d.linkFabricante) eq+=it('🔗','Ficha do fabricante','','window.open(\''+cadEsc(d.linkFabricante).replace(/'/g,'')+'\',\'_blank\')');
+  if(cad&&typeof PORTAL_ATIVO!=='undefined'&&PORTAL_ATIVO&&etAtiva&&etAtiva.token&&typeof PORTAL_BASE!=='undefined') eq+=it('👁️','Abrir no portal do cliente','pede o login do cliente','window.open(\''+PORTAL_BASE+'/a/'+etAtiva.token+'\',\'_blank\')');
+  if(typeof ativoDetMenuTecnicoHtml==='function') eq+=ativoDetMenuTecnicoHtml(d,it); /* v63: técnico avisa etiqueta perdida */
+  return (etq?g('Etiqueta')+etq:'')+(eq?g('Equipamento')+eq:'');
+}
+/* o botão ⋯ some quando o menu ficaria vazio (técnico sem ficha do fabricante) */
+function ativoDetMenuBotao(){
+  const b=document.getElementById('ativoDetMenuBtn'); if(!b||!ATIVO_DET_MENU_V61) return;
+  const d=ativoDetSt; b.style.visibility=(d&&ativoDetMenuV61Html(d))?'':'hidden';
+}
+let etqSubst=null;
+function ativoDetSubstituir(){
+  const d=ativoDetSt; if(!d) return;
+  const et=(d.etiquetas||[]).find(e=>e.ativa);
+  etqSubst={ativoId:d.id,nome:d.apelido||d.nome||'',num:d.nome||'',versao:et&&et.versao,token:et&&et.token,opcao:'nova',motivo:null};
+  etqSubstPintar();
+}
+function etqSubstPintar(msg){
+  const p=etqSubst; let ov=document.getElementById('etqSubstOv');
+  if(!p){ if(ov) ov.remove(); return; }
+  if(!ov){ ov=document.createElement('div'); ov.id='etqSubstOv'; ov.className='es-ov'; ov.addEventListener('click',ev=>{ if(ev.target===ov) etqSubstFechar(); }); document.body.appendChild(ov); }
+  const MOT=['Perdida','Danificada','Outro'];
+  const op=(k,ic,tit,txt,desl)=>'<button type="button" class="es-op'+(p.opcao===k?' sel':'')+(desl?' desl':'')+'" '+(desl?'disabled':'onclick="etqSubstOpcao(\''+k+'\')"')+'><b>'+ic+' '+tit+'</b><span>'+txt+'</span></button>';
+  let h='<div class="es-sh"><div class="es-tit">Substituir a etiqueta do '+cadEsc(p.num||p.nome)+'</div>'
+    +'<div class="es-sub">Etiqueta atual: versão '+cadEsc(p.versao!=null?p.versao:'?')+' · ativa</div>'
+    +op('nova','🏷','Perdi ou estragou a etiqueta','Gera uma <b>etiqueta nova</b> (QR e chip novos): imprime, grava o chip, cola e confere — o mesmo passo a passo do cadastro. A etiqueta antiga para de funcionar assim que o chip novo for gravado.')
+    +op('chip','📶','Só o chip falhou — a etiqueta colada está boa',ETQ_TROCA_CHIP_APP?'Mantém o QR colado. Lê o QR, encosta o chip novo e confere. O chip antigo deixa de valer.':'Chega na próxima versão do app.',!ETQ_TROCA_CHIP_APP);
+  if(p.opcao==='nova') h+='<div class="es-lab">Motivo <span>— obrigatório</span></div><div class="es-chips">'+MOT.map(m=>'<button type="button" class="es-chip'+(p.motivo===m?' on':'')+'" onclick="etqSubstMotivo(\''+m+'\')">'+m+'</button>').join('')+'</div>';
+  if(msg) h+='<div class="es-msg">'+cadEsc(msg)+'</div>';
+  h+='<button type="button" class="es-btn pri" onclick="etqSubstContinuar()">Continuar</button><button type="button" class="es-btn" onclick="etqSubstFechar()">Cancelar</button></div>';
+  ov.innerHTML=h;
+}
+function etqSubstOpcao(k){ if(etqSubst){ etqSubst.opcao=k; etqSubstPintar(); } }
+function etqSubstMotivo(m){ if(etqSubst){ etqSubst.motivo=m; etqSubstPintar(); } }
+function etqSubstFechar(){ etqSubst=null; etqSubstPintar(); }
+function etqSubstContinuar(){
+  const p=etqSubst; if(!p) return;
+  if(p.opcao==='chip'){ if(ETQ_TROCA_CHIP_APP&&typeof etqTrocaChipAbrir==='function'){ const q=p; etqSubstFechar(); etqTrocaChipAbrir(q); } return; }
+  if(!p.motivo) return etqSubstPintar('Escolha o motivo: Perdida, Danificada ou Outro.');
+  etfMotivoPendente=p.motivo; etqSubstFechar();
+  ativoDetEtiqueta('nova');
+}
 /* menu "⋯": tudo o que a tela sabe fazer, inclusive o que não coube em "O que fazer" */
 function ativoDetMenu(abrir){
   const box=document.getElementById('ativoDetMenuBox'); if(!box) return;
@@ -17761,6 +17850,7 @@ function ativoDetMenu(abrir){
   const cad=ativoDetPodeCad(), est=etqEstadoDe(d.etiquetas), etAtiva=(d.etiquetas||[]).find(e=>e.ativa), nfc=typeof estoqNfcSuportado==='function'&&estoqNfcSuportado();
   const it=(ic,txt,on)=>'<button onclick="ativoDetMenu(false);'+on+'"><span style="width:24px;text-align:center">'+ic+'</span>'+txt+'</button>';
   let h='';
+  if(ATIVO_DET_MENU_V61){ h=ativoDetMenuV61Html(d); if(!h){ box.style.display='none'; return; } box.innerHTML=h; box.style.display='block'; return; }
   if(cad) h+=it('✎','Editar cadastro','ativoDetEditar()');
   h+=it('📋','Ver pendências','ativoDetPendencias()')+it('⚠️','Registrar problema','ativoDetProblema()');
   /* 14/10/2026: Fotos e Histórico (leitura) para todos; o resto do bloco é escrita e segue de quem cadastra */
