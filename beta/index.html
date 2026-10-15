@@ -1783,8 +1783,9 @@
 .etqs-tipo{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#0176D3}
 .etqs-apelido{font-size:24px;font-weight:700;color:#0B2239;line-height:1.1;margin-top:2px;word-break:break-word}
 .etqs-desc{font-size:13px;color:#3A4552;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 15/10/2026 — Raphael: "o número da TAG merece um pouco mais de destaque, aumente em 30%" (13→17 px; rótulo 10→13 px) */
-.etqs-cod{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:17px;font-weight:700;color:#0B2239;background:#EEF2F6;border-radius:10px;padding:6px 12px;letter-spacing:.03em;white-space:nowrap}
+/* 15/10/2026 — Raphael: "o número da TAG merece um pouco mais de destaque, aumente em 30%" (13→17 px; rótulo 10→13 px) e, à tarde,
+   "aumentar o tamanho da fonte no número do ativo em 30%" de novo (17→22 px; rótulo fica 13 px) */
+.etqs-cod{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:22px;font-weight:700;color:#0B2239;background:#EEF2F6;border-radius:10px;padding:7px 14px;letter-spacing:.03em;white-space:nowrap}
 .etqs-cod small{font-family:system-ui,sans-serif;font-size:13px;font-weight:700;color:#8A949E;letter-spacing:.08em;margin-right:5px}
 .etqs-lado{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .etqs-lado .etqs-pil{font-size:10.5px;padding:3px 9px}
@@ -1871,6 +1872,25 @@
 .ota-pronto .tag{margin:14px 0 6px;background:#E6F4F3;border:1px dashed #0B827C;color:#0B5F5B;border-radius:12px;padding:12px;font-size:15px;font-weight:800}
 .ota-pronto .bt{display:block;width:100%;min-height:52px;margin-top:10px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
 .ota-pronto .bt.pri{background:#0176D3;border-color:#0176D3;color:#fff}
+/* 15/10/2026 — modo ronda (faixa roxa: exceção à paleta aprovada junto com o mockup) */
+.ota-faixa.rnd-faixa{background:#5A3FC0}
+.rnd-card{background:#fff;border:1px solid #E2E5E9;border-radius:16px;padding:14px;margin-bottom:14px}
+.rnd-card.rnd-on{border:2px solid #5A3FC0}
+.rnd-tit{font-size:16px;font-weight:800;color:#0B2239}.rnd-sub{font-size:13px;color:#686868;margin-top:2px;line-height:1.35}
+.rnd-btn{display:block;width:100%;min-height:50px;margin-top:10px;border-radius:12px;border:1.5px solid #C9D0D8;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:#0B2239}
+.rnd-btn.pri{background:#5A3FC0;border-color:#5A3FC0;color:#fff}.rnd-btn:disabled{opacity:.5}
+.rnd-ult{background:#F4F1FD;border:1px solid #D9D0F6;border-radius:12px;padding:10px 12px;margin-top:10px}
+.rnd-ulth{font-size:12.5px;font-weight:700;color:#5A3FC0}.rnd-ultn{font-size:16px;font-weight:800;color:#0B2239;margin-top:2px}
+.rnd-prog{margin-top:12px;font-size:14px;color:#0B2239}.rnd-bar{height:8px;background:#E2E5E9;border-radius:99px;overflow:hidden;margin-top:6px}.rnd-bar i{display:block;height:100%;background:#5A3FC0}
+.rnd-sep{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8A949E;margin:12px 0 2px}
+.rnd-lin{display:flex;gap:8px;align-items:center;border-top:1px solid #EEF1F4;padding:8px 0;font-size:13.5px;color:#0B2239}
+.rnd-lin b{flex:1;min-width:0;font-weight:700}.rnd-h{font-family:ui-monospace,Menlo,monospace;color:#686868;font-size:12px;width:40px;flex:none}
+.rnd-falta b{color:#3A4552;font-weight:600}.rnd-loc{font-size:12px;color:#8A949E}
+.rnd-pil{flex:none;font-size:10.5px;font-weight:800;text-transform:uppercase;border-radius:999px;padding:3px 8px}
+.rnd-mais{background:none;border:none;color:#5A3FC0;font-weight:700;font-size:13px;padding:6px 0;font-family:inherit;min-height:36px}
+.rnd-num{display:flex;gap:8px;margin:12px 0 4px}.rnd-num div{flex:1;background:#F4F6F8;border-radius:10px;padding:8px;text-align:center}
+.rnd-num b{display:block;font-size:22px;color:#0B2239}.rnd-num small{font-size:11.5px;color:#686868}
+.rnd-aviso{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:10px}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1881,7 +1901,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=64;
+const APP_NUM=65;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15367,6 +15387,7 @@ function etqRender(st){
     if(st.ativo&&st.ativo.id&&!st.errado&&typeof tagHistAdd==='function') try{ tagHistAdd(st); }catch(_){} /* 13/10/2026: últimos 5 consultados na home do Consultar TAG */
     /* 14/10/2026 — toda leitura fica gravada (uma vez por leitura: o mesmo st pode ser redesenhado) */
     if(st.ativo&&st.ativo.id&&!st._gravada&&typeof leituraTagGravar==='function'){ st._gravada=true; try{ leituraTagGravar(st,st.contexto||'Consulta',st.otId); }catch(_){} } /* 15/10/2026: contexto OT quando há OT ativa */
+    if(st.foraRonda) h+='<div class="ota-fora"><b>Este equipamento não é do cliente da ronda ('+cadEsc(st.foraRonda)+').</b> A ronda continua; abaixo, o que se sabe dele.</div>'; /* 15/10/2026 */
     if(st.foraOt) h+='<div class="ota-fora"><b>'+(st.foraOtErro?'Não consegui abrir a '+cadEsc(st.foraOt)+'.':'Este equipamento não está na '+cadEsc(st.foraOt)+'.')+'</b> A leitura foi registrada; abaixo, o que se sabe dele.<button type="button" onclick="etqFechar();otAtivaIrOt()">Voltar à OT ›</button></div>'; /* 15/10/2026 (A4) */
     /* 11/10/2026 — layout A "Veredito primeiro" (prototipos/tag-resultado-A.html, escolhido pelo Raphael). A tela estava
        na ordem em que o sistema CONFERE (checagens, URL) e não na ordem em que o técnico LÊ: "posso usar?" e "de qual
@@ -15663,6 +15684,7 @@ async function etqConferir(url,uid,esperado){
         const stR={fase:'resultado',chk,ver,ativo:a,errado,token,okEtiqueta:true,esperado,url,uid};
         /* 15/10/2026 — OT ativa: a leitura abre a tarefa do equipamento (otAtivaDesviar devolve true e já mostrou tudo) */
         if(typeof otAtivaDesviar==='function'&&await otAtivaDesviar(stR,r)) return;
+        if(typeof rondaDesviar==='function'&&await rondaDesviar(stR,r)) return; /* 15/10/2026: modo ronda */
         if(minha!==etqSeq||!document.getElementById('etqModal')) return;
         etqRender(stR);
         if(r.avisos&&r.avisos.length&&a&&a.id) etqAvisosMostrar(r.avisos,a.id); /* 12/10/2026: avisos de contrato do cliente */
@@ -16811,6 +16833,7 @@ function etqPpNaLista(p,blocos){
 }
 function etqPpConcluir(p,blocos){
   if(p.motor&&typeof motAchadoFeito==='function'){ motAchadoFeito(p,blocos); return; } /* 15/10/2026: registro aberto pelo Aceitar da OT */
+  try{ if(typeof rondaProblemas==='function') rondaProblemas(p,blocos); }catch(e){} /* 15/10/2026: problemas da ronda (resumo) */
   const r=blocos.length?blocos[blocos.length-1].r:null, n=blocos.length;
   const naSecao=typeof etqPnd!=='undefined'&&etqPnd&&etqPnd.ativoId===p.ativoId;
   if(naSecao) etqPpNaLista(p,blocos); /* antes de zerar etqProb */
@@ -16921,6 +16944,7 @@ async function leituraTagGravar(st,contexto,otId){
     resultado:st.errado?'Equipamento errado':((st.ver&&st.ver.t1)||''),em:new Date().toISOString()};
   if(st.token) body.token=st.token;
   if(otId) body.otId=otId;
+  if(st.rondaId) body.rondaId=st.rondaId; /* 15/10/2026: modo ronda */
   const g=await leituraTagGps(); if(g){ body.lat=g.lat; body.lng=g.lng; body.precisao=g.precisao; }
   try{ return await bePost('/leituras-tag',body,'Leitura de TAG'); }
   catch(e){ return null; } /* servidor sem o objeto (503) ou outro erro: a leitura na tela segue normal */
@@ -16989,6 +17013,7 @@ async function tagBuscarCodigo(){
     const stC={fase:'resultado',porCodigo:true,chk,ativo:a,okEtiqueta:false,ver:{tom:'ne',t1:'Consulta pelo código',t2:'ATV-'+num,t3:'Etiqueta não conferida — para conferir, leia o QR ou o NFC.'}};
     /* 15/10/2026 — com OT ativa o código digitado também abre a tarefa (OT_ATIVA_CODIGO_ABRE; útil com etiqueta danificada) */
     if(typeof OT_ATIVA_CODIGO_ABRE!=='undefined'&&OT_ATIVA_CODIGO_ABRE&&typeof otAtivaDesviar==='function'&&await otAtivaDesviar(stC,r)) return;
+    if(typeof rondaDesviar==='function'&&await rondaDesviar(stC,r)) return; /* 15/10/2026: modo ronda (código digitado também conta) */
     if(minha!==etqSeq||!document.getElementById('etqModal')) return;
     etqRender(stC);
     if(r.avisos&&r.avisos.length&&a&&a.id) etqAvisosMostrar(r.avisos,a.id);
@@ -17009,6 +17034,7 @@ function renderTag(){
   const svgQr='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M6.5 6.5h1M16.5 6.5h1M6.5 16.5h1"/><path d="M14 14h2v2M18 14h2M14 18v2h2M18 18h2v2"/></svg>';
   const svgNfc='<svg viewBox="0 0 24 24" width="60" height="60" fill="none" stroke="#3E7EB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M12 8a6 6 0 0 1 0 8"/><path d="M14.5 6.5a8.2 8.2 0 0 1 0 11"/></svg>';
   el.innerHTML='<div style="padding:18px 14px 90px">'
+    +(typeof rondaPainelHtml==='function'?rondaPainelHtml():'') /* 15/10/2026: modo ronda */
     +'<div style="font-size:16px;font-weight:700;color:#0B2239;margin-bottom:4px">Como você quer ler a etiqueta?</div>'
     +'<div style="font-size:13px;color:#686868;margin-bottom:16px">Mostra a qual equipamento ela pertence e se está ativa.</div>'
     +'<div style="display:flex;gap:12px">'
@@ -19231,7 +19257,7 @@ function beLoginLocal(){ const u=(document.getElementById('loginUser')||{}).valu
   if(p.get('dev')==='1'){ document.addEventListener('DOMContentLoaded',()=>{ const d=document.getElementById('loginDev'); if(d)d.style.display='block'; }); }
 }catch(e){} })();
 function onGoogleCredential(resp){ if(resp&&resp.credential) beDoLogin({googleIdToken:resp.credential}); }
-function beLogout(){ try{ OTA=null; }catch(e){} ['be_tok','be_name','be_rid','be_funcao','be_cargo','be_papel_real','be_ver_como','ot_ativa_v1'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); exaTecCookie(false); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
+function beLogout(){ try{ OTA=null; RND=null; rndIniciado=false; }catch(e){} ['be_tok','be_name','be_rid','be_funcao','be_cargo','be_papel_real','be_ver_como','ot_ativa_v1','ronda_v1'].forEach(k=>{ sessionStorage.removeItem(k); localStorage.removeItem(k); }); exaTecCookie(false); CARGO_REAL=''; ROLE='Líder de Equipe'; try{renderRoleChip();}catch(e){} SF_LIVE=false; document.body.classList.remove('sf-live'); go('login'); toast('Você saiu.'); }
 /* "minha agenda": id do recurso (SFL5_Resource__c) do usuário logado */
 function myRid(){ return localStorage.getItem('be_rid')||''; }
 
@@ -23970,7 +23996,7 @@ async function visAbrirChecklist(){
    - A leitura não é exigida para concluir; fica gravada (contexto OT) e aparece na folha ("📶 TAG lida às hh:mm").
    - Ronda (entrega 3) entra no roteador depois da OT; ronda e OT ativa não convivem.
    Chaves: OT_ATIVA_ABRE_TAREFA=false devolve a v59 inteira (sem faixa, NFC fora da tela TAG volta a ser descartado).
-   OT_ATIVA_CODIGO_ABRE e OT_ATIVA_DESLIGA_NO_CHECKOUT: opções recomendadas, ainda sem resposta do Raphael (15/10). */
+   OT_ATIVA_CODIGO_ABRE e OT_ATIVA_DESLIGA_NO_CHECKOUT: confirmadas pelo Raphael em 15/10 ("SIM" e "SIM"). */
 const OT_ATIVA_ABRE_TAREFA=true;
 const OT_ATIVA_CODIGO_ABRE=true;
 const OT_ATIVA_DESLIGA_NO_CHECKOUT=true;
@@ -24007,6 +24033,10 @@ function otaFaixaPintar(){
   if(!otaIniciado){ otaIniciado=true; if(!OTA&&OT_ATIVA_ABRE_TAREFA) OTA=otAtivaLerCache(); }
   const f=document.getElementById('otaFaixa'); if(!f) return;
   const login=!!document.querySelector('#scr-login.active');
+  /* 15/10/2026 — modo ronda: sem OT ativa, a mesma faixa vira a da ronda (roxa); 4 h sem leitura encerra a ronda sozinha */
+  try{ if(typeof rondaChecarAuto==='function') rondaChecarAuto(); }catch(e){}
+  if(!login&&!OTA&&typeof rondaFaixaHtml==='function'){ const rh=rondaFaixaHtml(); if(rh){ f.innerHTML=rh; f.className='ota-faixa rnd-faixa'; f.style.display='flex'; return; } }
+  f.className='ota-faixa';
   if(!OT_ATIVA_ABRE_TAREFA||!OTA||login){ f.style.display='none'; return; }
   let n='';
   if(MOT.otId===OTA.otId&&MOT.tarefas&&MOT.tarefas.length){ const tot=MOT.tarefas.length, ok=MOT.tarefas.filter(t=>motDesfecho(t)).length; n=' · '+ok+' de '+tot+' tarefas'; }
@@ -24118,7 +24148,7 @@ function otAtivaDepoisDeConcluir(){
 /* entrada do leitor NFC único (nfcHubLeitura): com OT ativa, a leitura vale em QUALQUER tela. Outros leitores (passo NFC do
    checklist, gravação no cadastro, estoque, recebimento, endereços, teste de etiqueta) e o par QR × NFC têm prioridade. */
 function leituraHubRoteia(e){
-  if(!(OT_ATIVA_ABRE_TAREFA&&OTA)) return false;
+  if(!((OT_ATIVA_ABRE_TAREFA&&OTA)||(typeof rondaAtiva==='function'&&rondaAtiva()))) return false; /* 15/10/2026: ronda também lê em qualquer tela */
   if(typeof tagPar!=='undefined'&&tagPar) return false;
   const outros=(typeof nfcHubLeitoresAtivos==='function'?nfcHubLeitoresAtivos():[]).filter(x=>x!=='único'&&x!=='etq');
   if(outros.length) return false;
@@ -24126,6 +24156,130 @@ function leituraHubRoteia(e){
   if(typeof nfcHubEvento==='function') nfcHubEvento('leitura com OT ativa → tarefa');
   etqProcessar(e,'');
   return true;
+}
+
+/* ===== Modo ronda (15/10/2026, v65) — DECISAO_leitura-da-tag-por-contexto-ronda-e-ot_14-10-2026.md =====
+   Mockup aprovado (B1–B3 de prototipos/mockup-leitura-por-contexto-ot-e-ronda_14-10-2026.html). Regras do Raphael (14 e 15/10):
+   um cliente por ronda (o cliente vem da 1ª TAG lida — o servidor não lê Account); mostra o que falta ler (equipamentos com etiqueta
+   ativa do cliente); toda leitura gravada com GPS e ligada à Ronda__c; encerrar mostra o resumo (quem fez; Supervisor+ vê a lista);
+   ronda esquecida encerra sozinha após 4 h sem leitura; todos os papéis fazem ronda; ronda e OT ativa não convivem (a OT manda).
+   Divergência consciente do mockup B2: o botão "+ Problema" virou "Ver detalhes / registrar problema ›", que reabre o resultado
+   completo da leitura (lá já existem Registrar problema e Ver ficha) — um caminho só para as duas coisas.
+   Chave: RONDA_LIGADA=false esconde o cartão "Iniciar ronda" e o roteamento. */
+const RONDA_LIGADA=false; /* 15/10/2026: DESLIGADA — Raphael decidiu que a ronda tem OT por trás ("OT de ronda, linhas automáticas"); esta ronda livre fica no arquivo, sem uso */
+const RONDA_CHAVE='ronda_v1', RONDA_AUTO_MS=4*3600*1000;
+let RND=null, rndIniciado=false, rondaUltimaSt=null, rondaVerTudo={faltam:false,lidos:false};
+function rondaLer(){ if(!rndIniciado){ rndIniciado=true; try{ const o=JSON.parse(localStorage.getItem(RONDA_CHAVE)||'null'); if(o&&o.recursoId===myRid()) RND=o; }catch(e){} } return RND; }
+function rondaSalvar(){ try{ if(RND) localStorage.setItem(RONDA_CHAVE,JSON.stringify(RND)); else localStorage.removeItem(RONDA_CHAVE); }catch(e){} }
+function rondaAtiva(){ rondaLer(); return !!(RONDA_LIGADA&&RND&&!RND.encerrada); }
+function rondaId15(x){ return String(x||'').slice(0,15); }
+function rondaHm(t){ const d=new Date(t); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function rondaRepintar(){ try{ if(document.querySelector('#scr-tag.active')) renderTag(); }catch(e){} try{ otaFaixaPintar(); }catch(e){} }
+function rondaIniciar(){
+  if(typeof OTA!=='undefined'&&OTA){ toast('Com a OT ativa a ronda fica indisponível (a OT manda).'); return; }
+  RND={id:null,contaId:null,contaNome:'',inicio:Date.now(),ultimaEm:Date.now(),equipamentos:null,lidos:{},ordem:[],problemas:[],recursoId:myRid(),ultima:null,encerrada:null};
+  rondaSalvar(); rondaRepintar();
+  try{ if(typeof tagNfcLigar==='function') tagNfcLigar(); }catch(e){}
+}
+function rondaCancelar(){ if(RND&&RND.ordem.length&&!confirm('Cancelar a ronda? As leituras já feitas continuam gravadas.')) return; RND=null; rondaSalvar(); rondaRepintar(); }
+/* desvio dentro de etqConferir / tagBuscarCodigo: true = a leitura entrou na ronda (o painel mostra; não abre o resultado) */
+async function rondaDesviar(st,r){
+  if(!rondaAtiva()||!st||!st.ativo||!st.ativo.id||st.errado) return false;
+  if(typeof OTA!=='undefined'&&OTA) return false; /* a OT manda */
+  const a=st.ativo, cId=a.contaId||null;
+  if(RND.contaId&&cId&&rondaId15(cId)!==rondaId15(RND.contaId)){
+    if(!confirm('Este equipamento é de outro cliente ('+(a.conta||'?')+'). Encerrar a ronda de '+(RND.contaNome||'?')+' e começar uma nova?')){ st.foraRonda=RND.contaNome; return false; }
+    await rondaEncerrar('troca'); RND=null; rondaIniciar();
+  }
+  if(!RND.contaId){
+    if(!cId){ toast('Não consegui saber o cliente deste equipamento — a ronda continua esperando.'); return false; }
+    RND.contaId=cId; RND.contaNome=a.conta||''; RND.inicio=Date.now();
+    try{ const j=await beGet('/rondas/equipamentos?contaId='+encodeURIComponent(cId)); RND.equipamentos=(j&&j.equipamentos)||[]; }catch(e){ RND.equipamentos=null; }
+    try{ const j=await bePost('/rondas',{contaId:cId,contaNome:RND.contaNome,total:RND.equipamentos?RND.equipamentos.length:undefined}); RND.id=(j&&j.id)||null; }
+    catch(e){ RND.id=null; RND.semServidor=(e&&e.message)||'erro'; }
+  }
+  const k=rondaId15(a.id);
+  RND.lidos[k]={id:a.id,em:Date.now(),nome:a.nome||'',apelido:a.apelido||'',local:a.local||'',metodo:st.uid?'NFC':(st.porCodigo?'Código':'QR'),resultado:(st.ver&&st.ver.t1)||''};
+  RND.ordem=[k].concat((RND.ordem||[]).filter(x=>x!==k)); RND.ultima=k; RND.ultimaEm=Date.now();
+  rondaSalvar();
+  st.contexto='Ronda'; st.rondaId=RND.id||null;
+  if(!st._gravada&&typeof leituraTagGravar==='function'){ st._gravada=true; try{ leituraTagGravar(st,'Ronda',null); }catch(_){} }
+  rondaUltimaSt=st;
+  try{ if(navigator.vibrate) navigator.vibrate(60); }catch(_){}
+  etqFechar();
+  if(!document.querySelector('#scr-tag.active')) go('tag'); else rondaRepintar();
+  otaFaixaPintar();
+  if(r&&r.avisos&&r.avisos.length&&typeof etqAvisosMostrar==='function') etqAvisosMostrar(r.avisos,a.id);
+  return true;
+}
+/* reabre o resultado completo da última leitura (registrar problema, ver ficha) — já gravada, não grava de novo */
+function rondaVerUltima(){ if(!rondaUltimaSt){ toast('Leia a TAG de novo para ver os detalhes.'); return; } etqAbrirModal(); etqRender(rondaUltimaSt); }
+/* problemas registrados durante a ronda (chamado por etqPpConcluir) */
+function rondaProblemas(p,blocos){
+  if(!rondaAtiva()||!p||p.motor) return;
+  const l=RND.lidos[rondaId15(p.ativoId)]||{};
+  (blocos||[]).forEach(b=>RND.problemas.push({ativoId:p.ativoId,nome:l.apelido||l.nome||'',descricao:(typeof etqPpTitulo==='function'?etqPpTitulo(b):''),sev:b.sev||''}));
+  rondaSalvar();
+}
+function rondaAlternar(k){ rondaVerTudo[k]=!rondaVerTudo[k]; rondaRepintar(); }
+function rondaFaltam(){ if(!RND||!RND.equipamentos) return []; return RND.equipamentos.filter(e=>!RND.lidos[rondaId15(e.id)]); }
+/* modo: undefined = o técnico tocou em Encerrar (pede confirmação se faltou algum); 'auto' = 4 h sem leitura; 'troca' = leu TAG de outro
+   cliente e aceitou começar outra ronda (sem perguntar de novo) */
+async function rondaEncerrar(modo){
+  if(!RND||RND.encerrada||RND._encerrando) return;
+  const automatica=modo==='auto'||modo===true;
+  const falt=rondaFaltam();
+  if(!modo&&RND.contaId&&falt.length&&!confirm('Faltaram '+falt.length+' equipamento'+(falt.length>1?'s':'')+' sem leitura. Encerrar mesmo assim?')) return;
+  RND._encerrando=true; /* uma troca de tela no meio do envio não manda o encerramento duas vezes */
+  const lidos=Object.keys(RND.lidos).length, total=RND.equipamentos?RND.equipamentos.length:null;
+  const res={automatica:!!automatica,fim:Date.now(),lidos,total,problemas:RND.problemas.slice(),faltaram:falt.map(e=>[e.apelido||e.nome,e.nome&&e.apelido?e.nome:'',e.local].filter(Boolean).join(' · '))};
+  if(RND.id){ try{ await bePost('/rondas/'+RND.id+'/encerrar',{lidos,total,problemas:res.problemas.length,faltaram:res.faltaram,automatica:!!automatica},'Encerrar ronda'); }catch(e){ res.erro=(e&&e.message)||'erro'; } }
+  RND.encerrada=res; rondaSalvar(); rondaRepintar();
+  if(automatica) toast('A ronda de '+(RND.contaNome||'?')+' foi encerrada automaticamente (4 h sem leitura).');
+}
+function rondaConcluir(){ RND=null; rondaSalvar(); rondaRepintar(); }
+/* ronda esquecida: 4 h sem leitura → encerra sozinha (checado ao pintar a faixa, isto é, a cada troca de tela) */
+function rondaChecarAuto(){ if(rondaAtiva()&&RND.contaId&&Date.now()-(RND.ultimaEm||RND.inicio)>RONDA_AUTO_MS) rondaEncerrar('auto'); }
+function rondaPainelHtml(){
+  if(!RONDA_LIGADA) return '';
+  rondaLer();
+  const comOt=typeof OTA!=='undefined'&&OTA;
+  if(!RND) return '<div class="rnd-card"><div class="rnd-tit">🧭 Ronda</div><div class="rnd-sub">'+(comOt?'Indisponível com a OT ativa — a OT manda.':'Passe pelos equipamentos de um cliente lendo as TAGs: o app mostra o que já foi lido e o que falta.')+'</div>'
+    +'<button type="button" class="rnd-btn pri" id="rndIniciar" onclick="rondaIniciar()"'+(comOt?' disabled':'')+'>Iniciar ronda</button></div>';
+  if(RND.encerrada){
+    const e=RND.encerrada, dur=rondaHm(RND.inicio)+'–'+rondaHm(e.fim);
+    return '<div class="rnd-card"><div class="rnd-tit">Resumo da ronda</div><div class="rnd-sub">'+cadEsc(RND.contaNome||'')+' · '+dur+(e.automatica?' · encerrada automaticamente':'')+'</div>'
+      +'<div class="rnd-num"><div><b>'+e.lidos+'</b><small>'+(e.total!=null?'de '+e.total+' lidos':'lidos')+'</small></div><div><b>'+e.problemas.length+'</b><small>problemas registrados</small></div><div><b style="color:'+(e.faltaram.length?'#BA0517':'#2E844A')+'">'+e.faltaram.length+'</b><small>faltaram</small></div></div>'
+      +(e.faltaram.length?'<div class="rnd-sep">Faltaram</div>'+e.faltaram.map(n=>'<div class="rnd-lin"><b>'+cadEsc(n)+'</b></div>').join(''):'')
+      +(e.problemas.length?'<div class="rnd-sep">Problemas registrados</div>'+e.problemas.map(p=>'<div class="rnd-lin"><span class="rnd-pil" style="background:'+(p.sev==='Crítico'?'#BA0517':p.sev==='Atenção'?'#FE9339':'#747474')+';color:'+(p.sev==='Atenção'?'#2B1A00':'#fff')+'">'+cadEsc(p.sev||'—')+'</span><b>'+cadEsc([p.nome,p.descricao].filter(Boolean).join(' — '))+'</b></div>').join(''):'')
+      +(e.erro?'<div class="rnd-aviso">O resumo não chegou ao servidor ('+cadEsc(e.erro)+'). As leituras estão gravadas.</div>':'')
+      +'<button type="button" class="rnd-btn pri" id="rndConcluir" onclick="rondaConcluir()">Concluir</button></div>';
+  }
+  if(!RND.contaId) return '<div class="rnd-card rnd-on"><div class="rnd-tit">🧭 Ronda iniciada</div><div class="rnd-sub"><b>Encoste a TAG do primeiro equipamento.</b> O cliente da ronda vem dela.</div>'
+    +'<button type="button" class="rnd-btn" onclick="rondaCancelar()">Cancelar ronda</button></div>';
+  const lidos=RND.ordem.map(k=>RND.lidos[k]).filter(Boolean), falt=rondaFaltam(), tot=RND.equipamentos?RND.equipamentos.length:null;
+  const u=RND.ultima&&RND.lidos[RND.ultima];
+  const probDe=id=>RND.problemas.filter(p=>rondaId15(p.ativoId)===rondaId15(id)).length;
+  let h='<div class="rnd-card rnd-on"><div class="rnd-tit">🧭 Ronda · '+cadEsc(RND.contaNome||'')+'</div><div class="rnd-sub">desde '+rondaHm(RND.inicio)+(RND.semServidor?' · <span style="color:#BA0517">não registrada no servidor ('+cadEsc(RND.semServidor)+')</span>':'')+'</div>';
+  if(u) h+='<div class="rnd-ult"><div class="rnd-ulth">📶 '+rondaHm(u.em)+(Date.now()-u.em<60000?' · agora':'')+' · '+cadEsc(u.metodo)+'</div><div class="rnd-ultn">'+cadEsc([u.apelido,u.nome].filter(Boolean).join(' · '))+'</div>'+(u.local?'<div class="rnd-sub">'+cadEsc(u.local)+'</div>':'')
+    +'<button type="button" class="rnd-btn" id="rndVerUlt" onclick="rondaVerUltima()">Ver detalhes / registrar problema ›</button></div>';
+  h+='<div class="rnd-prog"><b>'+lidos.length+(tot!=null?' de '+tot:'')+' lidos</b>'+(tot?'<div class="rnd-bar"><i style="width:'+Math.min(100,Math.round(lidos.length*100/tot))+'%"></i></div>':'')+'</div>';
+  if(tot!=null){
+    const mf=rondaVerTudo.faltam?falt:falt.slice(0,5);
+    h+='<div class="rnd-sep">Faltam · '+falt.length+'</div>'+(falt.length?mf.map(e=>'<div class="rnd-lin rnd-falta"><span class="rnd-h">—</span><b>'+cadEsc([e.apelido,e.nome].filter(Boolean).join(' · '))+'</b><span class="rnd-loc">'+cadEsc(e.local||'')+'</span></div>').join(''):'<div class="rnd-lin"><b style="color:#2E844A">✓ Todos lidos</b></div>')
+      +(falt.length>5?'<button type="button" class="rnd-mais" onclick="rondaAlternar(\'faltam\')">'+(rondaVerTudo.faltam?'mostrar menos':'+ '+(falt.length-5)+' › ver todos')+'</button>':'');
+  }
+  const ml=rondaVerTudo.lidos?lidos:lidos.slice(0,5);
+  h+='<div class="rnd-sep">Lidos · '+lidos.length+'</div>'+ml.map(l=>{ const n=probDe(l.id); return '<div class="rnd-lin"><span class="rnd-h">'+rondaHm(l.em)+'</span><b>'+cadEsc(l.apelido||l.nome)+'</b>'+(n?'<span class="rnd-pil" style="background:#FE9339;color:#2B1A00">'+n+' problema'+(n>1?'s':'')+'</span>':'<span style="color:#2E844A;font-weight:900">✓</span>')+'</div>'; }).join('')
+    +(lidos.length>5?'<button type="button" class="rnd-mais" onclick="rondaAlternar(\'lidos\')">'+(rondaVerTudo.lidos?'mostrar menos':'+ '+(lidos.length-5)+' › ver todos')+'</button>':'');
+  h+='<button type="button" class="rnd-btn" id="rndEncerrar" onclick="rondaEncerrar(false)">Encerrar ronda</button></div>';
+  return h;
+}
+/* faixa roxa no alto (a mesma #otaFaixa; com OT ativa a faixa é a da OT) */
+function rondaFaixaHtml(){
+  if(!rondaAtiva()) return '';
+  const tot=RND.equipamentos?RND.equipamentos.length:null, n=Object.keys(RND.lidos||{}).length;
+  return '<button type="button" class="ota-ir" onclick="go(\'tag\')"><b>🧭 Ronda'+(RND.contaNome?' · '+cadEsc(RND.contaNome):'')+'</b><small>'+(RND.contaId?n+(tot!=null?' de '+tot:'')+' lidos · encoste a próxima TAG':'encoste a TAG do primeiro equipamento')+'</small></button>';
 }
 
 /* PWA — registro do service worker (offline + instalável) */
