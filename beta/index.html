@@ -538,6 +538,10 @@
   .botnav-wrap.tem-mais::after{opacity:1}
   .botnav button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .botnav button.on{color:var(--brand)}
+  /* v74: TAG no centro, botão redondo azul (cabe na barra: a barra rola na horizontal, então nada pode sair para fora dela) */
+  .botnav button.nav-tagc{color:#0176D3;font-weight:800;padding-top:4px}
+  .botnav button.nav-tagc svg{width:24px;height:24px;padding:9px;box-sizing:content-box;background:#0176D3;stroke:#fff;border-radius:50%;box-shadow:0 3px 8px rgba(1,118,211,.35)}
+  .botnav button.nav-tagc.on svg{background:#014486}
   .botnav .nbadge{position:absolute;top:3px;right:50%;margin-right:-19px;background:var(--err);color:#fff;font-size:8.5px;font-weight:800;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   #bellBadge{position:absolute;top:-3px;right:-3px;margin:0;background:var(--err);color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
   /* ---- LOGIN — design "1a Ventilador + pino de localização" (Claude Design do Raphael) ---- */
@@ -1935,7 +1939,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=73;
+const APP_NUM=74;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -2208,7 +2212,7 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
     <button id="nav-cadastro" data-grp="mais" data-scr="cadastro" onclick="go('cadastro')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4z"/><path d="M8 7V4h8v3"/><path d="M12 11v5M9.5 13.5h5"/></svg>Cadastro</button>
     <button id="nav-trein" data-grp="mais" data-scr="treinamentos" onclick="go('treinamentos')" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11v4c0 1.6 2.7 3 6 3s6-1.4 6-3v-4"/><path d="M22 9v5"/></svg>Trilhas</button>
     <button id="nav-plano" data-grp="mais" data-scr="plano" onclick="go('plano')" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/><circle cx="18" cy="12" r="2"/></svg>Plano</button>
-    <button id="nav-tag" data-grp="mais" data-scr="tag" onclick="go('tag')"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Consultar TAG</button>
+    <button id="nav-tag" class="nav-tagc" data-grp="campo" data-scr="tag" onclick="go('tag')"><!-- 16/10/2026 (v74): Raphael, "Consultar TAG deveria estar no menu principal" → mockup A: botão central da barra --><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>TAG</button>
     <button id="nav-exp" data-grp="mais" data-scr="exp" onclick="go('exp')"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg>EXP</button>
     <button id="nav-mais" onclick="abrirMais()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>Mais<span class="nbadge" id="maisBadge" style="display:none">0</span></button>
   </nav></div>
@@ -2876,6 +2880,19 @@ function navAplicarGrupos(){
   const atual=(typeof curTab!=='undefined')?curTab:null;
   mb.classList.toggle('on', navItensMais().some(i=>i.scr===atual));
   if(document.getElementById('maisSheet') && document.getElementById('maisSheet').classList.contains('on')) montarMais();
+  navCentralizarTag();
+}
+/* 16/10/2026 (v74) — o botão TAG fica no MEIO dos botões visíveis da barra (que mudam por papel), com o "Mais" sempre no fim.
+   Por CSS order, sem mexer na ordem do HTML. Chave NAV_TAG_CENTRO=false: TAG volta para o "Mais". */
+const NAV_TAG_CENTRO=true;
+function navCentralizarTag(){
+  const tag=document.getElementById('nav-tag'), mais=document.getElementById('nav-mais'); if(!tag) return;
+  if(!NAV_TAG_CENTRO){ tag.dataset.grp='mais'; return; }
+  tag.style.display='flex';
+  const vis=[...document.querySelectorAll('.botnav button')].filter(b=>b!==tag&&b!==mais&&b.style.display!=='none');
+  const meio=Math.ceil(vis.length/2);
+  vis.forEach((b,i)=>{ b.style.order=String(i<meio?i:i+1); });
+  tag.style.order=String(meio); if(mais) mais.style.order='99';
 }
 function montarMais(){
   const lista=document.getElementById('maisLista'); if(!lista) return;
@@ -13226,6 +13243,9 @@ function updateNavRole(){ navLimparPermitido(); const b=document.getElementById(
   const pr=document.getElementById('nav-producao'); if(pr) pr.style.display=canProducaoTab(ROLE)?'flex':'none';
   const mt=document.getElementById('nav-motor'); if(mt) mt.style.display=canMotor(ROLE)?'flex':'none';
   const pl=document.getElementById('nav-plano'); if(pl) pl.style.display=canPlano(ROLE)?'flex':'none';
+  /* 16/10/2026 (v74) — TAG no centro da barra para todos; Bipar sai da barra (vai para "Mais") para quem não é Estoquista, que é quem
+     bipa o dia inteiro. prototipos/mockup-consultar-tag-menu-principal_16-10-2026.html, proposta A. */
+  if(bp&&typeof NAV_TAG_CENTRO!=='undefined'&&NAV_TAG_CENTRO) bp.dataset.grp=(ROLE==='Estoquista')?'campo':'mais';
   navAplicarGrupos(); }
 
 /* ===================== TREINAMENTOS (estilo Trailhead) ===================== */
