@@ -1900,6 +1900,19 @@
 .rnd-chip{min-height:40px;padding:0 12px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;color:#0B2239;font-weight:700;font-size:13.5px;font-family:inherit}
 .rnd-chip b{margin-left:4px;font-weight:800}.rnd-chip.on{background:#5A3FC0;border-color:#5A3FC0;color:#fff}
 .mot-rgrp{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#5A3FC0;padding:10px 4px 4px}
+#mot-sheet.cheia{top:0;bottom:0;max-height:none;height:100%;max-width:none;border-radius:0;z-index:100003} /* v69 tela cheia: acima da visita (100002), abaixo do toast (100005) e das folhas de TAG/problema */
+#mot-refscrim{z-index:100006} #mot-refmodal{z-index:100007} /* v69: ampliar/trocar foto aparece por cima da tela cheia */
+#mot-sheet.cheia #mot-handle{display:none}
+#mot-sheet.cheia #mot-shX{position:static;align-self:flex-start;width:auto;height:44px;border-radius:999px;padding:0 16px;margin:10px 0 0 12px;font-size:15px;color:#0176D3;border-color:#C9D0D8}
+#mot-sheet.cheia #mot-shHead{padding-right:16px}
+#mot-sheet.cheia #mot-shHead b{font-size:1.05rem}
+.mot-psec{border:1px solid #E2E5E9;border-radius:14px;padding:12px;margin:0 0 12px}
+.mot-psec.ok{border-color:#BFE3CC;background:#F6FBF8}
+.mot-pstit{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;color:#0B2239;margin-bottom:8px}
+.mot-psn{width:26px;height:26px;border-radius:50%;background:#0B2239;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.mot-psec.ok .mot-psn{background:#2E844A}
+.mot-pgfoto{min-height:150px}
+.mot-pgsub{font-size:13px;color:#4A5560;margin-bottom:6px}
 .mot-leve-sub{font-size:13.5px;color:#4A5560;margin:2px 0 10px} /* 15/10/2026 — linha de ronda */
 .rnd-aviso{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:10px}
 </style>
@@ -1912,7 +1925,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=68;
+const APP_NUM=69;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -20311,6 +20324,7 @@ function motAtualizarProgresso(){
 
 /* ---------- abrir / fechar o bottom sheet de execução ---------- */
 function motAbrir(i){
+  if(typeof motModoCheia==='function') motModoCheia(); /* v69 */
   if(MOT.vista!=='lista') motSetVista('lista');
   MOT.atual=i; MOT.rev=null;
   const t=MOT.tarefas[i];
@@ -20419,6 +20433,13 @@ function motRenderAtual(){
   const t=MOT.tarefas[MOT.atual]; if(!t) return;
   motAplicarAutomaticas(t);
   const head=document.getElementById('mot-shHead');
+  /* v69: antes / execução / depois / desfecho viram UMA página (sem chips de fase nem setas) */
+  if(MOT_PAGINA&&!MOT.rev&&!MOT.edit&&['antes','exec','depois','desfecho'].includes(t._fase)){
+    head.innerHTML='<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+(typeof motTagLidaHtml==='function'?motTagLidaHtml(t):'');
+    motRenderPagina(); motHidratarThumbs(document.getElementById('mot-shBody'));
+    try{ motAtualizarLinha(t); }catch(e){}
+    return;
+  }
   head.innerHTML=motNavHtml()+'<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+(typeof motTagLidaHtml==='function'?motTagLidaHtml(t):'')+motStepsHtml(t); /* 15/10/2026: TAG lida */
   motWireSteps(head); motWireNav(head);
   if(MOT.rev){ motRenderReview(); return; }
@@ -21127,7 +21148,8 @@ function motCkRodapeWire(t){
 }
 function motCkRodapeAtualizar(t){
   const el=document.getElementById('mot-ckfoot'); if(!el) return;
-  const d=document.createElement('div'); d.innerHTML=motCkRodapeHtml(t); el.replaceWith(d.firstChild); motCkRodapeWire(t);
+  const pg=typeof motEmPagina==='function'&&motEmPagina(); /* v69 */
+  const d=document.createElement('div'); d.innerHTML=pg?motPgRodapeHtml(t):motCkRodapeHtml(t); el.replaceWith(d.firstChild); if(pg) motPgRodapeWire(t); else motCkRodapeWire(t);
   try{ motAtualizarLinha(t); }catch(e){}
 }
 /* estado local a cada tecla (rodapé e pílula andam junto) + gravação com folga; o "change" segue fazendo o resto */
@@ -21144,6 +21166,77 @@ function motDigitandoMedicao(t,inp){
   p.valorNumerico=val; p._dec=null;
   clearTimeout(inp._motSalvar); inp._motSalvar=setTimeout(()=>{ p.horaRegistro=new Date().toISOString(); motSalvarPasso(t,p,{statusPasso:'Feito',valorNumerico:val}); },900);
   motCkRodapeAtualizar(t);
+}
+/* ---------- v69 (15/10/2026) — a tarefa numa página só, em tela cheia: DECISAO_navegacao-da-linha-da-ot_15-10-2026.md ----------
+   Raphael escolheu a variante A do mockup (prototipos/mockup-navegacao-linha-ot_15-10-2026.html) e "tela cheia". A tarefa deixa de ser
+   uma sequência de telas (Antes → Execução → Depois → Desfecho, com chips e setas) e vira UMA página: 1 Foto do antes · 2 Checklist ·
+   3 Foto do depois · 4 Concluir. O rodapé fixo diz sempre o primeiro que falta e tem saída (fotografar / não consigo fotografar /
+   ir ao item / Sem observações / motivo); sem falta nada, vira "✓ Está OK — concluir". As telas de um propósito só continuam
+   (justificar foto, Anotação Técnica, Não foi possível, linha leve da ronda, registro concluído, edição) e voltam para a página.
+   As regras não mudaram: Está OK e Anotação só com tudo respondido ou justificado; "Não foi possível" sempre disponível.
+   Chave: MOT_PAGINA=false devolve as fases da v68. */
+const MOT_PAGINA=true;
+function motModoCheia(){
+  const sh=document.getElementById('mot-sheet'); if(!sh) return;
+  sh.classList.toggle('cheia',!!MOT_PAGINA);
+  const x=document.getElementById('mot-shX'); if(x) x.textContent=MOT_PAGINA?'‹ Lista':'✕';
+}
+function motEmPagina(){ return !!(MOT_PAGINA&&document.querySelector('#mot-shBody .mot-pagina')); }
+/* o que falta, na ordem da página */
+function motPgFaltas(t){
+  const f=[], semA=!((t.fotos.antes||[]).length||t._antesJust), semD=!((t.fotos.depois||[]).length||t._depoisJust);
+  if(semA) f.push({tipo:'foto',qual:'antes'});
+  motCkFaltas(t).forEach(p=>f.push({tipo:'item',p}));
+  if(semD) f.push({tipo:'foto',qual:'depois'});
+  return f;
+}
+function motPgRodapeHtml(t){
+  const f=motPgFaltas(t);
+  if(!f.length){
+    const imp=motImpedimentosOK(t);
+    if(imp.length) return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-pgsec="mot-pg-ck"><small>Para concluir como OK</small>'+motEsc(imp[0])+' ›</button>'
+      +'<div class="mot-ckalt"><button type="button" data-pganota="1">Registrar anotação técnica</button></div></div>';
+    return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox ok" data-pgok="1">✓ Está OK — concluir tarefa</button>'
+      +'<div class="mot-ckalt"><button type="button" data-pganota="1">Registrar anotação técnica</button></div></div>';
+  }
+  const x=f[0], n=f.length, cab='<small>Falta '+n+(n>1?' itens':' item')+'</small>';
+  if(x.tipo==='foto') return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-pgfoto="'+x.qual+'">'+cab+'📷 Foto do '+x.qual+' ›</button>'
+    +'<div class="mot-ckalt"><button type="button" data-pgsemfoto="'+x.qual+'">Não consigo fotografar</button></div></div>';
+  const p=x.p;
+  return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-ckir="'+p.id+'">'+cab+motEsc(p.descricao)+' ›</button>'
+    +'<div class="mot-ckalt">'+(p.tipoCampo==='Texto'?'<button type="button" data-cksemobs="'+p.id+'">Sem observações</button>':'')
+    +'<button type="button" data-ckmotivo="'+p.id+'">⊘ Não deu — motivo</button></div></div>';
+}
+function motPgRodapeWire(t){
+  motCkRodapeWire(t); /* ir ao item, Sem observações, motivo: os mesmos da v68 */
+  const foot=document.getElementById('mot-ckfoot'), body=document.getElementById('mot-shBody'); if(!foot) return;
+  foot.querySelectorAll('[data-pgfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motCapturarPrincipal(t,b.dataset.pgfoto); }));
+  foot.querySelectorAll('[data-pgsemfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='justif-'+b.dataset.pgsemfoto; motRenderAtual(); }));
+  foot.querySelectorAll('[data-pgok]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motConcluir('ok'); }));
+  foot.querySelectorAll('[data-pganota]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='anota'; motRenderAtual(); }));
+  foot.querySelectorAll('[data-pgsec]').forEach(b=>b.addEventListener('click',()=>{ const s=body&&body.querySelector('#'+b.dataset.pgsec); if(s) try{ s.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }));
+}
+function motRenderPagina(){
+  const t=MOT.tarefas[MOT.atual], body=document.getElementById('mot-shBody'); if(!t||!body) return;
+  const sc=body.scrollTop;
+  const okA=!!((t.fotos.antes||[]).length||t._antesJust), okD=!!((t.fotos.depois||[]).length||t._depoisJust);
+  const temP=!!(t.passos&&t.passos.length), okC=!motCkFaltas(t).length;
+  const sec=(n,tit,ok,html,id)=>'<section class="mot-psec'+(ok?' ok':'')+'" id="'+id+'"><div class="mot-pstit"><span class="mot-psn">'+(ok?'✓':n)+'</span>'+tit+'</div>'+html+'</section>';
+  const foto=(tipo)=>{ const tem=(t.fotos[tipo]||[]).length, just=tipo==='antes'?t._antesJust:t._depoisJust;
+    return motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true)+(tem||just?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'">não consigo fotografar</button>'); };
+  let n=1, h='<div class="mot-pagina">';
+  h+=sec(n++,'Foto do antes',okA,foto('antes'),'mot-pg-antes');
+  if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true),'mot-pg-ck');
+  h+=sec(n++,'Foto do depois',okD,foto('depois')+motExtrasRowHtml(t)+'<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>','mot-pg-depois');
+  h+=sec(n++,'Concluir',false,'<div class="mot-pgsub">Com tudo respondido: <b>Está OK</b> ou <b>Anotação Técnica</b> (no rodapé).</div>'
+    +'<button class="mot-voltalink" data-pgnaoexec="1">⊘ Não foi possível executar esta tarefa</button>','mot-pg-fim');
+  h+='</div>'+motPgRodapeHtml(t);
+  body.innerHTML=h;
+  motWireTyped(body,t); motWireCkRows(body,t); motWireAB(body,t); motWireExtras(body,t);
+  body.querySelectorAll('[data-semfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='justif-'+b.dataset.semfoto; motRenderAtual(); }));
+  body.querySelectorAll('[data-pgnaoexec]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='naoexec'; motRenderAtual(); }));
+  motPgRodapeWire(t);
+  body.scrollTop=sc;
 }
 function motMaybeAvancaChecklist(t){
   if(MOT.rev||MOT.edit||t._fase!=='exec') return;
@@ -21426,6 +21519,7 @@ function motRegistroHtml(t){
   return h;
 }
 function motAbrirLeitura(i){
+  if(typeof motModoCheia==='function') motModoCheia(); /* v69 */
   MOT.rev=null; MOT.atual=i; const t=MOT.tarefas[i];
   const head=document.getElementById('mot-shHead');
   head.innerHTML=motNavHtml()+'<b>'+motEsc(t.tarefaNome)+'</b><small>'+motEsc(t.ativoNome||'')+(t.ativoDescricao?' · '+motEsc(t.ativoDescricao):'')+'</small>'+
@@ -21677,6 +21771,7 @@ function motWireDragFechar(){
   let startX=0, startY=0, dy=0, dragging=false, startT=0, fromHandle=false;
   function onStart(x,y,isHandle){
     fromHandle=isHandle;
+    if(sheet.classList.contains('cheia')){ dragging=false; return; } /* v69: em tela cheia sai pelo "‹ Lista"; arrastar só rola */
     if(!isHandle&&!(body&&body.scrollTop<=0)){ dragging=false; return; }
     dragging=true; startX=x; startY=y; dy=0; startT=Date.now(); sheet.style.transition='none';
   }
@@ -21726,7 +21821,7 @@ function motWireSwipeTarefa(){
   const sheet=document.getElementById('mot-sheet'); if(!sheet) return;
   let sx=0, sy=0, active=false;
   function onStart(x,y,target){
-    active=!(target&&target.closest&&target.closest('input,textarea,#mot-handle'));
+    active=!(target&&target.closest&&target.closest('input,textarea,#mot-handle'))&&!sheet.classList.contains('cheia'); /* v69: sem setas, sem pular de tarefa no deslize */
     sx=x; sy=y;
   }
   function onEnd(x,y){
