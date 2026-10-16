@@ -1925,7 +1925,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=69;
+const APP_NUM=70;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -20325,6 +20325,7 @@ function motAtualizarProgresso(){
 /* ---------- abrir / fechar o bottom sheet de execução ---------- */
 function motAbrir(i){
   if(typeof motModoCheia==='function') motModoCheia(); /* v69 */
+  try{ if(typeof getGeo==='function') getGeo(); }catch(e){} /* v70: aquece o GPS — a marca d'água da foto não espera a 1ª posição */
   if(MOT.vista!=='lista') motSetVista('lista');
   MOT.atual=i; MOT.rev=null;
   const t=MOT.tarefas[i];
@@ -20505,17 +20506,27 @@ function motWireAB(cont,t){
    e qualquer erro no processamento vira toast em vez de falhar calado sem re-renderizar nada. */
 function motCapturarPrincipal(t,tipo){
   pickPhoto(async file=>{
+    /* 15/10/2026 (v70) — Raphael: "quando tiro uma foto ela demora uns segundos pra liberar a navegação". A espera era a marca
+       d'água: motProcessFoto aguarda o GPS (até 6 s) e redesenha a foto ANTES de qualquer coisa aparecer. Agora a foto crua
+       aparece e libera a página na hora; a marca d'água e o envio seguem por trás e trocam a miniatura quando ficam prontos.
+       O que sobe para o servidor continua sendo a foto com marca d'água — nada muda no registro. */
+    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(file)};
+    t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
+    motMarcarEdicao(t); motRenderAtual(); motForcarThumbAB(t,tipo);
+    let blob;
+    try{ blob=await motProcessFoto(file,{rotulo:tipo==='antes'?'ANTES':'DEPOIS',t}); }
+    catch(e){ /* sem a foto processada não há o que enviar: tira a prévia para não fingir que a foto existe */
+      const k=(t.fotos[tipo]||[]).indexOf(tmp); if(k>=0) t.fotos[tipo].splice(k,1);
+      toast('Falha ao processar a foto: '+e.message); motRenderAtual(); return; }
+    try{ const u=URL.createObjectURL(blob); const velho=tmp._localUrl; tmp._localUrl=u; try{ URL.revokeObjectURL(velho); }catch(_){}
+      const arr=t.fotos[tipo]||[]; if(arr[arr.length-1]===tmp) motForcarThumbAB(t,tipo); }catch(_){}
     try{
-      const blob=await motProcessFoto(file,{rotulo:tipo==='antes'?'ANTES':'DEPOIS',t});
-      const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(blob)};
-      t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
-      motMarcarEdicao(t); motRenderAtual(); motForcarThumbAB(t,tipo);
-      try{
-        const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
-        const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
-        if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId; } else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
-      }catch(e){ toast('Falha ao enviar foto: '+e.message); }
-    }catch(e){ toast('Falha ao processar a foto: '+e.message); }
+      const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
+      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+      if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId;
+        if(tmp._removido&&r.midiaId) beDelete('/midias/'+r.midiaId,'Remover foto '+tipo).catch(()=>{}); } /* removida enquanto subia */
+      else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
+    }catch(e){ toast('Falha ao enviar foto: '+e.message); }
   });
 }
 /* B.1 16/09/2026 — foto de UMA pergunta. Mesmo caminho da foto da tarefa (processa, mostra na
@@ -20581,7 +20592,7 @@ function motAmpliarExtra(t,k){
    ao padrão já usado em removeFotoExtra() da OS clássica: nunca bloqueia por falha de rede, só avisa). */
 function motRemoverFotoPrincipal(t,tipo){
   const arr=t.fotos[tipo]||[]; if(!arr.length) return;
-  const m=arr.pop();
+  const m=arr.pop(); m._removido=true; /* v70: se ainda estiver subindo, apaga quando chegar */
   if(m._midiaId) beDelete('/midias/'+m._midiaId,'Remover foto '+tipo).catch(()=>toast('⚠️ Registro não removido no Salesforce'));
   motMarcarEdicao(t); toast('✅ Foto removida');
   motRenderAtual(); /* dispara pra motRenderReview() se MOT.rev tiver setado, senão redesenha a tela atual (Desfecho/Edição) */
