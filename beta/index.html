@@ -1912,6 +1912,8 @@
 .mot-psn{width:26px;height:26px;border-radius:50%;background:#0B2239;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
 .mot-psec.ok .mot-psn{background:#2E844A}
 .mot-pgfoto{min-height:150px}
+.mot-pgposgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px} /* v71 posições */
+.mot-pgposn{font-size:13px;font-weight:800;color:#0B2239;margin-bottom:4px}
 .mot-pgsub{font-size:13px;color:#4A5560;margin-bottom:6px}
 .mot-leve-sub{font-size:13.5px;color:#4A5560;margin:2px 0 10px} /* 15/10/2026 — linha de ronda */
 .rnd-aviso{background:#FFF4E5;border:1px solid #F9C77F;color:#7a3e00;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:10px}
@@ -1925,7 +1927,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=70;
+const APP_NUM=71;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -13453,7 +13455,7 @@ function cadAbandonoOk(){
       :'O que você preencheu em "'+(cadSt.tipoNome||'')+'" ainda não foi salvo e será perdido. Sair mesmo assim?';
     if(!confirm(msg)) return false;
   }
-  cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false;
+  cadSt.pendente=null; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.posFoto=''; cadSt.posFotoMexeu=false; cadSt.posFotoSug=[]; /* v71 */
   cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026: número e dados do ativo retomado não passam para o próximo */
   cadSt.form=null; cadSt.resp={}; cadSt.fotos={}; cadSt.tipoNome=''; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
   cadSt.motorConf=null; /* 11/10/2026: saiu da ficha do motor conferido → o próximo equipamento não herda a conferência */
@@ -13968,7 +13970,9 @@ async function cadCriarEquip(t,paiId){
   try{
     cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026 */
     cadSt.pendente={tipoId:t.id,paiId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
-    cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false; cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
+    cadSt.tipoNome=t.nome; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false;
+    cadSt.posFotoSug=t.posicoesPadrao||[]; cadSt.posFoto=cadSt.posFotoSug.join('\n'); cadSt.posFotoMexeu=!!cadSt.posFoto; /* v71: o tipo sugere as posições da foto; equipamento novo grava a sugestão */
+    cadSt.resp={}; cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false; cadSt.berlinerModo=null;
     cadSt.motorConf=null; /* 11/10/2026: equipamento escolhido na grade não é o motor conferido pelo QR */
     cadSt.form=null; /* se o GET abaixo falhar, o próximo toque no mesmo card refaz só a ficha */
     cadSt.form=await beGet('/formulario-ativo?tipoId='+t.id);
@@ -14004,8 +14008,24 @@ function cadDadosGeraisHtml(){
     h+='</div></div>'; });
   h+='<div style="margin-bottom:4px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">Ano de fabricação</div>'
     +`<input type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear()+1}" placeholder="em branco = não disponível" value="${cadEsc(g.ano==null?'':g.ano)}" oninput="cadSetDGAno(this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px"></div>`;
+  h+=cadPosFotoHtml(); /* v71: posições da foto antes/depois */
   return h+'</div></div>';
 }
+/* 15/10/2026 (v71) — posições da foto do antes e do depois (docs/09-CADASTROS/DECISAO_posicoes-de-foto-por-equipamento_15-10-2026.md).
+   Raphael: "o que define mesmo é o Ativo". O tipo sugere (TipoAtivo__c.Posicoes_Foto_Padrao__c); quem cadastra ajusta. Na edição de um
+   equipamento já cadastrado a sugestão NÃO entra sozinha (decisão: os já cadastrados ficam com 1 foto) — aparece um botão para usar. */
+function cadPosFotoHtml(){
+  const v=cadSt.posFoto||'', sug=cadSt.posFotoSug||[], ehSug=sug.length&&v.trim()===sug.join('\n');
+  return '<div style="margin-top:12px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">Posições da foto (antes e depois)'
+    +(ehSug?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido pelo tipo</span>':'')+'</div>'
+    +'<textarea rows="3" placeholder="vazio = 1 foto. Ex.: Lado direito (enter) Lado esquerdo" oninput="cadSetPosFoto(this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;font-family:inherit">'+cadEsc(v)+'</textarea>'
+    +'<div style="font-size:11.5px;color:#686868;margin-top:3px">Uma posição por linha. Cada uma pede foto no antes e no depois.</div>'
+    +(!v.trim()&&sug.length?'<button onclick="cadUsarPosSug()" style="margin-top:6px;border:1px solid #3E7EB0;background:#fff;color:#2B5A7E;border-radius:16px;padding:7px 12px;font-size:12px;font-weight:700">Usar sugestão do tipo: '+cadEsc(sug.join(' + '))+'</button>':'')
+    +'</div>';
+}
+function cadSetPosFoto(v){ cadSt.posFoto=String(v||''); cadSt.posFotoMexeu=true; } /* sem re-render: não perde o foco */
+function cadUsarPosSug(){ cadSt.posFoto=(cadSt.posFotoSug||[]).join('\n'); cadSt.posFotoMexeu=true; cadStepForm(); }
+function cadPosFotoLista(){ const vis={}, out=[]; String(cadSt.posFoto||'').split(/\r?\n/).forEach(l=>{ const x=l.trim().slice(0,40), k=x.toLowerCase(); if(x&&!vis[k]&&out.length<6){ vis[k]=1; out.push(x); } }); return out; }
 /* tocar de novo na opção marcada desmarca (volta a "não informado") */
 function cadSetDG(k,v){ const g=cadSt.comuns||(cadSt.comuns={}); g[k]=(g[k]===v)?null:v; cadSt.comunsMexeu=true; cadStepForm(); }
 function cadSetDGAno(v){ const g=cadSt.comuns||(cadSt.comuns={}); g.ano=String(v||'').trim()===''?null:v; cadSt.comunsMexeu=true; } /* sem re-render: não perde o foco do teclado */
@@ -14248,6 +14268,7 @@ async function cadAbrirMotorBerliner(){
     cadSt.pendente={tipoId:tipoMotor.id,paiId:cadSt.ativoId,localId:(cadSt.local&&cadSt.local.id)||undefined,contaId:cadSt.conta.id};
     cadSt.ativoId=null; cadSt.ativoNome=null; cadSt.ident=null; cadSt.retomada=false; /* 11/10/2026: o motor terá número próprio */
     cadSt.tipoNome=tipoMotor.nome; cadSt.form=form; cadSt.resp={}; cadSt.fotos={}; cadSt.comuns={}; cadSt.comunsMexeu=false;
+    cadSt.posFotoSug=tipoMotor.posicoesPadrao||[]; cadSt.posFoto=cadSt.posFotoSug.join('\n'); cadSt.posFotoMexeu=!!cadSt.posFoto; /* v71 */
     cadSt.berliner=null; cadSt.daBerliner={}; cadSt.sugBerliner={}; cadSt.berlinerModo=null; cadSt.galeria=[]; cadSt.galeriaFalhou=false;
     cadSt.etiqueta={status:'idle'}; cadSt.modoEdicao=false;
     cadSt.criando=false; cadSt.step='form'; cadStepForm();
@@ -14545,6 +14566,11 @@ async function cadSalvar(){
       try{ await bePost('/ativos/'+cadSt.ativoId+'/dados-gerais',cadSt.comuns||{}); cadSt.comunsMexeu=false; }
       catch(e){ toast('⚠️ Cadastro salvo, mas os dados gerais não foram gravados: '+e.message); }
     }
+    /* v71: posições da foto em chamada própria (como o link do fabricante): se falhar, o cadastro já está salvo */
+    if(cadSt.posFotoMexeu){
+      try{ await bePost('/ativos/'+cadSt.ativoId+'/posicoes-foto',{posicoes:cadPosFotoLista()}); cadSt.posFotoMexeu=false; }
+      catch(e){ toast('⚠️ Cadastro salvo, mas as posições da foto não foram gravadas: '+e.message); }
+    }
     await cadGaleriaVincular();
     cadSt.salvando=false; cadSt.step='done'; cadStepDone(); }
   catch(e){ cadSt.salvando=false; if(cadSt.step==='revisao') cadStepRevisao(); toast(e.message); }
@@ -14610,6 +14636,9 @@ function cadStepRevisao(){
     h+='<div style="background:#fff;border:1px solid #E2E5E9;border-radius:12px;margin-bottom:10px;overflow:hidden">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#F4F7F9;border-bottom:1px solid #E2E5E9"><b style="font-size:13px;color:#3E7EB0">Dados gerais do equipamento</b>'
       +'<button onclick="cadVoltarFicha()" style="background:none;border:none;color:#3E7EB0;font-size:12.5px;font-weight:700;padding:2px 4px">Editar</button></div>';
+    { const pl=cadPosFotoLista(); /* v71 */
+      h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px"><div style="flex:0 0 44%;color:#686868">Fotos (antes e depois)</div>'
+        +'<div style="flex:1;min-width:0;font-weight:600;color:#0B2239">'+(pl.length?cadEsc(pl.join(' · ')):'1 foto')+'</div></div>'; }
     [['plaqueta','Plaqueta legível?'],['criticidade','Criticidade'],['acesso','Acesso / altura de trabalho'],['ano','Ano de fabricação']].forEach(([k,r])=>{
       const v=cadDGRotulo(k,g[k]); if(v==null) vazios++;
       h+='<div style="display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid #F0F2F5;font-size:13px"><div style="flex:0 0 44%;color:#686868">'+cadEsc(r)+'</div>'
@@ -17712,7 +17741,8 @@ function ativoDetPintar(manter){
     let tab='';
     Object.keys(por).forEach(sx=>{ tab+='<div class="fa-grupo">'+cadEsc(sx)+'</div>'+por[sx].map(r=>kv(r.campo||'',valor(r))).join(''); });
     /* 14/10 (v53): criticidade sai de Dados técnicos (tabela e rodapé) — "Como está" é o dono dela, informada ou não */
-    const ger=(ATIVO_DET_LIMPEZA_V53?[]:[['Criticidade',g.criticidade]]).concat([['Ano de fabricação',g.ano],['Plaqueta',g.plaqueta],['Acesso',g.acesso]]), gerOk=ger.filter(x=>x[1]!=null&&x[1]!==''), gerNao=ger.filter(x=>x[1]==null||x[1]==='');
+    const ger=(ATIVO_DET_LIMPEZA_V53?[]:[['Criticidade',g.criticidade]]).concat([['Ano de fabricação',g.ano],['Plaqueta',g.plaqueta],['Acesso',g.acesso]])
+      .concat(Array.isArray(d.posicoesFoto)?[['Fotos (antes e depois)',d.posicoesFoto.length?d.posicoesFoto.join(' · '):'1 foto']]:[]), /* v71 */ gerOk=ger.filter(x=>x[1]!=null&&x[1]!==''), gerNao=ger.filter(x=>x[1]==null||x[1]==='');
     if(gerOk.length) tab+='<div class="fa-grupo">Dados gerais</div>'+gerOk.map(x=>kv(x[0],cadEsc(x[1]))).join('');
     dados+=tab?'<div class="fa-tab2">'+tab+'</div>':'<div style="font-size:14px;color:#686868;padding:10px 0">Nenhuma resposta registrada ainda.</div>';
     const nomesVazios=vazias.map(r=>r.campo||'').filter(Boolean);
@@ -17952,6 +17982,7 @@ async function ativoDetEditar(){
   catch(e){ toast('Erro ao carregar formulário: '+e.message); return; }
   (d.respostas||[]).forEach(r=>{ if(r.campoId) cadSt.resp[r.campoId]=r.resposta||''; });
   cadSt.comuns=Object.assign({},d.dadosGerais||{}); cadSt.comunsMexeu=false;
+  cadSt.posFoto=(d.posicoesFoto||[]).join('\n'); cadSt.posFotoMexeu=false; cadSt.posFotoSug=d.posicoesFotoPadraoTipo||[]; /* v71: sem aplicar a sugestão sozinha */
   cadSt.step='form';
   go('cadastro');
 }
@@ -19211,7 +19242,7 @@ async function offDrain(){
         else if(j.kind==='delete') await beDelete(j.path);
         else if(j.kind==='assinatura') await beUploadAssinatura(j.blob,j.campos,true);
         else if(j.kind==='midia') await beUploadMidia(j.blob,j.filename,j.tipo,j.meta,true);
-        else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true,j.passoId);
+        else if(j.kind==='midiaMotor') await motUploadFoto(j.itemId,j.blob,j.filename,j.tipo,true,j.passoId,j.posicao);
         else if(j.kind==='coltPost') await coltDrainPost(j);
         await offDel(j._id); n++;
       }catch(e){
@@ -20148,7 +20179,7 @@ async function motProcessFoto(file,info){
   const marca={rotulo:info&&info.rotulo,
     ot:(MOT.ot&&MOT.ot.name)||'',
     /* 10/10/2026: Raphael, vendo a 1ª foto real: "remover: 00025 · Linha 01" — a faixa fica logo + ANTES + OT + data/GPS */
-    equip:''};
+    equip:(info&&info.posicao)||''}; /* v71: posição da foto (Lado direito…) na faixa da marca d'água */
   ctx.drawImage(bmp,0,0,W,H); motDrawWatermark(ctx,W,H,new Date(),geo,marca);
   return new Promise(res=>cv.toBlob(b=>res(b||file),'image/jpeg',0.82));
 }
@@ -20156,16 +20187,17 @@ async function motProcessFoto(file,info){
 /* ---------- upload real de mídia do item (offline-safe, mesmo padrão de beUploadMidia) ---------- */
 /* B.1 16/09/2026 — passoId opcional no fim de proposito: a fila offline ja tinha jobs gravados
    com a assinatura antiga, e eles continuam subindo sem passo, como sempre subiram. */
-async function motUploadFoto(itemId, blob, filename, tipo, noQ, passoId){
+async function motUploadFoto(itemId, blob, filename, tipo, noQ, passoId, posicao){ /* v71: posicao no fim — jobs antigos da fila sobem sem ela */
   try{
     const fd=new FormData(); fd.append('file', blob, filename); fd.append('tipo', tipo);
     if(passoId) fd.append('passoId', passoId);
+    if(posicao) fd.append('posicao', posicao);
     const r=await fetch(BACKEND+'/motor/execucao/itens/'+itemId+'/fotos',{method:'POST',headers:{Authorization:'Bearer '+beTok()},body:fd});
     let j=null; try{ j=await r.json(); }catch(_){}
     if(!r.ok){ const err=new Error((j&&j.error)||('Erro '+r.status)); err.status=r.status; throw err; }
     return j;
   }catch(e){
-    if(!noQ && netFail(e)){ await offAdd({kind:'midiaMotor',itemId,blob,filename,tipo,passoId,label:'Foto ('+tipo+')'}); return {ok:true,_queued:true}; }
+    if(!noQ && netFail(e)){ await offAdd({kind:'midiaMotor',itemId,blob,filename,tipo,passoId,posicao,label:'Foto ('+tipo+(posicao?' · '+posicao:'')+')'}); return {ok:true,_queued:true}; }
     throw e;
   }
 }
@@ -20456,19 +20488,20 @@ function motRenderAtual(){
 }
 
 /* ---------- fotos ANTES/DEPOIS ---------- */
-function motFotoHtml(t,tipo,cls,editavel){
-  const arr=(t.fotos&&t.fotos[tipo])||[];
+function motFotoHtml(t,tipo,cls,editavel,pos){ /* v71: pos = posição da foto (Lado direito…), opcional */
+  const arr=pos?motFotosPos(t,tipo,pos):((t.fotos&&t.fotos[tipo])||[]);
+  const dpos=pos?' data-abpos="'+motEsc(pos)+'"':'';
   const c=cls===true?'mot-fsim mini':(cls||'mot-fsim');
-  const just=tipo==='antes'?t._antesJust:t._depoisJust;
+  const just=pos?motJustDe(t,tipo,pos):(tipo==='antes'?t._antesJust:t._depoisJust);
   if(!arr.length){
     if(just) return '<div class="'+c+' nophoto">🚫 sem foto<br><small>'+motEsc(just)+'</small></div>';
     /* 21/07/2026: pedido do Raphael — em telas editáveis, o retângulo vazio já é o "tirar foto",
        igual ao padrão da tela ANTES/DEPOIS original (mot-camtap), sem precisar de botão separado. */
-    if(editavel) return '<div class="'+c+' camvazio" data-abtipo="'+tipo+'" data-abcap="1"><div class="mot-cic">📷</div><div class="mot-camhint">toque para<br>fotografar</div></div>';
+    if(editavel) return '<div class="'+c+' camvazio" data-abtipo="'+tipo+'"'+dpos+' data-abcap="1"><div class="mot-cic">📷</div><div class="mot-camhint">toque para<br>fotografar</div></div>';
     return '<div class="'+c+' nophoto">—</div>';
   }
   const last=arr[arr.length-1];
-  return '<div class="'+c+'" data-abtipo="'+tipo+'" data-driveid="'+motEsc(last.driveId||'')+'" style="'+motFotoBgStyle(last)+'"><div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div></div>';
+  return '<div class="'+c+'" data-abtipo="'+tipo+'"'+dpos+' data-driveid="'+motEsc(last.driveId||'')+'" style="'+motFotoBgStyle(last)+'"><div class="mot-cap">'+tipo.toUpperCase()+(pos?' · '+motEsc(pos):'')+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div></div>';
 }
 function motExtrasRowHtml(t){
   const arr=(t.fotos&&t.fotos.adicionais)||[];
@@ -20476,6 +20509,14 @@ function motExtrasRowHtml(t){
   return '<div class="mot-exrow">'+arr.map((m,k)=>'<div class="mot-exthumb" data-k="'+k+'" data-driveid="'+motEsc(m.driveId||'')+'" title="foto extra — toque para ampliar" style="'+motFotoBgStyle(m)+'"><span>EXTRA'+(m.data?' · '+motFmtHora(m.data):'')+'</span></div>').join('')+'</div>';
 }
 function motAbcolHtml(t,withAdd,editavel){
+  /* v71: uma linha Antes|Depois por posição. Registro antigo já concluído sem nenhuma foto com posição continua com o quadro único. */
+  const ps=motPosicoes(t), comPos=ps.length&&((t.statusItem||'Pendente')==='Pendente'||['antes','depois'].some(k=>((t.fotos&&t.fotos[k])||[]).some(f=>f.posicao)));
+  if(comPos){
+    let hp=ps.map(p=>'<div class="mot-ablbl" style="margin-top:8px;font-weight:800">'+motEsc(p)+'</div><div class="mot-abwrap"><div class="mot-abcol"><div class="mot-ablbl">Antes</div>'+motFotoHtml(t,'antes',true,editavel,p)+'</div>'+
+      '<div class="mot-abcol"><div class="mot-ablbl">Depois</div>'+motFotoHtml(t,'depois',true,editavel,p)+'</div></div>').join('')+motExtrasRowHtml(t);
+    if(withAdd) hp+='<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>';
+    return hp;
+  }
   let h='<div class="mot-abwrap"><div class="mot-abcol"><div class="mot-ablbl">Antes</div>'+motFotoHtml(t,'antes',true,editavel)+'</div>'+
     '<div class="mot-abcol"><div class="mot-ablbl">Depois</div>'+motFotoHtml(t,'depois',true,editavel)+'</div></div>'+
     motExtrasRowHtml(t);
@@ -20494,7 +20535,8 @@ function motWireAB(cont,t){
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
       const tipo=el.dataset.abtipo;
-      if(el.dataset.abcap) motCapturarPrincipal(t,tipo); else motAmpliarPrincipal(t,tipo);
+      const pos=el.dataset.abpos||null; /* v71 */
+      if(el.dataset.abcap) motCapturarPrincipal(t,tipo,pos); else motAmpliarPrincipal(t,tipo,pos);
     });
   });
 }
@@ -20504,25 +20546,25 @@ function motWireAB(cont,t){
    reabrindo a tarefa — motRenderAtual() sozinho não bastava em algum caso. Além do re-render
    normal, agora força também a atualização direta do(s) retângulo(s) já em tela (motForcarThumbAB),
    e qualquer erro no processamento vira toast em vez de falhar calado sem re-renderizar nada. */
-function motCapturarPrincipal(t,tipo){
+function motCapturarPrincipal(t,tipo,pos){ /* v71: pos opcional */
   pickPhoto(async file=>{
     /* 15/10/2026 (v70) — Raphael: "quando tiro uma foto ela demora uns segundos pra liberar a navegação". A espera era a marca
        d'água: motProcessFoto aguarda o GPS (até 6 s) e redesenha a foto ANTES de qualquer coisa aparecer. Agora a foto crua
        aparece e libera a página na hora; a marca d'água e o envio seguem por trás e trocam a miniatura quando ficam prontos.
        O que sobe para o servidor continua sendo a foto com marca d'água — nada muda no registro. */
-    const tmp={driveId:null,url:null,data:new Date().toISOString(),_localUrl:URL.createObjectURL(file)};
+    const tmp={driveId:null,url:null,data:new Date().toISOString(),posicao:pos||null,_localUrl:URL.createObjectURL(file)};
     t.fotos[tipo]=t.fotos[tipo]||[]; t.fotos[tipo].push(tmp);
-    motMarcarEdicao(t); motRenderAtual(); motForcarThumbAB(t,tipo);
+    motMarcarEdicao(t); motRenderAtual(); motForcarThumbAB(t,tipo,pos);
     let blob;
-    try{ blob=await motProcessFoto(file,{rotulo:tipo==='antes'?'ANTES':'DEPOIS',t}); }
+    try{ blob=await motProcessFoto(file,{rotulo:tipo==='antes'?'ANTES':'DEPOIS',t,posicao:pos||''}); }
     catch(e){ /* sem a foto processada não há o que enviar: tira a prévia para não fingir que a foto existe */
       const k=(t.fotos[tipo]||[]).indexOf(tmp); if(k>=0) t.fotos[tipo].splice(k,1);
       toast('Falha ao processar a foto: '+e.message); motRenderAtual(); return; }
     try{ const u=URL.createObjectURL(blob); const velho=tmp._localUrl; tmp._localUrl=u; try{ URL.revokeObjectURL(velho); }catch(_){}
-      const arr=t.fotos[tipo]||[]; if(arr[arr.length-1]===tmp) motForcarThumbAB(t,tipo); }catch(_){}
+      const arr=pos?motFotosPos(t,tipo,pos):(t.fotos[tipo]||[]); if(arr[arr.length-1]===tmp) motForcarThumbAB(t,tipo,pos); }catch(_){}
     try{
       const backendTipo=tipo==='antes'?'Foto Antes':'Foto Depois';
-      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo);
+      const r=await motUploadFoto(t.id,blob,t.id+'_'+backendTipo.replace(/\s+/g,'_')+'_'+Date.now()+'.jpg',backendTipo,false,undefined,pos||undefined);
       if(r&&!r._queued){ tmp.driveId=r.driveId; tmp.url=r.url; tmp._midiaId=r.midiaId;
         if(tmp._removido&&r.midiaId) beDelete('/midias/'+r.midiaId,'Remover foto '+tipo).catch(()=>{}); } /* removida enquanto subia */
       else if(r&&r._queued) toast('📡 Foto salva no aparelho — envia quando houver sinal');
@@ -20562,16 +20604,17 @@ function motFotoPassoHtml(t,p,exige){
 }
 /* atualiza na hora o(s) retângulo(s) Antes/Depois já visíveis em tela (Desfecho/Edição/Revisão),
    sem depender só do re-render geral — garante que a miniatura nunca fique "presa" na foto antiga. */
-function motForcarThumbAB(t,tipo){
+function motForcarThumbAB(t,tipo,pos){
   const sheet=document.getElementById('mot-sheet'); if(!sheet) return;
-  const arr=t.fotos[tipo]||[]; if(!arr.length) return;
+  const arr=pos?motFotosPos(t,tipo,pos):(t.fotos[tipo]||[]); if(!arr.length) return;
   const last=arr[arr.length-1];
   sheet.querySelectorAll('.mot-fsim[data-abtipo="'+tipo+'"]').forEach(el=>{
+    if((el.dataset.abpos||null)!==(pos||null)) return; /* v71: só o quadro desta posição */
     el.classList.remove('camvazio');
     el.setAttribute('style',motFotoBgStyle(last));
     el.dataset.driveid=last.driveId||'';
     el.dataset.hidratado='';
-    el.innerHTML='<div class="mot-cap">'+tipo.toUpperCase()+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div>';
+    el.innerHTML='<div class="mot-cap">'+tipo.toUpperCase()+(pos?' · '+motEsc(pos):'')+' · '+(arr.length>1?arr.length+' fotos':(motFmtHora(last.data)||'capturada'))+'</div>';
   });
 }
 function motAmpliarExtra(t,k){
@@ -20590,19 +20633,20 @@ function motAmpliarExtra(t,k){
    (antes/depois e extras) guardam array de capturas; remover = tirar a última (antes/depois) ou
    a específica (extra) do array local + apagar o Midia_OS__c no Salesforce (best-effort — igual
    ao padrão já usado em removeFotoExtra() da OS clássica: nunca bloqueia por falha de rede, só avisa). */
-function motRemoverFotoPrincipal(t,tipo){
+function motRemoverFotoPrincipal(t,tipo,pos){
   const arr=t.fotos[tipo]||[]; if(!arr.length) return;
-  const m=arr.pop(); m._removido=true; /* v70: se ainda estiver subindo, apaga quando chegar */
+  const da=pos?motFotosPos(t,tipo,pos):arr; if(!da.length) return; /* v71: remove a última DESTA posição */
+  const m=da[da.length-1]; arr.splice(arr.indexOf(m),1); m._removido=true; /* v70: se ainda estiver subindo, apaga quando chegar */
   if(m._midiaId) beDelete('/midias/'+m._midiaId,'Remover foto '+tipo).catch(()=>toast('⚠️ Registro não removido no Salesforce'));
   motMarcarEdicao(t); toast('✅ Foto removida');
   motRenderAtual(); /* dispara pra motRenderReview() se MOT.rev tiver setado, senão redesenha a tela atual (Desfecho/Edição) */
 }
 /* Ampliar a foto ANTES/DEPOIS ao tocar na miniatura — mesmo popup usado nas fotos extra,
    com "Trocar" e "Remover" ali dentro. Chamável de qualquer tela (Desfecho/Edição/Revisão/Leitura). */
-function motAmpliarPrincipal(t,tipo){
-  const arr=t.fotos[tipo]||[]; if(!arr.length) return;
+function motAmpliarPrincipal(t,tipo,pos){
+  const arr=pos?motFotosPos(t,tipo,pos):(t.fotos[tipo]||[]); if(!arr.length) return; /* v71 */
   const m=arr[arr.length-1];
-  document.getElementById('mot-refhd-tit').textContent='📷 Foto '+tipo.toUpperCase();
+  document.getElementById('mot-refhd-tit').textContent='📷 Foto '+tipo.toUpperCase()+(pos?' · '+pos:'');
   const rb=document.getElementById('mot-refbody');
   rb.innerHTML='<div class="mot-refimg" id="mot-principal-img" style="'+motFotoBgStyle(m)+'"><span class="mot-reftag">'+tipo.toUpperCase()+'</span></div>'+
     '<div class="mot-reffoot">'+tipo.toUpperCase()+(m.data?' · '+motFmtHora(m.data):'')+(arr.length>1?' · '+arr.length+' fotos':'')+'</div>'+
@@ -20611,8 +20655,8 @@ function motAmpliarPrincipal(t,tipo){
   document.getElementById('mot-refmodal').classList.add('on');
   document.getElementById('mot-refscrim').classList.add('on');
   if(!m._localUrl&&m.driveId) beArquivoDataURL(m.driveId).then(du=>{ const el=document.getElementById('mot-principal-img'); if(el) el.style.backgroundImage='url('+du+')'; }).catch(()=>{});
-  rb.querySelector('#mot-principal-remove').addEventListener('click',()=>{ motFecharRef(); motRemoverFotoPrincipal(t,tipo); });
-  rb.querySelector('#mot-principal-refazer').addEventListener('click',()=>{ motFecharRef(); motCapturarPrincipal(t,tipo); });
+  rb.querySelector('#mot-principal-remove').addEventListener('click',()=>{ motFecharRef(); motRemoverFotoPrincipal(t,tipo,pos); });
+  rb.querySelector('#mot-principal-refazer').addEventListener('click',()=>{ motFecharRef(); motCapturarPrincipal(t,tipo,pos); });
 }
 function motRemoverFotoExtra(t,k){
   const arr=t.fotos.adicionais||[]; const m=arr[k]; if(!m) return;
@@ -20683,7 +20727,7 @@ function motRenderJustif(tipo){
   const draftKey=tipo==='antes'?'_draftJustAntes':'_draftJustDepois';
   const body=document.getElementById('mot-shBody');
   body.innerHTML=
-    '<div class="mot-justtit">Sem foto — registre o motivo</div>'+
+    '<div class="mot-justtit">Sem foto'+(t._justAlvo?' — '+motEsc(t._justAlvo):'')+' — registre o motivo</div>'+
     '<div class="mot-justsub">Nada trava aqui: escolha o motivo (1 toque) ou escreva. A justificativa fica só nesta sessão do app.</div>'+
     '<button class="mot-justchip">Local sem acesso seguro para foto</button>'+
     '<button class="mot-justchip">Câmera indisponível / danificada</button>'+
@@ -20698,12 +20742,12 @@ function motRenderJustif(tipo){
      tarefa etc.) sem confirmar, o texto reaparece ao voltar aqui. Só vira definitivo (_antesJust/
      _depoisJust) quando ela realmente confirma. */
   ta.addEventListener('input',()=>{ t[draftKey]=ta.value; });
-  body.querySelectorAll('.mot-justchip').forEach(c=>{ c.addEventListener('click',()=>{ t[tipo==='antes'?'_antesJust':'_depoisJust']=c.textContent; t[draftKey]=null; motAvancarDe(tipo); }); });
+  body.querySelectorAll('.mot-justchip').forEach(c=>{ c.addEventListener('click',()=>{ motJustGravar(t,tipo,t._justAlvo||null,c.textContent); t._justAlvo=null; t[draftKey]=null; motAvancarDe(tipo); }); }); /* v71: por posição */
   body.querySelector('.mot-justok').addEventListener('click',()=>{
     const v=body.querySelector('.mot-jtxt').value.trim(); if(!v){ body.querySelector('.mot-jtxt').focus(); return; }
-    t[tipo==='antes'?'_antesJust':'_depoisJust']=v; t[draftKey]=null; motAvancarDe(tipo);
+    motJustGravar(t,tipo,t._justAlvo||null,v); t._justAlvo=null; t[draftKey]=null; motAvancarDe(tipo);
   });
-  body.querySelector('#mot-jvoltar').addEventListener('click',()=>{ t._fase=tipo; motRenderAtual(); });
+  body.querySelector('#mot-jvoltar').addEventListener('click',()=>{ t._justAlvo=null; t._fase=tipo; motRenderAtual(); });
 }
 
 /* ---------- checklist: clássico (Checkbox) + M10 (Instrução/Medição/Condição/Mídia) + fallback ---------- */
@@ -21106,6 +21150,31 @@ function motGravarVideoPasso(t,p,btn){
   };
   inp.click();
 }
+/* ---------- posições da foto (15/10/2026, v71) — docs/09-CADASTROS/DECISAO_posicoes-de-foto-por-equipamento_15-10-2026.md ----------
+   Raphael: "porta de inspeção a gente pode pedir foto pro lado direito e pro lado esquerdo do duto… caixa plenum, só uma foto" e "o que
+   define mesmo é o Ativo". O servidor manda t.posicoesFoto (do equipamento; vazio = 1 foto, como sempre foi). Cada posição pede foto
+   no ANTES e no DEPOIS; "não consigo fotografar" vale por posição. Foto antiga sem posição ocupa a 1ª posição que ainda não tem foto
+   própria (tarefa que já estava em andamento quando o equipamento ganhou posições não perde a foto).
+   Chave: MOT_POSICOES_FOTO=false ignora as posições (volta a 1 foto). */
+const MOT_POSICOES_FOTO=true;
+function motPosicoes(t){ return (MOT_POSICOES_FOTO&&t&&!t.leve&&Array.isArray(t.posicoesFoto))?t.posicoesFoto:[]; }
+function motSlots(t){ const ps=motPosicoes(t); return ps.length?ps:[null]; }
+function motFotosPos(t,tipo,pos){
+  const arr=(t.fotos&&t.fotos[tipo])||[];
+  if(!pos) return arr;
+  const ps=motPosicoes(t), proprias=arr.filter(f=>f.posicao===pos);
+  if(proprias.length) return proprias;
+  const soltas=arr.filter(f=>!f.posicao||ps.indexOf(f.posicao)<0); if(!soltas.length) return [];
+  const livres=ps.filter(p=>!arr.some(f=>f.posicao===p));
+  return livres[0]===pos?soltas:[];
+}
+function motJustDe(t,tipo,pos){ if(!pos) return tipo==='antes'?t._antesJust:t._depoisJust; return ((t._justPos||{})[tipo]||{})[pos]||null; }
+function motJustGravar(t,tipo,pos,v){
+  if(!pos){ t[tipo==='antes'?'_antesJust':'_depoisJust']=v; return; }
+  t._justPos=t._justPos||{antes:{},depois:{}}; (t._justPos[tipo]=t._justPos[tipo]||{})[pos]=v;
+}
+function motSlotOk(t,tipo,pos){ return !!(motFotosPos(t,tipo,pos).length||motJustDe(t,tipo,pos)); }
+function motFotoCompleta(t,tipo){ return motSlots(t).every(p=>motSlotOk(t,tipo,p)); }
 /* ---------- v68 (15/10/2026) — navegação da linha da OT, 1ª etapa: DECISAO_navegacao-da-linha-da-ot_15-10-2026.md ----------
    Raphael: "às vezes caímos em uma tela onde tudo está preenchido e não consigo avançar. Ao mesmo tempo a linha não fica vista como
    concluída" → escolheu "A com a pílula da C, mais visível". Aqui: (1) pílula grande na lista, derivada do que foi REGISTRADO (abrir a
@@ -21117,8 +21186,8 @@ const MOT_PILULA_LINHA=true;
 function motProgressoLinha(t){
   if(t.leve) return {feito:motDesfecho(t)?1:0,total:1};
   const ps=(t.passos||[]).filter(p=>p.tipoCampo!=='Instrução'&&p.tipoCampo!=='Cálculo'), f=t.fotos||{};
-  const antes=((f.antes&&f.antes.length)||t._antesJust)?1:0, depois=((f.depois&&f.depois.length)||t._depoisJust)?1:0;
-  return {feito:antes+ps.filter(p=>motItemResolvido(t,p)).length+depois,total:2+ps.length};
+  const sl=motSlots(t), antes=sl.filter(p=>motSlotOk(t,'antes',p)).length, depois=sl.filter(p=>motSlotOk(t,'depois',p)).length; /* v71: uma por posição */
+  return {feito:antes+ps.filter(p=>motItemResolvido(t,p)).length+depois,total:2*sl.length+ps.length};
 }
 function motPilulaLinha(t){
   const P=(txt,cor,escuro)=>'<span class="mot-pil" style="background:'+cor+';color:'+(escuro?'#2B1A00':'#fff')+'">'+txt+'</span>';
@@ -21195,10 +21264,10 @@ function motModoCheia(){
 function motEmPagina(){ return !!(MOT_PAGINA&&document.querySelector('#mot-shBody .mot-pagina')); }
 /* o que falta, na ordem da página */
 function motPgFaltas(t){
-  const f=[], semA=!((t.fotos.antes||[]).length||t._antesJust), semD=!((t.fotos.depois||[]).length||t._depoisJust);
-  if(semA) f.push({tipo:'foto',qual:'antes'});
+  const f=[], sl=motSlots(t); /* v71: uma falta por posição */
+  sl.forEach(pos=>{ if(!motSlotOk(t,'antes',pos)) f.push({tipo:'foto',qual:'antes',pos}); });
   motCkFaltas(t).forEach(p=>f.push({tipo:'item',p}));
-  if(semD) f.push({tipo:'foto',qual:'depois'});
+  sl.forEach(pos=>{ if(!motSlotOk(t,'depois',pos)) f.push({tipo:'foto',qual:'depois',pos}); });
   return f;
 }
 function motPgRodapeHtml(t){
@@ -21211,8 +21280,9 @@ function motPgRodapeHtml(t){
       +'<div class="mot-ckalt"><button type="button" data-pganota="1">Registrar anotação técnica</button></div></div>';
   }
   const x=f[0], n=f.length, cab='<small>Falta '+n+(n>1?' itens':' item')+'</small>';
-  if(x.tipo==='foto') return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-pgfoto="'+x.qual+'">'+cab+'📷 Foto do '+x.qual+' ›</button>'
-    +'<div class="mot-ckalt"><button type="button" data-pgsemfoto="'+x.qual+'">Não consigo fotografar</button></div></div>';
+  const dp=x.pos?' data-pgpos="'+motEsc(x.pos)+'"':'';
+  if(x.tipo==='foto') return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-pgfoto="'+x.qual+'"'+dp+'>'+cab+'📷 Foto do '+x.qual+(x.pos?' — '+motEsc(x.pos):'')+' ›</button>'
+    +'<div class="mot-ckalt"><button type="button" data-pgsemfoto="'+x.qual+'"'+dp+'>Não consigo fotografar</button></div></div>';
   const p=x.p;
   return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-ckir="'+p.id+'">'+cab+motEsc(p.descricao)+' ›</button>'
     +'<div class="mot-ckalt">'+(p.tipoCampo==='Texto'?'<button type="button" data-cksemobs="'+p.id+'">Sem observações</button>':'')
@@ -21221,8 +21291,8 @@ function motPgRodapeHtml(t){
 function motPgRodapeWire(t){
   motCkRodapeWire(t); /* ir ao item, Sem observações, motivo: os mesmos da v68 */
   const foot=document.getElementById('mot-ckfoot'), body=document.getElementById('mot-shBody'); if(!foot) return;
-  foot.querySelectorAll('[data-pgfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motCapturarPrincipal(t,b.dataset.pgfoto); }));
-  foot.querySelectorAll('[data-pgsemfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='justif-'+b.dataset.pgsemfoto; motRenderAtual(); }));
+  foot.querySelectorAll('[data-pgfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motCapturarPrincipal(t,b.dataset.pgfoto,b.dataset.pgpos||null); }));
+  foot.querySelectorAll('[data-pgsemfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._justAlvo=b.dataset.pgpos||null; t._fase='justif-'+b.dataset.pgsemfoto; motRenderAtual(); }));
   foot.querySelectorAll('[data-pgok]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motConcluir('ok'); }));
   foot.querySelectorAll('[data-pganota]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='anota'; motRenderAtual(); }));
   foot.querySelectorAll('[data-pgsec]').forEach(b=>b.addEventListener('click',()=>{ const s=body&&body.querySelector('#'+b.dataset.pgsec); if(s) try{ s.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }));
@@ -21230,11 +21300,15 @@ function motPgRodapeWire(t){
 function motRenderPagina(){
   const t=MOT.tarefas[MOT.atual], body=document.getElementById('mot-shBody'); if(!t||!body) return;
   const sc=body.scrollTop;
-  const okA=!!((t.fotos.antes||[]).length||t._antesJust), okD=!!((t.fotos.depois||[]).length||t._depoisJust);
+  const okA=motFotoCompleta(t,'antes'), okD=motFotoCompleta(t,'depois'); /* v71 */
   const temP=!!(t.passos&&t.passos.length), okC=!motCkFaltas(t).length;
   const sec=(n,tit,ok,html,id)=>'<section class="mot-psec'+(ok?' ok':'')+'" id="'+id+'"><div class="mot-pstit"><span class="mot-psn">'+(ok?'✓':n)+'</span>'+tit+'</div>'+html+'</section>';
-  const foto=(tipo)=>{ const tem=(t.fotos[tipo]||[]).length, just=tipo==='antes'?t._antesJust:t._depoisJust;
-    return motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true)+(tem||just?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'">não consigo fotografar</button>'); };
+  const foto=(tipo)=>{ const ps=motPosicoes(t);
+    if(!ps.length){ const tem=(t.fotos[tipo]||[]).length, just=tipo==='antes'?t._antesJust:t._depoisJust;
+      return motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true)+(tem||just?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'">não consigo fotografar</button>'); }
+    /* v71: um quadro por posição, com o nome */
+    return '<div class="mot-pgposgrid">'+ps.map(p=>'<div class="mot-pgpos"><div class="mot-pgposn">'+motEsc(p)+'</div>'+motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true,p)
+      +(motSlotOk(t,tipo,p)?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'" data-pos="'+motEsc(p)+'">não consigo fotografar</button>')+'</div>').join('')+'</div>'; };
   let n=1, h='<div class="mot-pagina">';
   h+=sec(n++,'Foto do antes',okA,foto('antes'),'mot-pg-antes');
   if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true),'mot-pg-ck');
@@ -21244,7 +21318,7 @@ function motRenderPagina(){
   h+='</div>'+motPgRodapeHtml(t);
   body.innerHTML=h;
   motWireTyped(body,t); motWireCkRows(body,t); motWireAB(body,t); motWireExtras(body,t);
-  body.querySelectorAll('[data-semfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='justif-'+b.dataset.semfoto; motRenderAtual(); }));
+  body.querySelectorAll('[data-semfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._justAlvo=b.dataset.pos||null; t._fase='justif-'+b.dataset.semfoto; motRenderAtual(); }));
   body.querySelectorAll('[data-pgnaoexec]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='naoexec'; motRenderAtual(); }));
   motPgRodapeWire(t);
   body.scrollTop=sc;
