@@ -1916,7 +1916,7 @@
 .cad-posbox{margin-top:12px} /* v72 cruz de posições */
 .cad-cruz{display:grid;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(3,76px);gap:6px;justify-content:center;margin:4px 0 8px}
 .cad-pos{border:2px solid #C9D0D8;background:#fff;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;color:#3A4552;padding:0}
-.cad-pos .ic{font-size:24px;line-height:1}.cad-pos .nm{font-size:11px;font-weight:800}
+.cad-pos .ic{display:flex;align-items:center;justify-content:center;height:30px;line-height:1}.cad-pos .nm{font-size:11px;font-weight:800}
 .cad-pos.centro{border-radius:50%}.cad-pos.on{background:#0176D3;border-color:#0176D3;color:#fff}
 .cad-posres{background:#F4F6F8;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#0B2239}
 .cad-posbt{flex:1;min-height:40px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;font-weight:700;font-size:12.5px;color:#2B5A7E;font-family:inherit}
@@ -1935,7 +1935,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=72;
+const APP_NUM=73;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -14035,12 +14035,17 @@ function cadPosFotoHtml(){
   return '<div class="cad-posbox"><div style="font-size:13px;color:#3A4552;margin-bottom:2px">Fotos do antes e do depois'
     +(ehSug?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido pelo tipo</span>':'')+'</div>'
     +'<div style="font-size:11.5px;color:#686868;margin-bottom:6px">Toque nas posições que este equipamento precisa. Nenhuma = 1 foto.</div>'
-    +'<div class="cad-cruz"><i></i>'+B('Para cima','⬆')+'<i></i>'+B('Lado esquerdo','⬅')+B('Frontal','◉',' centro')+B('Lado direito','➡')+'<i></i>'+B('Para baixo','⬇')+'<i></i></div>'
+    +'<div class="cad-cruz"><i></i>'+B('Para cima',cadSeta(-90))+'<i></i>'+B('Lado esquerdo',cadSeta(180))+B('Frontal',CAD_ALVO_SVG,' centro')+B('Lado direito',cadSeta(0))+'<i></i>'+B('Para baixo',cadSeta(90))+'<i></i></div>'
     +(extras.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">'+extras.map(p=>'<button type="button" class="cad-posx" onclick="cadPosFotoTirarExtra('+sel.indexOf(p)+')">'+cadEsc(p)+' ✕</button>').join('')+'</div>':'')
     +'<div class="cad-posres">'+(sel.length?'<b>'+sel.length+' posição'+(sel.length>1?'ões':'')+'</b>: '+cadEsc(ordem.join(' · '))+' → <b>'+sel.length*2+' fotos</b> por visita':'<b>Nenhuma posição</b> → 1 foto no antes e 1 no depois')+'</div>'
     +'<div style="display:flex;gap:8px;margin-top:8px">'+(sug.length&&!ehSug?'<button type="button" class="cad-posbt" onclick="cadUsarPosSug()">Usar sugestão do tipo</button>':'')
     +(sel.length?'<button type="button" class="cad-posbt" onclick="cadPosFotoLimpar()">Só 1 foto</button>':'')+'</div></div>';
 }
+/* v73 (16/10/2026) — Raphael: "as setas estão irregulares. Padronize com uma um pouco mais grossa que a atual do Lado direito". Os
+   caracteres ⬆⬅➡⬇ vêm de fontes diferentes em cada aparelho (no Android saíam finos e de tamanhos diferentes). Agora é UM desenho só,
+   girado para cada direção, na cor do texto (fica branco quando marcado). */
+function cadSeta(graus){ return '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" style="transform:rotate('+graus+'deg)"><path d="M2.5 9.2h11V4.2L22 12l-8.5 7.8v-5H2.5z" fill="currentColor"/></svg>'; }
+const CAD_ALVO_SVG='<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="4.4" fill="currentColor"/></svg>';
 function cadPosFotoAlt(p){
   const sel=cadPosFotoLista(), k=sel.indexOf(p);
   if(k>=0) sel.splice(k,1); else sel.push(p);
