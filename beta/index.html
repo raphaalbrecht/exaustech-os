@@ -1913,6 +1913,14 @@
 .mot-psec.ok .mot-psn{background:#2E844A}
 .mot-pgfoto{min-height:150px}
 .mot-pgposgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px} /* v71 posições */
+.cad-posbox{margin-top:12px} /* v72 cruz de posições */
+.cad-cruz{display:grid;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(3,76px);gap:6px;justify-content:center;margin:4px 0 8px}
+.cad-pos{border:2px solid #C9D0D8;background:#fff;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;color:#3A4552;padding:0}
+.cad-pos .ic{font-size:24px;line-height:1}.cad-pos .nm{font-size:11px;font-weight:800}
+.cad-pos.centro{border-radius:50%}.cad-pos.on{background:#0176D3;border-color:#0176D3;color:#fff}
+.cad-posres{background:#F4F6F8;border-radius:10px;padding:8px 10px;font-size:12.5px;color:#0B2239}
+.cad-posbt{flex:1;min-height:40px;border-radius:10px;border:1.5px solid #C9D0D8;background:#fff;font-weight:700;font-size:12.5px;color:#2B5A7E;font-family:inherit}
+.cad-posx{min-height:34px;border-radius:999px;border:1.5px solid #C9D0D8;background:#fff;padding:0 10px;font-weight:700;font-size:12px;font-family:inherit}
 .mot-pgposn{font-size:13px;font-weight:800;color:#0B2239;margin-bottom:4px}
 .mot-pgsub{font-size:13px;color:#4A5560;margin-bottom:6px}
 .mot-leve-sub{font-size:13.5px;color:#4A5560;margin:2px 0 10px} /* 15/10/2026 — linha de ronda */
@@ -1927,7 +1935,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=71;
+const APP_NUM=72;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -14014,15 +14022,33 @@ function cadDadosGeraisHtml(){
 /* 15/10/2026 (v71) — posições da foto do antes e do depois (docs/09-CADASTROS/DECISAO_posicoes-de-foto-por-equipamento_15-10-2026.md).
    Raphael: "o que define mesmo é o Ativo". O tipo sugere (TipoAtivo__c.Posicoes_Foto_Padrao__c); quem cadastra ajusta. Na edição de um
    equipamento já cadastrado a sugestão NÃO entra sozinha (decisão: os já cadastrados ficam com 1 foto) — aparece um botão para usar. */
+/* 16/10/2026 (v72) — Raphael: "essa forma de cadastrar com Lado direito enter Lado esquerdo é péssima. Temos que ter seleção clicável:
+   Para cima, Para baixo, Frontal, Lado direito e Lado esquerdo" → escolheu a proposta A do mockup (prototipos/mockup-posicoes-foto-selecao_16-10-2026.html):
+   cruz de setas com a Frontal no centro. O valor gravado continua o mesmo (um nome por linha), na ordem fixa abaixo, que é a ordem das
+   fotos na tarefa. Posição escrita à mão antes da v72 (fora das cinco) não se perde: aparece como chip e pode ser tirada. */
+const CAD_POS_FIXAS=['Para cima','Lado esquerdo','Frontal','Lado direito','Para baixo'];
 function cadPosFotoHtml(){
-  const v=cadSt.posFoto||'', sug=cadSt.posFotoSug||[], ehSug=sug.length&&v.trim()===sug.join('\n');
-  return '<div style="margin-top:12px"><div style="font-size:13px;color:#3A4552;margin-bottom:5px">Posições da foto (antes e depois)'
+  const sel=cadPosFotoLista(), tem=p=>sel.indexOf(p)>=0, sug=cadSt.posFotoSug||[];
+  const ehSug=sug.length&&sel.length===sug.length&&sug.every(tem), extras=sel.filter(p=>CAD_POS_FIXAS.indexOf(p)<0);
+  const B=(p,ic,cls)=>'<button type="button" class="cad-pos'+(cls||'')+(tem(p)?' on':'')+'" onclick="cadPosFotoAlt(\''+p+'\')"><span class="ic">'+ic+'</span><span class="nm">'+p+'</span></button>';
+  const ordem=sel.slice().sort((a,b)=>{ const x=CAD_POS_FIXAS.indexOf(a), y=CAD_POS_FIXAS.indexOf(b); return (x<0?99:x)-(y<0?99:y); });
+  return '<div class="cad-posbox"><div style="font-size:13px;color:#3A4552;margin-bottom:2px">Fotos do antes e do depois'
     +(ehSug?' <span style="background:#EAF1F7;color:#2B5A7E;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700">sugerido pelo tipo</span>':'')+'</div>'
-    +'<textarea rows="3" placeholder="vazio = 1 foto. Ex.: Lado direito (enter) Lado esquerdo" oninput="cadSetPosFoto(this.value)" style="width:100%;padding:10px;border:1px solid #E2E5E9;border-radius:8px;font-size:14px;font-family:inherit">'+cadEsc(v)+'</textarea>'
-    +'<div style="font-size:11.5px;color:#686868;margin-top:3px">Uma posição por linha. Cada uma pede foto no antes e no depois.</div>'
-    +(!v.trim()&&sug.length?'<button onclick="cadUsarPosSug()" style="margin-top:6px;border:1px solid #3E7EB0;background:#fff;color:#2B5A7E;border-radius:16px;padding:7px 12px;font-size:12px;font-weight:700">Usar sugestão do tipo: '+cadEsc(sug.join(' + '))+'</button>':'')
-    +'</div>';
+    +'<div style="font-size:11.5px;color:#686868;margin-bottom:6px">Toque nas posições que este equipamento precisa. Nenhuma = 1 foto.</div>'
+    +'<div class="cad-cruz"><i></i>'+B('Para cima','⬆')+'<i></i>'+B('Lado esquerdo','⬅')+B('Frontal','◉',' centro')+B('Lado direito','➡')+'<i></i>'+B('Para baixo','⬇')+'<i></i></div>'
+    +(extras.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">'+extras.map(p=>'<button type="button" class="cad-posx" onclick="cadPosFotoTirarExtra('+sel.indexOf(p)+')">'+cadEsc(p)+' ✕</button>').join('')+'</div>':'')
+    +'<div class="cad-posres">'+(sel.length?'<b>'+sel.length+' posição'+(sel.length>1?'ões':'')+'</b>: '+cadEsc(ordem.join(' · '))+' → <b>'+sel.length*2+' fotos</b> por visita':'<b>Nenhuma posição</b> → 1 foto no antes e 1 no depois')+'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px">'+(sug.length&&!ehSug?'<button type="button" class="cad-posbt" onclick="cadUsarPosSug()">Usar sugestão do tipo</button>':'')
+    +(sel.length?'<button type="button" class="cad-posbt" onclick="cadPosFotoLimpar()">Só 1 foto</button>':'')+'</div></div>';
 }
+function cadPosFotoAlt(p){
+  const sel=cadPosFotoLista(), k=sel.indexOf(p);
+  if(k>=0) sel.splice(k,1); else sel.push(p);
+  sel.sort((a,b)=>{ const x=CAD_POS_FIXAS.indexOf(a), y=CAD_POS_FIXAS.indexOf(b); return (x<0?99:x)-(y<0?99:y); });
+  cadSt.posFoto=sel.join('\n'); cadSt.posFotoMexeu=true; cadStepForm();
+}
+function cadPosFotoTirarExtra(k){ const sel=cadPosFotoLista(); if(sel[k]==null) return; sel.splice(k,1); cadSt.posFoto=sel.join('\n'); cadSt.posFotoMexeu=true; cadStepForm(); } /* posição escrita à mão antes da v72 (índice: o texto pode ter aspas) */
+function cadPosFotoLimpar(){ cadSt.posFoto=''; cadSt.posFotoMexeu=true; cadStepForm(); }
 function cadSetPosFoto(v){ cadSt.posFoto=String(v||''); cadSt.posFotoMexeu=true; } /* sem re-render: não perde o foco */
 function cadUsarPosSug(){ cadSt.posFoto=(cadSt.posFotoSug||[]).join('\n'); cadSt.posFotoMexeu=true; cadStepForm(); }
 function cadPosFotoLista(){ const vis={}, out=[]; String(cadSt.posFoto||'').split(/\r?\n/).forEach(l=>{ const x=l.trim().slice(0,40), k=x.toLowerCase(); if(x&&!vis[k]&&out.length<6){ vis[k]=1; out.push(x); } }); return out; }
