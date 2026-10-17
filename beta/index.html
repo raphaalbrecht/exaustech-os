@@ -1978,7 +1978,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=75;
+const APP_NUM=77;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -15121,7 +15121,7 @@ function etfCorpo(){
     if(!etf.token) h+=etfBtn(etf.busy?'Gerando…':'Gerar a etiqueta','etfGerar()','p','width:100%;margin-top:16px');
     else{
       h+='<img id="etfEtqImg" alt="Etiqueta" style="display:block;width:100%;max-width:520px;aspect-ratio:80/50;margin-top:14px;border:1px solid #C9D0D8;border-radius:6px;background:#fff">'+cadEtqBotoes();
-      if(etf.ativa) h+=etfBox('info','Esta etiqueta já tem chip gravado','É a imagem da versão '+cadEsc(etf.versao)+', para reimprimir. Para trocar o chip, faça uma etiqueta nova.')+etfBtn('Fazer uma etiqueta nova','etfNova()','l','margin-top:4px');
+      if(etf.ativa) h+=etfBox('info','Esta etiqueta já tem chip gravado','É a imagem da versão '+cadEsc(etf.versao)+', para reimprimir. Descole a etiqueta desbotada e cole a nova no mesmo lugar: o chip continua o mesmo. Chip com defeito: faça uma etiqueta nova (Substituir etiqueta).')+etfBtn('Fazer uma etiqueta nova','etfNova()','l','margin-top:4px');
       else h+=etfBtn('Cancelar esta etiqueta e gerar outra','etfNova()','l','margin-top:6px');
     }
   } else if(n===2){
@@ -17987,6 +17987,7 @@ function ativoDetFotoNova(){ const d=ativoDetSt; if(!d) return; if(!ativoDetAber
    Chave: ATIVO_DET_MENU_V61=false devolve o menu e o "O que fazer" de 14/10. */
 const ATIVO_DET_MENU_V61=true;
 const ETQ_TROCA_CHIP_APP=false; /* v62 liga: "Só o chip falhou" */
+const ETQ_OPCAO_SO_CHIP=false; /* 17/10/2026: opção escondida — chip e etiqueta são um adesivo só (ver comentário em etqSubstPintar) */
 function ativoDetMenuV61Html(d){
   const cad=ativoDetPodeCad(), etAtiva=(d.etiquetas||[]).find(e=>e.ativa), nfc=typeof estoqNfcSuportado==='function'&&estoqNfcSuportado();
   const it=(ic,txt,sub,on,cls)=>'<button class="'+(cls||'')+'" onclick="ativoDetMenu(false);'+on+'"><span style="width:24px;text-align:center">'+ic+'</span><span style="flex:1;min-width:0;text-align:left">'+txt+(sub?'<small style="display:block;font-weight:500;font-size:12px;color:#686868">'+sub+'</small>':'')+'</span></button>';
@@ -17994,7 +17995,7 @@ function ativoDetMenuV61Html(d){
   let etq='', eq='';
   if(cad&&etAtiva){
     if(nfc) etq+=it('📶','Testar etiqueta','encoste o cartão para conferir','ativoDetTestar()');
-    etq+=it('🖨','Reimprimir a mesma etiqueta','adesivo rasgou, chip bom','ativoDetEtiqueta(\'imprimir\')');
+    etq+=it('🖨','Reimprimir a mesma etiqueta','desbotou ou rasgou — o chip continua bom','ativoDetEtiqueta(\'imprimir\')'); /* 17/10/2026: o caso real é a etiqueta desbotar com o chip bom */
     etq+=it('🔁','Substituir etiqueta…','perdida, danificada ou chip com defeito','ativoDetSubstituir()','fa-mdest');
   }
   if(cad) eq+=it('📷','Adicionar foto','','ativoDetFotoNova()');
@@ -18024,7 +18025,12 @@ function etqSubstPintar(msg){
   let h='<div class="es-sh"><div class="es-tit">Substituir a etiqueta do '+cadEsc(p.num||p.nome)+'</div>'
     +'<div class="es-sub">Etiqueta atual: versão '+cadEsc(p.versao!=null?p.versao:'?')+' · ativa</div>'
     +op('nova','🏷','Perdi ou estragou a etiqueta','Gera uma <b>etiqueta nova</b> (QR e chip novos): imprime, grava o chip, cola e confere — o mesmo passo a passo do cadastro. A etiqueta antiga para de funcionar assim que o chip novo for gravado.')
-    +op('chip','📶','Só o chip falhou — a etiqueta colada está boa',ETQ_TROCA_CHIP_APP?'Mantém o QR colado. Lê o QR, encosta o chip novo e confere. O chip antigo deixa de valer.':'Chega na próxima versão do app.',!ETQ_TROCA_CHIP_APP);
+    /* 17/10/2026 — Raphael: "se a etiqueta tem chip danificado, a gente joga fora incluindo a etiqueta. O que dá pra fazer é o contrário: a
+       etiqueta desbotou mas o chip NFC continua funcionando… descolamos a etiqueta e colamos a nova". Chip e etiqueta são um adesivo só:
+       "trocar só o chip" não existe na prática. A opção sai da tela (chave ETQ_OPCAO_SO_CHIP); o caso real é "Reimprimir a mesma
+       etiqueta" no menu da ficha. DECISAO_menu-da-ficha-e-substituir-etiqueta_15-10-2026.md */
+    +(ETQ_OPCAO_SO_CHIP?op('chip','📶','Só o chip falhou — a etiqueta colada está boa',ETQ_TROCA_CHIP_APP?'Mantém o QR colado. Lê o QR, encosta o chip novo e confere. O chip antigo deixa de valer.':'Chega na próxima versão do app.',!ETQ_TROCA_CHIP_APP):'')
+    +'<div class="es-sub" style="margin-top:10px">Só desbotou ou rasgou, com o chip funcionando? Use <b>Reimprimir a mesma etiqueta</b> no menu da ficha.</div>';
   if(p.opcao==='nova') h+='<div class="es-lab">Motivo <span>— obrigatório</span></div><div class="es-chips">'+MOT.map(m=>'<button type="button" class="es-chip'+(p.motivo===m?' on':'')+'" onclick="etqSubstMotivo(\''+m+'\')">'+m+'</button>').join('')+'</div>';
   if(msg) h+='<div class="es-msg">'+cadEsc(msg)+'</div>';
   h+='<button type="button" class="es-btn pri" onclick="etqSubstContinuar()">Continuar</button><button type="button" class="es-btn" onclick="etqSubstFechar()">Cancelar</button></div>';
@@ -21038,13 +21044,14 @@ function motPassoRowHtml(t,p,aff){
     inner+='<div class="mot-condnote">passo condicional — aparece porque a condição = '+motEsc(pai?(motRespostaAtual(pai)||''):'')+'</div>'; }
   return inner;
 }
-function motCkRowsHtml(t,aff){
+function motCkRowsHtml(t,aff,filtro){ /* v77: filtro opcional (a página separa a Segurança do resto) */
   // 05/08/2026 — agrupa por seção (Passo_Regra__c.Secao__c). O INS-EXA migrado tem 82 passos;
   // sem cabeçalho a lista é impraticável de luva. O cabeçalho só sai quando a seção MUDA e
   // quando há pelo menos uma linha visível nela — passo escondido por condicional devolve ''.
   // Regra sem Secao__c (as antigas) não ganha cabeçalho nenhum: zero regressão.
   let out='', secaoAtual=null, primeira=true;
   (t.passos||[]).forEach(p=>{
+    if(filtro&&!filtro(p)) return;
     const row=motPassoRowHtml(t,p,aff);
     if(!row) return;
     const sec=p.secao||null;
@@ -21362,12 +21369,15 @@ function motModoCheia(){
   sh.classList.toggle('cheia',!!MOT_PAGINA);
   const x=document.getElementById('mot-shX'); if(x) x.textContent=MOT_PAGINA?'‹ Lista':'✕';
 }
+function motPassoSeguranca(p){ return !!(MOT_SEGURANCA_ANTES&&p&&/seguran/i.test(p.secao||'')); } /* v77 */
+const MOT_SEGURANCA_ANTES=true;
 function motEmPagina(){ return !!(MOT_PAGINA&&document.querySelector('#mot-shBody .mot-pagina')); }
 /* o que falta, na ordem da página */
 function motPgFaltas(t){
   const f=[], sl=motSlots(t); /* v71: uma falta por posição */
+  motCkFaltas(t).filter(motPassoSeguranca).forEach(p=>f.push({tipo:'item',p})); /* v77: segurança vem ANTES da foto do antes */
   sl.forEach(pos=>{ if(!motSlotOk(t,'antes',pos)) f.push({tipo:'foto',qual:'antes',pos}); });
-  motCkFaltas(t).forEach(p=>f.push({tipo:'item',p}));
+  motCkFaltas(t).filter(p=>!motPassoSeguranca(p)).forEach(p=>f.push({tipo:'item',p}));
   sl.forEach(pos=>{ if(!motSlotOk(t,'depois',pos)) f.push({tipo:'foto',qual:'depois',pos}); });
   return f;
 }
@@ -21402,7 +21412,11 @@ function motRenderPagina(){
   const t=MOT.tarefas[MOT.atual], body=document.getElementById('mot-shBody'); if(!t||!body) return;
   const sc=body.scrollTop;
   const okA=motFotoCompleta(t,'antes'), okD=motFotoCompleta(t,'depois'); /* v71 */
-  const temP=!!(t.passos&&t.passos.length), okC=!motCkFaltas(t).length;
+  /* v77 (17/10/2026) — Raphael, no teste da OT-002374: "pra fotografar o ANTES, via de regra você primeiro desliga o equipamento e bloqueia,
+     depois abre e fotografa. Essa ordem na tela está errada". As perguntas da seção "Segurança" do POP (Passo_Regra__c.Secao__c) sobem para
+     ANTES da foto do antes; o resto do checklist continua depois dela. POP sem seção Segurança: página igual à v69. Chave MOT_SEGURANCA_ANTES. */
+  const temSeg=(t.passos||[]).some(motPassoSeguranca), okSeg=!motCkFaltas(t).some(motPassoSeguranca);
+  const temP=(t.passos||[]).some(p=>!motPassoSeguranca(p)), okC=!motCkFaltas(t).some(p=>!motPassoSeguranca(p));
   const sec=(n,tit,ok,html,id)=>'<section class="mot-psec'+(ok?' ok':'')+'" id="'+id+'"><div class="mot-pstit"><span class="mot-psn">'+(ok?'✓':n)+'</span>'+tit+'</div>'+html+'</section>';
   const foto=(tipo)=>{ const ps=motPosicoes(t);
     if(!ps.length){ const tem=(t.fotos[tipo]||[]).length, just=tipo==='antes'?t._antesJust:t._depoisJust;
@@ -21411,8 +21425,9 @@ function motRenderPagina(){
     return '<div class="mot-pgposgrid">'+ps.map(p=>'<div class="mot-pgpos"><div class="mot-pgposn">'+motEsc(p)+'</div>'+motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true,p)
       +(motSlotOk(t,tipo,p)?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'" data-pos="'+motEsc(p)+'">não consigo fotografar</button>')+'</div>').join('')+'</div>'; };
   let n=1, h='<div class="mot-pagina">';
+  if(temSeg) h+=sec(n++,'Segurança — antes de abrir',okSeg,motCkRowsHtml(t,true,motPassoSeguranca),'mot-pg-seg');
   h+=sec(n++,'Foto do antes',okA,foto('antes'),'mot-pg-antes');
-  if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true),'mot-pg-ck');
+  if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true,temSeg?(p=>!motPassoSeguranca(p)):null),'mot-pg-ck');
   h+=sec(n++,'Foto do depois',okD,foto('depois')+motExtrasRowHtml(t)+'<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>','mot-pg-depois');
   h+=sec(n++,'Concluir',false,'<div class="mot-pgsub">Com tudo respondido: <b>Está OK</b> ou <b>Anotação Técnica</b> (no rodapé).</div>'
     +'<button class="mot-voltalink" data-pgnaoexec="1">⊘ Não foi possível executar esta tarefa</button>','mot-pg-fim');
