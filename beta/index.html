@@ -1955,6 +1955,8 @@
 .mot-psn{width:26px;height:26px;border-radius:50%;background:#0B2239;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
 .mot-psec.ok .mot-psn{background:#2E844A}
 .mot-pgfoto{min-height:150px}
+.mot-psec.trav{opacity:.42;pointer-events:none;filter:grayscale(.4)} /* v78 segurança trava */
+.mot-trava{background:#FEF1EE;border:1px solid #F3B7AE;color:#8C1D10;border-radius:12px;padding:10px 12px;font-size:13.5px;margin:-4px 0 12px}
 .mot-pgposgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px} /* v71 posições */
 .cad-posbox{margin-top:12px} /* v72 cruz de posições */
 .cad-cruz{display:grid;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(3,76px);gap:6px;justify-content:center;margin:4px 0 8px}
@@ -1978,7 +1980,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=77;
+const APP_NUM=78;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -21369,6 +21371,8 @@ function motModoCheia(){
   sh.classList.toggle('cheia',!!MOT_PAGINA);
   const x=document.getElementById('mot-shX'); if(x) x.textContent=MOT_PAGINA?'‹ Lista':'✕';
 }
+const MOT_SEGURANCA_TRAVA=true; /* v78: segurança pendente trava fotos e checklist */
+function motSegPendente(t){ return (t.passos||[]).some(p=>motPassoSeguranca(p)&&p.statusPasso!=='Feito'); }
 function motPassoSeguranca(p){ return !!(MOT_SEGURANCA_ANTES&&p&&/seguran/i.test(p.secao||'')); } /* v77 */
 const MOT_SEGURANCA_ANTES=true;
 function motEmPagina(){ return !!(MOT_PAGINA&&document.querySelector('#mot-shBody .mot-pagina')); }
@@ -21395,6 +21399,8 @@ function motPgRodapeHtml(t){
   if(x.tipo==='foto') return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-pgfoto="'+x.qual+'"'+dp+'>'+cab+'📷 Foto do '+x.qual+(x.pos?' — '+motEsc(x.pos):'')+' ›</button>'
     +'<div class="mot-ckalt"><button type="button" data-pgsemfoto="'+x.qual+'"'+dp+'>Não consigo fotografar</button></div></div>';
   const p=x.p;
+  if(MOT_SEGURANCA_TRAVA&&motPassoSeguranca(p)) return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-ckir="'+p.id+'">'+cab+'🔒 '+motEsc(p.descricao)+' ›</button>' /* v78 */
+    +'<div class="mot-ckalt"><button type="button" data-pgnaoseg="1">⊘ Não dá para deixar seguro — não executar</button></div></div>';
   return '<div class="mot-ckfoot" id="mot-ckfoot"><button type="button" class="mot-ckprox" data-ckir="'+p.id+'">'+cab+motEsc(p.descricao)+' ›</button>'
     +'<div class="mot-ckalt">'+(p.tipoCampo==='Texto'?'<button type="button" data-cksemobs="'+p.id+'">Sem observações</button>':'')
     +'<button type="button" data-ckmotivo="'+p.id+'">⊘ Não deu — motivo</button></div></div>';
@@ -21406,6 +21412,7 @@ function motPgRodapeWire(t){
   foot.querySelectorAll('[data-pgsemfoto]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._justAlvo=b.dataset.pgpos||null; t._fase='justif-'+b.dataset.pgsemfoto; motRenderAtual(); }));
   foot.querySelectorAll('[data-pgok]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); motConcluir('ok'); }));
   foot.querySelectorAll('[data-pganota]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._fase='anota'; motRenderAtual(); }));
+  foot.querySelectorAll('[data-pgnaoseg]').forEach(b=>b.addEventListener('click',()=>{ clearTimeout(MOT.timer); t._naoexecSeg=true; t._fase='naoexec'; motRenderAtual(); })); /* v78 */
   foot.querySelectorAll('[data-pgsec]').forEach(b=>b.addEventListener('click',()=>{ const s=body&&body.querySelector('#'+b.dataset.pgsec); if(s) try{ s.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }));
 }
 function motRenderPagina(){
@@ -21416,8 +21423,12 @@ function motRenderPagina(){
      depois abre e fotografa. Essa ordem na tela está errada". As perguntas da seção "Segurança" do POP (Passo_Regra__c.Secao__c) sobem para
      ANTES da foto do antes; o resto do checklist continua depois dela. POP sem seção Segurança: página igual à v69. Chave MOT_SEGURANCA_ANTES. */
   const temSeg=(t.passos||[]).some(motPassoSeguranca), okSeg=!motCkFaltas(t).some(motPassoSeguranca);
+  /* v78 (17/10/2026) — Raphael: "segurança deveria bloquear qualquer preenchimento… segurança em primeiro lugar. Isso pode pesar até com um
+     juiz". Enquanto a segurança não está FEITA, fotos e checklist ficam travados (o servidor também recusa); o item de segurança não tem ⊘;
+     a saída é "Não foi possível executar" (condição insegura). DECISAO_seguranca-trava-a-tarefa_17-10-2026.md */
+  const segTrava=temSeg&&motSegPendente(t);
   const temP=(t.passos||[]).some(p=>!motPassoSeguranca(p)), okC=!motCkFaltas(t).some(p=>!motPassoSeguranca(p));
-  const sec=(n,tit,ok,html,id)=>'<section class="mot-psec'+(ok?' ok':'')+'" id="'+id+'"><div class="mot-pstit"><span class="mot-psn">'+(ok?'✓':n)+'</span>'+tit+'</div>'+html+'</section>';
+  const sec=(n,tit,ok,html,id,trav)=>'<section class="mot-psec'+(ok?' ok':'')+(trav?' trav':'')+'" id="'+id+'"><div class="mot-pstit"><span class="mot-psn">'+(ok?'✓':n)+'</span>'+tit+'</div>'+html+'</section>';
   const foto=(tipo)=>{ const ps=motPosicoes(t);
     if(!ps.length){ const tem=(t.fotos[tipo]||[]).length, just=tipo==='antes'?t._antesJust:t._depoisJust;
       return motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true)+(tem||just?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'">não consigo fotografar</button>'); }
@@ -21425,10 +21436,11 @@ function motRenderPagina(){
     return '<div class="mot-pgposgrid">'+ps.map(p=>'<div class="mot-pgpos"><div class="mot-pgposn">'+motEsc(p)+'</div>'+motFotoHtml(t,tipo,'mot-fsim mot-pgfoto',true,p)
       +(motSlotOk(t,tipo,p)?'':'<button class="mot-nofoto" data-semfoto="'+tipo+'" data-pos="'+motEsc(p)+'">não consigo fotografar</button>')+'</div>').join('')+'</div>'; };
   let n=1, h='<div class="mot-pagina">';
-  if(temSeg) h+=sec(n++,'Segurança — antes de abrir',okSeg,motCkRowsHtml(t,true,motPassoSeguranca),'mot-pg-seg');
-  h+=sec(n++,'Foto do antes',okA,foto('antes'),'mot-pg-antes');
-  if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true,temSeg?(p=>!motPassoSeguranca(p)):null),'mot-pg-ck');
-  h+=sec(n++,'Foto do depois',okD,foto('depois')+motExtrasRowHtml(t)+'<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>','mot-pg-depois');
+  if(temSeg) h+=sec(n++,'Segurança — antes de abrir',okSeg,motCkRowsHtml(t,!MOT_SEGURANCA_TRAVA,motPassoSeguranca),'mot-pg-seg') /* v78: sem ⊘ */
+    +(segTrava?'<div class="mot-trava">🔒 <b>Segurança em primeiro lugar.</b> Confirme o bloco 1 para liberar as fotos e o checklist.</div>':'');
+  h+=sec(n++,'Foto do antes',okA,foto('antes'),'mot-pg-antes',segTrava);
+  if(temP) h+=sec(n++,'Checklist',okC,motAvisosHtml(t)+motCkRowsHtml(t,true,temSeg?(p=>!motPassoSeguranca(p)):null),'mot-pg-ck',segTrava);
+  h+=sec(n++,'Foto do depois',okD,foto('depois')+motExtrasRowHtml(t)+'<div class="mot-fotorow"><button class="mot-addfoto mot-addextra">+ foto extra</button></div>','mot-pg-depois',segTrava);
   h+=sec(n++,'Concluir',false,'<div class="mot-pgsub">Com tudo respondido: <b>Está OK</b> ou <b>Anotação Técnica</b> (no rodapé).</div>'
     +'<button class="mot-voltalink" data-pgnaoexec="1">⊘ Não foi possível executar esta tarefa</button>','mot-pg-fim');
   h+='</div>'+motPgRodapeHtml(t);
@@ -21604,6 +21616,7 @@ function motRenderNaoExec(){
   const body=document.getElementById('mot-shBody');
   body.innerHTML=
     '<div class="mot-justtit">⊘ Não foi possível executar</div>'+
+    (t._naoexecSeg?'<button class="mot-justchip" data-m="Condição insegura: não foi possível desligar e bloquear o equipamento" style="border-color:#BA0517;color:#BA0517;font-weight:800">⚠ Condição insegura — não foi possível desligar e bloquear</button>':'')+ /* v78 */
     '<div class="mot-justsub">Nada trava: toque no motivo (1 toque). O registro grava motivo + horário e a tarefa fica para reprogramação.</div>'+
     '<button class="mot-justchip" data-m="Local fechado / sem chaves">Local fechado / sem chaves</button>'+
     '<button class="mot-justchip" data-m="Chuva">Chuva</button>'+
@@ -21628,7 +21641,7 @@ function motRenderNaoExec(){
   });
   body.querySelector('#mot-nevoltar').addEventListener('click',()=>{
     if(MOT.edit){ t._fase='fim'; motRenderEdicaoNaoExec(); return; }
-    t._fase=t.leve?'leve':'antes'; motRenderAtual(); /* 15/10/2026: linha de ronda volta para Visto/Problema */
+    t._naoexecSeg=false; t._fase=t.leve?'leve':'antes'; motRenderAtual(); /* 15/10/2026: linha de ronda volta para Visto/Problema */
   });
 }
 async function motConcluirNaoExec(motivo){
