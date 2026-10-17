@@ -1955,6 +1955,7 @@
 .mot-psn{width:26px;height:26px;border-radius:50%;background:#0B2239;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
 .mot-psec.ok .mot-psn{background:#2E844A}
 .mot-pgfoto{min-height:150px}
+.mot-ckrow.segok{cursor:default}.mot-segselo{flex:none;font-size:11.5px;font-weight:800;color:#2E844A;background:#EAF6F0;border-radius:999px;padding:3px 8px;margin-left:6px} /* v79 */
 .mot-psec.trav{opacity:.42;pointer-events:none;filter:grayscale(.4)} /* v78 segurança trava */
 .mot-trava{background:#FEF1EE;border:1px solid #F3B7AE;color:#8C1D10;border-radius:12px;padding:10px 12px;font-size:13.5px;margin:-4px 0 12px}
 .mot-pgposgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px} /* v71 posições */
@@ -1980,7 +1981,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=78;
+const APP_NUM=79;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -20868,7 +20869,9 @@ function motSkipRowHtml(p){
 }
 function motCheckboxRowHtml(p,aff){
   const on=p.statusPasso==='Feito';
-  return '<div class="mot-ckrow'+(on?' on':'')+'" data-pid="'+p.id+'"><span class="mot-box">'+(on?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span>'+
+  const segOk=on&&typeof motPassoSeguranca==='function'&&motPassoSeguranca(p)&&MOT_SEGURANCA_TRAVA; /* v79: confirmação de segurança fica selada */
+  return '<div class="mot-ckrow'+(on?' on':'')+(segOk?' segok':'')+'" data-pid="'+p.id+'"><span class="mot-box">'+(on?'✓':'')+'</span><span class="mot-tx">'+motEsc(p.descricao)+'</span>'+
+    (segOk?'<span class="mot-segselo">🔒 confirmado'+(p.horaRegistro?' às '+motFmtHora(p.horaRegistro):'')+'</span>':'')+
     (aff&&!on?'<button class="mot-cksk" data-sk="'+p.id+'" title="este item não pôde ser feito">⊘</button>':'')+'</div>';
 }
 function motFallbackRowHtml(p){
@@ -21465,10 +21468,19 @@ function motWireCkRows(cont,t){
       if(p.tipoCampo==='Instrução') return;
       if(p.tipoCampo!=='Checkbox'&&p.statusPasso!=='Não realizado') return;
       clearTimeout(MOT.timer);
-      if(p.statusPasso==='Não realizado'){ p.statusPasso='Pendente'; p.motivo=null; motMarcarEdicao(t); motRenderAtual(); return; }
+      /* v79 (17/10/2026) — Raphael: "se eu preencher como equipamento desligado, voltar e editar a tarefa e deixar desmarcado, mesmo assim não tem
+         aviso. Reveja toda essa lógica, isso não pode falhar". Duas falhas: (1) desmarcar NÃO era gravado (o servidor continuava com Feito e a
+         tela mostrava desmarcado); (2) a confirmação de segurança podia ser desfeita depois de o serviço andar. Agora a confirmação de segurança
+         é SELADA (como uma assinatura): não desmarca, aqui nem no servidor. Se o equipamento voltou a ficar energizado, a saída é Não executada.
+         E desmarcar qualquer outro item passa a ser gravado (limpar). DECISAO_seguranca-trava-a-tarefa_17-10-2026.md */
+      if(MOT_SEGURANCA_TRAVA&&motPassoSeguranca(p)&&p.statusPasso==='Feito'){
+        toast('🔒 Segurança confirmada'+(p.horaRegistro?' às '+motFmtHora(p.horaRegistro):'')+' — não pode ser desmarcada. Se o equipamento voltou a ficar energizado, pare e registre a tarefa como Não executada.');
+        return; }
+      if(p.statusPasso==='Não realizado'){ p.statusPasso='Pendente'; p.motivo=null; motSalvarPasso(t,p,{limpar:true}); motMarcarEdicao(t); motRenderAtual(); return; } /* v79: grava */
       const novo=p.statusPasso==='Feito'?'Pendente':'Feito';
       p.statusPasso=novo;
       if(novo==='Feito'){ p.horaRegistro=new Date().toISOString(); motSalvarPasso(t,p,{statusPasso:'Feito'}); }
+      else { p.horaRegistro=null; motSalvarPasso(t,p,{limpar:true}); } /* v79: desmarcar é gravado — antes ficava só na tela */
       motMarcarEdicao(t); motRenderAtual();
       if(!MOT.rev&&t._fase==='exec'&&motCkTodosResolvidos(t)) MOT.timer=setTimeout(()=>{ t._fase='depois'; motRenderAtual(); },600);
     });
