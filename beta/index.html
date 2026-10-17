@@ -248,6 +248,9 @@
   .vis-btn{display:block;width:100%;border:none;border-radius:10px;padding:13px;font:800 14px system-ui,-apple-system,sans-serif;cursor:pointer;margin-top:9px}
   .vis-btn.pri{background:#0B5CAB;color:#fff}
   .vis-btn.sec{background:#EEF1F4;color:#0B2239}
+  .vis-rodape{position:sticky;bottom:-22px;background:#fff;margin:14px -16px -22px;padding:6px 16px 18px;border-top:1px solid #E2E5E9;z-index:2} /* v80 */
+  .vis-nota{font:600 12.5px system-ui;color:#4A5560;margin:6px 0 2px}
+  .vis-mais{display:block;width:100%;border:none;background:none;color:#2B5A7E;font:800 13.5px system-ui;padding:12px 0 2px;cursor:pointer}
   .vis-btn.warn{background:#FDF1E3;color:#8a5a12}
   /* alocacao por OT (visita) — 20/09/2026. Reaproveita .aloc-lane, .fch e .aloc-drop da tela de OS. */
   .alv-tabs{display:flex;gap:6px;margin:2px 0 8px}
@@ -1981,7 +1984,7 @@
 /* SW só do /beta/ (network-first): atualização do beta aparece na hora, sem o cache de 10 min do
    GitHub Pages. Escopo ./ = /beta/, cache próprio — NÃO mexe no app da raiz (27/07). */
 /* 14/10/2026: número da versão do app (sequencial). Anda junto com BETA_NUM em sw-beta.js — ver comentário lá. */
-const APP_NUM=79;
+const APP_NUM=80;
 if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('sw-beta.js').catch(function(){}); }); }
 </script>
 <div class="phone" id="app">
@@ -24191,10 +24194,10 @@ async function visAbrir(id){
   toast('Abrindo visita…');
   try{
     const [r]=await Promise.all([beGet('/compromissos/'+id), vacpCarregar(id)]);
-    VIS.aberta=r; VIS.form=null; visSheet();
+    VIS.aberta=r; VIS.form=null; VIS.menu=false; visSheet();
   }catch(e){ toast('Não consegui abrir: '+e.message); }
 }
-function visFechar(){ const m=document.getElementById('visModal'); if(m) m.style.display='none'; VIS.aberta=null; VIS.form=null; }
+function visFechar(){ const m=document.getElementById('visModal'); if(m) m.style.display='none'; VIS.aberta=null; VIS.form=null; VIS.menu=false; try{ otaFaixaPintar(); }catch(e){} }
 function visSheet(){
   let m=document.getElementById('visModal');
   if(!m){ m=document.createElement('div'); m.id='visModal';
@@ -24205,6 +24208,7 @@ function visSheet(){
   }
   m.style.display='flex';
   visPintarSheet();
+  try{ otaFaixaPintar(); }catch(e){} /* v80: a faixa de outra OT some enquanto esta folha está aberta */
 }
 function visPintarSheet(){
   const alvo=document.getElementById('visSheet'); const d=VIS.aberta; if(!alvo||!d) return;
@@ -24231,18 +24235,25 @@ function visPintarSheet(){
   itens.forEach(i=>{
     const st=i.statusItem||'Pendente';
     const cls=st==='OK'?'ok':(st==='Com NC'?'nc':(st==='Não Executado'?'off':''));
+    if(VIS_ACOES_V80){ /* v80: pílula de estado, como na lista da OT */
+      const pl=st==='OK'?['✓ CONCLUÍDA','#2E844A']:st==='Com NC'?['ANOTAÇÃO','#0176D3']:st==='Não Executado'?['⊘ NÃO EXECUTADA','#747474']:['PENDENTE','#FE9339'];
+      h+='<div class="vis-linha"><div style="flex:1;min-width:0"><div style="font:700 13px system-ui;color:#0B2239">'+motEsc(i.ativoDescricao||i.ativoNome||'')+'</div>'+
+        '<div style="font:500 11.5px system-ui;color:#5A6B7B">'+motEsc((i.tarefaNome||'').slice(0,70))+'</div></div>'+
+        '<span class="mot-pil" style="background:'+pl[1]+';color:'+(pl[1]==='#FE9339'?'#2B1A00':'#fff')+'">'+pl[0]+'</span></div>';
+      return; }
     h+='<div class="vis-linha"><span class="vis-dot '+cls+'"></span>'+
       '<div style="flex:1"><div style="font:700 13px system-ui;color:#0B2239">'+motEsc(i.ativoDescricao||i.ativoNome||'')+'</div>'+
       '<div style="font:500 11.5px system-ui;color:#5A6B7B">'+motEsc((i.tarefaNome||'').slice(0,70))+' · '+motEsc(st)+'</div></div></div>';
   });
 
-  if(!encerrada){
+  if(VIS_ACOES_V80) h+=visAcoesHtml(c,minha,eq,itens,encerrada); /* v80: um botão principal por momento */
+  else if(!encerrada){
     if(minha && !minha.efetivoInicio) h+='<button class="vis-btn pri" onclick="visCheckin()">Cheguei no local</button>';
     if(minha && minha.efetivoInicio && !minha.efetivoTermino) h+='<button class="vis-btn sec" onclick="visCheckout()">Registrar saída</button>';
     h+='<button class="vis-btn '+(emAndamento?'pri':'sec')+'" onclick="visAbrirChecklist()">Abrir checklist da '+motEsc((c.ot&&c.ot.name)||'OT')+'</button>';
     h+='<button class="vis-btn sec" onclick="visConcluir()">Concluir visita</button>';
     h+='<button class="vis-btn warn" onclick="visFormNaoConcluir()">Não foi possível concluir</button>';
-  } else {
+  } else if(!VIS_ACOES_V80) {
     h+='<div style="background:#F4F7FA;border-radius:10px;padding:12px;margin-top:12px;font:500 12.5px system-ui;color:#4A5560">'+
       'Visita '+motEsc(c.status)+(c.motivoNaoConclusao?': '+motEsc(c.motivoNaoConclusao):'')+(c.detalheMotivo?' — '+motEsc(c.detalheMotivo):'')+'</div>';
     h+='<button class="vis-btn sec" onclick="visAbrirChecklist()">Ver o checklist da '+motEsc((c.ot&&c.ot.name)||'OT')+'</button>';
@@ -24255,6 +24266,58 @@ function visPintarSheet(){
   if(VIS.form==='nc') h+=visFormNCHtml();
   alvo.innerHTML=h;
   if(VIS.form==='nc') visWireNC(alvo);
+}
+/* ===== v80 (17/10/2026) — botões da folha da visita conforme o momento: DECISAO_botoes-da-visita-por-estado_17-10-2026.md =====
+   Raphael, no print de uma visita recém-criada: "avalie se todos esses botões deveriam aparecer neste momento… limpeza no visual e navegação
+   mais intuitiva". Antes: Abrir checklist, Concluir visita e Não foi possível apareciam SEMPRE (o servidor recusava concluir fora de hora).
+   Agora: UMA ação principal no rodapé fixo da folha (variante A do mockup), o resto em "⋯ Mais opções". "Não foi possível" só depois do
+   MEU "Cheguei" (decisão do Raphael; o servidor também exige). Quem pode o quê no servidor não mudou. Chave VIS_ACOES_V80=false volta ao antigo. */
+const VIS_ACOES_V80=true;
+function visAcoesHtml(c,minha,eq,itens,encerrada){
+  const nomeOT=motEsc((c.ot&&c.ot.name)||'OT'), elev=['Coordenador','Gerente','Sócio'].includes(ROLE);
+  const B=(cls,fn,txt)=>'<button class="vis-btn '+cls+'" onclick="'+fn+'">'+txt+'</button>';
+  if(encerrada){
+    let h='<div style="background:#F4F7FA;border-radius:10px;padding:12px;margin-top:12px;font:500 12.5px system-ui;color:#4A5560">Visita '+motEsc(c.status)
+      +(c.motivoNaoConclusao?': '+motEsc(c.motivoNaoConclusao):'')+(c.detalheMotivo?' — '+motEsc(c.detalheMotivo):'')+'</div><div class="vis-rodape">';
+    if(c.status!=='Cancelado') h+=B('sec','visAbrirChecklist()','Ver o checklist da '+nomeOT);
+    return h+B('sec','visFechar()','Voltar à agenda')+'</div>';
+  }
+  const total=itens.length, pend=itens.filter(i=>(i.statusItem||'Pendente')==='Pendente').length, feitas=total-pend;
+  const lider=(eq||[]).find(p=>p.lider), cheguei=!!(minha&&minha.efetivoInicio), sai=!!(minha&&minha.efetivoTermino);
+  const emAnd=c.status==='Em Andamento';
+  let pri='', sec='', nota='', menu=[];
+  if(!minha){ /* fora da equipe: retaguarda acompanha; Coordenador+ age como hoje (servidor confere) */
+    if(emAnd||feitas) sec=B('sec','visAbrirChecklist()','Ver tarefas da '+nomeOT);
+    if(elev&&emAnd){ if(!pend) menu.push(['visConcluir()','Concluir sem a assinatura do líder']); menu.push(['visFormNaoConcluir()','Encerrar como não concluída']); }
+    nota=emAnd?'Você não está na equipe desta visita.':'Ninguém chegou ainda.';
+  } else if(!cheguei){
+    pri=B('pri','visCheckin()','Cheguei no local');
+    if(emAnd) sec=B('sec','visAbrirChecklist()','Ver tarefas da '+nomeOT);
+  } else if(!sai){
+    if(pend){
+      pri=B('pri','visAbrirChecklist()','Continuar tarefas · '+feitas+' de '+total);
+      nota='Faltam '+pend+' tarefa'+(pend>1?'s':'')+' para encerrar a visita.';
+      menu.push(['visCheckout()','Registrar minha saída']); menu.push(['visFormNaoConcluir()','Não foi possível concluir']);
+    } else if(minha.lider){
+      pri=B('pri','visConcluir()','Encerrar visita'); sec=B('sec','visAbrirChecklist()','Ver tarefas');
+      nota='Todas as tarefas têm desfecho. Encerrar pede o aceite da loja e a sua assinatura.';
+      menu.push(['visCheckout()','Registrar minha saída sem encerrar']); menu.push(['visFormNaoConcluir()','Não foi possível concluir']);
+    } else {
+      pri=B('pri','visCheckout()','Registrar minha saída'); sec=B('sec','visAbrirChecklist()','Ver tarefas');
+      nota='Todas as tarefas têm desfecho. Quem encerra a visita é o líder'+(lider&&lider.recursoNome?' ('+motEsc(lider.recursoNome)+')':'')+'.';
+      if(elev) menu.push(['visConcluir()','Concluir sem a assinatura do líder']);
+    }
+  } else {
+    nota='Você registrou saída às '+motFmtHora(minha.efetivoTermino)+'.';
+    if(minha.lider&&!pend) pri=B('pri','visConcluir()','Encerrar visita');
+    sec=B('sec','visAbrirChecklist()','Ver tarefas');
+  }
+  let h='<div class="vis-rodape">'+(nota?'<div class="vis-nota">'+nota+'</div>':'')+pri+sec;
+  if(menu.length){
+    h+='<button class="vis-mais" onclick="VIS.menu=!VIS.menu;visPintarSheet()">'+(VIS.menu?'Menos opções ▴':'⋯ Mais opções')+'</button>';
+    if(VIS.menu) h+=menu.map(m=>B(/Não foi possível|não concluída/.test(m[1])?'warn':'sec',m[0],m[1])).join('');
+  }
+  return h+'</div>';
 }
 function visFormNCHtml(){
   let h='<div style="background:#FFFBF5;border:1px solid #F0D9B8;border-radius:12px;padding:12px;margin-top:12px">'+
@@ -24305,6 +24368,14 @@ function visGeo(){
    backend le: efetivoInicio/efetivoTermino, geoCheckin/geoCheckout, presenca (compromissoRoutes).
    Antes daqui o app mandava {lat,lng}, que o backend ignorava: a localizacao nunca era gravada. */
 async function visCheckin(){
+  /* v80 (17/10/2026) — duas visitas: com outra em andamento (meu check-in, sem minha saída), pergunta e registra a saída de lá antes */
+  const d0=VIS.aberta;
+  if(VIS_ACOES_V80&&typeof OTA!=='undefined'&&OTA&&OTA.visitaId&&d0&&d0.compromisso&&OTA.visitaId!==d0.compromisso.id){
+    if(!confirm('Você ainda está na '+(OTA.otName||'outra OT')+(OTA.conta?' ('+OTA.conta+')':'')+'.\n\nRegistrar sua saída de lá e chegar nesta visita?')) return;
+    try{ const gq=await visGeo(); const cq={efetivoTermino:new Date().toISOString()}; if(gq) cq.geoCheckout=gq.lat.toFixed(6)+','+gq.lng.toFixed(6);
+      await bePost('/compromissos/'+OTA.visitaId+'/checkout',cq,'Saída da visita anterior'); toast('Saída da '+(OTA.otName||'visita anterior')+' registrada'); }
+    catch(e){ toast('Não consegui registrar a saída da visita anterior: '+e.message); return; }
+  }
   toast('Registrando chegada…');
   const quando=new Date().toISOString();
   const g=await visGeo();
@@ -24722,6 +24793,8 @@ function otaFaixaPintar(){
   if(!login&&!OTA&&typeof rondaFaixaHtml==='function'){ const rh=rondaFaixaHtml(); if(rh){ f.innerHTML=rh; f.className='ota-faixa rnd-faixa'; f.style.display='flex'; return; } }
   f.className='ota-faixa';
   if(!OT_ATIVA_ABRE_TAREFA||!OTA||login){ f.style.display='none'; return; }
+  /* v80 (17/10/2026): com a folha de OUTRA visita aberta, a faixa desta OT some (Raphael: "some enquanto a folha está aberta") */
+  { const vm=document.getElementById('visModal'); if(vm&&vm.style.display==='flex'&&typeof VIS!=='undefined'&&VIS.aberta&&VIS.aberta.compromisso&&VIS.aberta.compromisso.id!==OTA.visitaId){ f.style.display='none'; return; } }
   let n='';
   if(MOT.otId===OTA.otId&&MOT.tarefas&&MOT.tarefas.length){ const tot=MOT.tarefas.length, ok=MOT.tarefas.filter(t=>motDesfecho(t)).length; n=' · '+ok+' de '+tot+' tarefas'; }
   else if(OTA.total) n=' · '+(OTA.resolvidas||0)+' de '+OTA.total+' tarefas';
