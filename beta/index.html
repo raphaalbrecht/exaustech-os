@@ -6458,8 +6458,8 @@ function endrAbrirComplementar(pre){
 }
 function renderEndrWizard(wrap){
   if(!endrSt) endrReset();
-  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent='‹ Voltar ao painel';
-  bk.onclick=()=>{ endrNfcDesativar(); estoqVoltar(); };
+  const bk=document.createElement('button'); bk.className='btn btn-neutral'; bk.style.cssText='margin:4px 0 10px'; bk.textContent=endrSt.retorno==='colt'?'‹ Voltar ao item sem criar':'‹ Voltar ao painel';
+  bk.onclick=()=>{ endrNfcDesativar(); if(endrSt.retorno==='colt'){ coltVoltarDoWizard(null); return; } estoqVoltar(); };
   wrap.appendChild(bk);
   /* Bug #10 (auditoria 14/07): mantém o mesmo texto do card de entrada na home ("Criar novo
      endereço de estoque", renomeado v111) — estava dessincronizado ("Endereços de estoque"). */
@@ -7388,6 +7388,7 @@ function endrRenderTipo(card){
   const bkb=document.createElement('button'); bkb.className='btn btn-neutral'; bkb.style.cssText='width:100%;height:44px;margin-top:14px'; bkb.textContent='‹ Voltar';
   bkb.onclick=()=>{
     if(endrSt.retorno==='recp'){ recpVoltarDoWizard(null); return; } /* cancela o handoff do recp* */
+    if(endrSt.retorno==='colt'){ coltVoltarDoWizard(null); return; }
     if(endrSt.areaId && !endrSt.areaAceitaArmazenamento){
       /* volta pra tela em que ele realmente parou, não pro fim fixo da cadeia — pilha visitada */
       endrSt.step=endrSt.paradaEm==='nivel'?'nivel':endrSt.paradaEm==='modulo'?'modulo':'rua';
@@ -7833,6 +7834,12 @@ function endrRenderDetalhe(card){
        trocamos a navegação final — devolve o endereço criado pra conferência de onde saiu. */
     const usar=document.createElement('button'); usar.className='btn btn-brand'; usar.style.cssText='width:100%;height:48px'; usar.textContent='✅ Usar este endereço e voltar à conferência';
     usar.onclick=()=>recpVoltarDoWizard(d);
+    card.appendChild(usar);
+  } else if(endrSt.retorno==='colt'){
+    /* handoff do coletor (27/10/2026): volta pra Tela 4c ou pra fila Pendente Estocar com o
+       endereço recém-criado já selecionado. */
+    const usar=document.createElement('button'); usar.className='btn btn-brand'; usar.style.cssText='width:100%;height:48px'; usar.textContent='✅ Usar este endereço e voltar ao item';
+    usar.onclick=()=>coltVoltarDoWizard(d);
     card.appendChild(usar);
   } else if(endrSt.consulta){
     /* modo consulta (13/07/2026): não é sessão de criação — "criar outro aqui" e "criar em outro
@@ -9391,7 +9398,7 @@ function coltReset(){
     /* Tela 4b — gaveta de divergência/avaria */
     divAberta:false, divMotivo:null, divAvariada:null, divErro:null,
     /* Tela 4c — endereçar */
-    endSelId:null, endInfo:null, endVia:null, endErro:null, endSalvando:false,
+    endSelId:null, endInfo:null, endVia:null, endErro:null, endSalvando:false, endRetorno:null,
     /* Telas 5/6 — fechamento */
     finErro:null, finEnviando:false, finOk:null,
     /* item 14: de onde vieram os dados e se a última escrita foi pra fila */
@@ -10465,9 +10472,13 @@ function coltRenderEndereco(corpo, root){
   const f=coltRodape(root,'');
   const b1=coltEl('button', coltBotao('', '#fff', CD.vd, CD.vd), coltSt.endSalvando?'Gravando…':'Confirmar endereço');
   b1.onclick=()=>coltConfirmarEndereco();
-  const b2=coltEl('button', coltBotao('', CD.tx, 'transparent', CD.bd)+';min-height:48px;font-size:14px', 'Endereçar depois (fica em Trânsito)');
-  b2.onclick=()=>{ toast('Sem endereço por enquanto — o item fica em Trânsito até alguém endereçar.'); coltGo('bipagem'); };
-  f.appendChild(b1); f.appendChild(b2);
+  const b2=coltEl('button', coltBotao('', CD.tx, 'transparent', CD.bd)+';min-height:48px;font-size:14px', coltSt.endSalvando?'Gravando…':'Endereçar depois (fica em Trânsito)');
+  b2.onclick=()=>coltEnderecarDepois();
+  /* 27/10/2026 — criar o endereço sem sair do item: abre o wizard de endereço e volta pra esta
+     tela com o endereço novo já escolhido (coltAbrirWizardEndereco / coltVoltarDoWizard). */
+  const b3=coltEl('button', coltBotao('', CD.az, 'transparent', 'transparent')+';min-height:40px;font-size:13px', '+ Criar novo endereço');
+  b3.onclick=()=>coltAbrirWizardEndereco('endereco');
+  f.appendChild(b1); f.appendChild(b2); f.appendChild(b3);
 
   /* ---- listeners ---- */
   setTimeout(()=>{
@@ -10543,6 +10554,67 @@ async function coltConfirmarEndereco(){
   }
 }
 
+/* 27/10/2026 — "Endereçar depois" deixava o item sem rastro: não entrava na fila Pendente Estocar
+   nem no contador, e ninguém mais lembrava dele. Agora grava enderecoEstoqueId:null +
+   aguardandoEndereco:true: o servidor carimba Aguardando_Endereco_Desde__c, e esse carimbo é o que
+   põe o item na fila depois do fechamento e dispara o aviso de 24h/48h. Mesma rota e mesmo dedup do
+   endereço ('end:'), porque é a MESMA decisão (último toque vale). */
+async function coltEnderecarDepois(){
+  if(coltSt.endSalvando) return;
+  const item=coltItemAtual(); if(!item) return;
+  coltSt.endSalvando=true; coltSt.endErro=null; renderEstoque();
+  try{
+    const r=await coltPost('/coletor/v1/recebimento/'+encodeURIComponent(coltSt.recId)+'/item/'+encodeURIComponent(coltSeqDoItem(item)),
+      {clientTxId:coltUuid(), enderecoEstoqueId:null, aguardandoEndereco:true},
+      {label:'guardar depois: '+((item.produto||item.descricaoNF||'item')+''), dedup:'end:'+coltSt.recId+':'+coltSeqDoItem(item)});
+    coltSt.endSalvando=false;
+    if(!r.ok){ coltSt.endErro=r.body.error||('Erro '+r.status); renderEstoque(); return; }
+    item.enderecoEstoqueId=null; item.enderecoEstoqueCodigo=null; item.aguardandoEndereco=true;
+    coltSalvarSnapshot();
+    toast(r.body._queued ? 'Guardado no aparelho: o item fica na fila Pendente Estocar quando a rede voltar.' : 'Sem endereço por enquanto. Depois do fechamento o item aparece na fila Pendente Estocar.');
+    coltGo('bipagem');
+  }catch(e){
+    coltSt.endSalvando=false; coltSt.endErro='Erro ao registrar "endereçar depois": '+e.message; renderEstoque();
+  }
+}
+
+/* ---- handoff coletor -> wizard de endereço -> coletor (27/10/2026) ----
+   'endereco' = Tela 4c da conferência (volta com coltSt.endSelId); 'peEndereco' = fila Pendente
+   Estocar (volta com coltSt.peEndSelId). O wizard é o endr* de sempre; só o botão final muda
+   (endrRenderDetalhe, retorno 'colt'). Local pré-escolhido quando o coletor já sabe qual é. */
+function coltAbrirWizardEndereco(deOnde){
+  const localId = deOnde==='peEndereco' ? ((coltSt.peSel&&coltSt.peSel.localId)||null) : ((coltSt.rec&&coltSt.rec.localId)||null);
+  coltSt.endRetorno={step:deOnde};
+  endrReset();
+  endrSt.retorno='colt';
+  estoqView.origem='receber';
+  estoqGo('enderecos');
+  if(localId){
+    endrSt.localId=localId; endrSt.localNome='';
+    beGet('/estoque/locais').then(d=>{ const l=(d.locais||[]).find(x=>x.id===localId); if(l&&endrSt&&endrSt.localId===localId){ endrSt.localNome=l.nome; renderEstoque(); } }).catch(()=>{});
+    endrNovoEndereco();
+  } else {
+    endrCarregarLocais();
+  }
+}
+function coltVoltarDoWizard(endereco){
+  const ret=(coltSt&&coltSt.endRetorno)||null; if(coltSt) coltSt.endRetorno=null;
+  if(typeof endrNfcDesativar==='function') endrNfcDesativar();
+  if(!coltSt||!ret){ estoqGo('recebimentos'); return; }
+  if(endereco){
+    const info={id:endereco.id, codigo:endereco.codigo, nome:endereco.nome, area:endereco.area, rua:endereco.rua, capacidade:endereco.capacidade, espacoLivre:endereco.capacidade, tipo:endereco.tipo};
+    if(ret.step==='peEndereco'){ coltSt.peEndSelId=info.id; coltSt.peEndInfo=info; coltSt.peEndVia='codigo'; coltSt.peEndErro=null; }
+    else {
+      if(coltSt.rec && coltSt.rec.candidatos && !coltCandidato(info.id)) coltSt.rec.candidatos.push(info);
+      coltSt.endSelId=info.id; coltSt.endInfo=info; coltSt.endVia='codigo'; coltSt.endErro=null;
+    }
+    toast((endereco.codigo||'Endereço')+' criado e selecionado.');
+  }
+  coltAtivo=true;
+  coltSt.step=ret.step;
+  estoqGo('recebimentos');
+}
+
 /* ============================ PENDENTE ESTOCAR (endereçamento tardio, 28/07/2026) ============================
    Item recebido SEM vínculo → escritório vinculou o produto DEPOIS da nota finalizada → o trigger
    ItemRecebimentoTrigger o pôs em 'Pendente Estocar'. Aqui o estoquista vê a fila desses itens,
@@ -10577,7 +10649,7 @@ function coltRenderPeFila(corpo, root){
   if(coltSt.peCarregando && !n){
     corpo.innerHTML+=coltCarregando('Carregando itens…');
   } else if(!n){
-    corpo.innerHTML+=coltVazio('Nada para estocar agora. Quando o escritório vincular o produto de um item recebido sem vínculo, ele aparece aqui para você bipar o endereço.');
+    corpo.innerHTML+=coltVazio('Nada para estocar agora. Aparecem aqui os itens que você mandou "Endereçar depois" (depois do fechamento da nota) e os que o escritório vinculou após o fechamento.');
   } else {
     const lista=coltEl('div');
     itens.forEach(it=>{
@@ -10585,11 +10657,18 @@ function coltRenderPeFila(corpo, root){
       const qtd=it.quantidadeRecebida!=null ? (coltNum(it.quantidadeRecebida)+(it.unidadeNF?(' '+it.unidadeNF):'')) : '';
       const nf=it.numeroNF?('NF '+it.numeroNF):(it.recebimentoName||'');
       const forn=it.fornecedor||it.emitente||'';
-      const card=coltEl('div','background:'+CD.card+';border:1px solid '+CD.bd+';border-radius:16px;padding:13px 14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px');
+      /* 27/10/2026 — dois casos na mesma fila: 'Pendente Estocar' (ainda vai dar entrada) e item
+         em Trânsito (já no saldo, sem endereço). E o tempo sem endereço, laranja a partir de 24h. */
+      const h=it.horasSemEndereco;
+      const atrasado=h!=null && h>=24;
+      const selos=(it.emTransito?coltPill('em Trânsito', CD.az, CD.azBg)+' ':'')
+        +(h!=null?coltPill(h<1?'agora há pouco':(h<48?('há '+h+'h'):('há '+Math.floor(h/24)+' dias')), atrasado?CD.am:CD.mu, atrasado?CD.amBg:'transparent'):'');
+      const card=coltEl('div','background:'+CD.card+';border:1px solid '+(atrasado?CD.am:CD.bd)+';border-radius:16px;padding:13px 14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px');
       card.innerHTML='<div style="flex:1;min-width:0">'
           +'<div style="font-size:15px;font-weight:800;color:'+CD.tx+';line-height:1.3;word-break:break-word">'+_esc(nome)+'</div>'
           +(qtd?'<div style="font-size:13px;font-weight:700;color:'+CD.az+';margin-top:3px">'+_esc(qtd)+'</div>':'')
           +'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px">'+_esc([nf,forn].filter(Boolean).join(' · '))+'</div>'
+          +(selos?'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">'+selos+'</div>':'')
         +'</div>'
         +'<div style="flex:0 0 auto;color:'+CD.mu2+';font-size:22px;line-height:1">›</div>';
       card.onclick=()=>{ coltSt.peSel=it; coltSt.peEndSelId=null; coltSt.peEndInfo=null; coltSt.peEndVia=null; coltSt.peEndErro=null; coltGo('peEndereco'); };
@@ -10623,6 +10702,9 @@ function coltRenderPeEndereco(corpo, root){
     +'<div style="font-size:15px;font-weight:800;color:'+CD.tx+';line-height:1.3;word-break:break-word">'+_esc(nome)+'</div>'
     +(qtd?'<div style="font-size:14px;font-weight:700;color:'+CD.vd+';margin-top:4px">'+_esc(qtd)+'</div>':'')
     +(it.fornecedor||it.emitente?'<div style="font-size:12px;color:'+CD.mu+';margin-top:4px">'+_esc(it.fornecedor||it.emitente)+'</div>':'')
+    +((it.quantidadeAvariada!=null&&Number(it.quantidadeAvariada)>0)?'<div style="font-size:12px;color:'+CD.am+';margin-top:5px">'+coltNum(it.quantidadeAvariada)+' com avaria ficam de fora; guarda-se só a parte boa ('+coltNum(Math.max(0,Number(it.quantidadeRecebida||0)-Number(it.quantidadeAvariada)))+(it.unidadeNF?(' '+it.unidadeNF):'')+').</div>':'')
+    +(it.emTransito?'<div style="font-size:12px;color:'+CD.mu+';margin-top:5px">Já está no saldo do local, sem endereço (Trânsito). Bipar o endereço move o saldo para lá.</div>':'')
+    +(it.horasSemEndereco!=null&&it.horasSemEndereco>=24?'<div style="font-size:12px;color:'+CD.am+';margin-top:5px">Sem endereço há '+it.horasSemEndereco+'h.</div>':'')
   +'</div>';
 
   /* ---- caixa tracejada: bipe o endereço (mesmo padrão do endereçamento da conferência) ---- */
@@ -10656,6 +10738,9 @@ function coltRenderPeEndereco(corpo, root){
   const b1=coltEl('button', coltBotao('', '#fff', CD.vd, CD.vd), coltSt.peSalvando?'Estocando…':'Estocar aqui');
   b1.onclick=()=>coltEstocarConfirmar();
   f.appendChild(b1);
+  const b3=coltEl('button', coltBotao('', CD.az, 'transparent', 'transparent')+';min-height:40px;font-size:13px', '+ Criar novo endereço');
+  b3.onclick=()=>coltAbrirWizardEndereco('peEndereco');
+  f.appendChild(b3);
 
   setTimeout(()=>{
     const inp=document.getElementById('coltPeBipe');
